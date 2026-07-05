@@ -13,6 +13,7 @@ import Donations from './pages/Donations';
 import Contact from './pages/Contact';
 import TransparencyHub from './pages/TransparencyHub';
 import Profile from './pages/Profile';
+import EmailConfirmation from './pages/EmailConfirmation';
 
 function App() {
     return (
@@ -37,6 +38,7 @@ function App() {
                         <Route path="/contact" element={<Contact />} />
                         <Route path="/transparency" element={<TransparencyHub />} />
                         <Route path="/profile" element={<Profile />} />
+                        <Route path="/confirm-email" element={<EmailConfirmation />} />
                     </Routes>
                 </main>
 
