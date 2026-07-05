@@ -1,4 +1,4 @@
-import { Users, Hammer, Globe, Heart, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const AboutPage = () => {

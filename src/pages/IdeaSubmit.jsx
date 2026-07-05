@@ -26,7 +26,22 @@ const IdeaSubmit = () => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        alert("Idea submitted! (Backend coming soon)");
+
+        const newIdea = {
+            id: Date.now(),
+            title: formData.title,
+            summary: formData.summary,
+            category: formData.category || 'Idea',
+            votes: 0,
+            description: formData.description,
+            features: formData.features,
+        };
+
+        const existing = JSON.parse(localStorage.getItem('tf_ideas') || '[]');
+        localStorage.setItem('tf_ideas', JSON.stringify([...existing, newIdea]));
+
+        alert('Idea submitted! It will now appear in the list.');
+        window.location.href = '/ideas';
     };
 
     return (
@@ -42,8 +57,48 @@ const IdeaSubmit = () => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="static-card p-10 space-y-10">
-                    {/* Basic fields ... (same as before) */}
-                    {/* Title, Category, Summary, Description */}
+                    <div>
+                        <label className="block text-sm font-mono tracking-widest text-neon-cyan mb-2">TITLE</label>
+                        <input
+                            type="text"
+                            required
+                            className="w-full bg-cyber-surface border border-white/20 p-4 text-white focus:border-neon-cyan outline-none"
+                            value={formData.title}
+                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-mono tracking-widest text-neon-cyan mb-2">CATEGORY</label>
+                        <input
+                            type="text"
+                            placeholder="Full Game, Mechanic, etc."
+                            className="w-full bg-cyber-surface border border-white/20 p-4 text-white focus:border-neon-cyan outline-none"
+                            value={formData.category}
+                            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-mono tracking-widest text-neon-cyan mb-2">SHORT SUMMARY</label>
+                        <input
+                            type="text"
+                            required
+                            className="w-full bg-cyber-surface border border-white/20 p-4 text-white focus:border-neon-cyan outline-none"
+                            value={formData.summary}
+                            onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-mono tracking-widest text-neon-cyan mb-2">DETAILED DESCRIPTION</label>
+                        <textarea
+                            rows="6"
+                            className="w-full bg-cyber-surface border border-white/20 p-4 text-white focus:border-neon-cyan outline-none"
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        />
+                    </div>
 
                     {/* Dynamic Features */}
                     <div>

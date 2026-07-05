@@ -55,7 +55,23 @@ const HomePage = () => {
                 </div>
             </section>
 
-            {/* Keep or expand the rest of HomePage as needed — let me know */}
+            {/* Quick CTAs */}
+            <section className="py-16 border-t border-white/10">
+                <div className="container-custom text-center">
+                    <div className="section-header mb-8">GET STARTED</div>
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                        <Link to="/about" className="btn-primary inline-flex items-center justify-center gap-2">
+                            Learn More <ArrowRight className="w-4 h-4" />
+                        </Link>
+                        <Link to="/ideas" className="btn-secondary inline-flex items-center justify-center gap-2">
+                            Browse Ideas <ArrowRight className="w-4 h-4" />
+                        </Link>
+                        <Link to="/get-involved" className="btn-secondary inline-flex items-center justify-center gap-2">
+                            Get Involved <ArrowRight className="w-4 h-4" />
+                        </Link>
+                    </div>
+                </div>
+            </section>
         </>
     );
 };

@@ -4,6 +4,7 @@ import HomePage from './pages/HomePage';
 import AboutPage from './pages/AboutPage';
 import GameIdeas from './pages/GameIdeas';
 import IdeaSubmit from './pages/IdeaSubmit';
+import IdeaDetail from './pages/IdeaDetail';
 import Projects from './pages/Projects';
 import GetInvolved from './pages/GetInvolved';
 import HowItWorks from './pages/HowItWorks';
@@ -25,6 +26,7 @@ function App() {
                         <Route path="/about" element={<AboutPage />} />
                         <Route path="/ideas" element={<GameIdeas />} />
                         <Route path="/ideas/submit" element={<IdeaSubmit />} />
+                        <Route path="/ideas/:id" element={<IdeaDetail />} />
                         <Route path="/projects" element={<Projects />} />
                         <Route path="/get-involved" element={<GetInvolved />} />
                         <Route path="/how-it-works" element={<HowItWorks />} />

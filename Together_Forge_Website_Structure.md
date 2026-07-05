@@ -50,6 +50,9 @@
 - Donations transparency page
 - Forums / threaded discussions on ideas
 - Sorting, tags, filters on ideas
+  - Sort options:
+    - **Most Popular** (weighted vote decay): New votes have high weight that decays over time. Prevents old high-vote posts from staying at the top forever.
+    - **Most Votes** (raw count): Simple descending vote count, no weighting.
 
 ## Notes
 - Volunteer content creators added
