@@ -1,26 +1,40 @@
 import { ArrowLeft, MessageCircle } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 const IdeaDetail = () => {
     const { id } = useParams();
     const [comment, setComment] = useState('');
     const [threads, setThreads] = useState({});
+    const [idea, setIdea] = useState(null);
+    const [loading, setLoading] = useState(true);
 
     const ideaId = parseInt(id);
-    const storedIdeas = JSON.parse(localStorage.getItem('tf_ideas') || '[]');
-    const defaultIdeas = [
-        { id: 1, title: "Cooperative Factory Defense", summary: "Build and defend automated factories together against waves. Viewers can vote on random events.", category: "Full Game", votes: 12 },
-        { id: 2, title: "Group Magic System", summary: "Players combine spells in real-time for powerful effects. Strong teamwork required.", category: "Mechanic", votes: 27 },
-    ];
-    const allIdeas = [...storedIdeas, ...defaultIdeas];
-    const idea = allIdeas.find(i => i.id === ideaId) || {
-        id: ideaId,
-        title: "Idea #" + id,
-        summary: "No description available.",
-        category: "Idea",
-        votes: 0
-    };
+
+    useEffect(() => {
+        const fetchIdea = async () => {
+            const { data, error } = await supabase
+                .from('ideas')
+                .select('*')
+                .eq('id', ideaId)
+                .single();
+
+            if (!error && data) {
+                setIdea(data);
+            } else {
+                setIdea({
+                    id: ideaId,
+                    title: "Idea not found",
+                    summary: "This idea does not exist or could not be loaded.",
+                    category: "Unknown",
+                    votes: 0
+                });
+            }
+            setLoading(false);
+        };
+        fetchIdea();
+    }, [ideaId]);
 
     const addComment = () => {
         if (!comment.trim()) return;
@@ -28,6 +42,14 @@ const IdeaDetail = () => {
         setThreads({ ...threads, [ideaId]: [...current, { text: comment.trim(), replies: [] }] });
         setComment('');
     };
+
+    if (loading) {
+        return <div className="pt-20 text-center">Loading...</div>;
+    }
+
+    if (!idea) {
+        return <div className="pt-20 text-center">Idea not found.</div>;
+    }
 
     return (
         <div className="pt-20 min-h-screen">

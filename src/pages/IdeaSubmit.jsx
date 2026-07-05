@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Send, Plus, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 const IdeaSubmit = () => {
     const [formData, setFormData] = useState({
@@ -24,21 +25,22 @@ const IdeaSubmit = () => {
         setFormData({ ...formData, features: newFeatures });
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         const newIdea = {
-            id: Date.now(),
             title: formData.title,
             summary: formData.summary,
             category: formData.category || 'Idea',
             votes: 0,
             description: formData.description,
-            features: formData.features,
         };
 
-        const existing = JSON.parse(localStorage.getItem('tf_ideas') || '[]');
-        localStorage.setItem('tf_ideas', JSON.stringify([...existing, newIdea]));
+        const { error } = await supabase.from('ideas').insert([newIdea]);
+        if (error) {
+            alert('Error submitting idea: ' + error.message);
+            return;
+        }
 
         alert('Idea submitted! It will now appear in the list.');
         window.location.href = '/ideas';
@@ -70,13 +72,25 @@ const IdeaSubmit = () => {
 
                     <div>
                         <label className="block text-sm font-mono tracking-widest text-neon-cyan mb-2">CATEGORY</label>
-                        <input
-                            type="text"
-                            placeholder="Full Game, Mechanic, etc."
+                        <select
+                            required
                             className="w-full bg-cyber-surface border border-white/20 p-4 text-white focus:border-neon-cyan outline-none"
                             value={formData.category}
                             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                        />
+                        >
+                            <option value="">Select a category...</option>
+                            <option value="Full Game Idea">Full Game Idea</option>
+                            <option value="Game Mechanic">Game Mechanic</option>
+                            <option value="Setting / Story / Lore">Setting / Story / Lore</option>
+                            <option value="Art / Visual Design">Art / Visual Design</option>
+                            <option value="Audio / Sound / Music">Audio / Sound / Music</option>
+                            <option value="Multiplayer / Cooperative Systems">Multiplayer / Cooperative Systems</option>
+                            <option value="Twitch / Streamer Integration">Twitch / Streamer Integration</option>
+                            <option value="Progression / Economy / Crafting">Progression / Economy / Crafting</option>
+                            <option value="Enemy / AI / Combat">Enemy / AI / Combat</option>
+                            <option value="World Building / Environment">World Building / Environment</option>
+                            <option value="Other">Other</option>
+                        </select>
                     </div>
 
                     <div>

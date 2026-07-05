@@ -1,29 +1,36 @@
 import { ArrowLeft, Plus, MessageCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 const GameIdeas = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortMode, setSortMode] = useState('popular');
+    const [selectedCategories, setSelectedCategories] = useState([]);
+    const [filterOpen, setFilterOpen] = useState(false);
 
-    const storedIdeas = JSON.parse(localStorage.getItem('tf_ideas') || '[]');
-    const defaultIdeas = [
-        {
-            id: 1,
-            title: "Cooperative Factory Defense",
-            summary: "Build and defend automated factories together against waves. Viewers can vote on random events.",
-            category: "Full Game",
-            votes: 12
-        },
-        {
-            id: 2,
-            title: "Group Magic System",
-            summary: "Players combine spells in real-time for powerful effects. Strong teamwork required.",
-            category: "Mechanic",
-            votes: 27
-        },
+    const CATEGORIES = [
+        'Full Game Idea',
+        'Game Mechanic',
+        'Setting / Story / Lore',
+        'Art / Visual Design',
+        'Audio / Sound / Music',
+        'Multiplayer / Cooperative Systems',
+        'Twitch / Streamer Integration',
+        'Progression / Economy / Crafting',
+        'Enemy / AI / Combat',
+        'World Building / Environment',
+        'Other'
     ];
-    const allIdeas = [...storedIdeas, ...defaultIdeas];
+    const [allIdeas, setAllIdeas] = useState([]);
+
+    useEffect(() => {
+        const fetchIdeas = async () => {
+            const { data, error } = await supabase.from('ideas').select('*');
+            if (!error && data) setAllIdeas(data);
+        };
+        fetchIdeas();
+    }, []);
 
     const DECAY_RATE = 0.0000001; // adjust for decay speed
     const now = Date.now();
@@ -37,10 +44,14 @@ const GameIdeas = () => {
     };
 
     const filteredIdeas = allIdeas
-        .filter(idea =>
-            idea.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            idea.summary.toLowerCase().includes(searchTerm.toLowerCase())
-        )
+        .filter(idea => {
+            const matchesSearch =
+                idea.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                idea.summary.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesCategory =
+                selectedCategories.length === 0 || selectedCategories.includes(idea.category);
+            return matchesSearch && matchesCategory;
+        })
         .sort((a, b) => {
             if (sortMode === 'popular') {
                 return getPopularityScore(b) - getPopularityScore(a);
@@ -85,10 +96,73 @@ const GameIdeas = () => {
                         className="bg-cyber-surface border border-white/20 px-4 py-4 text-white focus:border-neon-cyan outline-none rounded"
                     >
                         <option value="popular">Most Popular</option>
-                        <option value="votes">Most Votes</option>
-                        <option value="title">Sort by Title</option>
-                    </select>
+                            <option value="votes">Most Votes</option>
+                            <option value="title">Sort by Title</option>
+                        </select>
+
+                        {/* Category Filter Dropdown */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setFilterOpen(!filterOpen)}
+                                className="bg-cyber-surface border border-white/20 px-4 py-4 text-white rounded flex items-center gap-2 hover:border-neon-cyan"
+                            >
+                                Filter by Category
+                                {selectedCategories.length > 0 && (
+                                    <span className="text-xs bg-neon-cyan text-black px-2 py-0.5 rounded-full">
+                                        {selectedCategories.length}
+                                    </span>
+                                )}
+                            </button>
+
+                            {filterOpen && (
+                                <div className="absolute mt-2 w-72 bg-cyber-surface border border-white/20 rounded p-4 z-50 shadow-lg">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <span className="text-sm text-text-muted">Categories</span>
+                                        <button 
+                                            onClick={() => setSelectedCategories([])} 
+                                            className="text-xs text-neon-cyan hover:underline"
+                                        >
+                                            Clear all
+                                        </button>
+                                    </div>
+
+                                    <div className="max-h-60 overflow-auto space-y-1">
+                                        {CATEGORIES.map(cat => (
+                                            <label key={cat} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-white/5 p-1 rounded">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedCategories.includes(cat)}
+                                                    onChange={() => {
+                                                        if (selectedCategories.includes(cat)) {
+                                                            setSelectedCategories(selectedCategories.filter(c => c !== cat));
+                                                        } else {
+                                                            setSelectedCategories([...selectedCategories, cat]);
+                                                        }
+                                                    }}
+                                                />
+                                                {cat}
+                                            </label>
+                                        ))}
+                                    </div>
+
+                                    <div className="mt-4 pt-3 border-t border-white/10 text-right">
+                                        <button 
+                                            onClick={() => setFilterOpen(false)} 
+                                            className="text-xs px-3 py-1 border border-white/20 rounded hover:bg-white/10"
+                                        >
+                                            Done
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                 </div>
+
+                {filteredIdeas.length === 0 && (
+                    <div className="col-span-2 text-center py-12 text-text-muted">
+                        No ideas match your current filters.
+                    </div>
+                )}
 
                 <div className="grid md:grid-cols-2 gap-6">
                     {filteredIdeas.map((idea) => (
@@ -102,15 +176,14 @@ const GameIdeas = () => {
                                 <span>{idea.votes || 0} votes</span>
                                 <div className="flex items-center gap-3">
                                     <button
-                                        onClick={() => {
-                                            const stored = JSON.parse(localStorage.getItem('tf_ideas') || '[]');
-                                            const updated = stored.map(i => {
-                                                if (i.id === idea.id) {
-                                                    return { ...i, votes: (i.votes || 0) + 1, lastVoteTime: Date.now() };
-                                                }
-                                                return i;
-                                            });
-                                            localStorage.setItem('tf_ideas', JSON.stringify(updated));
+                                        onClick={async () => {
+                                            const { data: { user } } = await supabase.auth.getUser();
+                                            if (!user) {
+                                                alert('Please log in to vote.');
+                                                return;
+                                            }
+                                            await supabase.from('votes').insert([{ idea_id: idea.id, user_id: user.id }]);
+                                            await supabase.from('ideas').update({ votes: (idea.votes || 0) + 1 }).eq('id', idea.id);
                                             window.location.reload();
                                         }}
                                         className="text-neon-cyan hover:text-white text-xs px-2 py-1 border border-white/20 rounded"

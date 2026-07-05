@@ -1,10 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Hammer, Users, Youtube, Heart, CheckCircle } from 'lucide-react';
+import { Menu, X, Hammer, Users, Youtube, Heart, CheckCircle, User } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 const Navbar = () => {
     const [isOpen, setIsOpen] = useState(false);
+    const [user, setUser] = useState(null);
     const location = useLocation();
+
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setUser(session?.user || null);
+        });
+        const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user || null);
+        });
+        return () => listener.subscription.unsubscribe();
+    }, []);
 
     const navLinks = [
         { to: '/', label: 'HOME', icon: Hammer },
@@ -56,14 +68,21 @@ const Navbar = () => {
                                 <Link to="/faq" className="block hover:text-neon-cyan">FAQ</Link>
                                 <Link to="/donations" className="block hover:text-neon-cyan">Support / Donations</Link>
                                 <Link to="/contact" className="block hover:text-neon-cyan">Contact</Link>
+                                <Link to="/profile" className="block hover:text-neon-cyan">Profile / Account</Link>
                             </div>
                         </div>
                     </div>
 
-                    {/* Join the Forge Button */}
-                    <a href="#join" className="btn-neon btn-neon-magenta text-xs py-2 px-5">
-                        <Heart className="w-3.5 h-3.5" /> JOIN THE FORGE
-                    </a>
+                    {/* Auth-aware right side action */}
+                    {!user ? (
+                        <Link to="/profile" className="btn-neon btn-neon-magenta text-xs py-2 px-5">
+                            <Heart className="w-3.5 h-3.5" /> JOIN THE FORGE
+                        </Link>
+                    ) : (
+                        <Link to="/profile" className="w-9 h-9 rounded-full bg-neon-cyan/10 flex items-center justify-center border border-white/20 hover:border-neon-cyan transition" title="Profile">
+                            <User className="w-4 h-4 text-neon-cyan" />
+                        </Link>
+                    )}
                 </div>
 
                 {/* Mobile Menu Button */}
@@ -93,9 +112,15 @@ const Navbar = () => {
                         <Link to="/how-it-works" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">How It Works</Link>
                         <Link to="/faq" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">FAQ</Link>
 
-                        <a href="#join" onClick={() => setIsOpen(false)} className="btn-neon btn-neon-magenta w-full justify-center mt-4">
-                            <Heart className="w-4 h-4" /> JOIN THE FORGE
-                        </a>
+                        {!user ? (
+                            <Link to="/profile" onClick={() => setIsOpen(false)} className="btn-neon btn-neon-magenta w-full justify-center mt-4">
+                                <Heart className="w-4 h-4" /> JOIN THE FORGE
+                            </Link>
+                        ) : (
+                            <Link to="/profile" onClick={() => setIsOpen(false)} className="w-full mt-4 flex items-center justify-center gap-2 py-2 border border-white/20 rounded hover:border-neon-cyan">
+                                <User className="w-4 h-4 text-neon-cyan" /> PROFILE
+                            </Link>
+                        )}
                     </div>
                 </div>
             )}

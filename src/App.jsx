@@ -11,6 +11,8 @@ import HowItWorks from './pages/HowItWorks';
 import FAQ from './pages/FAQ';
 import Donations from './pages/Donations';
 import Contact from './pages/Contact';
+import TransparencyHub from './pages/TransparencyHub';
+import Profile from './pages/Profile';
 
 function App() {
     return (
@@ -33,6 +35,8 @@ function App() {
                         <Route path="/faq" element={<FAQ />} />
                         <Route path="/donations" element={<Donations />} />
                         <Route path="/contact" element={<Contact />} />
+                        <Route path="/transparency" element={<TransparencyHub />} />
+                        <Route path="/profile" element={<Profile />} />
                     </Routes>
                 </main>
 
