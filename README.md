@@ -1,16 +1,28 @@
-# React + Vite
+# Together Forge Website
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+**By the Community, For the Community**
 
-Currently, two official plugins are available:
+A community-first independent game studio building games that bring people together. We prioritize quality mechanics, fun, teamwork, and real connection over corporate profit-maximization.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## About Us
+Together Forge organizes and supports games created collaboratively by gamers, streamers, and volunteers. We are tired of AAA companies putting profits and ideology over good games. Here, gamers come first.
 
-## React Compiler
+Profits are reinvested into growth, better games, and the bigger vision (Big Picture).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Features
+- Game idea submission and browsing
+- Project transparency (Early, Mid, Late Game)
+- Volunteer opportunities (development, content creation, etc.)
+- Community-driven development
 
-## Expanding the Oxlint configuration
+## Tech Stack
+- React + Vite
+- Tailwind CSS
+- Framer Motion
+- Lucide Icons
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Getting Started
+
+```bash
+npm install
+npm run dev
