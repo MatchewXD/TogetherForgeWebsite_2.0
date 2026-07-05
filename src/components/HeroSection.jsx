@@ -30,8 +30,7 @@ const HeroSection = () => {
 
           {/* Tagline */}
           <p className="max-w-2xl mx-auto text-xl md:text-2xl text-text-secondary mb-10 tracking-tight">
-            We build cooperative survival-builder games that train us for 
-            real connection — and the intentional communities that will follow.
+                      Games built by the community, for the community.
           </p>
 
           {/* CTA Buttons */}

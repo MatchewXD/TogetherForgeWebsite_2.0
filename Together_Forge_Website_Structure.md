@@ -1,60 +1,57 @@
 # Together Forge Website Structure & Feature Roadmap
 
-**Last Updated:** July 04, 2026  
-**Owner:** Matthew  
-**Goal:** A community-first platform for collaborative game development.
+**Last Updated:** July 04, 2026
 
 ## Philosophy
 - By the Community, For the Community
 - Prioritize quality mechanics, fun, and real connection
 - Profits reinvested for growth — not investors or excessive pay
-- Transparent and volunteer-friendly (including content creators)
+- Transparent and volunteer-friendly
 
-## Core Pages (Build Order Recommended)
+## Core Pages (Build Order)
 
 ### 1. Home
-- Hero section
+- Hero
 - Mission cards
-- Latest activity / status
-- Strong CTAs
+- Quick CTAs
 
 ### 2. About
 - Who we are + AAA critique
 - Mission & Vision
-- How we operate (profits for growth, transparency)
+- How we operate
 - Call to action
 
 ### 3. Game Ideas
-- Browse / search ideas
-- Detailed submission form (with categories, tags, Twitch integration, etc.)
-- Voting / feedback (future)
+- Browse / search submissions
+- Submit Idea button ? dedicated form page (`/ideas/submit`)
+- **Threaded discussions**: Users can branch off ideas, link related mechanics, post files/demos, comment threads
 
 ### 4. Projects
 - Early Game, Mid Game, Late Game
-- Status, goals, contribution opportunities
+- Status, goals, contribution info
+- Cards can link to detailed project pages later
 
 ### 5. Get Involved / Community
-- Volunteer opportunities (development, art, marketing, **content creation**)
+- Volunteer opportunities (development, art, **content creation**, moderation, etc.)
 - Task board teaser
-- Content creator volunteer section (videos, social, promotion — paid when possible)
+- Content creator volunteer section (paid when income allows)
 
 ### 6. Interactive Demos (later)
 - Standardized mechanic testing
 
 ### 7. How It Works + FAQ
-- Process explanation
-- Common questions
 
-### 8. Contact / Support (later)
-- Inquiries + donations
+### 8. Contact / Support + Donations (later)
 
 ## Phase 2 Features
 - User accounts & profiles
 - Contribution badges
-- Task claiming system
-- Donations / transparency page
-- Full forums
+- Full task claiming system
+- Donations transparency page
+- Forums / threaded discussions on ideas
+- Sorting, tags, filters on ideas
 
 ## Notes
 - Volunteer content creators added
-- Strong emphasis on crediting contributors
+- Strong emphasis on transparency and crediting
+- Threaded / branching idea discussions added
