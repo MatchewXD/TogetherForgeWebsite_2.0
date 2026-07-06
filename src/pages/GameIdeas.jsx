@@ -23,9 +23,12 @@ const GameIdeas = () => {
         'Progression / Economy / Crafting',
         'Enemy / AI / Combat',
         'World Building / Environment',
-        'Other'
+        'Other',
     ];
     const [allIdeas, setAllIdeas] = useState([]);
+    const [feedMode, setFeedMode] = useState('community'); // 'community' or 'together'
+    const [projects, setProjects] = useState([]);
+    const [selectedProject, setSelectedProject] = useState(null);
 
     useEffect(() => {
         const fetchIdeasAndVotes = async () => {
@@ -65,6 +68,17 @@ const GameIdeas = () => {
             }
         };
         fetchIdeasAndVotes();
+        // also try to load project list for Together Forge feed
+        const fetchProjects = async () => {
+            try {
+                const { data: pg, error } = await supabase.from('phase_games').select('*');
+                if (!error && pg && pg.length) setProjects(pg);
+                else setProjects([]);
+            } catch (e) {
+                setProjects([]);
+            }
+        };
+        fetchProjects();
     }, []);
 
     const DECAY_RATE = 0.0000001; // adjust for decay speed
@@ -97,6 +111,22 @@ const GameIdeas = () => {
             return a.title.localeCompare(b.title);
         });
 
+    // Determine which ideas to display depending on selected feed and project
+    const visibleIdeas = (() => {
+        if (feedMode === 'community') return filteredIdeas;
+        // together feed
+        if (!selectedProject) return [];
+        // match common possible project linkage fields
+        return filteredIdeas.filter(i => (
+            i.project_id === selectedProject.id ||
+            i.project === selectedProject.id ||
+            i.project_slug === selectedProject.id ||
+            i.phase_game_id === selectedProject.id ||
+            i.phase === selectedProject.phase ||
+            i.phase === selectedProject.phase?.toString()
+        ));
+    })();
+
     return (
         <div className="pt-20 min-h-screen">
             <div className="container-custom py-12">
@@ -104,17 +134,30 @@ const GameIdeas = () => {
                     <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" /> BACK TO HOME
                 </Link>
 
-                <div className="flex justify-between items-end mb-10">
-                    <div>
+                <div className="mb-10">
+                    <div className="text-center">
                         <div className="section-header">GAME IDEAS</div>
-                        <h1 className="text-5xl font-bold tracking-tight text-white">Community Submissions</h1>
+                        <h1 className="text-5xl font-bold tracking-tight text-white">{feedMode === 'community' ? 'Community Sharing' : 'Together Forge Project Ideas'}</h1>
+                        <div className="text-text-secondary mt-3 max-w-3xl mx-auto text-sm">
+                            {feedMode === 'community'
+                                ? 'Open ideas from anyone to anyone'
+                                : 'Ideas specifically for our current or future games'}
+                        </div>
                     </div>
-                    <Link
-                        to="/ideas/submit"
-                        className="btn-primary btn-neon flex items-center gap-3 px-8 py-4"
-                    >
-                        <Plus className="w-5 h-5" /> SUBMIT AN IDEA
-                    </Link>
+
+                    <div className="mt-8 flex justify-center items-center gap-4">
+                        <div className="flex items-center bg-cyber-surface border border-white/20 rounded px-2 py-1">
+                            <button onClick={() => { setFeedMode('community'); setSelectedProject(null); }} className={`px-3 py-2 text-sm ${feedMode === 'community' ? 'bg-neon-cyan text-black rounded' : 'text-white'}`}>Community Sharing</button>
+                            <button onClick={() => { setFeedMode('together'); setSelectedProject(null); }} className={`px-3 py-2 text-sm ${feedMode === 'together' ? 'bg-neon-cyan text-black rounded' : 'text-white'}`}>Together Forge</button>
+                        </div>
+
+                        <Link
+                            to={selectedProject ? `/ideas/submit?project=${selectedProject.id}` : '/ideas/submit'}
+                            className="btn-primary btn-neon flex items-center gap-3 px-6 py-3"
+                        >
+                            <Plus className="w-5 h-5" /> SUBMIT AN IDEA
+                        </Link>
+                    </div>
                 </div>
 
                 <div className="mb-8 flex flex-col sm:flex-row gap-4 max-w-[780px] w-full mx-auto">
@@ -193,6 +236,25 @@ const GameIdeas = () => {
                         </div>
                 </div>
 
+                {/* Together Forge project selector placed after search/sort/filter controls */}
+                {feedMode === 'together' && (
+                    <div className="mb-6 max-w-[780px] w-full mx-auto">
+                        <div className="cyber-card p-4 flex gap-3 overflow-auto">
+                            {(!projects || projects.length === 0) ? (
+                                <div className="text-text-secondary">No projects available.</div>
+                            ) : (projects || []).map((p) => (
+                                <button
+                                    key={p.id || p.title}
+                                    onClick={() => setSelectedProject(p)}
+                                    className={`px-3 py-2 rounded text-sm ${selectedProject && selectedProject.id === p.id ? 'bg-neon-cyan text-black' : 'bg-white/2 text-white'}`}
+                                >
+                                    {p.title || p.name || p.id}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {filteredIdeas.length === 0 && (
                     <div className="col-span-2 text-center py-12 text-text-muted">
                         No ideas match your current filters.
@@ -200,8 +262,8 @@ const GameIdeas = () => {
                 )}
 
                 <div className="flex flex-col gap-4 max-w-[780px] mx-auto">
-                    {filteredIdeas.map((idea) => (
-                        <div key={idea.id} className="cyber-card group flex flex-col rounded-xl p-6 hover:border-neon-cyan/40 transition-all duration-200">
+                    {visibleIdeas.map((idea) => (
+                        <div key={idea.id} className="cyber-card group flex flex-col rounded-xl p-6 transition-all duration-200 interactive">
                             <Link to={`/ideas/${idea.id}`} className="block flex-1">
                                 <div className="inline-flex items-center rounded-full bg-neon-cyan px-3 py-0.5 text-[10px] font-mono tracking-[1.5px] text-black mb-3">
                                     {idea.category}

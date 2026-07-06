@@ -178,3 +178,37 @@ Repository progress notes (short)
 - Test mobile responsiveness.
 
 Let's iterate step by step! Update this file as you complete tasks.
+
+
+Community Idea Development – Guided Discussions (Project Questions)
+Purpose
+To develop high-quality ideas quickly and in a focused way, we will use structured discussions on each project page. This gives the community clear direction while allowing creative input.
+How It Works
+On every project page (especially Early Game projects), there will be a prominent section called “Open Questions from the Team” pinned at the top of the idea feed.
+
+The development team (or moderators) will post specific, focused questions.
+Community members reply with ideas, suggestions, and concepts.
+Replies can be upvoted so the best ideas rise to the top.
+The team can mark particularly strong replies as “Promising” or “Adopted” with visible badges and credit the contributor.
+
+Example Question Post:
+Title: What should the main player goal / core loop be for our first game?
+Body:
+In games like Lethal Company, the core loop is simple and compelling: collect scrap, deliver it, and survive.
+We want something equally simple, fun, and cooperative for our first Early Game project.
+Reply below with your suggested core goal or loop. Top ideas will directly influence the direction of the game.
+Benefits
+
+Gives contributors clear guidance instead of open-ended submissions.
+Creates a visible history of how the community helped shape each project.
+Makes it easy to credit people whose ideas are adopted.
+Keeps idea development fast and iterative.
+
+Implementation Notes
+
+Questions will be created by the team and pinned.
+A mix of question types will be used (Core Loop, Theme/Setting, Unique Mechanics, Balance, etc.).
+Once a question is sufficiently answered, it can be archived and the next question pinned.
+This system works alongside the general Game Ideas page (which remains for open community sharing).
+
+This feature will be prioritized for Early Game projects to help define our first titles.

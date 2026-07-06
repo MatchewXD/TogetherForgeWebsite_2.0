@@ -67,25 +67,35 @@ const ProjectsEarly = () => {
                         </div>
 
                         <div className="section-header mb-4">Game Overviews</div>
-                        <div className="cyber-card p-4 mb-4">
-                            <div className="font-bold text-white">What games do we have cooking?</div>
-                            <div className="text-text-secondary mt-3">Current Status: We are in the early planning and prototyping stage for our first Early Game title.</div>
-                            <div className="mt-4">
-                                <div className="cyber-card p-4">
-                                    <div className="font-bold text-white">Our First Early Game Project - Coming Soon</div>
-                                    <div className="text-text-secondary text-sm mt-2">The specific game concept for our first Early Game title is currently being shaped by community input and initial prototyping. We are looking for small, focused multiplayer experiences that emphasize cooperation. Examples of directions we are exploring include cooperative survival challenges, shared vehicle/mech operation, or simple team-based exploration and building.</div>
-                                    <div className="text-text-secondary text-sm mt-3">Submit your ideas in the Game Ideas section to help define what our first game becomes!</div>
-                                </div>
-                            </div>
-                            <div className="text-text-secondary text-sm mt-3">(Once a specific game is chosen we will highlight it here and add placeholders for the next planned Early Game titles.)</div>
+                        <div className="grid md:grid-cols-3 gap-4 mb-4">
+                            <Link to="/projects/early/g1" className="cyber-card p-4 hover:border-neon-cyan/40">
+                                <div className="font-bold text-white">Early Game Project 1</div>
+                                <div className="text-text-secondary text-sm mt-2">Current / In Development</div>
+                            </Link>
+
+                            <Link to="/projects/early/g2" className="cyber-card p-4">
+                                <div className="font-bold text-white">Early Game Project 2</div>
+                                <div className="text-text-secondary text-sm mt-2">Planned</div>
+                            </Link>
+
+                            <Link to="/projects/early/g3" className="cyber-card p-4">
+                                <div className="font-bold text-white">Early Game Project 3</div>
+                                <div className="text-text-secondary text-sm mt-2">Planned</div>
+                            </Link>
                         </div>
 
                         <div className="mt-6">
-                            <div className="section-header">Progress Snapshot</div>
-                            <div className="cyber-card p-4">
-                                <div className="text-sm text-text-muted mb-2">{doneCount} of {games.length} games completed</div>
-                                <div className="w-full bg-white/5 rounded h-3 mt-2 overflow-hidden">
-                                    <div className="bg-neon-cyan h-3" style={{ width: `${Math.round((doneCount / Math.max(1, games.length)) * 100)}%` }} />
+                            <div className="section-header">Target Style for Early Game Projects</div>
+                            <div className="cyber-card p-4 text-text-secondary">
+                                <p>We are looking for small, focused multiplayer games that emphasize cooperation and teamwork.</p>
+                                <div className="mt-3">
+                                    <div className="font-bold text-white mb-2">Examples of the kind of games we want to make:</div>
+                                    <ul className="list-disc pl-5 space-y-1">
+                                        <li>Cooperative survival challenges (inspired by Lethal Company or PlateUp!)</li>
+                                        <li>Shared vehicle/mech operation or crew-based gameplay</li>
+                                        <li>Simple team-based exploration, building, and defense</li>
+                                        <li>Light resource management with clear role differentiation in short sessions</li>
+                                    </ul>
                                 </div>
                             </div>
                         </div>

@@ -20,6 +20,7 @@ import IdeaEdit from './pages/IdeaEdit';
 import ProjectsEarly from './pages/ProjectsEarly';
 import ProjectsMid from './pages/ProjectsMid';
 import ProjectsLate from './pages/ProjectsLate';
+import ProjectsEarlyDetail from './pages/ProjectsEarlyDetail';
 
 function App() {
     return (
@@ -39,6 +40,7 @@ function App() {
                         <Route path="/ideas/:id/edit" element={<IdeaEdit />} />
                         <Route path="/projects" element={<Projects />} />
                         <Route path="/projects/early" element={<ProjectsEarly />} />
+                        <Route path="/projects/early/:id" element={<ProjectsEarlyDetail />} />
                         <Route path="/projects/mid" element={<ProjectsMid />} />
                         <Route path="/projects/late" element={<ProjectsLate />} />
                         <Route path="/get-involved" element={<GetInvolved />} />
