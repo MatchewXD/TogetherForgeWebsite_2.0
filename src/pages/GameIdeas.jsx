@@ -1,4 +1,4 @@
-import { ArrowLeft, Plus, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Plus, MessageCircle, Flame } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
@@ -8,6 +8,9 @@ const GameIdeas = () => {
     const [sortMode, setSortMode] = useState('popular');
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [filterOpen, setFilterOpen] = useState(false);
+    const [message, setMessage] = useState('');
+    const [userVotes, setUserVotes] = useState(new Set()); // idea IDs the current user has voted on
+    const [commentCounts, setCommentCounts] = useState({}); // idea_id -> count
 
     const CATEGORIES = [
         'Full Game Idea',
@@ -25,11 +28,43 @@ const GameIdeas = () => {
     const [allIdeas, setAllIdeas] = useState([]);
 
     useEffect(() => {
-        const fetchIdeas = async () => {
-            const { data, error } = await supabase.from('ideas').select('*');
-            if (!error && data) setAllIdeas(data);
+        const fetchIdeasAndVotes = async () => {
+            const { data: ideasData, error } = await supabase.from('ideas').select('*');
+            if (error || !ideasData) return;
+
+            const userIds = [...new Set(ideasData.map(i => i.user_id).filter(Boolean))];
+            let creatorMap = {};
+            if (userIds.length > 0) {
+                const { data: profilesData } = await supabase.from('profiles').select('id, username, avatar_url').in('id', userIds);
+                if (profilesData) {
+                    creatorMap = Object.fromEntries(profilesData.map(p => [p.id, { username: p.username, avatar_url: p.avatar_url }]));
+                }
+            }
+
+            const enriched = ideasData.map(idea => ({
+                ...idea,
+                creator: creatorMap[idea.user_id] || null
+            }));
+            setAllIdeas(enriched);
+
+            // Load comment counts for all ideas
+            const { data: commentRows } = await supabase.from('comments').select('idea_id');
+            if (commentRows) {
+                const counts = {};
+                commentRows.forEach(r => { counts[r.idea_id] = (counts[r.idea_id] || 0) + 1; });
+                setCommentCounts(counts);
+            }
+
+            // Load current user's existing votes so we can disable re-voting
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data: voteRows } = await supabase.from('votes').select('idea_id').eq('user_id', user.id);
+                if (voteRows) setUserVotes(new Set(voteRows.map(v => v.idea_id)));
+            } else {
+                setUserVotes(new Set());
+            }
         };
-        fetchIdeas();
+        fetchIdeasAndVotes();
     }, []);
 
     const DECAY_RATE = 0.0000001; // adjust for decay speed
@@ -164,36 +199,84 @@ const GameIdeas = () => {
                     </div>
                 )}
 
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="flex flex-col gap-4 max-w-[780px] mx-auto">
                     {filteredIdeas.map((idea) => (
-                        <div key={idea.id} className="cyber-card p-8 hover:border-neon-cyan/40 transition">
-                            <Link to={`/ideas/${idea.id}`} className="block">
-                                <div className="text-xs font-mono text-neon-cyan mb-3">{idea.category}</div>
-                                <h3 className="text-xl font-bold text-white mb-4">{idea.title}</h3>
-                                <p className="text-text-secondary line-clamp-4 mb-6">{idea.summary}</p>
-                            </Link>
-                            <div className="text-xs text-text-muted flex justify-between items-center">
-                                <span>{idea.votes || 0} votes</span>
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        onClick={async () => {
-                                            const { data: { user } } = await supabase.auth.getUser();
-                                            if (!user) {
-                                                alert('Please log in to vote.');
-                                                return;
-                                            }
-                                            await supabase.from('votes').insert([{ idea_id: idea.id, user_id: user.id }]);
-                                            await supabase.from('ideas').update({ votes: (idea.votes || 0) + 1 }).eq('id', idea.id);
-                                            window.location.reload();
-                                        }}
-                                        className="text-neon-cyan hover:text-white text-xs px-2 py-1 border border-white/20 rounded"
-                                    >
-                                        + Vote
-                                    </button>
-                                    <Link to={`/ideas/${idea.id}`} className="flex items-center gap-1 hover:text-white">
-                                        <MessageCircle className="w-3 h-3" /> Discuss
-                                    </Link>
+                        <div key={idea.id} className="cyber-card group flex flex-col rounded-xl p-6 hover:border-neon-cyan/40 transition-all duration-200">
+                            <Link to={`/ideas/${idea.id}`} className="block flex-1">
+                                <div className="inline-flex items-center rounded-full bg-neon-cyan px-3 py-0.5 text-[10px] font-mono tracking-[1.5px] text-black mb-3">
+                                    {idea.category}
                                 </div>
+                                <h3 className="text-2xl font-bold text-white mb-1.5 pr-1 group-hover:text-neon-cyan transition-colors">
+                                    {idea.title}
+                                </h3>
+                                <p className="text-base text-text-secondary mb-3 line-clamp-2">
+                                    {idea.summary}
+                                </p>
+
+                                {/* Smaller spacer now that text is larger */}
+                                <div className="min-h-[24px]" />
+
+                                {idea.creator && (
+                                    <div className="flex items-center gap-2.5 text-xs mt-1 mb-5">
+                                        {idea.creator.avatar_url ? (
+                                            <img src={idea.creator.avatar_url} alt="" className="w-5 h-5 rounded-full ring-1 ring-white/10 object-cover" />
+                                        ) : (
+                                            <div className="w-5 h-5 rounded-full bg-white/10" />
+                                        )}
+                                        <span className="font-mono text-neon-cyan/90">{idea.creator.username}</span>
+                                    </div>
+                                )}
+                            </Link>
+
+                            <div className="mt-auto pt-5 border-t border-white/10 flex items-center gap-4 text-xs text-text-muted">
+                                <button
+                                    onClick={async () => {
+                                        const { data: { user } } = await supabase.auth.getUser();
+                                        if (!user) {
+                                            setMessage('Please log in to vote.');
+                                            return;
+                                        }
+
+                                        const hasVoted = userVotes.has(idea.id);
+
+                                        if (hasVoted) {
+                                            setAllIdeas(prev => prev.map(i =>
+                                                i.id === idea.id ? { ...i, votes: Math.max(0, (i.votes || 0) - 1) } : i
+                                            ));
+                                            setUserVotes(prev => {
+                                                const next = new Set(prev);
+                                                next.delete(idea.id);
+                                                return next;
+                                            });
+                                            await supabase.from('votes')
+                                                .delete()
+                                                .eq('idea_id', idea.id)
+                                                .eq('user_id', user.id);
+                                        } else {
+                                            setAllIdeas(prev => prev.map(i =>
+                                                i.id === idea.id ? { ...i, votes: (i.votes || 0) + 1 } : i
+                                            ));
+                                            setUserVotes(prev => new Set(prev).add(idea.id));
+                                            await supabase.from('votes').insert([{ idea_id: idea.id, user_id: user.id }]);
+                                        }
+                                    }}
+                                    className="inline-flex items-center gap-1.5 rounded px-2 py-1 -ml-2 hover:bg-white/5 hover:text-white transition"
+                                    title={userVotes.has(idea.id) ? 'Remove vote' : 'Vote'}
+                                >
+                                    <Flame className={`w-4 h-4 transition ${userVotes.has(idea.id) ? 'text-orange-500' : 'text-text-muted group-hover:text-orange-400/70'}`} />
+                                    <span className="font-mono tabular-nums">{idea.votes || 0}</span>
+                                </button>
+
+                                {idea.created_at && (
+                                    <span className="text-[10px] text-text-muted/70 tabular-nums">
+                                        {new Date(idea.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    </span>
+                                )}
+
+                                <Link to={`/ideas/${idea.id}`} className="inline-flex items-center gap-1.5 ml-auto hover:text-white transition">
+                                    <MessageCircle className="w-4 h-4" />
+                                    <span className="font-mono tabular-nums">{commentCounts[idea.id] || 0}</span>
+                                </Link>
                             </div>
                         </div>
                     ))}

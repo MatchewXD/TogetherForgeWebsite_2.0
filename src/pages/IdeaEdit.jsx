@@ -1,10 +1,16 @@
-import { useState } from 'react';
-import { ArrowLeft, Send, Plus, Trash2 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
-const IdeaSubmit = () => {
+const IdeaEdit = () => {
+    const { id } = useParams();
     const navigate = useNavigate();
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [message, setMessage] = useState('');
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [formData, setFormData] = useState({
         title: '',
         category: '',
@@ -28,41 +34,96 @@ const IdeaSubmit = () => {
         endgameDetails: '',
         additionalNotes: [''],
     });
-    const [message, setMessage] = useState('');
+
+    useEffect(() => {
+        const init = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.user) {
+                navigate('/ideas');
+                return;
+            }
+            setUser(session.user);
+
+            const { data, error } = await supabase.from('ideas').select('*').eq('id', id).single();
+            if (error || !data) {
+                navigate('/ideas');
+                return;
+            }
+            if (data.user_id && data.user_id !== session.user.id) {
+                navigate(`/ideas/${id}`);
+                return;
+            }
+
+            let parsedFeatures = [{ name: '', description: '' }];
+            if (data.features) {
+                try {
+                    const f = typeof data.features === 'string' ? JSON.parse(data.features) : data.features;
+                    if (Array.isArray(f) && f.length) parsedFeatures = f;
+                } catch { /* ignore */ }
+            }
+            let parsedNotes = [''];
+            if (data.additional_notes) {
+                try {
+                    const n = typeof data.additional_notes === 'string' ? JSON.parse(data.additional_notes) : data.additional_notes;
+                    if (Array.isArray(n) && n.length) parsedNotes = n;
+                } catch { /* ignore */ }
+            }
+            let parsedEnemies = [{ name: '', description: '' }];
+            if (data.enemies) {
+                try {
+                    const en = typeof data.enemies === 'string' ? JSON.parse(data.enemies) : data.enemies;
+                    if (Array.isArray(en) && en.length) parsedEnemies = en;
+                } catch { /* ignore */ }
+            }
+
+            setFormData({
+                title: data.title || '',
+                category: data.category || '',
+                summary: data.summary || '',
+                description: data.description || '',
+                inspiration: data.inspiration || '',
+                tags: data.tags || '',
+                features: parsedFeatures,
+                multiplayerType: data.multiplayer_type || '',
+                twitchIntegration: data.twitch_integration || '',
+                visualStyle: data.visual_style || '',
+                environmentalStorytelling: data.environmental_storytelling || '',
+                enemies: parsedEnemies,
+                progressionType: data.progression_type || '',
+                progressionDetails: data.progression_details || '',
+                economyResource: data.economy_resource || '',
+                economyTrading: data.economy_trading || '',
+                hasMainStory: !!data.has_main_story,
+                storyOverview: data.story_overview || '',
+                hasEndgame: !!data.has_endgame,
+                endgameDetails: data.endgame_details || '',
+                additionalNotes: parsedNotes,
+            });
+            setLoading(false);
+        };
+        init();
+    }, [id, navigate]);
 
     const addFeature = () => {
-        if (formData.features.length >= 15) return;
-        setFormData({
-            ...formData,
-            features: [...formData.features, { name: '', description: '' }]
-        });
+        if ((formData.features || []).length >= 15) return;
+        setFormData(f => ({ ...f, features: [...(f.features || []), { name: '', description: '' }] }));
     };
+    const removeFeature = (idx) => setFormData(f => ({ ...f, features: (f.features || []).filter((_, i) => i !== idx) }));
 
-    const removeFeature = (index) => {
-        const newFeatures = formData.features.filter((_, i) => i !== index);
-        setFormData({ ...formData, features: newFeatures });
-    };
-
-    const handleSubmit = async (e) => {
+    const handleSave = async (e) => {
         e.preventDefault();
-
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) {
-            setMessage('You must be logged in to submit an idea.');
-            return;
-        }
-
-        // Deduplicate tags
+        if (!user) return;
+        setSaving(true);
+        const ideaIdNum = Number(id);
         const uniqueTags = [...new Set((formData.tags || '').split(',').map(t => t.trim()).filter(Boolean))].join(', ');
-
-        const newIdea = {
+        const { data, error } = await supabase.from('ideas').update({
             title: formData.title,
+            category: formData.category,
             summary: formData.summary,
-            category: formData.category || 'Idea',
-            votes: 0,
             description: formData.description,
-            tags: uniqueTags,
             inspiration: formData.inspiration,
+            tags: uniqueTags,
+            features: formData.features,
             twitch_integration: formData.twitchIntegration,
             multiplayer_type: formData.multiplayerType,
             visual_style: formData.visualStyle,
@@ -77,39 +138,42 @@ const IdeaSubmit = () => {
             has_endgame: formData.hasEndgame,
             endgame_details: formData.endgameDetails,
             additional_notes: formData.additionalNotes,
-            user_id: session.user.id,
-        };
+        }).eq('id', ideaIdNum).select();
 
-        const { data, error } = await supabase.from('ideas').insert([newIdea]).select('id').single();
         if (error) {
-            setMessage('Error submitting idea: ' + error.message);
+            setMessage('Update failed: ' + error.message);
+            setSaving(false);
             return;
         }
-
-        navigate(`/ideas/${data.id}`);
+        if (!data || data.length === 0) {
+            setMessage('Update did not apply. You may not have permission to edit this idea (RLS policy or missing user_id on the row).');
+            setSaving(false);
+            return;
+        }
+        navigate(`/ideas/${id}`);
     };
+
+    if (loading) return <div className="pt-20 text-center">Loading...</div>;
 
     return (
         <div className="pt-20 min-h-screen">
             <div className="container-custom py-12 max-w-4xl">
-                <Link to="/ideas" className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group">
-                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" /> BACK TO IDEAS
+                <Link to={`/ideas/${id}`} className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group">
+                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" /> BACK TO IDEA
                 </Link>
 
                 <div>
-                    <div className="section-header">SUBMIT IDEA</div>
-                    <h1 className="text-5xl font-bold tracking-tight text-white mb-12">Share your vision with the Forge</h1>
+                    <div className="section-header">EDIT IDEA</div>
+                    <h1 className="text-5xl font-bold tracking-tight text-white mb-12">Update your idea</h1>
                 </div>
 
-                <form onSubmit={handleSubmit} className="static-card p-10 space-y-12">
-                    {/* 1. Basic Information */}
+                <form onSubmit={handleSave} className="static-card p-10 space-y-12">
+                    {/* Basic Information */}
                     <div className="space-y-8">
                         <div>
                             <label className="block text-sm font-mono tracking-widest text-neon-cyan mb-2">TITLE *</label>
-                            <input type="text" required maxLength={100} placeholder="Starbound Colony" className="w-full bg-cyber-surface border border-white/20 p-4 text-white focus:border-neon-cyan outline-none" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
-                            <p className="text-xs text-text-muted mt-1">Short, catchy name. Max 100 characters.</p>
+                            <input type="text" required maxLength={100} className="w-full bg-cyber-surface border border-white/20 p-4 text-white focus:border-neon-cyan outline-none" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
                         </div>
-
                         <div>
                             <label className="block text-sm font-mono tracking-widest text-neon-cyan mb-2">CATEGORY *</label>
                             <select required className="w-full bg-cyber-surface border border-white/20 p-4 text-white focus:border-neon-cyan outline-none" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}>
@@ -127,33 +191,28 @@ const IdeaSubmit = () => {
                                 <option value="Other">Other</option>
                             </select>
                         </div>
-
                         <div>
                             <label className="block text-sm font-mono tracking-widest text-neon-cyan mb-2">SHORT SUMMARY *</label>
-                            <input type="text" required maxLength={300} placeholder="A co-op strategy game where Twitch viewers vote on resource allocation." className="w-full bg-cyber-surface border border-white/20 p-4 text-white focus:border-neon-cyan outline-none" value={formData.summary} onChange={e => setFormData({ ...formData, summary: e.target.value })} />
-                            <p className="text-xs text-text-muted mt-1">1–3 sentences. Max 300 characters.</p>
+                            <input type="text" required maxLength={300} className="w-full bg-cyber-surface border border-white/20 p-4 text-white focus:border-neon-cyan outline-none" value={formData.summary} onChange={e => setFormData({ ...formData, summary: e.target.value })} />
                         </div>
-
-                       
-
-
                     </div>
 
-                    {/* 2. Detailed Description */}
+                    {/* Detailed Description */}
                     <div className="space-y-8 pt-6 border-t border-white/10">
                         <div>
                             <label className="block text-sm font-mono tracking-widest text-neon-cyan mb-2">DETAILED DESCRIPTION</label>
-                            <textarea rows={6} maxLength={4000} className="w-full bg-cyber-surface border border-white/20 p-4 text-white focus:border-neon-cyan outline-none" placeholder="Expand on gameplay, mechanics, story..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
-                            <p className="text-xs text-text-muted mt-1">Max 4000 characters. Highlight what makes it unique.</p>
+                            <textarea rows={6} maxLength={4000} className="w-full bg-cyber-surface border border-white/20 p-4 text-white focus:border-neon-cyan outline-none" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
                         </div>
                     </div>
 
-                    {/* 3. Key Features (collapsible + dynamic) */}
+                    {/* Key Features (collapsible + dynamic) */}
                     <div className="space-y-4 pt-6 border-t border-white/10">
                         <div className="text-base text-text-secondary mb-2">
                             <span className="font-semibold text-white">Key Features</span> (Recommended for Full Games &amp; Mechanics)<br />
-                            Max 15 features. Soft recommendation: 8–10. Each description max 800 characters.
+                            Describe the core gameplay systems and standout elements of your idea.<br />
+                            <span className="text-xs">Max 15 features. Soft recommendation: 8–10. Each description max 800 characters.</span>
                         </div>
+
                         <button
                             type="button"
                             onClick={() => setFormData(f => ({ ...f, __open_keyFeatures: !f.__open_keyFeatures }))}
@@ -166,22 +225,22 @@ const IdeaSubmit = () => {
                             <div>
                                 <div className="flex justify-between items-center mb-3">
                                     <span className="text-xs text-text-muted">Add or remove as many as needed</span>
-                                    <button type="button" onClick={addFeature} disabled={formData.features.length >= 15} className="text-neon-cyan hover:text-white flex items-center gap-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"><Plus size={16} /> Add Feature</button>
+                                    <button type="button" onClick={addFeature} disabled={(formData.features || []).length >= 15} className="text-neon-cyan hover:text-white flex items-center gap-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"><Plus size={16} /> Add Feature</button>
                                 </div>
                                 <div className="mb-3 text-sm text-text-secondary">
                                     <span className="font-medium text-white">Feature Name</span> – Short title<br />
                                     <span className="font-medium text-white">Description</span> – Max 800 characters
                                 </div>
-                                {formData.features.map((feature, index) => (
-                                    <div key={index} className="border border-white/20 p-6 mb-4 rounded">
+                                {(formData.features || []).map((f, idx) => (
+                                    <div key={idx} className="border border-white/20 p-6 mb-4 rounded">
                                         <div className="flex gap-4">
-                                            <input type="text" placeholder="Feature Name" className="flex-1 bg-cyber-surface border border-white/20 p-4 text-white" value={feature.name} onChange={e => {
-                                                const nf = [...formData.features]; nf[index].name = e.target.value; setFormData({ ...formData, features: nf });
+                                            <input type="text" placeholder="Feature Name" className="flex-1 bg-cyber-surface border border-white/20 p-4 text-white" value={f.name} onChange={e => {
+                                                const nf = [...(formData.features || [])]; nf[idx].name = e.target.value; setFormData({ ...formData, features: nf });
                                             }} />
-                                            <button type="button" onClick={() => removeFeature(index)} className="text-red-400 hover:text-red-500"><Trash2 size={20} /></button>
+                                            <button type="button" onClick={() => removeFeature(idx)} className="text-red-400 hover:text-red-500"><Trash2 size={20} /></button>
                                         </div>
-                                        <textarea placeholder="Description..." rows={3} maxLength={800} className="w-full mt-4 bg-cyber-surface border border-white/20 p-4 text-white" value={feature.description} onChange={e => {
-                                            const nf = [...formData.features]; nf[index].description = e.target.value; setFormData({ ...formData, features: nf });
+                                        <textarea placeholder="Description..." rows={3} maxLength={800} className="w-full mt-4 bg-cyber-surface border border-white/20 p-4 text-white" value={f.description} onChange={e => {
+                                            const nf = [...(formData.features || [])]; nf[idx].description = e.target.value; setFormData({ ...formData, features: nf });
                                         }} />
                                     </div>
                                 ))}
@@ -189,7 +248,7 @@ const IdeaSubmit = () => {
                         )}
                     </div>
 
-                    {/* Optional Sections */}
+                    {/* Optional Sections – collapsible */}
                     <div className="space-y-4 pt-6 border-t border-white/10 text-sm">
                         {[
                             { key: 'inspiration', label: 'Inspiration', desc: 'What inspired this idea?' },
@@ -235,20 +294,20 @@ const IdeaSubmit = () => {
                                                     <div className="flex justify-between items-center mb-2">
                                                         <span className="text-xs text-text-muted">Max 8 enemies</span>
                                                         <button type="button" onClick={() => {
-                                                            if (formData.enemies.length >= 8) return;
-                                                            setFormData(f => ({ ...f, enemies: [...f.enemies, { name: '', description: '' }] }));
+                                                            if ((formData.enemies || []).length >= 8) return;
+                                                            setFormData(f => ({ ...f, enemies: [...(f.enemies || []), { name: '', description: '' }] }));
                                                         }} className="text-neon-cyan hover:text-white text-sm flex items-center gap-1"><Plus size={16} /> Add Enemy</button>
                                                     </div>
-                                                    {formData.enemies.map((enemy, idx) => (
+                                                    {(formData.enemies || []).map((enemy, idx) => (
                                                         <div key={idx} className="border border-white/20 p-4 mb-3 rounded">
                                                             <div className="flex gap-4">
                                                                 <input type="text" placeholder="Enemy Name" className="flex-1 bg-cyber-surface border border-white/20 p-3 text-white" value={enemy.name} onChange={e => {
-                                                                    const ne = [...formData.enemies]; ne[idx].name = e.target.value; setFormData({ ...formData, enemies: ne });
+                                                                    const ne = [...(formData.enemies || [])]; ne[idx].name = e.target.value; setFormData({ ...formData, enemies: ne });
                                                                 }} />
-                                                                <button type="button" onClick={() => setFormData(f => ({ ...f, enemies: f.enemies.filter((_, i) => i !== idx) }))} className="text-red-400 hover:text-red-500"><Trash2 size={18} /></button>
+                                                                <button type="button" onClick={() => setFormData(f => ({ ...f, enemies: (f.enemies || []).filter((_, i) => i !== idx) }))} className="text-red-400 hover:text-red-500"><Trash2 size={18} /></button>
                                                             </div>
                                                             <textarea placeholder="Description..." rows={3} maxLength={800} className="w-full mt-3 bg-cyber-surface border border-white/20 p-3 text-white" value={enemy.description} onChange={e => {
-                                                                const ne = [...formData.enemies]; ne[idx].description = e.target.value; setFormData({ ...formData, enemies: ne });
+                                                                const ne = [...(formData.enemies || [])]; ne[idx].description = e.target.value; setFormData({ ...formData, enemies: ne });
                                                             }} />
                                                         </div>
                                                     ))}
@@ -287,17 +346,17 @@ const IdeaSubmit = () => {
                                             )}
                                             {sec.key === 'notes' && (
                                                 <div>
-                                                    {formData.additionalNotes.map((note, idx) => (
+                                                    {(formData.additionalNotes || ['']).map((note, idx) => (
                                                         <div key={idx} className="flex gap-2 mb-2">
                                                             <textarea rows={3} maxLength={1000} className="flex-1 bg-cyber-surface border border-white/20 p-4 text-white" placeholder="Additional note" value={note} onChange={e => {
-                                                                const na = [...formData.additionalNotes]; na[idx] = e.target.value; setFormData({ ...formData, additionalNotes: na });
+                                                                const na = [...(formData.additionalNotes || [''])]; na[idx] = e.target.value; setFormData({ ...formData, additionalNotes: na });
                                                             }} />
-                                                            <button type="button" onClick={() => setFormData(f => ({ ...f, additionalNotes: f.additionalNotes.filter((_, i) => i !== idx) }))} className="text-red-400 hover:text-red-500"><Trash2 size={18} /></button>
+                                                            <button type="button" onClick={() => setFormData(f => ({ ...f, additionalNotes: (f.additionalNotes || ['']).filter((_, i) => i !== idx) }))} className="text-red-400 hover:text-red-500"><Trash2 size={18} /></button>
                                                         </div>
                                                     ))}
                                                     <button type="button" onClick={() => {
-                                                        if (formData.additionalNotes.length >= 5) return;
-                                                        setFormData(f => ({ ...f, additionalNotes: [...f.additionalNotes, ''] }));
+                                                        if ((formData.additionalNotes || []).length >= 5) return;
+                                                        setFormData(f => ({ ...f, additionalNotes: [...(f.additionalNotes || []), ''] }));
                                                     }} className="text-neon-cyan hover:text-white text-sm flex items-center gap-1"><Plus size={16} /> Add Note</button>
                                                 </div>
                                             )}
@@ -308,15 +367,58 @@ const IdeaSubmit = () => {
                         })}
                     </div>
 
+                    {showDeleteConfirm && (
+                        <div className="mt-4 p-4 border border-red-500/50 bg-red-950/30 rounded text-sm">
+                            <p className="mb-3 text-red-400">Delete this idea permanently? This cannot be undone.</p>
+                            <div className="flex gap-3">
+                                <button
+                                    type="button"
+                                    disabled={saving}
+                                    onClick={async () => {
+                                        setSaving(true);
+                                        const { error } = await supabase.from('ideas').delete().eq('id', Number(id));
+                                        setSaving(false);
+                                        setShowDeleteConfirm(false);
+                                        if (error) {
+                                            setMessage('Delete failed: ' + error.message);
+                                            console.error('Delete error (possible RLS):', error);
+                                        } else {
+                                            navigate('/ideas');
+                                        }
+                                    }}
+                                    className="btn-primary bg-red-600 hover:bg-red-700 px-6 py-2"
+                                >
+                                    Yes, Delete
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={saving}
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    className="px-6 py-2 border border-white/20 hover:bg-white/5"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
-
-                    <button type="submit" className="btn-primary btn-neon w-full py-5 text-lg flex items-center justify-center gap-3 mt-8">
-                        <Send className="w-5 h-5" /> SUBMIT TO THE FORGE
-                    </button>
+                    <div className="flex gap-4 mt-8">
+                        <button type="submit" disabled={saving} className="btn-primary btn-neon flex-1 py-5 text-lg flex items-center justify-center gap-3 disabled:opacity-60">
+                            <Save className="w-5 h-5" /> {saving ? 'SAVING...' : 'SAVE CHANGES'}
+                        </button>
+                        <button
+                            type="button"
+                            disabled={saving}
+                            onClick={() => setShowDeleteConfirm(true)}
+                            className="btn-primary bg-red-600 hover:bg-red-700 flex-1 py-5 text-lg flex items-center justify-center gap-3 disabled:opacity-60"
+                        >
+                            DELETE IDEA
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
     );
 };
 
-export default IdeaSubmit;
+export default IdeaEdit;

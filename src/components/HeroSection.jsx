@@ -22,8 +22,8 @@ const HeroSection = () => {
 
           {/* Main Headline */}
           <div className="mb-6">
-            <h1 className="font-mono text-[72px] md:text-[92px] leading-[0.92] tracking-[-4.5px] font-bold text-white mb-2">
-              FORGE THE<br />FUTURE.<br />
+            <h1 className="font-mono text-[72px] md:text-[92px] leading-[0.92] tracking-[-2.5px] font-bold text-white mb-2">
+              FORGE<span className="ml-[0.25em]">THE</span><br />FUTURE.<br />
               <span className="neon-magenta">TOGETHER.</span>
             </h1>
           </div>

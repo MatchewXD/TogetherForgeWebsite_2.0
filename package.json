@@ -16,7 +16,9 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-easy-crop": "^6.1.0",
-    "react-router-dom": "^7.6.3"
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.6.3",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

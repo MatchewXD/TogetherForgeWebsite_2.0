@@ -107,3 +107,6 @@
 - All financial tracking treats incoming support as business revenue; focus on net after-tax reinvestment into projects. Founder compensation limited to reasonable living wage.
 - Legal/compliance: Include clear disclosure of business structure, disclaimers on donations (not tax-deductible), terms of service for idea submissions, contributions, and volunteer project collaborations (IP/credit policies important)
 - Commit to regular public updates (e.g., monthly "State of the Forge" summaries covering finances, progress, challenges, and decisions)
+
+## Future Enhancements
+- Public profile viewing: Allow other logged-in users to view each other's profiles (read-only view of Bio, Interests, Favorite Games, external links, etc.) while keeping private editing restricted to the owner via RLS.

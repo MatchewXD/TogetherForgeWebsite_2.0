@@ -6,17 +6,61 @@ import { supabase } from '../lib/supabase';
 const Navbar = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [user, setUser] = useState(null);
+    const [avatarUrl, setAvatarUrl] = useState(null);
     const location = useLocation();
 
     useEffect(() => {
+        let mounted = true;
+        let profileChannel = null;
+
+        const loadAvatar = async (uid) => {
+            if (!mounted) return;
+            const { data } = await supabase.from('profiles').select('avatar_url').eq('id', uid).maybeSingle();
+            if (mounted) setAvatarUrl(data?.avatar_url || null);
+        };
+
+        // Initial session
         supabase.auth.getSession().then(({ data: { session } }) => {
-            setUser(session?.user || null);
+            if (!mounted) return;
+            const currentUser = session?.user || null;
+            setUser(currentUser);
+            if (currentUser) loadAvatar(currentUser.id);
+            else setAvatarUrl(null);
         });
+
+        // Auth state listener (stable)
         const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user || null);
+            if (!mounted) return;
+            const currentUser = session?.user || null;
+            setUser(currentUser);
+            if (currentUser) loadAvatar(currentUser.id);
+            else setAvatarUrl(null);
         });
-        return () => listener.subscription.unsubscribe();
-    }, []);
+
+        // Realtime subscription for avatar updates (subscribe once)
+        profileChannel = supabase
+            .channel('navbar-profile-avatar')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload) => {
+                if (!mounted) return;
+                const newRow = payload.new;
+                // Only react if we currently have a user and the row matches
+                setUser(prev => {
+                    if (prev && newRow && newRow.id === prev.id) {
+                        if (newRow.avatar_url !== undefined) {
+                            setAvatarUrl(newRow.avatar_url || null);
+                        }
+                    }
+                    return prev;
+                });
+            })
+            .subscribe();
+
+        return () => {
+            mounted = false;
+            if (profileChannel) supabase.removeChannel(profileChannel);
+            listener.subscription.unsubscribe();
+        };
+    }, []); // run once, stable listeners only
 
     const navLinks = [
         { to: '/', label: 'HOME', icon: Hammer },
@@ -79,8 +123,14 @@ const Navbar = () => {
                             <Heart className="w-3.5 h-3.5" /> JOIN THE FORGE
                         </Link>
                     ) : (
-                        <Link to="/profile" className="w-9 h-9 rounded-full bg-neon-cyan/10 flex items-center justify-center border border-white/20 hover:border-neon-cyan transition" title="Profile">
-                            <User className="w-4 h-4 text-neon-cyan" />
+                        <Link to="/profile" className="w-9 h-9 rounded-full overflow-hidden border border-white/20 hover:border-neon-cyan transition" title="Profile">
+                            {avatarUrl ? (
+                                <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full bg-neon-cyan/10 flex items-center justify-center">
+                                    <User className="w-4 h-4 text-neon-cyan" />
+                                </div>
+                            )}
                         </Link>
                     )}
                 </div>

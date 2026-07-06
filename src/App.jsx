@@ -13,7 +13,10 @@ import Donations from './pages/Donations';
 import Contact from './pages/Contact';
 import TransparencyHub from './pages/TransparencyHub';
 import Profile from './pages/Profile';
+import EditProfile from './pages/EditProfile';
 import EmailConfirmation from './pages/EmailConfirmation';
+import PublicProfile from './pages/PublicProfile';
+import IdeaEdit from './pages/IdeaEdit';
 
 function App() {
     return (
@@ -30,6 +33,7 @@ function App() {
                         <Route path="/ideas" element={<GameIdeas />} />
                         <Route path="/ideas/submit" element={<IdeaSubmit />} />
                         <Route path="/ideas/:id" element={<IdeaDetail />} />
+                        <Route path="/ideas/:id/edit" element={<IdeaEdit />} />
                         <Route path="/projects" element={<Projects />} />
                         <Route path="/get-involved" element={<GetInvolved />} />
                         <Route path="/how-it-works" element={<HowItWorks />} />
@@ -38,7 +42,9 @@ function App() {
                         <Route path="/contact" element={<Contact />} />
                         <Route path="/transparency" element={<TransparencyHub />} />
                         <Route path="/profile" element={<Profile />} />
+                        <Route path="/profile/edit" element={<EditProfile />} />
                         <Route path="/confirm-email" element={<EmailConfirmation />} />
+                        <Route path="/u/:username" element={<PublicProfile />} />
                     </Routes>
                 </main>
 

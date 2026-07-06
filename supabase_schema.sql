@@ -10,8 +10,29 @@ create table if not exists ideas (
 	category text,
 	votes integer default 0,
 	last_vote_time timestamptz,
-	created_at timestamptz default now()
+	created_at timestamptz default now(),
+	user_id uuid references auth.users(id)
 );
+
+-- Ensure user_id exists for idea ownership (idempotent)
+alter table if exists ideas add column if not exists user_id uuid references auth.users(id);
+
+-- New columns for the enhanced submission form (idempotent)
+alter table if exists ideas add column if not exists problem_statement text;
+alter table if exists ideas add column if not exists tags text;
+alter table if exists ideas add column if not exists twitch_integration text;
+alter table if exists ideas add column if not exists inspiration text;
+alter table if exists ideas add column if not exists multiplayer_type text;
+alter table if exists ideas add column if not exists visual_style text;
+alter table if exists ideas add column if not exists game_setting text;
+alter table if exists ideas add column if not exists environmental_storytelling text;
+alter table if exists ideas add column if not exists ai_enemies boolean default false;
+alter table if exists ideas add column if not exists adaptive_ai boolean default false;
+alter table if exists ideas add column if not exists progression_system text;
+alter table if exists ideas add column if not exists economy_description text;
+alter table if exists ideas add column if not exists story_overview text;
+alter table if exists ideas add column if not exists endgame_potential text;
+alter table if exists ideas add column if not exists additional_notes text;
 
 -- Votes table (for tracking individual votes with timestamps for decay)
 create table if not exists votes (
@@ -45,8 +66,23 @@ create table if not exists profiles (
 	username text unique,
 	email text,
 	avatar_url text,
+	bio text,
+	interests text,
+	favorite_games text,
+	favorite_game_types text,
 	joined_at timestamptz default now()
 );
+
+-- Add new profile fields when migrating an existing DB (safe, idempotent)
+alter table if exists profiles add column if not exists bio text;
+alter table if exists profiles add column if not exists interests text;
+alter table if exists profiles add column if not exists favorite_games text;
+alter table if exists profiles add column if not exists favorite_game_types text;
+alter table if exists profiles add column if not exists discord text;
+alter table if exists profiles add column if not exists youtube text;
+alter table if exists profiles add column if not exists twitch text;
+alter table if exists profiles add column if not exists x_handle text;
+alter table if exists profiles add column if not exists signature text;
 
 -- Case-insensitive unique index for usernames
 create unique index if not exists idx_profiles_username_lower on profiles (lower(username));
@@ -79,25 +115,32 @@ create unique index if not exists idx_profiles_username_lower on profiles (lower
   using (bucket_id = 'avatars');
 */
 
-/* === RLS POLICIES FOR PROFILES (required for avatar + username updates) === */
+/* === RLS POLICIES FOR PROFILES (required for reliable profile persistence) === */
+
 -- Allow users to read their own profile
 drop policy if exists "Users can read own profile" on profiles;
 create policy "Users can read own profile"
 on profiles for select
 using (auth.uid() = id);
 
--- Allow users to update their own profile (username, avatar_url, etc.)
+-- Allow users to update their own profile
 drop policy if exists "Users can update own profile" on profiles;
 create policy "Users can update own profile"
 on profiles for update
 using (auth.uid() = id)
 with check (auth.uid() = id);
 
--- Allow insert on signup (safe to keep)
+-- Allow authenticated users to insert their own profile row (critical for signup)
 drop policy if exists "Users can insert own profile" on profiles;
 create policy "Users can insert own profile"
 on profiles for insert
 with check (auth.uid() = id);
+
+-- Allow public read of usernames only (for comments display)
+drop policy if exists "Public can read usernames" on profiles;
+create policy "Public can read usernames"
+on profiles for select
+using (true);
 
 -- Enable Row Level Security (RLS)
 alter table ideas enable row level security;
@@ -116,6 +159,10 @@ create policy "Public can read comments" on comments for select using (true);
 -- Allow anyone to submit ideas (public insert) — replace later with auth-only
 drop policy if exists "Anyone can submit ideas" on ideas;
 create policy "Anyone can submit ideas" on ideas for insert with check (true);
+
+-- Owners can delete their own ideas
+drop policy if exists "Owners can delete own ideas" on ideas;
+create policy "Owners can delete own ideas" on ideas for delete using (auth.uid() = user_id);
 
 -- Later, when using auth, replace the above with:
 -- drop policy if exists "Anyone can submit ideas" on ideas;
