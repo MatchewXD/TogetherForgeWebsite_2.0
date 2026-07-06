@@ -25,6 +25,87 @@ const HomePage = () => {
         <>
             <HeroSection />
 
+            {/* Forge Status / Quick Hub */}
+            <section id="quick-hub" className="py-12 border-t border-white/5">
+                <div className="container-custom">
+                    <div className="max-w-6xl mx-auto mb-8">
+                        <div className="section-header">FORGE STATUS / QUICK HUB</div>
+                        <h2 className="text-3xl font-bold tracking-tight text-white">Daily dashboard — scroll to begin</h2>
+                    </div>
+
+                    <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                        {/* Project status teasers */}
+                        <div className="space-y-4">
+                            <div className="cyber-card p-6">
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <div className="text-xs text-text-muted">EARLY GAME</div>
+                                        <h3 className="text-xl font-bold text-white">Prototype Systems</h3>
+                                        <p className="text-text-secondary mt-2">Core loop prototyping and networking tests. Volunteers: design, code, art.</p>
+                                    </div>
+                                </div>
+                                <div className="mt-4 text-right">
+                                    <a href="/projects" className="text-sm text-neon-cyan hover:underline">View projects</a>
+                                </div>
+                            </div>
+
+                            <div className="cyber-card p-6">
+                                <div className="text-xs text-text-muted">MID GAME</div>
+                                <h3 className="text-lg font-bold text-white">Core Features</h3>
+                                <p className="text-text-secondary mt-2">Design work and early integrations; recruiting volunteers for focused sprints.</p>
+                            </div>
+
+                            <div className="cyber-card p-6">
+                                <div className="text-xs text-text-muted">LATE GAME</div>
+                                <h3 className="text-lg font-bold text-white">Stability & Polish</h3>
+                                <p className="text-text-secondary mt-2">Polish passes, optimization, and wider playtests.</p>
+                            </div>
+                        </div>
+
+                        {/* Latest devlog / update teaser */}
+                        <div className="cyber-card p-6">
+                            <div className="text-xs text-text-muted">LATEST DEVLOG</div>
+                            <h3 className="text-xl font-bold text-white mt-1">State of the Forge — Monthly Devlog</h3>
+                            <p className="text-text-secondary mt-3">Quick summary of the latest work: idea form redesign, new submission limits, and RLS improvements. Read the full update for details and contributor shoutouts.</p>
+                            <div className="mt-4">
+                                <Link to="/transparency" className="text-neon-cyan hover:underline">Read the devlog</Link>
+                            </div>
+                        </div>
+
+                        {/* Quick links + Community Pulse */}
+                        <div className="space-y-4">
+                            <div className="cyber-card p-6">
+                                <div className="text-xs text-text-muted">QUICK LINKS</div>
+                                <div className="mt-3 grid gap-2">
+                                    <Link to="/ideas" className="block text-white hover:text-neon-cyan">Browse Ideas</Link>
+                                    <Link to="/get-involved" className="block text-white hover:text-neon-cyan">Active Tasks</Link>
+                                    <Link to="/transparency" className="block text-white hover:text-neon-cyan">Transparency Report</Link>
+                                    <Link to="/ideas" className="block text-white hover:text-neon-cyan">Recent Ideas</Link>
+                                </div>
+                            </div>
+
+                            <div className="cyber-card p-6">
+                                <div className="text-xs text-text-muted">COMMUNITY PULSE</div>
+                                <div className="mt-3 grid grid-cols-3 gap-3 text-center">
+                                    <div>
+                                        <div className="text-2xl font-bold text-white">—</div>
+                                        <div className="text-xs text-text-secondary">Volunteers</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-2xl font-bold text-white">—</div>
+                                        <div className="text-xs text-text-secondary">Ideas</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-2xl font-bold text-white">—</div>
+                                        <div className="text-xs text-text-secondary">Donations (this mo.)</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             {/* Mission Section */}
             <section id="mission" className="py-20 border-t border-white/10 bg-cyber-surface">
                 <div className="container-custom">

@@ -62,9 +62,9 @@ const Navbar = () => {
         };
     }, []); // run once, stable listeners only
 
+    // Main nav (always visible): Home, Game Ideas, Projects, Get Involved
     const navLinks = [
         { to: '/', label: 'HOME', icon: Hammer },
-        { to: '/about', label: 'ABOUT', icon: Users },
         { to: '/ideas', label: 'GAME IDEAS', icon: Users },
         { to: '/projects', label: 'PROJECTS', icon: Hammer },
         { to: '/get-involved', label: 'GET INVOLVED', icon: Users },
@@ -108,9 +108,11 @@ const Navbar = () => {
                         </button>
                         <div className="absolute hidden group-hover:block pt-2">
                             <div className="bg-cyber-surface border border-white/20 rounded p-4 w-48 text-sm space-y-3">
+                                <Link to="/about" className="block hover:text-neon-cyan">About</Link>
                                 <Link to="/how-it-works" className="block hover:text-neon-cyan">How It Works</Link>
                                 <Link to="/faq" className="block hover:text-neon-cyan">FAQ</Link>
                                 <Link to="/donations" className="block hover:text-neon-cyan">Support / Donations</Link>
+                                <Link to="/transparency" className="block hover:text-neon-cyan">Transparency Hub</Link>
                                 <Link to="/contact" className="block hover:text-neon-cyan">Contact</Link>
                                 <Link to="/profile" className="block hover:text-neon-cyan">Profile / Account</Link>
                             </div>
@@ -159,8 +161,12 @@ const Navbar = () => {
                                 {link.label}
                             </Link>
                         ))}
+                        <Link to="/about" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">About</Link>
                         <Link to="/how-it-works" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">How It Works</Link>
                         <Link to="/faq" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">FAQ</Link>
+                        <Link to="/donations" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Support / Donations</Link>
+                        <Link to="/transparency" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Transparency Hub</Link>
+                        <Link to="/contact" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Contact</Link>
 
                         {!user ? (
                             <Link to="/profile" onClick={() => setIsOpen(false)} className="btn-neon btn-neon-magenta w-full justify-center mt-4">

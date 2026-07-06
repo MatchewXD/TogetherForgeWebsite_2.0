@@ -17,6 +17,9 @@ import EditProfile from './pages/EditProfile';
 import EmailConfirmation from './pages/EmailConfirmation';
 import PublicProfile from './pages/PublicProfile';
 import IdeaEdit from './pages/IdeaEdit';
+import ProjectsEarly from './pages/ProjectsEarly';
+import ProjectsMid from './pages/ProjectsMid';
+import ProjectsLate from './pages/ProjectsLate';
 
 function App() {
     return (
@@ -35,6 +38,9 @@ function App() {
                         <Route path="/ideas/:id" element={<IdeaDetail />} />
                         <Route path="/ideas/:id/edit" element={<IdeaEdit />} />
                         <Route path="/projects" element={<Projects />} />
+                        <Route path="/projects/early" element={<ProjectsEarly />} />
+                        <Route path="/projects/mid" element={<ProjectsMid />} />
+                        <Route path="/projects/late" element={<ProjectsLate />} />
                         <Route path="/get-involved" element={<GetInvolved />} />
                         <Route path="/how-it-works" element={<HowItWorks />} />
                         <Route path="/faq" element={<FAQ />} />

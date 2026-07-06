@@ -117,7 +117,7 @@ const GameIdeas = () => {
                     </Link>
                 </div>
 
-                <div className="mb-8 flex flex-col sm:flex-row gap-4">
+                <div className="mb-8 flex flex-col sm:flex-row gap-4 max-w-[780px] w-full mx-auto">
                     <input
                         type="text"
                         placeholder="Search ideas..."

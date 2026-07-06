@@ -78,11 +78,32 @@ html {
     transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-    .cyber-card:hover {
+    /* Only apply the hover highlight to anchor cards or cards explicitly marked interactive */
+    a.cyber-card:hover, .cyber-card.interactive:hover {
         border-color: rgba(0, 249, 255, 0.4);
         box-shadow: 0 0 0 1px rgba(0, 249, 255, 0.1), 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
         transform: translateY(-2px);
     }
+
+/* Task-specific card variant: higher contrast against the task-board surface */
+.task-card {
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+/* Task column scroll area: fully hide native scrollbars but keep scrolling functional */
+.task-scroll {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+    -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
+}
+.task-scroll::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+/* Custom scrollbar overlay styling (used by JS) */
+.no-select {
+    user-select: none !important;
+}
 
 /* Neon Button Styles */
 .btn-neon {

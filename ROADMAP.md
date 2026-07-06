@@ -1,5 +1,5 @@
 # Together Forge Website Structure & Feature Roadmap 
-**Last Updated:** July 05, 2026
+**Last Updated:** July 06, 2026
 
 ## Philosophy
 - By the Community, For the Community
@@ -29,6 +29,16 @@
 - **Category dropdown** (recommended options below)
 - **Threaded discussions**: Users can branch off ideas, link related mechanics, post files/demos, comment threads
 
+Status (developer progress)
+
+- ? In progress — High priority for submissions/engagement
+  - ? Guided Idea submission form implemented (src/pages/IdeaSubmit.jsx) with structured fields, collapsible sections, per-field limits, dynamic lists (features, enemies, notes).
+  - ? Idea edit form implemented (src/pages/IdeaEdit.jsx) to mirror submission fields, with inline delete UI (no browser confirm) and tag deduplication on save.
+  - ? Client-side tag deduplication on submit and edit implemented.
+  - ? Idea list and card UI redesigned (browse UI improvements completed).
+  - ? Delete RLS policy added and applied (owners can delete their ideas); delete flow tested.
+  - ? Pending: Threaded discussions / branching comment threads, advanced search & filters, vote decay ranking.
+
 **Recommended Game Idea Categories:**
 1. Full Game Idea
 2. Game Mechanic
@@ -52,7 +62,7 @@
 - Task board teaser
 - Content creator volunteer section (paid when income allows)
 - Contribution badges / recognition
-- **Forge Hub / Community Projects** (phased rollout — see Phase 2/3 below): Allow indie developers to post projects and recruit volunteers from the community, with credit systems for helpers. Start internal to TogetherForge projects.
+- **Forge Hub / Community Projects** (phased rollout — see Phase 2/3 below): Allow indie developers to post projects and recruit community help (phased rollout, starting internal). Start internal to TogetherForge projects.
 
 ### 6. Interactive Demos (later)
 - Standardized mechanic testing
@@ -98,6 +108,45 @@
 - Public project roadmap with status indicators
 - Accounting / fund tracking integration for public transparency reports
 - Light decision log system (published reasoning for major choices)
+- [Guided Idea Creation Feature (New)
+Goal:
+Help users submit higher-quality, well-structured ideas by providing optional guided templates while keeping the process flexible.
+Core Flow:
+
+User selects Idea Type (Full Game Idea, Game Mechanic, Setting/Lore, Art/Visual Design, etc.).
+They can choose Freeform (current experience) or Guided Creation.
+Guided mode uses a step-by-step wizard tailored to the idea type.
+Final review screen allows editing before submission.
+Submitted idea appears as a normal post in the Game Ideas section.
+
+Key Features:
+
+Save as Draft — Users can pause and return later.
+AI Assistant Button — Takes current input and rewrites it into a clearer, more understandable version while preserving the original intent (not a full chatbot — one-click enhancement).
+Users can skip any step.
+Live preview pane (optional but recommended).
+Examples and tips shown alongside each prompt.
+
+Example Template – Game Mechanic:
+
+Step 1: Name (with naming tips and examples)
+Step 2: Core Description (“How does it work?”)
+Step 3: Gameplay / How to Use
+Step 4: Balance, Synergies & Counters
+Step 5: Visual / Audio Ideas (optional)
+Step 6: Tags & Additional Notes
+
+Similar templates will be created for other idea types (Full Game, Lore, Art, etc.).
+Distinction from General Ideas:
+
+Game Ideas page remains for open community-to-community sharing.
+Project-specific ideas can be submitted via “Suggest Ideas for This Project” buttons on Project pages (these will be tagged accordingly for easy discovery).
+
+Future Enhancements:
+
+Auto-tagging for Together Forge projects.
+Integration with task boards on active projects.
+Community voting or feedback on guided submissions.]
 
 ## Notes
 - Volunteer content creators added
@@ -110,3 +159,22 @@
 
 ## Future Enhancements
 - Public profile viewing: Allow other logged-in users to view each other's profiles (read-only view of Bio, Interests, Favorite Games, external links, etc.) while keeping private editing restricted to the owner via RLS.
+
+Repository progress notes (short)
+
+- Files updated: src/pages/IdeaSubmit.jsx, src/pages/IdeaEdit.jsx, src/components/Navbar.jsx, supabase_schema.sql (RLS additions).
+- Next technical actions: Run remaining ALTER TABLE migrations in supabase_schema.sql (features/enemies/additional_notes, progression/economy/story fields), audit and tighten RLS for insert/update, add server-side validation or DB constraints as needed, and implement threaded comments.
+
+## Today's Priorities (July 6, 2026)
+**Focus Areas:**
+- **Projects Page**: Expand from MVP to useful content. Include Early/Mid/Late Game sections with status cards, goals, contribution opportunities, and links. Pull from vision doc (small focused multiplayer ? medium indie ? large persistent world).
+- **Get Involved Page**: Flesh out volunteer opportunities, task board teaser, content creator section, badges/recognition. Make it actionable with clear calls to action.
+- **Home Page Improvements**: Enhance utility while keeping landing appeal. Add persistent navigation elements, quick links to active sections (Projects, Ideas, Transparency), featured devlog teaser, or a "Current Forge Status" widget. Consider a dashboard-like feel for returning users (e.g., "Welcome back - see latest updates").
+- Review and integrate content from Together Forge (2).docx across pages (Mission, Vision, Operating Model, Fair Progression).
+
+**Quick Wins:**
+- Update Navbar for better internal navigation.
+- Ensure consistent CTAs linking to Projects, Get Involved, etc.
+- Test mobile responsiveness.
+
+Let's iterate step by step! Update this file as you complete tasks.
