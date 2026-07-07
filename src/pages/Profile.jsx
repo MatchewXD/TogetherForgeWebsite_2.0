@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, User, Camera } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useIsModerator } from '../hooks/useIsModerator';
 import Cropper from 'react-easy-crop';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -32,6 +33,7 @@ const Profile = () => {
     const [crop, setCrop] = useState({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
     const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+    const { isModerator } = useIsModerator();
 
     useEffect(() => {
         const init = async () => {
@@ -534,7 +536,12 @@ const Profile = () => {
 
                                     {/* Name & Actions */}
                                     <div className="mb-2">
-                                        <div className="text-2xl font-bold tracking-tight text-white mb-1">{profileData?.username || 'No username'}</div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="text-2xl font-bold tracking-tight text-white">{profileData?.username || 'No username'}</div>
+                                            {isModerator && (
+                                                <span className="px-2 py-0.5 text-[10px] font-mono tracking-widest border border-neon-cyan text-neon-cyan rounded">MODERATOR</span>
+                                            )}
+                                        </div>
                                         <div className="text-text-secondary text-sm mb-3">{user.email}</div>
 
                                         <div className="flex flex-wrap gap-2">

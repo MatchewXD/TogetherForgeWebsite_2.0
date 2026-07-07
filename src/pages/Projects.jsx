@@ -2,6 +2,7 @@ import { ArrowLeft, Hammer, Users, Zap, PlusCircle, CheckSquare, Square, Wrench,
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useIsModerator } from '../hooks/useIsModerator';
 
 const Projects = () => {
     const projects = [
@@ -39,6 +40,7 @@ const Projects = () => {
     // unclaimedOnly removed: use the board filter buttons (activeFilter) instead
     const [expandedTaskId, setExpandedTaskId] = useState(null);
     const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'unclaimed' | 'in_progress' | 'completed'
+    const { isModerator } = useIsModerator();
 
     // Sample fallback data to show the UI when no DB rows exist yet
     const SAMPLE_TASKS = [
@@ -195,6 +197,11 @@ const Projects = () => {
                         <div>
                             <h1 className="text-5xl font-bold tracking-tight text-white">{projects[0].title} <span className="text-xs align-middle ml-3 bg-white/10 px-3 py-1 rounded">{projects[0].status}</span></h1>
                             <p className="text-text-secondary mt-4 max-w-3xl">{projects[0].desc}</p>
+                            {isModerator && (
+                                <div className="mt-3">
+                                    <Link to="/projects/edit" className="text-xs px-3 py-1.5 rounded-full border border-neon-cyan text-neon-cyan hover:bg-white/5">Edit Page</Link>
+                                </div>
+                            )}
                         </div>
                         <div className="w-80">
                             <div className="text-xs text-text-muted">Overall Progress</div>
