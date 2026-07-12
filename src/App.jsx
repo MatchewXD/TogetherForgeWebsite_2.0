@@ -23,16 +23,18 @@ import ProjectsLate from './pages/ProjectsLate';
 import ProjectsEarlyDetail from './pages/ProjectsEarlyDetail';
 import ProjectsEdit from './pages/ProjectsEdit';
 import ProjectsEarlyEdit from './pages/ProjectsEarlyEdit';
+import ProjectWorkspace from './pages/ProjectWorkspace';
+import Footer from './components/layout/Footer';
 
 function App() {
     return (
         <Router>
-            <div className="min-h-screen bg-cyber-bg text-text-primary font-display">
+            <div className="min-h-screen bg-cyber-bg text-text-primary font-display flex flex-col">
                 <Navbar />
 
                 <div className="scanline-overlay" />
 
-                <main>
+                <main className="flex-1">
                     <Routes>
                         <Route path="/" element={<HomePage />} />
                         <Route path="/about" element={<AboutPage />} />
@@ -47,6 +49,8 @@ function App() {
                         <Route path="/projects/early/edit" element={<ProjectsEarlyEdit />} />
                         <Route path="/projects/mid" element={<ProjectsMid />} />
                         <Route path="/projects/late" element={<ProjectsLate />} />
+                        {/* Generic workspace — after static phase routes so early/mid/late are not captured */}
+                        <Route path="/projects/:id" element={<ProjectWorkspace />} />
                         <Route path="/get-involved" element={<GetInvolved />} />
                         <Route path="/how-it-works" element={<HowItWorks />} />
                         <Route path="/faq" element={<FAQ />} />
@@ -59,27 +63,7 @@ function App() {
                         <Route path="/u/:username" element={<PublicProfile />} />
                     </Routes>
                 </main>
-
-                <footer className="border-t border-white/10 bg-cyber-surface py-12 text-sm">
-                    <div className="container-custom">
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-y-6 text-center md:text-left">
-                            <div>
-                                <div className="font-mono tracking-[3px] text-white">TOGETHERFORGE</div>
-                                <div className="text-xs text-text-muted mt-1">Community-first independent game studio • Est. 2026</div>
-                            </div>
-
-                            <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-text-secondary font-mono text-xs tracking-widest">
-                                <Link to="/" className="footer-link">HOME</Link>
-                                <Link to="/about" className="footer-link">ABOUT</Link>
-                                <Link to="/ideas" className="footer-link">GAME IDEAS</Link>
-                            </div>
-
-                            <div className="text-xs text-text-muted max-w-[220px] md:text-right">
-                                Building games worth playing.<br />Building communities worth belonging to.
-                            </div>
-                        </div>
-                    </div>
-                </footer>
+                <Footer />
             </div>
         </Router>
     );
