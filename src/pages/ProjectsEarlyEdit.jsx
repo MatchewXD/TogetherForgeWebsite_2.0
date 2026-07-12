@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useIsModerator } from '../hooks/useIsModerator';
+import { normalizeGoals } from '../utils/normalizeGoals';
 
 const DEFAULT_CONTENT = {
     heroTitle: 'Early Game Project Hub',
@@ -47,11 +48,8 @@ const ProjectsEarlyEdit = () => {
                 if (Array.isArray(loaded.goals)) {
                     loaded.goals = loaded.goals.map(g => `- ${g}`).join('\n');
                 } else if (typeof loaded.goals === 'string') {
-                    let g = loaded.goals
-                        .replace(/<small>(.*?)<\/small>/gi, '_$1_')
-                        .replace(/<[^>]*>/g, '');
-                    g = g.replace(/\\n/g, '\n').replace(/\\\\n/g, '\n');
-                    loaded.goals = g;
+                    // Store raw markdown exactly as saved – normalization happens only on display
+                    loaded.goals = loaded.goals;
                 } else {
                     loaded.goals = DEFAULT_CONTENT.goals;
                 }

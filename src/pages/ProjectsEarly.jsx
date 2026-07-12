@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useIsModerator } from '../hooks/useIsModerator';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { normalizeGoals } from '../utils/normalizeGoals';
 
 const ProjectsEarly = () => {
     const [games, setGames] = useState([]);
@@ -27,23 +28,8 @@ const ProjectsEarly = () => {
 
                 const { data: contentData } = await supabase.from('page_content').select('content').eq('page_key', 'early_game').single();
                 if (mounted && contentData?.content) {
-                    let loaded = contentData.content;
-                    if (Array.isArray(loaded.goals)) {
-                        loaded = { ...loaded, goals: loaded.goals.map(g => `- ${g}`).join('\n') };
-                    } else if (typeof loaded.goals === 'string') {
-                        let goalsStr = loaded.goals;
-                        // Convert escaped newline sequences (both single and double backslash forms) to real newlines
-                        goalsStr = goalsStr.replace(/\\n/g, '\n').replace(/\\\\n/g, '\n');
-                        // Strip HTML tags (e.g., <small>)
-                        goalsStr = goalsStr.replace(/<[^>]*>/g, '');
-                        // Split, trim, and ensure list prefixes
-                        const lines = goalsStr.split('\n').map(l => l.trim()).filter(Boolean);
-                        loaded.goals = lines.map(line => {
-                            if (line.startsWith('- ') || line.startsWith('* ')) return line;
-                            return `- ${line}`;
-                        }).join('\n');
-                    }
-                    setPageContent(loaded);
+                    // Store raw content; normalization happens only at render time via normalizeGoals()
+                    setPageContent(contentData.content);
                 }
             } catch {
                 if (mounted) setGames(SAMPLE_GAMES);
@@ -87,7 +73,7 @@ A small, focused multiplayer game that promotes teamwork and cooperation. The pr
                         <div className="section-header">Early game goals</div>
                         <div className="cyber-card p-4 mb-6 text-text-secondary prose prose-invert max-w-none">
                             {(() => {
-                                let goalsText = pageContent?.goals || `**Early Game (Proof of Concept)**
+                                const rawGoals = pageContent?.goals || `**Early Game (Proof of Concept)**
 
 * Test and prove our community-driven development model works.
 * Build and refine core cooperation and teamwork mechanics.
@@ -96,18 +82,7 @@ A small, focused multiplayer game that promotes teamwork and cooperation. The pr
 * Gather real community feedback to improve future projects.
 
 <small>Success metric: Strong community engagement during development + positive feedback on cooperative gameplay.</small>`;
-                                // Normalize: convert literal backslash-n sequences to real newlines, convert <small> to markdown italics, strip other HTML, ensure list markers
-                                goalsText = goalsText.split('\\n').join('\n');
-                                goalsText = goalsText
-                                    .replace(/<small>(.*?)<\/small>/gi, '_$1_')
-                                    .replace(/<[^>]*>/g, '');
-                                goalsText = goalsText.split('\n').map(line => {
-                                    const t = line.trim();
-                                    if (!t) return '';
-                                    if (t.toLowerCase().startsWith('success metric:')) return `_${t}_`;
-                                    if (t.startsWith('- ') || t.startsWith('* ') || t.startsWith('> ') || t.startsWith('**') || t.startsWith('#') || t.startsWith('_')) return t;
-                                    return `- ${t}`;
-                                }).filter(Boolean).join('\n');
+                                const goalsText = normalizeGoals(rawGoals);
                                 return <ReactMarkdown remarkPlugins={[remarkGfm]}>{goalsText}</ReactMarkdown>;
                             })()}
                         </div>
@@ -172,6 +147,12 @@ A small, focused multiplayer game that promotes teamwork and cooperation. The pr
                             <div className="text-text-secondary text-sm mt-3">Every contribution is credited publicly, and we are transparent about how support is used.</div>
                             <div className="mt-4">
                                 <Link to="/get-involved" className="btn-primary">Get Involved</Link>
+                                <button 
+                                    onClick={() => alert("Test successful.")}
+                                    className="ml-3 px-4 py-2 bg-neon-cyan text-black font-semibold rounded hover:bg-white transition"
+                                >
+                                    We did it
+                                </button>
                             </div>
                         </div>
                     </div>

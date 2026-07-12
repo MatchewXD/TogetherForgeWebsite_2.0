@@ -1,10 +1,13 @@
+# Successfully added a line of code
+# Successfully added a line of code
+# Successfully added a line of code
 # Together Forge Website Structure & Feature Roadmap 
 **Last Updated:** July 06, 2026
 
 ## Philosophy
 - By the Community, For the Community
 - Prioritize quality mechanics, fun, and real connection
-- Profits reinvested for growth — not investors or excessive executive pay
+- Profits reinvested for growth ï¿½ not investors or excessive executive pay
 - Fully transparent operations and finances
 - Volunteer-friendly with proper credit for every contributor
 - Community support funds development; incoming contributions treated as business revenue. Net proceeds after taxes and legitimate expenses are reinvested into games, tools, and community initiatives. Founder takes a reasonable living wage only.
@@ -19,7 +22,7 @@
 ### 2. About
 - Who we are + AAA critique
 - Mission & Vision (cooperative survival/builder games, community building)
-- How we operate (transparent community-supported studio — no outside investors, profits reinvested, founder takes living wage only)
+- How we operate (transparent community-supported studio ï¿½ no outside investors, profits reinvested, founder takes living wage only)
 - Clear legal & financial structure disclosure
 - Call to action
 
@@ -31,7 +34,7 @@
 
 Status (developer progress)
 
-- ? In progress — High priority for submissions/engagement
+- ? In progress ï¿½ High priority for submissions/engagement
   - ? Guided Idea submission form implemented (src/pages/IdeaSubmit.jsx) with structured fields, collapsible sections, per-field limits, dynamic lists (features, enemies, notes).
   - ? Idea edit form implemented (src/pages/IdeaEdit.jsx) to mirror submission fields, with inline delete UI (no browser confirm) and tag deduplication on save.
   - ? Client-side tag deduplication on submit and edit implemented.
@@ -62,7 +65,7 @@ Status (developer progress)
 - Task board teaser
 - Content creator volunteer section (paid when income allows)
 - Contribution badges / recognition
-- **Forge Hub / Community Projects** (phased rollout — see Phase 2/3 below): Allow indie developers to post projects and recruit community help (phased rollout, starting internal). Start internal to TogetherForge projects.
+- **Forge Hub / Community Projects** (phased rollout ï¿½ see Phase 2/3 below): Allow indie developers to post projects and recruit community help (phased rollout, starting internal). Start internal to TogetherForge projects.
 
 ### 6. Interactive Demos (later)
 - Standardized mechanic testing
@@ -82,7 +85,7 @@ Status (developer progress)
 - Public financial summaries (donations received, major expense categories, reinvestment into projects)
 - Public project roadmap & progress
 - Volunteer credits & contributor gallery
-- Decision logs (light version — why certain ideas or directions were chosen)
+- Decision logs (light version ï¿½ why certain ideas or directions were chosen)
 - Regular update archive (monthly "State of the Forge" summaries)
 - Mini-site style founder expense transparency (if desired)
 - How decisions are made section
@@ -98,7 +101,7 @@ Status (developer progress)
 ## Phase 2 Features
 - User accounts & profiles
 - Contribution badges
-- Full task claiming system (internal to TogetherForge first) — public view of open/in-progress/completed tasks with volunteer credits
+- Full task claiming system (internal to TogetherForge first) ï¿½ public view of open/in-progress/completed tasks with volunteer credits
 - **Transparency Hub** (full version): Financial summaries, public roadmap, decision logs, volunteer gallery, regular update system
 - Forums / threaded discussions on ideas
 - Sorting, tags, filters on ideas
@@ -121,16 +124,16 @@ Submitted idea appears as a normal post in the Game Ideas section.
 
 Key Features:
 
-Save as Draft — Users can pause and return later.
-AI Assistant Button — Takes current input and rewrites it into a clearer, more understandable version while preserving the original intent (not a full chatbot — one-click enhancement).
+Save as Draft ï¿½ Users can pause and return later.
+AI Assistant Button ï¿½ Takes current input and rewrites it into a clearer, more understandable version while preserving the original intent (not a full chatbot ï¿½ one-click enhancement).
 Users can skip any step.
 Live preview pane (optional but recommended).
 Examples and tips shown alongside each prompt.
 
-Example Template – Game Mechanic:
+Example Template ï¿½ Game Mechanic:
 
 Step 1: Name (with naming tips and examples)
-Step 2: Core Description (“How does it work?”)
+Step 2: Core Description (ï¿½How does it work?ï¿½)
 Step 3: Gameplay / How to Use
 Step 4: Balance, Synergies & Counters
 Step 5: Visual / Audio Ideas (optional)
@@ -140,7 +143,7 @@ Similar templates will be created for other idea types (Full Game, Lore, Art, et
 Distinction from General Ideas:
 
 Game Ideas page remains for open community-to-community sharing.
-Project-specific ideas can be submitted via “Suggest Ideas for This Project” buttons on Project pages (these will be tagged accordingly for easy discovery).
+Project-specific ideas can be submitted via ï¿½Suggest Ideas for This Projectï¿½ buttons on Project pages (these will be tagged accordingly for easy discovery).
 
 Future Enhancements:
 
@@ -152,7 +155,7 @@ Community voting or feedback on guided submissions.]
 - Volunteer content creators added
 - Strong emphasis on transparency and crediting
 - Threaded / branching idea discussions added
-- **Forge Hub expansion**: Phase 3+ — Open to external indie teams for project posting and volunteer recruitment (with guidelines, moderation, and credit systems). Start light internally to validate and build community habits first.
+- **Forge Hub expansion**: Phase 3+ ï¿½ Open to external indie teams for project posting and volunteer recruitment (with guidelines, moderation, and credit systems). Start light internally to validate and build community habits first.
 - All financial tracking treats incoming support as business revenue; focus on net after-tax reinvestment into projects. Founder compensation limited to reasonable living wage.
 - Legal/compliance: Include clear disclosure of business structure, disclaimers on donations (not tax-deductible), terms of service for idea submissions, contributions, and volunteer project collaborations (IP/credit policies important)
 - Commit to regular public updates (e.g., monthly "State of the Forge" summaries covering finances, progress, challenges, and decisions)
@@ -180,16 +183,16 @@ Repository progress notes (short)
 Let's iterate step by step! Update this file as you complete tasks.
 
 
-Community Idea Development – Guided Discussions (Project Questions)
+Community Idea Development ï¿½ Guided Discussions (Project Questions)
 Purpose
 To develop high-quality ideas quickly and in a focused way, we will use structured discussions on each project page. This gives the community clear direction while allowing creative input.
 How It Works
-On every project page (especially Early Game projects), there will be a prominent section called “Open Questions from the Team” pinned at the top of the idea feed.
+On every project page (especially Early Game projects), there will be a prominent section called ï¿½Open Questions from the Teamï¿½ pinned at the top of the idea feed.
 
 The development team (or moderators) will post specific, focused questions.
 Community members reply with ideas, suggestions, and concepts.
 Replies can be upvoted so the best ideas rise to the top.
-The team can mark particularly strong replies as “Promising” or “Adopted” with visible badges and credit the contributor.
+The team can mark particularly strong replies as ï¿½Promisingï¿½ or ï¿½Adoptedï¿½ with visible badges and credit the contributor.
 
 Example Question Post:
 Title: What should the main player goal / core loop be for our first game?
