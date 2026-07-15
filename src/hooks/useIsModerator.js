@@ -27,8 +27,13 @@ export function useIsModerator() {
                     .single();
 
                 if (mounted) {
+                    // Staff roles that can create/edit tasks and moderate (SDD §3 & §6)
                     const role = profile?.role || 'user';
-                    setIsModerator(role === 'moderator' || role === 'admin');
+                    setIsModerator(
+                        role === 'moderator' ||
+                            role === 'admin' ||
+                            role === 'project_lead'
+                    );
                 }
             } catch (_) {
                 if (mounted) setIsModerator(false);

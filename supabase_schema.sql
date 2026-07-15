@@ -201,3 +201,14 @@ for select using (auth.uid() = user_id);
 drop policy if exists "Users can insert own username history" on username_history;
 create policy "Users can insert own username history" on username_history
 for insert with check (auth.uid() = user_id);
+
+-- =============================================================================
+-- TASK BOARD (projects, tasks, task_claims, activity_log)
+-- Full script (tables + RLS + RPCs + seed): run supabase_tasks_schema.sql
+-- in the Supabase SQL Editor. Do not skip — the Project Workspace depends on it.
+-- =============================================================================
+
+-- Ideas ↔ project linking (Project Workspace Project Ideas section)
+-- Run in Supabase SQL Editor if project_id is missing on ideas
+alter table if exists ideas add column if not exists project_id text;
+create index if not exists idx_ideas_project_id on ideas (project_id);

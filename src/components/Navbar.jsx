@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Hammer, Users, Youtube, Heart, CheckCircle, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import UserAvatar from './ui/UserAvatar';
 
 const Navbar = () => {
     const [isOpen, setIsOpen] = useState(false);
@@ -125,14 +126,19 @@ const Navbar = () => {
                             <Heart className="w-3.5 h-3.5" /> JOIN THE FORGE
                         </Link>
                     ) : (
-                        <Link to="/profile" className="w-9 h-9 rounded-full overflow-hidden border border-white/20 hover:border-neon-cyan transition" title="Profile">
-                            {avatarUrl ? (
-                                <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full bg-neon-cyan/10 flex items-center justify-center">
-                                    <User className="w-4 h-4 text-neon-cyan" />
-                                </div>
-                            )}
+                        <Link
+                            to="/profile"
+                            className="rounded-full hover:opacity-90 transition ring-1 ring-white/20 hover:ring-neon-cyan"
+                            title="Profile"
+                        >
+                            <UserAvatar
+                                src={avatarUrl}
+                                name={user?.email || 'You'}
+                                size="md"
+                                className="!w-9 !h-9"
+                                borderClass="border border-transparent"
+                                alt="Profile"
+                            />
                         </Link>
                     )}
                 </div>

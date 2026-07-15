@@ -76,6 +76,25 @@ describe('useIsModerator hook', () => {
         expect(result.current.isModerator).toBe(true);
     });
 
+    it('returns true for project_lead role', async () => {
+        supabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
+        supabase.from.mockReturnValue({
+            select: () => ({
+                eq: () => ({
+                    single: () => Promise.resolve({ data: { role: 'project_lead' } })
+                })
+            })
+        });
+
+        const { result } = renderHook(() => useIsModerator());
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.isModerator).toBe(true);
+    });
+
     it('returns false for regular user role', async () => {
         supabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
         supabase.from.mockReturnValue({

@@ -1,7 +1,11 @@
-import { ArrowLeft, MessageCircle, Flame } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Flame, ExternalLink, Hammer } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
+import UserAvatar from '../components/ui/UserAvatar';
+import Badge from '../components/ui/Badge';
+import { ideasService } from '../services/ideasService';
+import { tasksService } from '../services/tasksService';
 
 const IdeaDetail = () => {
     const { id } = useParams();
@@ -16,8 +20,9 @@ const IdeaDetail = () => {
     const [replyTo, setReplyTo] = useState(null); // { id, username }
     const [replyText, setReplyText] = useState('');
     const [collapsed, setCollapsed] = useState(new Set()); // comment ids that are collapsed
+    const [linkedProject, setLinkedProject] = useState(null); // { slug, title }
 
-    const ideaId = parseInt(id);
+    const ideaId = parseInt(id, 10);
 
     useEffect(() => {
         supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -35,26 +40,28 @@ const IdeaDetail = () => {
 
     useEffect(() => {
         const fetchIdea = async () => {
-            const { data, error } = await supabase
-                .from('ideas')
-                .select('*')
-                .eq('id', ideaId)
-                .single();
-
-            if (!error && data) {
-                let creator = null;
-                if (data.user_id) {
-                    const { data: prof } = await supabase.from('profiles').select('username, avatar_url').eq('id', data.user_id).maybeSingle();
-                    creator = prof ? { username: prof.username, avatar_url: prof.avatar_url } : null;
+            try {
+                const data = await ideasService.getIdeaWithCreator(ideaId);
+                if (data) {
+                    setIdea(data);
+                } else {
+                    setIdea({
+                        id: ideaId,
+                        title: 'Idea not found',
+                        summary: 'This idea does not exist or could not be loaded.',
+                        category: 'Unknown',
+                        votes: 0,
+                        creator: null,
+                    });
                 }
-                setIdea({ ...data, creator });
-            } else {
+            } catch {
                 setIdea({
                     id: ideaId,
-                    title: "Idea not found",
-                    summary: "This idea does not exist or could not be loaded.",
-                    category: "Unknown",
-                    votes: 0
+                    title: 'Idea not found',
+                    summary: 'This idea does not exist or could not be loaded.',
+                    category: 'Unknown',
+                    votes: 0,
+                    creator: null,
                 });
             }
             setLoading(false);
@@ -62,43 +69,71 @@ const IdeaDetail = () => {
         fetchIdea();
     }, [ideaId]);
 
+    // Resolve project_id (slug or uuid) → workspace path + title
+    useEffect(() => {
+        let cancelled = false;
+        const resolveProject = async () => {
+            const raw = idea?.project_id || idea?.projectId || null;
+            if (!raw) {
+                setLinkedProject(null);
+                return;
+            }
+            const key = String(raw).trim();
+            // Prefer slug lookup (workspace routes use slug)
+            try {
+                const bySlug = await tasksService.getProjectBySlug(key);
+                if (!cancelled && bySlug) {
+                    setLinkedProject({
+                        slug: bySlug.slug || key,
+                        title: bySlug.title || bySlug.slug || key,
+                    });
+                    return;
+                }
+            } catch {
+                // fall through
+            }
+
+            // UUID lookup against projects table
+            try {
+                const { data } = await supabase
+                    .from('projects')
+                    .select('slug, title, id')
+                    .eq('id', key)
+                    .maybeSingle();
+                if (!cancelled && data) {
+                    setLinkedProject({
+                        slug: data.slug || key,
+                        title: data.title || data.slug || key,
+                    });
+                    return;
+                }
+            } catch {
+                // fall through
+            }
+
+            // Fallback: treat stored value as route slug
+            if (!cancelled) {
+                setLinkedProject({ slug: key, title: key });
+            }
+        };
+        resolveProject();
+        return () => {
+            cancelled = true;
+        };
+    }, [idea?.project_id, idea?.projectId]);
+
+    const projectPath = useMemo(() => {
+        if (!linkedProject?.slug) return null;
+        return `/projects/${linkedProject.slug}`;
+    }, [linkedProject]);
+
     const fetchComments = async () => {
-        const { data: commentsData, error } = await supabase
-            .from('comments')
-            .select('id, content, created_at, user_id, parent_id')
-            .eq('idea_id', ideaId)
-            .order('created_at', { ascending: true });
-
-        if (error || !commentsData) {
+        try {
+            const enriched = await ideasService.getCommentsWithProfiles(ideaId);
+            setComments(enriched || []);
+        } catch (error) {
             console.error('Error fetching comments:', error);
-            return;
         }
-
-        const userIds = [...new Set(commentsData.map(c => c.user_id).filter(Boolean))];
-
-        let profileMap = {};
-        if (userIds.length > 0) {
-            const { data: profilesData, error: profileError } = await supabase
-                .from('profiles')
-                .select('id, username, avatar_url')
-                .in('id', userIds);
-
-            if (profileError) {
-                console.error('Error fetching profiles:', profileError);
-            }
-
-            if (profilesData) {
-                profileMap = Object.fromEntries(profilesData.map(p => [p.id, { username: p.username, avatar_url: p.avatar_url }]));
-            }
-        }
-
-        const enriched = commentsData.map(c => ({
-            ...c,
-            votes: c.votes || 0,
-            profiles: profileMap[c.user_id] || { username: 'User', avatar_url: null }
-        }));
-
-        setComments(enriched);
     };
 
     useEffect(() => {
@@ -163,20 +198,47 @@ const IdeaDetail = () => {
                 </Link>
 
                 <div className="mb-8 flex items-start justify-between gap-4">
-                    <div>
-                        <div className="text-xs font-mono text-neon-cyan mb-2">{idea.category}</div>
+                    <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <div className="text-xs font-mono text-neon-cyan">{idea.category}</div>
+                            {linkedProject && (
+                                <Badge variant="purple" className="!normal-case tracking-wide">
+                                    Project · {linkedProject.title}
+                                </Badge>
+                            )}
+                        </div>
                         <h1 className="text-5xl font-bold tracking-tight text-white mb-4">{idea.title}</h1>
                         <p className="text-xl text-text-secondary">{idea.summary}</p>
-                        {idea.creator && (
-                            <div className="mt-1 flex items-center gap-2 text-base text-neon-cyan">
-                                {idea.creator.avatar_url ? (
-                                    <img src={idea.creator.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
-                                ) : (
-                                    <div className="w-7 h-7 rounded-full bg-neon-cyan/20" />
-                                )}
-                                <span>{idea.creator.username}</span>
+                        <div className="mt-3 flex flex-wrap items-center gap-4 text-base text-neon-cyan min-w-0">
+                            <div className="inline-flex items-center gap-3 min-w-0">
+                                <UserAvatar
+                                    src={
+                                        idea.creator?.avatar_url ||
+                                        idea.creator?.avatarUrl
+                                    }
+                                    name={idea.creator?.username || 'Community'}
+                                    size="md"
+                                />
+                                <div className="min-w-0">
+                                    <div className="text-[10px] font-mono tracking-widest text-text-muted uppercase">
+                                        Submitted by
+                                    </div>
+                                    <div className="truncate">
+                                        {idea.creator?.username || 'Community'}
+                                    </div>
+                                </div>
                             </div>
-                        )}
+                            {projectPath && (
+                                <Link
+                                    to={projectPath}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-neon-cyan/40 bg-cyber-surface/80 px-3 py-2 text-sm text-neon-cyan hover:bg-neon-cyan/10 hover:border-neon-cyan transition-colors"
+                                >
+                                    <Hammer className="w-4 h-4 shrink-0" />
+                                    <span className="font-mono tracking-wide">View Project</span>
+                                    <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                                </Link>
+                            )}
+                        </div>
                     </div>
                     {user && idea.user_id === user.id && (
                         <Link to={`/ideas/${ideaId}/edit`} className="btn-neon text-sm px-4 py-2 self-start mt-2">EDIT</Link>
@@ -303,14 +365,19 @@ const IdeaDetail = () => {
                                 const isCollapsed = collapsed.has(c.id);
                                 return (
                                     <div key={c.id} className="bg-cyber-surface/60 p-4 rounded border border-white/10" style={{ marginLeft: Math.min(depth * 16, 64) + 'px' }}>
-                                        <div className="flex items-center gap-2 text-sm text-neon-cyan mb-1">
-                                            {c.profiles?.avatar_url ? (
-                                                <img src={c.profiles.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />
-                                            ) : (
-                                                <div className="w-5 h-5 rounded-full bg-neon-cyan/20" />
-                                            )}
-                                            <span>{c.profiles?.username || 'Anonymous'}</span>
-                                            <button onClick={() => toggleCollapse(c.id)} className="ml-auto text-[10px] text-text-muted hover:text-white">
+                                        <div className="flex items-center gap-2 text-sm text-neon-cyan mb-1 min-w-0">
+                                            <UserAvatar
+                                                src={
+                                                    c.profiles?.avatar_url ||
+                                                    c.profiles?.avatarUrl
+                                                }
+                                                name={c.profiles?.username || 'Anonymous'}
+                                                size="sm"
+                                            />
+                                            <span className="truncate min-w-0">
+                                                {c.profiles?.username || 'Anonymous'}
+                                            </span>
+                                            <button onClick={() => toggleCollapse(c.id)} className="ml-auto text-[10px] text-text-muted hover:text-white shrink-0">
                                                 {isCollapsed ? 'Expand' : 'Collapse'}
                                             </button>
                                         </div>

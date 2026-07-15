@@ -1,10 +1,18 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ArrowLeft, Send, Plus, Trash2 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { ideasService } from '../services/ideasService';
 
 const IdeaSubmit = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    // project slug or id from /ideas/submit?project=prototype-systems
+    const linkedProjectId = useMemo(() => {
+        const raw = searchParams.get('project');
+        return raw ? String(raw).trim() : null;
+    }, [searchParams]);
+
     const [formData, setFormData] = useState({
         title: '',
         category: '',
@@ -29,6 +37,7 @@ const IdeaSubmit = () => {
         additionalNotes: [''],
     });
     const [message, setMessage] = useState('');
+    const [submitting, setSubmitting] = useState(false);
 
     const addFeature = () => {
         if (formData.features.length >= 15) return;
@@ -45,6 +54,9 @@ const IdeaSubmit = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setMessage('');
+
+        if (submitting) return;
 
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
@@ -52,41 +64,89 @@ const IdeaSubmit = () => {
             return;
         }
 
+        if (!(formData.title || '').trim()) {
+            setMessage('Title is required.');
+            return;
+        }
+        if (!(formData.category || '').trim()) {
+            setMessage('Category is required.');
+            return;
+        }
+        if (!(formData.summary || '').trim()) {
+            setMessage('Short summary is required.');
+            return;
+        }
+
         // Deduplicate tags
         const uniqueTags = [...new Set((formData.tags || '').split(',').map(t => t.trim()).filter(Boolean))].join(', ');
 
+        // Schema-safe payload (ideasService maps extras → real columns)
         const newIdea = {
-            title: formData.title,
-            summary: formData.summary,
+            title: formData.title.trim(),
+            summary: formData.summary.trim(),
             category: formData.category || 'Idea',
             votes: 0,
             description: formData.description,
             tags: uniqueTags,
             inspiration: formData.inspiration,
-            twitch_integration: formData.twitchIntegration,
-            multiplayer_type: formData.multiplayerType,
-            visual_style: formData.visualStyle,
-            environmental_storytelling: formData.environmentalStorytelling,
-            enemies: formData.enemies,
-            progression_type: formData.progressionType,
-            progression_details: formData.progressionDetails,
-            economy_resource: formData.economyResource,
-            economy_trading: formData.economyTrading,
-            has_main_story: formData.hasMainStory,
-            story_overview: formData.storyOverview,
-            has_endgame: formData.hasEndgame,
-            endgame_details: formData.endgameDetails,
-            additional_notes: formData.additionalNotes,
+            twitchIntegration: formData.twitchIntegration,
+            multiplayerType: formData.multiplayerType,
+            visualStyle: formData.visualStyle,
+            environmentalStorytelling: formData.environmentalStorytelling,
+            progressionType: formData.progressionType,
+            progressionDetails: formData.progressionDetails,
+            economyResource: formData.economyResource,
+            economyTrading: formData.economyTrading,
+            storyOverview: formData.storyOverview,
+            endgameDetails: formData.endgameDetails,
+            // Persist features/enemies/notes as text via additional_notes mapping
+            additionalNotes: [
+                ...(formData.features || [])
+                    .filter((f) => f.name || f.description)
+                    .map((f) => `Feature — ${f.name}: ${f.description}`),
+                ...(formData.enemies || [])
+                    .filter((en) => en.name || en.description)
+                    .map((en) => `Enemy — ${en.name}: ${en.description}`),
+                ...(formData.additionalNotes || []).filter(Boolean),
+            ],
             user_id: session.user.id,
+            // Link to project workspace when submitted via ?project=
+            ...(linkedProjectId ? { project_id: linkedProjectId } : {}),
         };
 
-        const { data, error } = await supabase.from('ideas').insert([newIdea]).select('id').single();
-        if (error) {
-            setMessage('Error submitting idea: ' + error.message);
-            return;
-        }
+        setSubmitting(true);
+        try {
+            const data = await ideasService.createIdea(newIdea);
+            if (!data?.id) {
+                throw new Error('Idea was created but no id was returned.');
+            }
 
-        navigate(`/ideas/${data.id}`);
+            if (data._project_id_not_persisted && linkedProjectId) {
+                // Column missing in DB — still navigate, but warn briefly via query
+                navigate(
+                    `/projects/${linkedProjectId}#project-ideas`,
+                    { replace: true, state: { ideaSavedWithoutProjectId: true, ideaId: data.id } }
+                );
+                return;
+            }
+
+            if (linkedProjectId) {
+                navigate(`/projects/${linkedProjectId}#project-ideas`, {
+                    replace: true,
+                    state: { newIdeaId: data.id },
+                });
+            } else {
+                navigate(`/ideas/${data.id}`, { replace: true });
+            }
+        } catch (err) {
+            console.error('[IdeaSubmit] create failed', err);
+            setMessage(
+                'Error submitting idea: ' +
+                    (err?.message || err?.error_description || 'Unknown error')
+            );
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -98,8 +158,26 @@ const IdeaSubmit = () => {
 
                 <div>
                     <div className="section-header">SUBMIT IDEA</div>
-                    <h1 className="text-5xl font-bold tracking-tight text-white mb-12">Share your vision with the Forge</h1>
+                    <h1 className="text-5xl font-bold tracking-tight text-white mb-4">Share your vision with the Forge</h1>
+                    {linkedProjectId ? (
+                        <p className="text-text-secondary mb-12 text-sm font-mono">
+                            Linked to project{' '}
+                            <span className="text-neon-cyan">{linkedProjectId}</span>
+                            {' — '}this idea will show on that project&apos;s board.
+                        </p>
+                    ) : (
+                        <div className="mb-12" />
+                    )}
                 </div>
+
+                {message && (
+                    <div
+                        role="alert"
+                        className="mb-6 rounded-lg border border-red-400/40 bg-red-400/10 px-4 py-3 text-sm text-red-100"
+                    >
+                        {message}
+                    </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="static-card p-10 space-y-12">
                     {/* 1. Basic Information */}
@@ -310,8 +388,13 @@ const IdeaSubmit = () => {
 
 
 
-                    <button type="submit" className="btn-primary btn-neon w-full py-5 text-lg flex items-center justify-center gap-3 mt-8">
-                        <Send className="w-5 h-5" /> SUBMIT TO THE FORGE
+                    <button
+                        type="submit"
+                        disabled={submitting}
+                        className="btn-primary btn-neon w-full py-5 text-lg flex items-center justify-center gap-3 mt-8 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                        <Send className="w-5 h-5" />
+                        {submitting ? 'SUBMITTING…' : 'SUBMIT TO THE FORGE'}
                     </button>
                 </form>
             </div>

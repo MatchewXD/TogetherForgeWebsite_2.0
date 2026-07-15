@@ -14,6 +14,11 @@ supabase_schema.sql
 tailwind.config.js
 temp_structure.txt
 vite.config.js
+dist\favicon.svg
+dist\icons.svg
+dist\index.html
+dist\assets\index-D6FYeQFM.js
+dist\assets\index-_-SHCc88.css
 src\App.css
 src\App.jsx
 src\index.css
@@ -24,6 +29,16 @@ src\assets\react.svg
 src\assets\vite.svg
 src\components\HeroSection.jsx
 src\components\Navbar.jsx
+src\components\layout\Footer.jsx
+src\components\ui\ActivityItem.jsx
+src\components\ui\Badge.jsx
+src\components\ui\Buttons.jsx
+src\components\ui\Card.jsx
+src\components\ui\Input.jsx
+src\components\ui\Modal.jsx
+src\components\ui\ProjectCard.jsx
+src\components\ui\StatWidget.jsx
+src\components\ui\TaskCard.jsx
 src\hooks\useIsModerator.js
 src\lib\supabase.js
 src\pages\AboutPage.jsx
@@ -47,6 +62,7 @@ src\pages\ProjectsEarlyEdit.jsx
 src\pages\ProjectsEdit.jsx
 src\pages\ProjectsLate.jsx
 src\pages\ProjectsMid.jsx
+src\pages\ProjectWorkspace.jsx
 src\pages\PublicProfile.jsx
 src\pages\TransparencyHub.jsx
 src\services\ideasService.js

@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, User, Camera } from 'lucide-react';
+import { ArrowLeft, Camera } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useIsModerator } from '../hooks/useIsModerator';
 import Cropper from 'react-easy-crop';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import UserAvatar from '../components/ui/UserAvatar';
 
 const Profile = () => {
     const navigate = useNavigate();
@@ -521,13 +522,14 @@ const Profile = () => {
                                     {/* Avatar */}
                                     <div className="relative inline-block mb-4">
                                         <div className="relative w-28 h-28 rounded-full ring-4 ring-cyber-surface overflow-hidden border border-white/10 bg-cyber-surface">
-                                            {profileData?.avatar_url ? (
-                                                <img src={profileData.avatar_url} alt="Avatar" className="w-28 h-28 object-cover" />
-                                            ) : (
-                                                <div className="w-28 h-28 flex items-center justify-center">
-                                                    <User className="w-14 h-14 text-neon-cyan" />
-                                                </div>
-                                            )}
+                                            <UserAvatar
+                                                src={profileData?.avatar_url}
+                                                name={profileData?.username || form.username || 'You'}
+                                                size="xl"
+                                                className="!w-28 !h-28"
+                                                borderClass="border-0"
+                                                alt="Avatar"
+                                            />
                                         </div>
                                         <button onClick={openAvatarModal} className="absolute bottom-2 right-2 bg-cyber-surface border border-white/20 rounded-full p-2 hover:border-neon-cyan" title="Change profile picture">
                                             <Camera className="w-4 h-4 text-neon-cyan" />

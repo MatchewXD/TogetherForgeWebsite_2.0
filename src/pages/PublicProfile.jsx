@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import UserAvatar from '../components/ui/UserAvatar';
 
 const PublicProfile = () => {
     const { username } = useParams();
@@ -58,11 +59,14 @@ const PublicProfile = () => {
                     </div>
                     <div className="-mt-16 ml-6 relative z-10 flex items-end gap-4">
                         <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-cyber-bg bg-cyber-surface">
-                            {profile.avatar_url ? (
-                                <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-neon-cyan">👤</div>
-                            )}
+                            <UserAvatar
+                                src={profile.avatar_url}
+                                name={profile.username}
+                                size="xl"
+                                className="!w-28 !h-28"
+                                borderClass="border-0"
+                                alt={`${profile.username}'s avatar`}
+                            />
                         </div>
                         <div className="mb-2">
                             <div className="text-3xl font-bold tracking-tight">{profile.username}</div>
