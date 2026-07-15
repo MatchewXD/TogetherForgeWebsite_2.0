@@ -288,6 +288,14 @@ begin
     raise exception 'This task is already claimed';
   end if;
 
+  -- Cap concurrent claims per volunteer (site-wide)
+  if (
+    select count(*) from task_claims
+    where user_id = v_uid and status = 'Active'
+  ) >= 5 then
+    raise exception 'You already have 5 active tasks. Finish or return one before claiming another.';
+  end if;
+
   insert into task_claims (task_id, user_id, status, progress_percent, last_activity_at)
   values (p_task_id, v_uid, 'Active', 0, now())
   returning * into v_claim;

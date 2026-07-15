@@ -112,10 +112,10 @@ const Navbar = () => {
                                 <Link to="/about" className="block hover:text-neon-cyan">About</Link>
                                 <Link to="/how-it-works" className="block hover:text-neon-cyan">How It Works</Link>
                                 <Link to="/faq" className="block hover:text-neon-cyan">FAQ</Link>
-                                <Link to="/donations" className="block hover:text-neon-cyan">Support / Donations</Link>
-                                <Link to="/transparency" className="block hover:text-neon-cyan">Transparency Hub</Link>
+                                <Link to="/support" className="block hover:text-neon-cyan">Support</Link>
+                                <Link to="/transparency" className="block hover:text-neon-cyan">Transparency</Link>
                                 <Link to="/contact" className="block hover:text-neon-cyan">Contact</Link>
-                                <Link to="/profile" className="block hover:text-neon-cyan">Profile / Account</Link>
+                                <Link to="/profile" className="block hover:text-neon-cyan">Profile</Link>
                             </div>
                         </div>
                     </div>
@@ -170,9 +170,10 @@ const Navbar = () => {
                         <Link to="/about" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">About</Link>
                         <Link to="/how-it-works" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">How It Works</Link>
                         <Link to="/faq" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">FAQ</Link>
-                        <Link to="/donations" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Support / Donations</Link>
-                        <Link to="/transparency" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Transparency Hub</Link>
+                        <Link to="/support" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Support</Link>
+                        <Link to="/transparency" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Transparency</Link>
                         <Link to="/contact" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Contact</Link>
+                        <Link to="/profile" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Profile</Link>
 
                         {!user ? (
                             <Link to="/profile" onClick={() => setIsOpen(false)} className="btn-neon btn-neon-magenta w-full justify-center mt-4">

@@ -1,6 +1,9 @@
 import { supabase } from '../lib/supabase';
 import { initialsFromName } from '../utils/avatarUtils';
 
+/** Max active claims a volunteer may hold at once (site-wide). */
+export const MAX_ACTIVE_CLAIMS = 5;
+
 /** DB status → kanban key */
 export const STATUS_TO_UI = {
   ToDo: 'todo',
@@ -342,7 +345,48 @@ export const tasksService = {
     });
   },
 
+  /**
+   * Count Active claims for a user (site-wide).
+   */
+  async countActiveClaims(userId) {
+    if (!userId) return 0;
+    const { count, error } = await supabase
+      .from('task_claims')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('status', 'Active');
+    if (error) {
+      console.warn('[tasksService.countActiveClaims]', error);
+      return 0;
+    }
+    return typeof count === 'number' ? count : 0;
+  },
+
+  /**
+   * Claim a task. Enforces MAX_ACTIVE_CLAIMS on the client before RPC
+   * (server should also enforce via claim_task when SQL is updated).
+   */
   async claimTask(taskId) {
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabase.auth.getUser();
+    if (authErr) throw authErr;
+    if (!user) {
+      throw new Error('You must be signed in to claim a task');
+    }
+
+    const active = await this.countActiveClaims(user.id);
+    if (active >= MAX_ACTIVE_CLAIMS) {
+      const err = new Error(
+        `You already have ${MAX_ACTIVE_CLAIMS} active tasks. Finish or return one before claiming another.`
+      );
+      err.code = 'CLAIM_LIMIT';
+      err.activeClaims = active;
+      err.limit = MAX_ACTIVE_CLAIMS;
+      throw err;
+    }
+
     const { data, error } = await supabase.rpc('claim_task', {
       p_task_id: taskId,
     });

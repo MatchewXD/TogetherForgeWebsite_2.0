@@ -1,11 +1,12 @@
 import { forwardRef } from 'react';
 
-const Button = forwardRef(({ 
-  children, 
-  variant = 'primary', 
-  size = 'md', 
-  className = '', 
-  ...props 
+const Button = forwardRef(({
+  children,
+  variant = 'primary',
+  size = 'md',
+  className = '',
+  type = 'button',
+  ...props
 }, ref) => {
   const base = "font-medium transition-all duration-200 inline-flex items-center justify-center rounded-lg border focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-cyber-bg";
 
@@ -25,6 +26,7 @@ const Button = forwardRef(({
   return (
     <button
       ref={ref}
+      type={type}
       className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
       {...props}
     >
@@ -32,5 +34,7 @@ const Button = forwardRef(({
     </button>
   );
 });
+
+Button.displayName = 'Button';
 
 export default Button;

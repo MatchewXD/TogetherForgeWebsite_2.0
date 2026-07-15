@@ -43,19 +43,22 @@ const CATEGORIES = [
 /** Status filter options — values must match deriveIdeaStatus() */
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All statuses' },
-  { value: 'Open', label: 'Open — not linked, under 5 votes' },
+  { value: 'Proposed', label: 'Proposed — new / under 5 votes' },
+  { value: 'UnderReview', label: 'Under Review' },
   { value: 'Promising', label: 'Promising — 5–14 votes' },
   { value: 'Hot', label: 'Hot — 15+ votes' },
   { value: 'Linked', label: 'Linked to project' },
+  { value: 'Adopted', label: 'Adopted' },
+  { value: 'Archived', label: 'Archived' },
 ];
 
 const PAGE_SIZE = 12;
 
 /** Normalize idea/vote ids so Set lookups are stable across number|string */
 function voteKey(id) {
-  if (id == null) return null;
-  const n = Number(id);
-  return Number.isFinite(n) ? n : String(id);
+  if (id == null || id === '') return null;
+  // Always string keys so optimistic UI and DB ids never diverge
+  return String(id);
 }
 
 // re-export for any tests that import from this module
@@ -74,10 +77,14 @@ const GameIdeas = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [message, setMessage] = useState('');
-  /** Set of numeric vote keys for the *current* auth user only */
+  /** Idea ids the current user has voted on (string keys via voteKey) */
   const [userVotes, setUserVotes] = useState(() => new Set());
+  /** Mirror of userVotes for any sync reads (keeps ref always defined) */
+  const userVotesRef = useRef(userVotes);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [votingId, setVotingId] = useState(null);
+  /** Idea keys currently toggling (prevent double-click) */
+  const togglingRef = useRef(new Set());
 
   const [searchTerm, setSearchTerm] = useState(
     () => searchParams.get('q') || ''
@@ -102,6 +109,10 @@ const GameIdeas = () => {
 
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
+  useEffect(() => {
+    userVotesRef.current = userVotes;
+  }, [userVotes]);
+
   // Prefill project filter from ?project=
   useEffect(() => {
     const p = searchParams.get('project');
@@ -110,27 +121,28 @@ const GameIdeas = () => {
     }
   }, [searchParams]);
 
-  /** Load only the current user's votes into userVotes (never shared across accounts). */
+  /** Load current user's vote set from server (source of truth for orange fire). */
   const loadUserVotes = useCallback(async (userId) => {
     if (!userId) {
-      setUserVotes(new Set());
-      return;
+      const empty = new Set();
+      userVotesRef.current = empty;
+      setUserVotes(empty);
+      return empty;
     }
-    const { data: voteRows, error } = await supabase
-      .from('votes')
-      .select('idea_id')
-      .eq('user_id', userId);
-    if (error) {
-      console.warn('[GameIdeas] loadUserVotes', error);
-      setUserVotes(new Set());
-      return;
+    try {
+      const ids = await ideasService.getUserVotedIdeaIds(userId);
+      const voted = new Set(ids.map((id) => voteKey(id)).filter(Boolean));
+      console.log('[GameIdeas] loaded user votes', { userId, count: voted.size });
+      userVotesRef.current = voted;
+      setUserVotes(voted);
+      return voted;
+    } catch (err) {
+      console.warn('[GameIdeas] loadUserVotes failed', err);
+      const empty = new Set();
+      userVotesRef.current = empty;
+      setUserVotes(empty);
+      return empty;
     }
-    const voted = new Set();
-    for (const row of voteRows || []) {
-      const k = voteKey(row.idea_id);
-      if (k != null) voted.add(k);
-    }
-    setUserVotes(voted);
   }, []);
 
   const loadListing = useCallback(async () => {
@@ -138,13 +150,22 @@ const GameIdeas = () => {
     setLoadError(null);
     try {
       const { ideas } = await ideasService.getIdeasListing();
-      setAllIdeas(ideas || []);
+      setAllIdeas(
+        (ideas || []).map((idea) => ({
+          ...idea,
+          votes: Math.max(0, Number(idea.votes) || 0),
+        }))
+      );
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setCurrentUserId(user?.id || null);
-      await loadUserVotes(user?.id || null);
+      let uid = null;
+      const { data: sessionData } = await supabase.auth.getSession();
+      uid = sessionData?.session?.user?.id || null;
+      if (!uid) {
+        const { data: userData } = await supabase.auth.getUser();
+        uid = userData?.user?.id || null;
+      }
+      setCurrentUserId(uid);
+      await loadUserVotes(uid);
     } catch (err) {
       console.error('[GameIdeas] load failed', err);
       setAllIdeas([]);
@@ -158,14 +179,22 @@ const GameIdeas = () => {
     loadListing();
   }, [loadListing]);
 
-  // Re-load per-user votes on login/logout so fire color is never shared
+  // Refresh liked set on sign-in / sign-out only
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       const uid = session?.user?.id || null;
       setCurrentUserId(uid);
-      await loadUserVotes(uid);
+      if (event === 'SIGNED_OUT') {
+        const empty = new Set();
+        userVotesRef.current = empty;
+        setUserVotes(empty);
+        return;
+      }
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        await loadUserVotes(uid);
+      }
     });
     return () => subscription?.unsubscribe();
   }, [loadUserVotes]);
@@ -312,9 +341,12 @@ const GameIdeas = () => {
         selectedTagLower.length === 0 ||
         selectedTagLower.some((t) => tagsLower.includes(t));
 
-      // Exact status key: Open | Promising | Hot | Linked
+      // Exact status key: Proposed | UnderReview | Promising | Hot | Linked | Adopted | Archived
+      // "Open" kept as alias for Proposed for old query strings
       const matchesStatus =
-        statusFilter === 'all' || status === statusFilter;
+        statusFilter === 'all' ||
+        status === statusFilter ||
+        (statusFilter === 'Open' && status === 'Proposed');
 
       return matchesSearch && matchesCategory && matchesTags && matchesStatus;
     });
@@ -379,7 +411,8 @@ const GameIdeas = () => {
   const hasUserVoted = useCallback(
     (ideaId) => {
       const k = voteKey(ideaId);
-      return k != null && userVotes.has(k);
+      // Prefer state for render; ref stays in sync for any async edge cases
+      return k != null && (userVotes.has(k) || userVotesRef.current.has(k));
     },
     [userVotes]
   );
@@ -430,12 +463,11 @@ const GameIdeas = () => {
     [projects]
   );
 
-  // Per-idea lock so unlike->like never races (root cause of re-like flicker)
-  const voteInflight = useRef(new Map());
-
   /**
-   * Fire vote — userVotes Set is the only source of truth for orange fire.
-   * Own ideas allowed. Server ops are idempotent via ideasService.toggleVote.
+   * Simple vote toggle:
+   * 1) require auth
+   * 2) ideasService.toggleVote (insert or delete + recount)
+   * 3) apply server { voted, votes } to UI
    */
   const handleVote = async (e, idea) => {
     e?.preventDefault?.();
@@ -444,85 +476,52 @@ const GameIdeas = () => {
     const ideaId = idea?.id;
     const key = voteKey(ideaId);
     if (key == null) return;
-
-    if (voteInflight.current.has(key)) {
-      await voteInflight.current.get(key);
+    if (togglingRef.current.has(key)) {
+      console.log('[GameIdeas] vote ignored (in flight)', key);
+      return;
     }
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      setMessage('Sign in to vote — join the forge and back ideas you love.');
+      setMessage('Sign in to vote. Join the forge and back ideas you love.');
       return;
     }
 
-    const already = hasUserVoted(ideaId);
+    togglingRef.current.add(key);
     setVotingId(ideaId);
-
-    let resolveLock;
-    const lockPromise = new Promise((r) => {
-      resolveLock = r;
+    console.log('[GameIdeas] vote click', {
+      ideaId,
+      beforeVoted: userVotesRef.current.has(key),
+      beforeCount: idea.votes,
     });
-    voteInflight.current.set(key, lockPromise);
 
-    // Optimistic UI
-    if (already) {
+    try {
+      const { voted, votes } = await ideasService.toggleVote(ideaId, user.id);
+      console.log('[GameIdeas] vote server result', { ideaId, voted, votes });
+
+      setUserVotes((prev) => {
+        const next = new Set(prev);
+        if (voted) next.add(key);
+        else next.delete(key);
+        userVotesRef.current = next;
+        return next;
+      });
+
       setAllIdeas((prev) =>
         prev.map((i) =>
           voteKey(i.id) === key
-            ? { ...i, votes: Math.max(0, (i.votes || 0) - 1) }
+            ? { ...i, votes: Math.max(0, Number(votes) || 0) }
             : i
         )
       );
-      setUserVotes((prev) => {
-        const next = new Set(prev);
-        next.delete(key);
-        return next;
-      });
-    } else {
-      setAllIdeas((prev) =>
-        prev.map((i) =>
-          voteKey(i.id) === key ? { ...i, votes: (i.votes || 0) + 1 } : i
-        )
-      );
-      setUserVotes((prev) => new Set(prev).add(key));
-    }
-
-    try {
-      await ideasService.toggleVote(ideaId, user.id, already);
     } catch (err) {
-      // Do not roll back on duplicate/"already voted" — success for re-like race
-      const soft =
-        /already voted|duplicate|unique/i.test(err?.message || '') ||
-        err?.code === '23505';
-      if (!soft) {
-        if (already) {
-          setAllIdeas((prev) =>
-            prev.map((i) =>
-              voteKey(i.id) === key ? { ...i, votes: (i.votes || 0) + 1 } : i
-            )
-          );
-          setUserVotes((prev) => new Set(prev).add(key));
-        } else {
-          setAllIdeas((prev) =>
-            prev.map((i) =>
-              voteKey(i.id) === key
-                ? { ...i, votes: Math.max(0, (i.votes || 1) - 1) }
-                : i
-            )
-          );
-          setUserVotes((prev) => {
-            const next = new Set(prev);
-            next.delete(key);
-            return next;
-          });
-        }
-        setMessage(err?.message || 'Could not update vote.');
-      }
+      console.error('[GameIdeas] vote failed', err);
+      setMessage(err?.message || 'Could not update vote.');
+      await loadUserVotes(user.id);
     } finally {
-      voteInflight.current.delete(key);
-      resolveLock?.();
+      togglingRef.current.delete(key);
       setVotingId((cur) => (voteKey(cur) === key ? null : cur));
     }
   };
@@ -695,7 +694,7 @@ const GameIdeas = () => {
               onChange={(e) => setStatusFilter(e.target.value)}
               className={controlClass}
               aria-label="Filter by status"
-              title="Open / Promising / Hot are vote-based; Linked means the idea has a project_id"
+              title="Proposed/Promising/Hot are vote-based heat; Under Review / Adopted / Archived are workflow; Linked has project_id"
             >
               {STATUS_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -976,8 +975,8 @@ const GameIdeas = () => {
           </div>
         )}
 
-        {/* Listing */}
-        <div className="max-w-3xl mx-auto space-y-4">
+        {/* Listing — card grid (IdeaCard mirrors ProjectCard cyber styling) */}
+        <div className="max-w-5xl mx-auto">
           {loading ? (
             <div className="flex flex-col items-center justify-center gap-3 py-20 text-text-secondary">
               <Loader2 className="w-8 h-8 animate-spin text-neon-cyan" />
@@ -986,7 +985,7 @@ const GameIdeas = () => {
               </p>
             </div>
           ) : filteredIdeas.length === 0 ? (
-            <Card className="bg-cyber-card/80 border-neon-cyan/20 text-center py-12 px-6">
+            <Card className="bg-cyber-card/80 border-neon-cyan/20 text-center py-12 px-6 max-w-3xl mx-auto">
               <Lightbulb className="w-10 h-10 text-neon-cyan mx-auto mb-4 opacity-80" />
               <h2 className="text-xl font-semibold text-white mb-2">
                 {allIdeas.length === 0
@@ -1014,29 +1013,32 @@ const GameIdeas = () => {
               </div>
             </Card>
           ) : (
-            visibleIdeas.map((idea) => {
-              const voted = hasUserVoted(idea.id);
-              const busy =
-                votingId != null && voteKey(votingId) === voteKey(idea.id);
-              const projectMeta = resolveProjectMeta(idea);
+            <div className="grid md:grid-cols-2 gap-4">
+              {visibleIdeas.map((idea) => {
+                const voted = hasUserVoted(idea.id);
+                const busy =
+                  votingId != null && voteKey(votingId) === voteKey(idea.id);
+                const projectMeta = resolveProjectMeta(idea);
 
-              return (
-                <IdeaCard
-                  key={idea.id}
-                  idea={idea}
-                  voted={voted}
-                  isOwn={false}
-                  voting={busy}
-                  onVote={handleVote}
-                  onOpen={(id) => navigate(`/ideas/${id}`)}
-                  projectName={projectMeta.name}
-                  projectSlug={projectMeta.slug}
-                  onProjectClick={handleProjectChipClick}
-                  commentCount={idea.commentCount || 0}
-                  showTags
-                />
-              );
-            })
+                return (
+                  <IdeaCard
+                    key={idea.id}
+                    idea={idea}
+                    voted={voted}
+                    isOwn={false}
+                    voting={busy}
+                    onVote={handleVote}
+                    onOpen={(id) => navigate(`/ideas/${id}`)}
+                    projectName={projectMeta.name}
+                    projectSlug={projectMeta.slug}
+                    onProjectClick={handleProjectChipClick}
+                    commentCount={idea.commentCount || 0}
+                    showTags
+                    className="h-full"
+                  />
+                );
+              })}
+            </div>
           )}
         </div>
 
@@ -1061,8 +1063,8 @@ const GameIdeas = () => {
                   Got a spark for the forge?
                 </h3>
                 <p className="text-sm text-text-secondary mt-1">
-                  Guided submission — share mechanics, story, or a full game
-                  vision.
+                  Share a mechanic, a story, or a full game vision with the
+                  community.
                 </p>
               </div>
               <Link

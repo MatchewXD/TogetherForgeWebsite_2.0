@@ -12,6 +12,8 @@ import FAQ from './pages/FAQ';
 import Donations from './pages/Donations';
 import Contact from './pages/Contact';
 import TransparencyHub from './pages/TransparencyHub';
+import FoundersThoughts from './pages/FoundersThoughts';
+import SupportRunway from './pages/SupportRunway';
 import Profile from './pages/Profile';
 import EditProfile from './pages/EditProfile';
 import EmailConfirmation from './pages/EmailConfirmation';
@@ -54,9 +56,12 @@ function App() {
                         <Route path="/get-involved" element={<GetInvolved />} />
                         <Route path="/how-it-works" element={<HowItWorks />} />
                         <Route path="/faq" element={<FAQ />} />
+                        <Route path="/support" element={<Donations />} />
                         <Route path="/donations" element={<Donations />} />
                         <Route path="/contact" element={<Contact />} />
                         <Route path="/transparency" element={<TransparencyHub />} />
+                        <Route path="/founders-thoughts" element={<FoundersThoughts />} />
+                        <Route path="/support-runway" element={<SupportRunway />} />
                         <Route path="/profile" element={<Profile />} />
                         <Route path="/profile/edit" element={<EditProfile />} />
                         <Route path="/confirm-email" element={<EmailConfirmation />} />

@@ -86,8 +86,117 @@ export function ideaMatchesProject(idea, keys = []) {
 }
 
 /**
+ * Build guided_data JSONB from the guided wizard / edit form.
+ *
+ * Multi-entry: features (array of {name, description}), additional_notes (string[])
+ * Single optional: twitch_community, environmental_storytelling, economy_system, story_narrative
+ */
+export function buildGuidedData(raw = {}) {
+  const existing =
+    raw.guided_data && typeof raw.guided_data === 'object' && !Array.isArray(raw.guided_data)
+      ? raw.guided_data
+      : {};
+
+  const trim = (v) => {
+    if (v == null) return null;
+    const s = String(v).trim();
+    return s || null;
+  };
+
+  // Features: prefer form array, then guided_data, filter empties
+  let features = [];
+  if (Array.isArray(raw.features)) {
+    features = raw.features
+      .map((f) => {
+        if (typeof f === 'string') {
+          const t = f.trim();
+          return t ? { name: '', description: t } : null;
+        }
+        if (f && typeof f === 'object') {
+          const name = trim(f.name) || '';
+          const description = trim(f.description) || '';
+          if (!name && !description) return null;
+          return { name, description };
+        }
+        return null;
+      })
+      .filter(Boolean);
+  } else if (Array.isArray(existing.features)) {
+    features = existing.features
+      .map((f) => {
+        if (typeof f === 'string') {
+          const t = f.trim();
+          return t ? { name: '', description: t } : null;
+        }
+        if (f && (f.name || f.description)) {
+          return {
+            name: trim(f.name) || '',
+            description: trim(f.description) || '',
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+  }
+
+  // Additional notes: string array
+  let notes = [];
+  const notesRaw = raw.additionalNotes ?? raw.additional_notes ?? existing.additional_notes;
+  if (Array.isArray(notesRaw)) {
+    notes = notesRaw.map((n) => String(n || '').trim()).filter(Boolean);
+  } else if (typeof notesRaw === 'string' && notesRaw.trim()) {
+    notes = [notesRaw.trim()];
+  }
+
+  const single = (formKey, snakeKey, legacyKeys = []) => {
+    const candidates = [
+      raw[formKey],
+      raw[snakeKey],
+      existing[snakeKey],
+      ...legacyKeys.map((k) => raw[k] ?? existing[k]),
+    ];
+    for (const c of candidates) {
+      const t = trim(c);
+      if (t) return t;
+    }
+    return null;
+  };
+
+  const guided = {
+    features: features.length ? features : null,
+    twitch_community: single('twitchIntegration', 'twitch_community', [
+      'twitch_integration',
+      'twitchIntegration',
+    ]),
+    environmental_storytelling: single(
+      'environmentalStorytelling',
+      'environmental_storytelling'
+    ),
+    economy_system: single('economySystem', 'economy_system', [
+      'economy_description',
+      'economyResource',
+      'economy_resource',
+    ]),
+    story_narrative: single('storyNarrative', 'story_narrative', [
+      'story_overview',
+      'storyOverview',
+    ]),
+    additional_notes: notes.length ? notes : null,
+    wizard_version: 2,
+  };
+
+  Object.keys(guided).forEach((k) => {
+    if (guided[k] === null || guided[k] === undefined || guided[k] === '') {
+      if (k !== 'wizard_version') delete guided[k];
+    }
+  });
+
+  return guided;
+}
+
+/**
  * Map a rich form payload into columns that exist on the base ideas table
- * (see supabase_schema.sql) plus optional project_id.
+ * (see supabase_schema.sql) plus optional project_id, status, guided_data.
  */
 export function buildSafeIdeaPayload(raw = {}) {
   const asText = (v) => {
@@ -116,43 +225,56 @@ export function buildSafeIdeaPayload(raw = {}) {
     return String(v);
   };
 
+  // Prefer explicit guided_data from caller; otherwise build from form fields
+  const guided =
+    raw.guided_data && typeof raw.guided_data === 'object' && !Array.isArray(raw.guided_data)
+      ? { ...buildGuidedData({ ...raw, guided_data: undefined }), ...raw.guided_data }
+      : buildGuidedData(raw);
+
+  const description = asText(raw.description);
+
   const payload = {
     title: (raw.title || '').trim(),
     summary: asText(raw.summary),
-    description: asText(raw.description),
+    description,
     category: asText(raw.category) || 'Idea',
     votes: typeof raw.votes === 'number' ? raw.votes : 0,
     tags: asText(raw.tags),
-    inspiration: asText(raw.inspiration),
+    // Mirror optional guided fields into legacy flat columns when present
     twitch_integration: asText(
-      raw.twitch_integration ?? raw.twitchIntegration
+      raw.twitch_integration ?? raw.twitchIntegration ?? guided.twitch_community
     ),
-    multiplayer_type: asText(raw.multiplayer_type ?? raw.multiplayerType),
-    visual_style: asText(raw.visual_style ?? raw.visualStyle),
     environmental_storytelling: asText(
-      raw.environmental_storytelling ?? raw.environmentalStorytelling
-    ),
-    progression_system: asText(
-      raw.progression_system ??
-        [raw.progressionType, raw.progressionDetails, raw.progression_type, raw.progression_details]
-          .filter(Boolean)
-          .join('\n')
+      raw.environmental_storytelling ??
+        raw.environmentalStorytelling ??
+        guided.environmental_storytelling
     ),
     economy_description: asText(
-      raw.economy_description ??
-        [raw.economyResource, raw.economyTrading, raw.economy_resource, raw.economy_trading]
-          .filter(Boolean)
-          .join('\n')
+      raw.economy_description ?? raw.economySystem ?? guided.economy_system
     ),
-    story_overview: asText(raw.story_overview ?? raw.storyOverview),
-    endgame_potential: asText(
-      raw.endgame_potential ?? raw.endgameDetails ?? raw.endgame_details
+    story_overview: asText(
+      raw.story_overview ?? raw.storyNarrative ?? guided.story_narrative
     ),
     additional_notes: asText(
-      raw.additional_notes ?? raw.additionalNotes ?? raw.enemies
+      raw.additional_notes ??
+        raw.additionalNotes ??
+        (Array.isArray(guided.additional_notes)
+          ? guided.additional_notes.join('\n')
+          : null)
     ),
+    // Workflow: default Proposed for new ideas
+    status: asText(raw.status) || 'Proposed',
+    guided_data: guided,
     user_id: raw.user_id || null,
   };
+
+  if (Array.isArray(guided.features) && guided.features.length) {
+    payload.features = guided.features;
+  } else if (Array.isArray(raw.features) && raw.features.length) {
+    payload.features = raw.features.filter(
+      (f) => f && (f.name || f.description || (typeof f === 'string' && f.trim()))
+    );
+  }
 
   const projectId = raw.project_id ?? raw.projectId ?? null;
   if (projectId != null && String(projectId).trim()) {
@@ -284,14 +406,26 @@ export const ideasService = {
   },
 
   /**
-   * Threaded comments with author profiles (avatar_url included).
+   * Threaded comments with author profiles + like counts from comment_likes.
    */
   async getCommentsWithProfiles(ideaId) {
-    const { data: commentsData, error } = await supabase
+    let commentsData = null;
+    let error = null;
+
+    // Prefer parent_id for threads; fall back if column missing
+    ({ data: commentsData, error } = await supabase
       .from('comments')
       .select('id, content, created_at, user_id, parent_id')
       .eq('idea_id', ideaId)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: true }));
+
+    if (error && isMissingColumnError(error, 'parent_id')) {
+      ({ data: commentsData, error } = await supabase
+        .from('comments')
+        .select('id, content, created_at, user_id')
+        .eq('idea_id', ideaId)
+        .order('created_at', { ascending: true }));
+    }
 
     if (error) throw error;
 
@@ -300,8 +434,27 @@ export const ideasService = {
       comments.map((c) => c.user_id)
     );
 
+    // Aggregate likes
+    const likeCounts = {};
+    if (comments.length) {
+      const ids = comments.map((c) => c.id);
+      const { data: likes, error: likeErr } = await supabase
+        .from('comment_likes')
+        .select('comment_id')
+        .in('comment_id', ids);
+      if (!likeErr && likes) {
+        for (const row of likes) {
+          likeCounts[row.comment_id] = (likeCounts[row.comment_id] || 0) + 1;
+        }
+      }
+    }
+
     return attachCommentProfiles(
-      comments.map((c) => ({ ...c, votes: c.votes || 0 })),
+      comments.map((c) => ({
+        ...c,
+        parent_id: c.parent_id ?? null,
+        votes: likeCounts[c.id] || 0,
+      })),
       profileMap
     );
   },
@@ -401,11 +554,28 @@ export const ideasService = {
   },
 
   /**
+   * Strip optional columns one-by-one when the remote schema is missing them.
+   * Order: features → guided_data → status → project_id.
+   */
+  _stripOptionalColumns(payload, error) {
+    if (!error || !payload) return { payload, stripped: null };
+    const optional = ['features', 'guided_data', 'status', 'project_id'];
+    for (const col of optional) {
+      if (payload[col] !== undefined && isMissingColumnError(error, col)) {
+        const next = { ...payload };
+        delete next[col];
+        return { payload: next, stripped: col };
+      }
+    }
+    return { payload, stripped: null };
+  },
+
+  /**
    * Insert a new idea. Uses a schema-safe payload and retries without
-   * project_id if that column is not migrated yet.
+   * optional columns (guided_data, status, project_id, features) if missing.
    */
   async createIdea(idea) {
-    const payload = buildSafeIdeaPayload(idea);
+    let payload = buildSafeIdeaPayload(idea);
 
     if (!payload.title) {
       throw new Error('Title is required.');
@@ -420,22 +590,32 @@ export const ideasService = {
       return { data, error };
     };
 
-    let { data, error } = await attempt(payload);
+    let data = null;
+    let error = null;
+    let meta = {
+      _project_id_not_persisted: false,
+      _guided_data_not_persisted: false,
+      _status_not_persisted: false,
+    };
 
-    // Retry without project_id if the column is missing
-    if (error && payload.project_id && isMissingColumnError(error, 'project_id')) {
+    // Up to a few strip-and-retry cycles for missing columns
+    for (let i = 0; i < 5; i++) {
+      ({ data, error } = await attempt(payload));
+      if (!error) break;
+
+      const { payload: next, stripped } = this._stripOptionalColumns(payload, error);
+      if (!stripped) break;
+
       console.warn(
-        '[ideasService.createIdea] project_id column missing — retrying without it. Run supabase_ideas_project_id.sql'
+        `[ideasService.createIdea] column "${stripped}" missing — retrying without it. Run supabase_ideas_guided.sql`
       );
-      const { project_id: _drop, ...withoutProject } = payload;
-      ({ data, error } = await attempt(withoutProject));
-      if (!error && data) {
-        // Attach pseudo project_id for client navigation/display
-        data = { ...data, project_id: payload.project_id, _project_id_not_persisted: true };
-      }
+      if (stripped === 'project_id') meta._project_id_not_persisted = true;
+      if (stripped === 'guided_data') meta._guided_data_not_persisted = true;
+      if (stripped === 'status') meta._status_not_persisted = true;
+      payload = next;
     }
 
-    // Retry with absolute minimum columns if still failing on unknown fields
+    // Retry with absolute minimum columns if still failing
     if (error) {
       console.warn('[ideasService.createIdea] retrying minimal payload', error);
       const minimal = {
@@ -447,25 +627,19 @@ export const ideasService = {
         user_id: payload.user_id || null,
       };
       if (payload.project_id) minimal.project_id = payload.project_id;
+      if (payload.status) minimal.status = payload.status;
 
-      let retry = await attempt(minimal);
-      if (
-        retry.error &&
-        minimal.project_id &&
-        isMissingColumnError(retry.error, 'project_id')
-      ) {
-        const { project_id: _drop, ...minNoProject } = minimal;
-        retry = await attempt(minNoProject);
-        if (!retry.error && retry.data) {
-          retry.data = {
-            ...retry.data,
-            project_id: payload.project_id,
-            _project_id_not_persisted: true,
-          };
-        }
+      let body = minimal;
+      for (let i = 0; i < 4; i++) {
+        const retry = await attempt(body);
+        data = retry.data;
+        error = retry.error;
+        if (!error) break;
+        const { payload: next, stripped } = this._stripOptionalColumns(body, error);
+        if (!stripped) break;
+        if (stripped === 'project_id') meta._project_id_not_persisted = true;
+        body = next;
       }
-      data = retry.data;
-      error = retry.error;
     }
 
     if (error) {
@@ -473,106 +647,216 @@ export const ideasService = {
       throw new Error(error.message || 'Failed to create idea');
     }
 
+    // Re-attach pseudo fields for client navigation when not persisted
+    if (meta._project_id_not_persisted && idea.project_id) {
+      data = {
+        ...data,
+        project_id: idea.project_id || idea.projectId,
+        _project_id_not_persisted: true,
+      };
+    }
+    if (meta._guided_data_not_persisted) {
+      data = { ...data, _guided_data_not_persisted: true };
+    }
+    if (meta._status_not_persisted) {
+      data = { ...data, status: 'Proposed', _status_not_persisted: true };
+    }
+
     return data;
   },
 
-  async _bumpIdeaVotes(ideaId, delta) {
+  // -------------------------------------------------------------------------
+  // VOTES — simple insert / delete + recount (no RPC)
+  // Requires supabase_votes_rls.sql (SELECT + DELETE policies, unique index).
+  // -------------------------------------------------------------------------
+
+  /** @private */
+  _toIdeaId(ideaId) {
     const id = Number(ideaId);
-    if (!Number.isFinite(id) || !delta) return;
-
-    if (delta > 0) {
-      const { error: rpcError } = await supabase.rpc('increment_vote', {
-        idea_id: id,
-      });
-      if (!rpcError) return;
+    if (!Number.isFinite(id)) {
+      throw new Error(`Invalid idea id: ${ideaId}`);
     }
-
-    const { data: row } = await supabase
-      .from('ideas')
-      .select('votes')
-      .eq('id', id)
-      .maybeSingle();
-    const current = row?.votes || 0;
-    const next = Math.max(0, current + delta);
-    const patch = { votes: next };
-    if (delta > 0) patch.last_vote_time = new Date().toISOString();
-    const { error } = await supabase.from('ideas').update(patch).eq('id', id);
-    if (error) {
-      console.warn('[ideasService._bumpIdeaVotes]', error);
-    }
+    return id;
   },
 
   /**
-   * Add a user vote. Idempotent: if the vote row already exists, succeeds
-   * without double-incrementing (prevents re-like flicker after race).
-   * Own ideas are allowed.
+   * Count votes for an idea from the votes table.
    */
-  async addVote(ideaId, userId) {
-    const id = Number(ideaId);
-    if (!userId) throw new Error('You must be signed in to vote.');
-    if (!Number.isFinite(id)) throw new Error('Invalid idea id.');
-
-    const { error: insertError } = await supabase
+  async getIdeaVoteCount(ideaId) {
+    const id = this._toIdeaId(ideaId);
+    const { count, error } = await supabase
       .from('votes')
-      .insert([{ idea_id: id, user_id: userId }]);
+      .select('id', { count: 'exact', head: true })
+      .eq('idea_id', id);
 
-    if (insertError) {
-      // Already voted — treat as success (UI already shows liked)
-      if (
-        insertError.code === '23505' ||
-        /duplicate|unique/i.test(insertError.message || '')
-      ) {
-        return { ok: true, alreadyHad: true };
-      }
-      throw insertError;
+    if (error) {
+      console.warn('[votes] getIdeaVoteCount failed', error);
+      // Fallback: denormalized column
+      const { data } = await supabase
+        .from('ideas')
+        .select('votes')
+        .eq('id', id)
+        .maybeSingle();
+      return Math.max(0, Number(data?.votes) || 0);
     }
-
-    await this._bumpIdeaVotes(id, +1);
-    return { ok: true, alreadyHad: false };
+    return Math.max(0, typeof count === 'number' ? count : 0);
   },
 
   /**
-   * Remove a user vote. Idempotent if no row existed.
+   * Does this user currently have a vote row for the idea?
    */
-  async removeVote(ideaId, userId) {
-    const id = Number(ideaId);
-    if (!userId) throw new Error('You must be signed in.');
-    if (!Number.isFinite(id)) throw new Error('Invalid idea id.');
-
-    // Check existence first so we only decrement when a row is removed
-    const { data: existing } = await supabase
+  async userHasVoted(ideaId, userId) {
+    if (!userId) return false;
+    const id = this._toIdeaId(ideaId);
+    const { data, error } = await supabase
       .from('votes')
       .select('id')
       .eq('idea_id', id)
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (!existing) {
-      return { ok: true, removed: false };
+    if (error) {
+      if (error.code === 'PGRST116') return false;
+      console.warn('[votes] userHasVoted failed', error);
+      // If SELECT is blocked by RLS, this will always be false until SQL is applied
+      return false;
+    }
+    return !!data;
+  },
+
+  /**
+   * All idea ids the user has voted on (string keys).
+   */
+  async getUserVotedIdeaIds(userId) {
+    if (!userId) return [];
+    const { data, error } = await supabase
+      .from('votes')
+      .select('idea_id')
+      .eq('user_id', userId);
+
+    if (error) {
+      console.warn('[votes] getUserVotedIdeaIds failed', error);
+      return [];
+    }
+    return (data || [])
+      .map((row) => (row.idea_id == null ? null : String(row.idea_id)))
+      .filter(Boolean);
+  },
+
+  /**
+   * Single toggle entry point used by listing + detail.
+   *
+   * Pattern:
+   *  1. SELECT existing vote for (idea, user)
+   *  2. DELETE if exists, else INSERT
+   *  3. COUNT votes for idea
+   *  4. Return { voted, votes }
+   */
+  async toggleVote(ideaId, userId) {
+    if (!userId) throw new Error('You must be signed in to vote.');
+    const id = this._toIdeaId(ideaId);
+
+    console.log('[votes] toggle start', { ideaId: id, userId });
+
+    // 1) current state
+    const { data: existing, error: findError } = await supabase
+      .from('votes')
+      .select('id')
+      .eq('idea_id', id)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (findError && findError.code !== 'PGRST116') {
+      console.error('[votes] find existing failed', findError);
+      throw findError;
     }
 
+    const hadVote = !!existing;
+    console.log('[votes] hadVote', hadVote, existing);
+
+    // 2) mutate
+    if (hadVote) {
+      const { error: delError } = await supabase
+        .from('votes')
+        .delete()
+        .eq('idea_id', id)
+        .eq('user_id', userId);
+      if (delError) {
+        console.error('[votes] delete failed', delError);
+        throw delError;
+      }
+      console.log('[votes] deleted vote row');
+    } else {
+      const { error: insError } = await supabase
+        .from('votes')
+        .insert([{ idea_id: id, user_id: userId }]);
+      if (insError) {
+        // Duplicate: treat as already voted (unique index)
+        if (
+          insError.code === '23505' ||
+          /duplicate|unique/i.test(insError.message || '')
+        ) {
+          console.warn('[votes] insert duplicate — already voted');
+        } else {
+          console.error('[votes] insert failed', insError);
+          throw insError;
+        }
+      } else {
+        console.log('[votes] inserted vote row');
+      }
+    }
+
+    // 3) re-read truth from server
+    const [voted, votes] = await Promise.all([
+      this.userHasVoted(id, userId),
+      this.getIdeaVoteCount(id),
+    ]);
+
+    // Best-effort denormalized count (trigger should also do this)
+    try {
+      await supabase.from('ideas').update({ votes }).eq('id', id);
+    } catch (e) {
+      console.warn('[votes] ideas.votes update skipped', e);
+    }
+
+    const result = { voted: !!voted, votes: Math.max(0, votes || 0) };
+    console.log('[votes] toggle result', result);
+    return result;
+  },
+
+  /** @deprecated use toggleVote — kept for call sites during transition */
+  async toggleVoteAndSync(ideaId, userId) {
+    return this.toggleVote(ideaId, userId);
+  },
+
+  /** @deprecated */
+  async addVote(ideaId, userId) {
+    const id = this._toIdeaId(ideaId);
+    const { error } = await supabase
+      .from('votes')
+      .insert([{ idea_id: id, user_id: userId }]);
+    if (
+      error &&
+      error.code !== '23505' &&
+      !/duplicate|unique/i.test(error.message || '')
+    ) {
+      throw error;
+    }
+    const votes = await this.getIdeaVoteCount(id);
+    return { ok: true, votes };
+  },
+
+  /** @deprecated */
+  async removeVote(ideaId, userId) {
+    const id = this._toIdeaId(ideaId);
     const { error } = await supabase
       .from('votes')
       .delete()
       .eq('idea_id', id)
       .eq('user_id', userId);
     if (error) throw error;
-
-    await this._bumpIdeaVotes(id, -1);
-    return { ok: true, removed: true };
-  },
-
-  /**
-   * Toggle vote for a user. Server is source of truth for the votes row;
-   * count bump is best-effort. Returns { voted: boolean }.
-   */
-  async toggleVote(ideaId, userId, currentlyVoted) {
-    if (currentlyVoted) {
-      await this.removeVote(ideaId, userId);
-      return { voted: false };
-    }
-    await this.addVote(ideaId, userId);
-    return { voted: true };
+    const votes = await this.getIdeaVoteCount(id);
+    return { ok: true, votes };
   },
 };
 

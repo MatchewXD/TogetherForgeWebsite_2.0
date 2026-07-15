@@ -7,6 +7,7 @@ import {
   getIdeaProjectKey,
   parseTags,
   statusChipClasses,
+  statusLabel,
 } from '../../utils/ideaStatus';
 
 /**
@@ -67,7 +68,8 @@ const IdeaCard = ({
 
   return (
     <Card
-      className={`bg-cyber-card/80 hover:border-neon-cyan/40 cursor-pointer transition-colors group relative p-5 sm:p-6 ${className}`}
+      interactive
+      className={`bg-cyber-card/80 transition-colors group relative p-5 sm:p-6 ${className}`}
       onClick={open}
       role="link"
       tabIndex={0}
@@ -102,13 +104,13 @@ const IdeaCard = ({
               status
             )}`}
           >
-            {status}
+            {statusLabel(status)}
           </span>
         )}
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-        {/* Fire vote */}
+        {/* Fire vote: color is driven only by `voted` (user's vote), not by count */}
         <div
           className="flex sm:flex-col items-center gap-2 sm:gap-1 shrink-0 pt-0.5"
           onClick={(e) => e.stopPropagation()}
@@ -118,12 +120,18 @@ const IdeaCard = ({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              if (voting || !onVote) return;
               onVote?.(e, idea);
             }}
-            disabled={voting || !onVote}
-            className="inline-flex items-center gap-1.5 rounded px-2 py-1 hover:bg-white/5 hover:text-white transition text-text-muted disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!onVote}
+            aria-busy={voting || undefined}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan/50 disabled:cursor-not-allowed ${
+              voted
+                ? 'border-orange-500/40 bg-orange-500/10 hover:bg-orange-500/15'
+                : 'border-cyber-border bg-cyber-surface/60 hover:border-orange-400/40 hover:bg-white/5'
+            } ${voting ? 'opacity-80' : ''}`}
             title={voted ? 'Remove your vote' : 'Vote for this idea'}
-            aria-pressed={voted}
+            aria-pressed={!!voted}
             aria-label={
               voted
                 ? `Remove vote for ${idea.title}`
@@ -131,14 +139,19 @@ const IdeaCard = ({
             }
           >
             <Flame
-              className={`w-4 h-4 transition-colors ${
+              className={`w-4 h-4 shrink-0 transition-colors ${
                 voted
-                  ? 'text-orange-500'
-                  : 'text-text-muted hover:text-orange-400/70'
+                  ? 'text-orange-500 fill-orange-500/30'
+                  : 'text-slate-400'
               }`}
+              strokeWidth={voted ? 2.25 : 2}
             />
-            <span className="font-mono tabular-nums text-sm text-text-secondary">
-              {idea.votes || 0}
+            <span
+              className={`font-mono tabular-nums text-sm min-w-[1.25rem] text-center ${
+                voted ? 'text-orange-400' : 'text-text-secondary'
+              }`}
+            >
+              {Number(idea.votes) > 0 ? idea.votes : 0}
             </span>
           </button>
         </div>

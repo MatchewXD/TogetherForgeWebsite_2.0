@@ -96,20 +96,30 @@ describe('ideasService helpers', () => {
     );
   });
 
-  it('buildSafeIdeaPayload includes project_id and drops unknown arrays', () => {
+  it('buildSafeIdeaPayload includes project_id, status, guided_data', () => {
     const payload = buildSafeIdeaPayload({
       title: 'Hello',
       summary: 'Sum',
+      description: 'Full desc',
       user_id: 'u1',
       project_id: 'prototype-systems',
-      enemies: [{ name: 'Goblin', description: 'Fast' }],
-      progressionType: 'XP',
+      features: [{ name: 'Dash', description: 'Fast move' }],
+      additionalNotes: ['Playtest note'],
+      economySystem: 'Shared scrap economy',
+      twitchIntegration: 'Chat votes on events',
     });
     expect(payload.project_id).toBe('prototype-systems');
     expect(payload.title).toBe('Hello');
     expect(payload.user_id).toBe('u1');
-    expect(payload.enemies).toBeUndefined();
-    expect(payload.progression_system).toContain('XP');
+    expect(payload.description).toBe('Full desc');
+    expect(payload.status).toBe('Proposed');
+    expect(payload.guided_data).toBeTruthy();
+    expect(payload.guided_data.features?.[0]?.name).toBe('Dash');
+    expect(payload.guided_data.additional_notes).toContain('Playtest note');
+    expect(payload.guided_data.economy_system).toBe('Shared scrap economy');
+    expect(payload.guided_data.twitch_community).toBe('Chat votes on events');
+    expect(payload.economy_description).toBe('Shared scrap economy');
+    expect(payload.twitch_integration).toBe('Chat votes on events');
   });
 });
 
@@ -129,9 +139,47 @@ describe('ideasService', () => {
     expect(result).toEqual({ id: 99 });
   });
 
-  it('addVote calls insert and rpc', async () => {
-    await ideasService.addVote(1, 'user-1');
+  it('addVote inserts without calling RPC', async () => {
+    supabase.from.mockImplementation((table) => {
+      if (table === 'votes') {
+        return {
+          insert: () => Promise.resolve({ data: null, error: null }),
+          select: () => ({
+            eq: () => Promise.resolve({ data: null, error: null, count: 1 }),
+          }),
+        };
+      }
+      return {
+        update: () => ({
+          eq: () => Promise.resolve({ data: null, error: null }),
+        }),
+        select: () => ({
+          order: () => Promise.resolve({ data: [{ id: 1 }], error: null }),
+          eq: () => ({
+            single: () =>
+              Promise.resolve({ data: { id: 1, user_id: 'u1' }, error: null }),
+            maybeSingle: () =>
+              Promise.resolve({ data: { votes: 1 }, error: null }),
+          }),
+          in: () =>
+            Promise.resolve({
+              data: [{ id: 'u1', username: 'forge', avatar_url: 'x' }],
+              error: null,
+            }),
+          limit: () =>
+            Promise.resolve({ data: [{ id: 1, user_id: 'u1' }], error: null }),
+        }),
+        insert: () => ({
+          select: () => ({
+            single: () => Promise.resolve({ data: { id: 99 }, error: null }),
+          }),
+        }),
+      };
+    });
+
+    const result = await ideasService.addVote(1, 'user-1');
     expect(supabase.from).toHaveBeenCalled();
-    expect(supabase.rpc).toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(result.ok).toBe(true);
   });
 });

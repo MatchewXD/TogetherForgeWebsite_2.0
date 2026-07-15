@@ -237,9 +237,14 @@ function friendlyError(err) {
   if (/JWT|not authenticated|sign in/i.test(msg)) {
     return 'Sign in to claim tasks and track progress.';
   }
-  if (/already claimed/i.test(msg)) return 'Someone already claimed that task — pick another!';
+  if (/already claimed/i.test(msg)) {
+    return 'Someone already claimed that task. Pick another!';
+  }
   if (/already completed/i.test(msg)) return 'That task is already complete.';
   if (/No active claim/i.test(msg)) return 'No active claim on this task.';
+  if (/active tasks|CLAIM_LIMIT|claim limit|before claiming/i.test(msg)) {
+    return msg;
+  }
   if (/Only the claimant/i.test(msg)) {
     return 'Only the claimant or a project lead can do that.';
   }
@@ -708,7 +713,7 @@ const ProjectWorkspace = () => {
 
   const handleClaim = async (taskId) => {
     if (!user) {
-      showToast('Sign in to claim a task — then it shows on your profile.', 'warn');
+      showToast('Sign in to claim a task. It will show on your profile.', 'warn');
       navigate('/profile');
       return;
     }
@@ -724,7 +729,8 @@ const ProjectWorkspace = () => {
       showToast('Task claimed! It is on the board under In Progress.', 'success');
       setSelectedTaskId(taskId);
     } catch (err) {
-      showToast(friendlyError(err), 'error');
+      const msg = friendlyError(err);
+      showToast(msg, err?.code === 'CLAIM_LIMIT' ? 'warn' : 'error');
     } finally {
       setClaimingId(null);
     }
@@ -1312,7 +1318,7 @@ const ProjectWorkspace = () => {
             {OPEN_QUESTIONS.map((q) => (
               <Card
                 key={q.id}
-                className="bg-cyber-card/80 flex flex-col h-full hover:border-neon-cyan/40"
+                className="bg-cyber-card/80 flex flex-col h-full"
               >
                 <h3 className="text-base font-semibold text-white mb-2">
                   {q.title}
