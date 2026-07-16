@@ -1,10 +1,10 @@
 /**
- * Transparency Hub: legal/governance, financial summaries, roadmaps,
- * volunteer credits teaser, decision logs, State of the Forge, Founders Thoughts.
- * Designed to feel trustworthy and active with clear links into the rest of the site.
+ * Transparency Hub (SDD): legal/governance, financial summaries & reinvestment
+ * reports, roadmaps, volunteer credits, decision logs, State of the Forge,
+ * Founders Thoughts. Placeholders until live ledgers connect.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -18,13 +18,14 @@ import {
   MessageSquareQuote,
   Shield,
   Heart,
-  ExternalLink,
   CheckCircle2,
   Hammer,
   Layers,
   Sparkles,
   FileText,
   TrendingUp,
+  RefreshCw,
+  Landmark,
 } from 'lucide-react';
 
 import Card from '../components/ui/Card';
@@ -32,7 +33,6 @@ import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
 import UserAvatar from '../components/ui/UserAvatar';
 
-/** Jump links for in-page navigation */
 const SECTIONS = [
   { id: 'governance', label: 'Governance' },
   { id: 'financials', label: 'Financials' },
@@ -43,7 +43,69 @@ const SECTIONS = [
   { id: 'founders', label: 'Founders' },
 ];
 
-/** Project roadmap cards (align with Projects directory). */
+/** Placeholder public financial summary (studio Support, not runway). */
+const FINANCIAL_PLACEHOLDERS = {
+  periodLabel: 'Q3 2026 (placeholder)',
+  totalSupport: 0,
+  reinvested: 0,
+  operations: 0,
+  reserve: 0,
+  note: 'Live Stripe aggregates will replace these zeros once reporting is connected.',
+};
+
+/** Planned usage of studio support funds. Founder pay is not from support. */
+const USAGE_CATEGORIES = [
+  {
+    label: 'Project development and tools',
+    pct: 40,
+    desc: 'Engines, licenses, build pipelines, and software that ship games.',
+  },
+  {
+    label: 'Assets and creative production',
+    pct: 25,
+    desc: 'Art, audio, design assets, and production needs for active projects.',
+  },
+  {
+    label: 'Community infrastructure',
+    pct: 20,
+    desc: 'Site features, credit systems, moderation tools, volunteer systems.',
+  },
+  {
+    label: 'Studio operations and hosting',
+    pct: 15,
+    desc: 'Hosting, databases, test servers, taxes, and legitimate operating costs.',
+  },
+];
+
+/** Placeholder reinvestment reports (public, high-level). */
+const REINVESTMENT_REPORTS = [
+  {
+    id: 'r1',
+    period: 'July 2026',
+    status: 'Placeholder',
+    headline: 'First public reinvestment period',
+    summary:
+      'Once support volume is meaningful, this card will list what was reinvested into projects, tools, and community systems versus held as operating reserve.',
+    items: [
+      { label: 'Reinvested into development', value: '$0' },
+      { label: 'Operations and hosting', value: '$0' },
+      { label: 'Reserve', value: '$0' },
+    ],
+  },
+  {
+    id: 'r2',
+    period: 'Prior periods',
+    status: 'Coming soon',
+    headline: 'Historical reports',
+    summary:
+      'Past months will stack here so anyone can audit the pattern over time. No silent rewrites of prior totals.',
+    items: [
+      { label: 'Reports published', value: '0' },
+      { label: 'Open questions', value: 'n/a' },
+    ],
+  },
+];
+
 const ROADMAP = [
   {
     id: 'prototype-systems',
@@ -53,7 +115,7 @@ const ROADMAP = [
     progress: 42,
     href: '/projects/prototype-systems',
     summary:
-      'Core loop, networking, and claim/credit prototypes. Active board with open volunteer tasks.',
+      'Core loop, networking, and claim/credit prototypes. Open volunteer tasks on the board.',
   },
   {
     id: 'core-features',
@@ -63,7 +125,7 @@ const ROADMAP = [
     progress: 18,
     href: '/projects/core-features',
     summary:
-      'Cooperative systems design and early integrations. Planning sprints with public ownership.',
+      'Cooperative systems design and early integrations. Public ownership of sprints.',
   },
   {
     id: 'polish-playtests',
@@ -73,90 +135,64 @@ const ROADMAP = [
     progress: 5,
     href: '/projects/polish-playtests',
     summary:
-      'Playtests, polish passes, and hardening for release. Vision stage with early task drafts.',
+      'Playtests, polish passes, and hardening for release. Early task drafts welcome.',
   },
 ];
 
-/** Planned usage categories (illustrative until Stripe ledger is live).
- * Support funds projects and operations only. Founder pay is not from donations. */
-const USAGE_CATEGORIES = [
-  {
-    label: 'Project development & tools',
-    pct: 40,
-    desc: 'Engines, licenses, build pipelines, and software that ship the games.',
-  },
-  {
-    label: 'Assets & creative production',
-    pct: 25,
-    desc: 'Art, audio, design assets, and other production needs for active projects.',
-  },
-  {
-    label: 'Community infrastructure',
-    pct: 20,
-    desc: 'Site features, credit systems, moderation tools, and volunteer support systems.',
-  },
-  {
-    label: 'Studio operations & hosting',
-    pct: 15,
-    desc: 'Hosting, databases, test servers, taxes, and legitimate operating costs.',
-  },
-];
-
-/** Lightweight public decision log entries */
 const DECISION_LOGS = [
   {
     id: 'd1',
-    date: '2026-06-20',
-    title: 'Support funds projects, not founder pay',
+    date: '2026-07-15',
+    title: 'Studio support builds projects, not founder pay',
     tag: 'Governance',
     summary:
-      'Community support goes toward building projects and running the studio. Founder compensation comes only from future profits once the studio sustains itself, and only at a reasonable level. No bonuses, equity dumps, or investor draws.',
+      'Together Forge project support funds development and operations only. Founder living wage comes from profits once the studio can pay all employees a family-supporting wage, or from a separate personal runway path that is not project funds.',
   },
   {
     id: 'd2',
-    date: '2026-06-28',
-    title: 'Public project workspaces over private silos',
+    date: '2026-07-15',
+    title: 'Public workspaces over private silos',
     tag: 'Process',
     summary:
-      'Every active project gets a public workspace with kanban, updates, and shoutouts so progress is visible without needing insider access.',
+      'Every active project gets a public workspace with kanban, updates, and shoutouts so progress does not require insider access.',
   },
   {
     id: 'd3',
-    date: '2026-07-05',
-    title: 'Support is not a donation',
+    date: '2026-07-15',
+    title: 'Support is not a charitable donation',
     tag: 'Legal',
     summary:
-      'Together Forge is a community-supported for-profit studio. Contributions are not tax-deductible. We state this clearly on Support and here.',
+      'Together Forge is a community-supported for-profit studio. Contributions are not tax-deductible. Stated clearly on Support and here.',
   },
   {
     id: 'd4',
-    date: '2026-07-10',
-    title: 'Five active claims per volunteer',
+    date: '2026-07-15',
+    title: 'Five active task claims per volunteer',
     tag: 'Community',
     summary:
-      'Task claim limit of five active items keeps boards fair and unfinished work from stacking. Completing or releasing a task frees a slot.',
+      'A cap of five active claims keeps boards fair. Completing or releasing a task frees a slot.',
   },
 ];
 
-/** State of the Forge monthly-style updates */
 const STATE_UPDATES = [
   {
     id: 's1',
-    date: '2026-07-01',
-    title: 'July: Workspaces, ideas, and Support go live',
+    date: '2026-07-15',
+    title: 'July: Transparency Hub, Founders Thoughts, and Support paths',
     highlight: true,
-    body: 'Project workspaces shipped with kanban, idea voting stabilized, and the Support page is ready for Stripe Payment Links. Transparency Hub is the public home for how we operate and spend.',
+    body: 'Public governance, placeholder financial summaries, project roadmaps, and Founders Thoughts are live. Studio Support and personal runway Support stay clearly separated so money trails stay honest.',
     links: [
-      { label: 'Browse projects', to: '/projects' },
-      { label: 'Support the forge', to: '/support' },
+      { label: 'Founders Thoughts', to: '/founders-thoughts' },
+      { label: 'Studio Support', to: '/support' },
+      { label: 'Projects', to: '/projects' },
     ],
   },
   {
     id: 's2',
     date: '2026-06-01',
-    title: 'June: Foundations and claim flows',
+    title: 'June: Workspaces and claim flows',
     highlight: false,
-    body: 'Prototype Systems board opened for early volunteers. Claim and credit flows moved from concept to working site features so effort can be tracked publicly.',
+    body: 'Prototype Systems board opened. Claim and credit flows moved from concept to site features so effort can be tracked publicly.',
     links: [
       { label: 'Get involved', to: '/get-involved' },
       { label: 'How it works', to: '/how-it-works' },
@@ -164,7 +200,6 @@ const STATE_UPDATES = [
   },
 ];
 
-/** Teasers linking to full essays at /founders-thoughts */
 const FOUNDERS_THOUGHTS = [
   {
     id: 'why-i-created-together-forge',
@@ -185,24 +220,62 @@ const FOUNDERS_THOUGHTS = [
     href: '/founders-thoughts#founder-compensation',
   },
   {
-    id: 'long-term-vision',
+    id: 'why-transparency-matters',
     date: '2026-07-15',
-    theme: 'Vision',
-    title: 'Long Term Vision',
+    theme: 'Transparency',
+    title: 'Why Transparency Matters',
     excerpt:
-      'Gold-standard game development, systems for indies and learners, and games that force the industry toward transparency.',
-    href: '/founders-thoughts#long-term-vision',
+      'If money ever flows to the wrong places, the community should see it. Open systems make that possible.',
+    href: '/founders-thoughts#why-transparency-matters',
   },
 ];
 
-/** Teaser contributors for gallery (placeholder until live credits) */
 const CONTRIBUTOR_TEASERS = [
   { name: 'Alex R.', role: 'Prototype code', initials: 'AR' },
   { name: 'Jordan K.', role: 'Systems design', initials: 'JK' },
   { name: 'Sam V.', role: 'Community ops', initials: 'SV' },
   { name: 'Riley M.', role: 'UI polish', initials: 'RM' },
   { name: 'Casey L.', role: 'Playtest lead', initials: 'CL' },
-  { name: 'Morgan T.', role: 'Ideas & feedback', initials: 'MT' },
+  { name: 'Morgan T.', role: 'Ideas and feedback', initials: 'MT' },
+];
+
+const GOVERNANCE_CARDS = [
+  {
+    icon: Scale,
+    accent: 'text-neon-cyan',
+    title: 'Entity and status',
+    subtitle: 'For-profit studio',
+    body: 'Together Forge is a community-supported independent game studio. Support is business revenue, not a charitable donation. Contributions are not tax-deductible.',
+  },
+  {
+    icon: Shield,
+    accent: 'text-neon-purple',
+    title: 'Founder compensation',
+    subtitle: 'Profits or personal runway only',
+    body: 'Studio Support funds projects and operations, not founder living expenses. A living wage from the company starts only when revenue can pay all employees a family-supporting wage. A separate personal runway option exists outside project funds.',
+    links: [
+      { to: '/founders-thoughts#founder-compensation', label: 'Founders Thoughts' },
+      { to: '/support-runway', label: 'Runway Support' },
+    ],
+  },
+  {
+    icon: FileText,
+    accent: 'text-neon-magenta',
+    title: 'Public reporting',
+    subtitle: 'This hub',
+    body: 'Financial summaries, reinvestment reports, decision logs, roadmaps, and State of the Forge updates live here. Individual donors stay private unless they opt into public credit.',
+  },
+  {
+    icon: Users,
+    accent: 'text-neon-green',
+    title: 'Community voice',
+    subtitle: 'Ideas and boards',
+    body: 'Direction is shaped by public ideas, votes, and open task boards. Major process choices are recorded in lightweight decision logs.',
+    links: [
+      { to: '/about', label: 'About' },
+      { to: '/faq', label: 'FAQ' },
+    ],
+  },
 ];
 
 const phaseBadgeVariant = (phase) => {
@@ -218,32 +291,34 @@ const formatMoney = (n) =>
     maximumFractionDigits: 0,
   }).format(n || 0);
 
+const formatDate = (iso, opts = { year: 'numeric', month: 'short', day: 'numeric' }) => {
+  if (!iso) return '';
+  return new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, opts);
+};
+
 const TransparencyHub = () => {
   const navigate = useNavigate();
-  const [donations, setDonations] = useState([]);
-  const [total, setTotal] = useState(0);
+  const [demoTotal, setDemoTotal] = useState(0);
 
   useEffect(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('tf_donations') || '[]');
-      if (Array.isArray(stored)) {
-        setDonations(stored);
-        setTotal(stored.reduce((acc, d) => acc + (Number(d.amount) || 0), 0));
+      if (Array.isArray(stored) && stored.length) {
+        setDemoTotal(stored.reduce((acc, d) => acc + (Number(d.amount) || 0), 0));
       }
     } catch {
-      setDonations([]);
-      setTotal(0);
+      setDemoTotal(0);
     }
   }, []);
 
-  const supportCount = donations.length;
-  const hasDemoLedger = supportCount > 0;
-
   const usageRows = useMemo(() => USAGE_CATEGORIES, []);
+  const displayTotal =
+    FINANCIAL_PLACEHOLDERS.totalSupport > 0
+      ? FINANCIAL_PLACEHOLDERS.totalSupport
+      : demoTotal;
 
   const scrollTo = (id) => {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   return (
@@ -273,9 +348,9 @@ const TransparencyHub = () => {
               Trust you can verify
             </h1>
             <p className="text-lg sm:text-xl text-text-secondary leading-relaxed">
-              Legal structure, how support is used, project progress, decisions,
-              and founder notes. In one public place. We would rather show an
-              incomplete ledger than hide behind marketing copy.
+              Legal structure, public finances, roadmaps, credits, decisions, and
+              founder notes. Incomplete ledgers beat marketing copy that hides the
+              truth.
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row flex-wrap gap-3">
@@ -285,16 +360,16 @@ const TransparencyHub = () => {
                 onClick={() => scrollTo('financials')}
               >
                 <Wallet className="w-4 h-4" />
-                Financial summary
+                Financials
               </Button>
               <Button
                 size="lg"
                 variant="secondary"
                 className="gap-2 w-full sm:w-auto"
-                onClick={() => navigate('/support')}
+                onClick={() => navigate('/founders-thoughts')}
               >
-                <Heart className="w-4 h-4" />
-                Support the forge
+                <MessageSquareQuote className="w-4 h-4" />
+                Founders Thoughts
               </Button>
               <Button
                 size="lg"
@@ -303,12 +378,11 @@ const TransparencyHub = () => {
                 onClick={() => navigate('/projects')}
               >
                 <Layers className="w-4 h-4" />
-                View projects
+                Projects
               </Button>
             </div>
           </div>
 
-          {/* Section jump nav */}
           <nav
             aria-label="Transparency sections"
             className="mt-10 flex flex-wrap gap-2"
@@ -328,7 +402,7 @@ const TransparencyHub = () => {
       </div>
 
       <div className="container-custom relative z-10 py-12 md:py-16 space-y-16 md:space-y-20">
-        {/* ---------- Legal & Governance ---------- */}
+        {/* Legal & governance */}
         <section id="governance" aria-labelledby="governance-heading" className="scroll-mt-24">
           <div className="max-w-2xl mb-8">
             <div className="section-header">Legal and governance</div>
@@ -339,117 +413,70 @@ const TransparencyHub = () => {
               How the studio is structured
             </h2>
             <p className="text-text-secondary mt-2 text-sm sm:text-base">
-              Clear rules beat vague promises. Here is what we commit to publicly.
+              Public rules so nobody has to guess who we are or how money is treated.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4 md:gap-5">
-            <Card className="bg-cyber-card/80 h-full">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="w-11 h-11 rounded-xl bg-cyber-surface border border-cyber-border flex items-center justify-center text-neon-cyan shrink-0">
-                  <Scale className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">Entity and status</h3>
-                  <p className="text-xs font-mono tracking-widest text-text-muted uppercase mt-1">
-                    For-profit studio
+            {GOVERNANCE_CARDS.map((card) => {
+              const Icon = card.icon;
+              return (
+                <Card key={card.title} className="bg-cyber-card/80 h-full flex flex-col">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div
+                      className={`w-11 h-11 rounded-xl bg-cyber-surface border border-cyber-border flex items-center justify-center shrink-0 ${card.accent}`}
+                    >
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">{card.title}</h3>
+                      <p className="text-xs font-mono tracking-widest text-text-muted uppercase mt-1">
+                        {card.subtitle}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-text-secondary leading-relaxed flex-1">
+                    {card.body}
                   </p>
-                </div>
-              </div>
-              <p className="text-sm text-text-secondary leading-relaxed">
-                Together Forge operates as a community-supported independent game
-                studio. Support and payments are business revenue, not charitable
-                donations. Contributions are not tax-deductible.
-              </p>
-            </Card>
-
-            <Card className="bg-cyber-card/80 h-full">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="w-11 h-11 rounded-xl bg-cyber-surface border border-cyber-border flex items-center justify-center text-neon-purple shrink-0">
-                  <Shield className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">Founder Compensation</h3>
-                  <p className="text-xs font-mono tracking-widest text-text-muted uppercase mt-1">
-                    From profits only
-                  </p>
-                </div>
-              </div>
-              <p className="text-sm text-text-secondary leading-relaxed">
-                Support and donations fund project development and studio
-                operations, not founder pay. The founder takes reasonable
-                compensation only from profits once the studio sustains itself.
-                No bonuses, investor payouts, or silent equity windfalls.
-              </p>
-            </Card>
-
-            <Card className="bg-cyber-card/80 h-full">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="w-11 h-11 rounded-xl bg-cyber-surface border border-cyber-border flex items-center justify-center text-neon-magenta shrink-0">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">Public reporting</h3>
-                  <p className="text-xs font-mono tracking-widest text-text-muted uppercase mt-1">
-                    This hub
-                  </p>
-                </div>
-              </div>
-              <p className="text-sm text-text-secondary leading-relaxed">
-                Aggregate support totals, usage categories, decision logs, and
-                monthly State of the Forge notes live here. Individual donor
-                privacy is respected; only aggregates and voluntary public credits appear.
-              </p>
-            </Card>
-
-            <Card className="bg-cyber-card/80 h-full">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="w-11 h-11 rounded-xl bg-cyber-surface border border-cyber-border flex items-center justify-center text-neon-green shrink-0">
-                  <Users className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">Community voice</h3>
-                  <p className="text-xs font-mono tracking-widest text-text-muted uppercase mt-1">
-                    Ideas and boards
-                  </p>
-                </div>
-              </div>
-              <p className="text-sm text-text-secondary leading-relaxed mb-4">
-                Direction is shaped by public ideas, votes, and open task boards.
-                Lightweight decision logs explain why major process choices were made.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  to="/about"
-                  className="text-xs font-mono tracking-widest text-neon-cyan hover:underline inline-flex items-center gap-1"
-                >
-                  About the studio <ArrowRight className="w-3 h-3" />
-                </Link>
-                <Link
-                  to="/faq"
-                  className="text-xs font-mono tracking-widest text-neon-cyan hover:underline inline-flex items-center gap-1"
-                >
-                  FAQ <ArrowRight className="w-3 h-3" />
-                </Link>
-              </div>
-            </Card>
+                  {card.links?.length > 0 && (
+                    <div className="flex flex-wrap gap-3 mt-4">
+                      {card.links.map((l) => (
+                        <Link
+                          key={l.to}
+                          to={l.to}
+                          className="text-xs font-mono tracking-widest text-neon-cyan hover:underline inline-flex items-center gap-1"
+                        >
+                          {l.label}
+                          <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
           </div>
         </section>
 
-        {/* ---------- Financial Summary ---------- */}
+        {/* Financial summaries & reinvestment */}
         <section id="financials" aria-labelledby="financials-heading" className="scroll-mt-24">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
             <div className="max-w-2xl">
-              <div className="section-header">Financial summary</div>
+              <div className="section-header">Financial summaries</div>
               <h2
                 id="financials-heading"
                 className="text-2xl sm:text-3xl font-bold text-white"
               >
-                Aggregate support and usage
+                Public money trails
               </h2>
               <p className="text-text-secondary mt-2 text-sm sm:text-base">
-                High-level totals only. When Stripe is live, monthly aggregates
-                will replace demo ledger entries automatically.
+                Studio Support totals, planned usage, and reinvestment reports.
+                Placeholders until Stripe reporting is live. Personal runway is
+                tracked separately on{' '}
+                <Link to="/support-runway" className="text-neon-cyan hover:underline">
+                  Runway Support
+                </Link>
+                .
               </p>
             </div>
             <Button
@@ -458,50 +485,88 @@ const TransparencyHub = () => {
               onClick={() => navigate('/support')}
             >
               <Heart className="w-4 h-4" />
-              Contribute
+              Studio Support
             </Button>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-4 md:gap-5 mb-6">
-            <Card className="bg-cyber-card/80 lg:col-span-1 border-neon-cyan/20">
-              <div className="flex items-center gap-2 text-text-muted mb-3">
+          {/* Snapshot stats */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card className="bg-cyber-card/80 border-neon-cyan/20">
+              <div className="flex items-center gap-2 text-text-muted mb-2">
                 <Wallet className="w-4 h-4 text-neon-cyan" />
                 <span className="text-xs font-mono tracking-widest uppercase">
-                  Recorded support
+                  Total support
                 </span>
               </div>
-              <div className="text-4xl sm:text-5xl font-mono font-bold text-neon-cyan mb-1">
-                {formatMoney(total)}
+              <div className="text-3xl font-mono font-bold text-neon-cyan">
+                {formatMoney(displayTotal)}
               </div>
-              <p className="text-sm text-text-muted mb-4">
-                {hasDemoLedger
-                  ? `${supportCount} local demo entr${supportCount === 1 ? 'y' : 'ies'}`
-                  : 'No ledger entries yet. Baseline is $0.'}
+              <p className="text-xs text-text-muted mt-2">
+                {FINANCIAL_PLACEHOLDERS.periodLabel}
               </p>
-              <Badge variant="default">
-                {hasDemoLedger ? 'Demo ledger' : 'Awaiting first support'}
-              </Badge>
             </Card>
+            <Card className="bg-cyber-card/80">
+              <div className="flex items-center gap-2 text-text-muted mb-2">
+                <RefreshCw className="w-4 h-4 text-neon-purple" />
+                <span className="text-xs font-mono tracking-widest uppercase">
+                  Reinvested
+                </span>
+              </div>
+              <div className="text-3xl font-mono font-bold text-white">
+                {formatMoney(FINANCIAL_PLACEHOLDERS.reinvested)}
+              </div>
+              <p className="text-xs text-text-muted mt-2">Into projects and systems</p>
+            </Card>
+            <Card className="bg-cyber-card/80">
+              <div className="flex items-center gap-2 text-text-muted mb-2">
+                <Landmark className="w-4 h-4 text-neon-magenta" />
+                <span className="text-xs font-mono tracking-widest uppercase">
+                  Operations
+                </span>
+              </div>
+              <div className="text-3xl font-mono font-bold text-white">
+                {formatMoney(FINANCIAL_PLACEHOLDERS.operations)}
+              </div>
+              <p className="text-xs text-text-muted mt-2">Hosting, tools, taxes</p>
+            </Card>
+            <Card className="bg-cyber-card/80">
+              <div className="flex items-center gap-2 text-text-muted mb-2">
+                <Shield className="w-4 h-4 text-neon-cyan" />
+                <span className="text-xs font-mono tracking-widest uppercase">
+                  Reserve
+                </span>
+              </div>
+              <div className="text-3xl font-mono font-bold text-white">
+                {formatMoney(FINANCIAL_PLACEHOLDERS.reserve)}
+              </div>
+              <p className="text-xs text-text-muted mt-2">Held for stability</p>
+            </Card>
+          </div>
 
-            <Card className="bg-cyber-card/80 lg:col-span-2">
+          <p className="text-xs font-mono text-text-muted mb-6">
+            {FINANCIAL_PLACEHOLDERS.note}
+          </p>
+
+          <div className="grid lg:grid-cols-2 gap-4 md:gap-5 mb-6">
+            <Card className="bg-cyber-card/80">
               <div className="flex items-center gap-2 text-text-muted mb-4">
                 <TrendingUp className="w-4 h-4 text-neon-purple" />
                 <span className="text-xs font-mono tracking-widest uppercase">
                   Planned usage split
                 </span>
               </div>
-              <p className="text-sm text-text-secondary mb-5">
-                Target allocation for support funds. Project development, tools,
-                assets, community infrastructure, and operations. Founder pay is
-                not part of this split. Actual percentages will be published after
-                each reporting period once volume is meaningful.
+              <p className="text-sm text-text-secondary mb-5 leading-relaxed">
+                Target allocation for studio Support. Founder pay is not in this
+                split.
               </p>
               <ul className="space-y-4">
                 {usageRows.map((row) => (
                   <li key={row.label}>
                     <div className="flex justify-between gap-3 text-sm mb-1.5">
                       <span className="text-white font-medium">{row.label}</span>
-                      <span className="font-mono text-neon-cyan shrink-0">{row.pct}%</span>
+                      <span className="font-mono text-neon-cyan shrink-0">
+                        {row.pct}%
+                      </span>
                     </div>
                     <div className="h-1.5 rounded-full bg-cyber-surface border border-cyber-border overflow-hidden mb-1">
                       <div
@@ -513,72 +578,68 @@ const TransparencyHub = () => {
                   </li>
                 ))}
               </ul>
-              <p className="mt-5 text-sm text-text-secondary leading-relaxed border-t border-cyber-border pt-4">
-                Founder takes reasonable compensation only from profits once the
-                studio sustains itself. Your support builds the forge, not a
-                founder salary line.
-              </p>
             </Card>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-1">
+                <RefreshCw className="w-4 h-4 text-neon-cyan" />
+                <h3 className="text-lg font-semibold text-white">
+                  Reinvestment reports
+                </h3>
+                <Badge variant="default">Placeholder</Badge>
+              </div>
+              {REINVESTMENT_REPORTS.map((report) => (
+                <Card key={report.id} className="bg-cyber-card/80">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className="text-xs font-mono tracking-widest text-text-muted uppercase">
+                      {report.period}
+                    </span>
+                    <Badge variant="default">{report.status}</Badge>
+                  </div>
+                  <h4 className="text-base font-semibold text-white mb-2">
+                    {report.headline}
+                  </h4>
+                  <p className="text-sm text-text-secondary leading-relaxed mb-4">
+                    {report.summary}
+                  </p>
+                  <ul className="divide-y divide-cyber-border">
+                    {report.items.map((item) => (
+                      <li
+                        key={item.label}
+                        className="flex justify-between gap-3 py-2 text-sm"
+                      >
+                        <span className="text-text-muted">{item.label}</span>
+                        <span className="font-mono text-neon-cyan">{item.value}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              ))}
+            </div>
           </div>
 
-          <Card className="bg-cyber-card/80">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-              <h3 className="text-lg font-semibold text-white">Recent ledger (demo)</h3>
-              <p className="text-xs font-mono tracking-widest text-text-muted uppercase">
-                Local browser only until Stripe reports
-              </p>
-            </div>
-            {hasDemoLedger ? (
-              <ul className="divide-y divide-cyber-border">
-                {donations.slice(0, 8).map((d, i) => (
-                  <li
-                    key={`${d.timestamp || i}-${i}`}
-                    className="flex justify-between gap-4 py-3 text-sm"
-                  >
-                    <span className="text-text-secondary truncate">
-                      {d.label || 'Support'}
-                    </span>
-                    <span className="flex items-center gap-4 shrink-0 font-mono">
-                      <span className="text-neon-cyan">{formatMoney(d.amount)}</span>
-                      <span className="text-text-muted text-xs">
-                        {d.timestamp
-                          ? new Date(d.timestamp).toLocaleDateString()
-                          : 'n/a'}
-                      </span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="rounded-xl border border-dashed border-cyber-border bg-cyber-surface/50 p-6 text-center">
-                <p className="text-sm text-text-secondary mb-4">
-                  No support recorded in this browser yet. When people contribute
-                  via Support (and reporting is wired), aggregates appear here.
-                </p>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => navigate('/support')}
-                >
-                  Open Support page
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            )}
-            <p className="mt-4 text-xs text-text-muted leading-relaxed">
-              Disclaimer: Support is not a charitable donation. Funds go toward
-              building projects and studio operations. Founder compensation comes
-              only from future profits, not from support. See{' '}
+          <Card className="bg-cyber-surface/60 border-dashed">
+            <p className="text-xs text-text-muted leading-relaxed">
+              Disclaimer: Studio Support is not a charitable donation. Funds go
+              toward building projects and studio operations. Founder compensation
+              from the company comes only from future profits under the rules
+              above. See{' '}
               <Link to="/support" className="text-neon-cyan hover:underline">
                 Support
               </Link>{' '}
-              for tiers and payment flow.
+              and{' '}
+              <Link
+                to="/founders-thoughts#founder-compensation"
+                className="text-neon-cyan hover:underline"
+              >
+                Founder Compensation
+              </Link>
+              .
             </p>
           </Card>
         </section>
 
-        {/* ---------- Project Roadmaps ---------- */}
+        {/* Project roadmaps */}
         <section id="roadmap" aria-labelledby="roadmap-heading" className="scroll-mt-24">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
             <div className="max-w-2xl">
@@ -590,8 +651,8 @@ const TransparencyHub = () => {
                 Progress you can open
               </h2>
               <p className="text-text-secondary mt-2 text-sm sm:text-base">
-                Each phase links to a live workspace. Progress bars are public
-                estimates until task metrics feed this view automatically.
+                Each card links to a live workspace. Progress bars are estimates
+                until task metrics feed this view.
               </p>
             </div>
             <Button
@@ -652,26 +713,26 @@ const TransparencyHub = () => {
               to="/projects/early"
               className="text-neon-cyan hover:underline font-mono text-xs tracking-widest"
             >
-              Early phase list
+              Early phase
             </Link>
             <span className="text-text-muted">·</span>
             <Link
               to="/projects/mid"
               className="text-neon-cyan hover:underline font-mono text-xs tracking-widest"
             >
-              Mid phase list
+              Mid phase
             </Link>
             <span className="text-text-muted">·</span>
             <Link
               to="/projects/late"
               className="text-neon-cyan hover:underline font-mono text-xs tracking-widest"
             >
-              Late phase list
+              Late phase
             </Link>
           </div>
         </section>
 
-        {/* ---------- Volunteer Credits teaser ---------- */}
+        {/* Volunteer credits */}
         <section id="credits" aria-labelledby="credits-heading" className="scroll-mt-24">
           <Card className="bg-cyber-card/80 border-neon-purple/30 overflow-hidden relative">
             <div
@@ -688,10 +749,9 @@ const TransparencyHub = () => {
                   Contributor gallery
                 </h2>
                 <p className="text-text-secondary text-sm sm:text-base leading-relaxed mb-4">
-                  People who ship work deserve public credit. This gallery will
-                  grow from task completions, shoutouts, and opt-in supporter
-                  names. Placeholder faces below show the layout; live profiles
-                  connect as credit data stabilizes.
+                  People who ship work deserve public credit. This gallery grows
+                  from task completions, shoutouts, and opt-in supporter names.
+                  Layout teaser below until live credit data connects.
                 </p>
                 <ul className="space-y-2 text-sm text-text-muted mb-6">
                   <li className="flex items-center gap-2">
@@ -704,7 +764,7 @@ const TransparencyHub = () => {
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-neon-cyan shrink-0" />
-                    Opt-in supporters list from Support tiers
+                    Opt-in names from Support tiers
                   </li>
                 </ul>
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -757,7 +817,7 @@ const TransparencyHub = () => {
           </Card>
         </section>
 
-        {/* ---------- Decision Logs ---------- */}
+        {/* Decision logs */}
         <section id="decisions" aria-labelledby="decisions-heading" className="scroll-mt-24">
           <div className="max-w-2xl mb-8">
             <div className="section-header">Decision logs</div>
@@ -768,35 +828,29 @@ const TransparencyHub = () => {
               Why we chose this path
             </h2>
             <p className="text-text-secondary mt-2 text-sm sm:text-base">
-              Lightweight archive of process and policy choices. Not a legal
-              filing. A public notebook so the community is not left guessing.
+              Lightweight public notes on process and policy. Not legal filings.
             </p>
           </div>
 
           <div className="space-y-3">
             {DECISION_LOGS.map((entry) => (
               <Card key={entry.id} className="bg-cyber-card/80">
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-cyber-surface border border-cyber-border flex items-center justify-center text-neon-cyan shrink-0 mt-0.5">
-                      <ScrollText className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h3 className="text-base sm:text-lg font-semibold text-white">
-                        {entry.title}
-                      </h3>
-                      <div className="flex flex-wrap items-center gap-2 mt-1">
-                        <Badge variant="default">{entry.tag}</Badge>
-                        <time
-                          dateTime={entry.date}
-                          className="text-xs font-mono text-text-muted"
-                        >
-                          {new Date(entry.date + 'T12:00:00').toLocaleDateString(
-                            undefined,
-                            { year: 'numeric', month: 'short', day: 'numeric' }
-                          )}
-                        </time>
-                      </div>
+                <div className="flex items-start gap-3 mb-2">
+                  <div className="w-9 h-9 rounded-lg bg-cyber-surface border border-cyber-border flex items-center justify-center text-neon-cyan shrink-0 mt-0.5">
+                    <ScrollText className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-semibold text-white">
+                      {entry.title}
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <Badge variant="default">{entry.tag}</Badge>
+                      <time
+                        dateTime={entry.date}
+                        className="text-xs font-mono text-text-muted"
+                      >
+                        {formatDate(entry.date)}
+                      </time>
                     </div>
                   </div>
                 </div>
@@ -808,7 +862,7 @@ const TransparencyHub = () => {
           </div>
         </section>
 
-        {/* ---------- State of the Forge ---------- */}
+        {/* State of the Forge */}
         <section id="state" aria-labelledby="state-heading" className="scroll-mt-24">
           <div className="max-w-2xl mb-8">
             <div className="section-header">State of the Forge</div>
@@ -819,8 +873,7 @@ const TransparencyHub = () => {
               Regular public updates
             </h2>
             <p className="text-text-secondary mt-2 text-sm sm:text-base">
-              Monthly snapshots of what shipped, what is blocked, and where
-              energy is going next. Newest first.
+              What shipped, what is open, and where energy is going. Newest first.
             </p>
           </div>
 
@@ -842,10 +895,7 @@ const TransparencyHub = () => {
                     dateTime={update.date}
                     className="text-xs font-mono tracking-widest text-text-muted uppercase"
                   >
-                    {new Date(update.date + 'T12:00:00').toLocaleDateString(
-                      undefined,
-                      { year: 'numeric', month: 'long' }
-                    )}
+                    {formatDate(update.date, { year: 'numeric', month: 'long' })}
                   </time>
                   {update.highlight && <Badge variant="neon">Latest</Badge>}
                 </div>
@@ -862,7 +912,7 @@ const TransparencyHub = () => {
                         className="inline-flex items-center gap-1 text-xs font-mono tracking-widest text-neon-cyan hover:underline"
                       >
                         {link.label}
-                        <ExternalLink className="w-3 h-3" />
+                        <ArrowRight className="w-3 h-3" />
                       </Link>
                     ))}
                   </div>
@@ -872,7 +922,7 @@ const TransparencyHub = () => {
           </div>
         </section>
 
-        {/* ---------- Founders Thoughts ---------- */}
+        {/* Founders Thoughts */}
         <section id="founders" aria-labelledby="founders-heading" className="scroll-mt-24">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
             <div className="max-w-2xl">
@@ -881,11 +931,11 @@ const TransparencyHub = () => {
                 id="founders-heading"
                 className="text-2xl sm:text-3xl font-bold text-white"
               >
-                Notes from the people building this
+                Notes from building the forge
               </h2>
               <p className="text-text-secondary mt-2 text-sm sm:text-base">
-                Personal reflections on pay, trust, community, and long-term vision.
-                Full essays live on a dedicated page. Highlights below.
+                Origin story, compensation rules, transparency philosophy, and
+                long-term vision. Full essays on a dedicated page.
               </p>
             </div>
             <Button
@@ -894,7 +944,7 @@ const TransparencyHub = () => {
               onClick={() => navigate('/founders-thoughts')}
             >
               <MessageSquareQuote className="w-4 h-4" />
-              Read all thoughts
+              Open Founders Thoughts
             </Button>
           </div>
 
@@ -913,10 +963,7 @@ const TransparencyHub = () => {
                       dateTime={note.date}
                       className="text-xs font-mono tracking-widest text-text-muted uppercase"
                     >
-                      {new Date(note.date + 'T12:00:00').toLocaleDateString(
-                        undefined,
-                        { year: 'numeric', month: 'short', day: 'numeric' }
-                      )}
+                      {formatDate(note.date)}
                     </time>
                   </div>
                   <h3 className="text-lg font-bold text-white mb-3 group-hover:text-neon-purple transition-colors">
@@ -933,53 +980,18 @@ const TransparencyHub = () => {
               </Link>
             ))}
           </div>
-
-          <Card className="mt-5 bg-cyber-surface/60 border-dashed">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <Sparkles className="w-5 h-5 text-neon-cyan shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="text-base font-semibold text-white">
-                    Full archive
-                  </h3>
-                  <p className="text-sm text-text-secondary mt-1">
-                    Philosophy, living-wage rules from profits only, long-term vision,
-                    and more. New entries post as the forge grows.
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => navigate('/founders-thoughts')}
-                >
-                  Open Founders Thoughts
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => navigate('/contact')}
-                >
-                  Contact
-                </Button>
-              </div>
-            </div>
-          </Card>
         </section>
 
-        {/* ---------- Bottom CTA ---------- */}
+        {/* Bottom CTA */}
         <section className="pt-4 border-t border-cyber-border">
           <Card className="bg-cyber-card/80 text-center py-10 px-6">
+            <Sparkles className="w-8 h-8 text-neon-cyan mx-auto mb-4" />
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
               Help keep the forge open
             </h2>
             <p className="text-text-secondary max-w-xl mx-auto mb-8 text-sm sm:text-base">
-              Ship a task, share an idea, or support the studio. Every path is
-              public enough that progress does not depend on insider access.
+              Ship a task, share an idea, or support the studio. Progress should
+              never depend on insider access.
             </p>
             <div className="flex flex-col sm:flex-row flex-wrap gap-3 justify-center">
               <Button
@@ -996,15 +1008,15 @@ const TransparencyHub = () => {
                 onClick={() => navigate('/support')}
               >
                 <Heart className="w-4 h-4" />
-                Support
+                Studio Support
               </Button>
               <Button
                 size="lg"
                 variant="outline"
                 className="gap-2"
-                onClick={() => navigate('/ideas')}
+                onClick={() => navigate('/founders-thoughts')}
               >
-                Browse ideas
+                Founders Thoughts
               </Button>
             </div>
           </Card>

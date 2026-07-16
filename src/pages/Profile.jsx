@@ -7,6 +7,7 @@ import Cropper from 'react-easy-crop';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import UserAvatar from '../components/ui/UserAvatar';
+import { publicProfilePath } from '../utils/profileLinks';
 
 const Profile = () => {
     const navigate = useNavigate();
@@ -549,6 +550,14 @@ const Profile = () => {
                                         <div className="flex flex-wrap gap-2">
                                             <button onClick={openUsernameModal} className="text-xs px-3 py-1.5 rounded-full border border-white/20 hover:border-neon-cyan text-neon-cyan">Change username</button>
                                             <Link to="/profile/edit" className="text-xs px-3 py-1.5 rounded-full border border-white/20 hover:border-neon-cyan text-neon-cyan">Edit profile</Link>
+                                            {publicProfilePath(profileData?.username) && (
+                                                <Link
+                                                    to={publicProfilePath(profileData.username)}
+                                                    className="text-xs px-3 py-1.5 rounded-full border border-neon-cyan/40 hover:border-neon-cyan text-neon-cyan bg-neon-cyan/5"
+                                                >
+                                                    View Public Profile
+                                                </Link>
+                                            )}
                                         </div>
                                     </div>
 

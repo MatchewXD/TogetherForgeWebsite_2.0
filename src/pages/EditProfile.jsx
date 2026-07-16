@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { publicProfilePath } from '../utils/profileLinks';
 
 const EditProfile = () => {
     const navigate = useNavigate();
@@ -123,9 +124,19 @@ const EditProfile = () => {
             <div className="border-b border-white/10 bg-cyber-surface py-16">
                 <div className="container-custom">
                     <Link to="/profile" className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8">Back to Profile</Link>
-                    <div>
-                        <div className="section-header">EDIT PROFILE</div>
-                        <h1 className="text-4xl font-bold tracking-tight text-white">Edit your profile</h1>
+                    <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+                        <div>
+                            <div className="section-header">EDIT PROFILE</div>
+                            <h1 className="text-4xl font-bold tracking-tight text-white">Edit your profile</h1>
+                        </div>
+                        {publicProfilePath(profile?.username) && (
+                            <Link
+                                to={publicProfilePath(profile.username)}
+                                className="text-xs px-4 py-2 rounded-full border border-neon-cyan/40 hover:border-neon-cyan text-neon-cyan bg-neon-cyan/5 font-mono tracking-widest uppercase self-start sm:self-auto"
+                            >
+                                View Public Profile
+                            </Link>
+                        )}
                     </div>
                 </div>
             </div>

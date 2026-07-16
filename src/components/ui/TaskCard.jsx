@@ -1,6 +1,7 @@
 import Button from './Buttons';
 import Badge from './Badge';
 import UserAvatar from './UserAvatar';
+import ProfileLink from './ProfileLink';
 
 /**
  * Compact task card for kanban boards and task lists.
@@ -64,10 +65,14 @@ const TaskCard = ({
       </p>
 
       {assigneeName && (
-        <div className="flex items-center gap-2 mb-3 min-w-0">
+        <div
+          className="flex items-center gap-2 mb-3 min-w-0"
+          onClick={(e) => e.stopPropagation()}
+        >
           <UserAvatar
             src={assigneeAvatar}
             name={assigneeName}
+            username={task.claim?.username || assigneeName}
             size="sm"
             className="shrink-0"
             borderClass="border border-neon-cyan/40"
@@ -76,7 +81,12 @@ const TaskCard = ({
             <span className="text-text-muted">
               {isCompleted ? 'Shipped by' : 'Claimed by'}{' '}
             </span>
-            <span className="text-neon-cyan">{assigneeName}</span>
+            <ProfileLink
+              username={task.claim?.username || assigneeName}
+              className="text-neon-cyan"
+            >
+              {assigneeName}
+            </ProfileLink>
             {isMine && !isCompleted ? (
               <span className="text-text-muted"> (you)</span>
             ) : null}

@@ -4,6 +4,7 @@ import HomePage from './pages/HomePage';
 import AboutPage from './pages/AboutPage';
 import GameIdeas from './pages/GameIdeas';
 import IdeaSubmit from './pages/IdeaSubmit';
+import IdeaWizard from './pages/IdeaWizard';
 import IdeaDetail from './pages/IdeaDetail';
 import Projects from './pages/Projects';
 import GetInvolved from './pages/GetInvolved';
@@ -26,6 +27,7 @@ import ProjectsEarlyDetail from './pages/ProjectsEarlyDetail';
 import ProjectsEdit from './pages/ProjectsEdit';
 import ProjectsEarlyEdit from './pages/ProjectsEarlyEdit';
 import ProjectWorkspace from './pages/ProjectWorkspace';
+import ModeratorDashboard from './pages/ModeratorDashboard';
 import Footer from './components/layout/Footer';
 
 function App() {
@@ -42,6 +44,7 @@ function App() {
                         <Route path="/about" element={<AboutPage />} />
                         <Route path="/ideas" element={<GameIdeas />} />
                         <Route path="/ideas/submit" element={<IdeaSubmit />} />
+                        <Route path="/ideas/wizard" element={<IdeaWizard />} />
                         <Route path="/ideas/:id" element={<IdeaDetail />} />
                         <Route path="/ideas/:id/edit" element={<IdeaEdit />} />
                         <Route path="/projects" element={<Projects />} />
@@ -62,10 +65,13 @@ function App() {
                         <Route path="/transparency" element={<TransparencyHub />} />
                         <Route path="/founders-thoughts" element={<FoundersThoughts />} />
                         <Route path="/support-runway" element={<SupportRunway />} />
+                        <Route path="/moderator" element={<ModeratorDashboard />} />
                         <Route path="/profile" element={<Profile />} />
                         <Route path="/profile/edit" element={<EditProfile />} />
-                        <Route path="/confirm-email" element={<EmailConfirmation />} />
+                        {/* Public profiles: /u/:username (canonical) and /profile/:username */}
                         <Route path="/u/:username" element={<PublicProfile />} />
+                        <Route path="/profile/:username" element={<PublicProfile />} />
+                        <Route path="/confirm-email" element={<EmailConfirmation />} />
                     </Routes>
                 </main>
                 <Footer />

@@ -3,12 +3,14 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Hammer, Users, Youtube, Heart, CheckCircle, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import UserAvatar from './ui/UserAvatar';
+import useIsModerator from '../hooks/useIsModerator';
 
 const Navbar = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [user, setUser] = useState(null);
     const [avatarUrl, setAvatarUrl] = useState(null);
     const location = useLocation();
+    const { isModerator } = useIsModerator();
 
     useEffect(() => {
         let mounted = true;
@@ -116,6 +118,9 @@ const Navbar = () => {
                                 <Link to="/transparency" className="block hover:text-neon-cyan">Transparency</Link>
                                 <Link to="/contact" className="block hover:text-neon-cyan">Contact</Link>
                                 <Link to="/profile" className="block hover:text-neon-cyan">Profile</Link>
+                                {isModerator && (
+                                    <Link to="/moderator" className="block hover:text-neon-cyan">Moderator</Link>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -134,6 +139,7 @@ const Navbar = () => {
                             <UserAvatar
                                 src={avatarUrl}
                                 name={user?.email || 'You'}
+                                linkProfile={false}
                                 size="md"
                                 className="!w-9 !h-9"
                                 borderClass="border border-transparent"
@@ -174,6 +180,9 @@ const Navbar = () => {
                         <Link to="/transparency" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Transparency</Link>
                         <Link to="/contact" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Contact</Link>
                         <Link to="/profile" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Profile</Link>
+                        {isModerator && (
+                            <Link to="/moderator" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Moderator</Link>
+                        )}
 
                         {!user ? (
                             <Link to="/profile" onClick={() => setIsOpen(false)} className="btn-neon btn-neon-magenta w-full justify-center mt-4">

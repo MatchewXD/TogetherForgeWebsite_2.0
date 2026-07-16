@@ -1,5 +1,5 @@
 /**
- * HomePage — Together Forge landing page
+ * HomePage: Together Forge landing page
  *
  * Dark cyberpunk / future-tech aesthetic.
  * Navbar + Footer are provided by App.jsx layout (sticky Navbar already mounted).
@@ -39,18 +39,18 @@ import StatWidget from '../components/ui/StatWidget';
 import ActivityItem from '../components/ui/ActivityItem';
 
 // ---------------------------------------------------------------------------
-// Content — swap these objects to rebrand or connect to live data later
+// Content: swap these objects to rebrand or connect to live data later
 // ---------------------------------------------------------------------------
 
 const MISSION_BLURB =
-  'Together Forge is a community-first independent game studio. We organize and support games built collaboratively by gamers, streamers, and volunteers — with transparent development, fair progression, and real connection at the core.';
+  'Together Forge is a community-first independent game studio. We organize and support games built collaboratively by gamers, streamers, and volunteers. With transparent development, fair progression, and real connection at the core.';
 
 /** Four core values shown in the Mission & Values teaser grid */
 const VALUES = [
   {
     icon: Users,
     title: 'By the Community',
-    desc: 'Games designed and built collaboratively. No corporate agendas — just real teamwork, shared ownership, and fun.',
+    desc: 'Games designed and built collaboratively. No corporate agendas. Just real teamwork, shared ownership, and fun.',
     accent: 'text-neon-cyan',
   },
   {
@@ -68,7 +68,7 @@ const VALUES = [
   {
     icon: Sparkles,
     title: 'Early Game Focus',
-    desc: 'Start simple with fun multiplayer prototypes that prove systems — then scale into bigger community-driven projects.',
+    desc: 'Start simple with fun multiplayer prototypes that prove systems. Then scale into bigger community-driven projects.',
     accent: 'text-neon-green',
   },
 ];
@@ -98,18 +98,18 @@ const FEATURED_PROJECTS = [
     title: 'Stability & Polish',
     phase: 'Late',
     description:
-      'Polish passes, optimization, and wider playtests. Help us stress-test builds and report what breaks — or what delights.',
+      'Polish passes, optimization, and wider playtests. Help us stress-test builds and report what breaks or what delights.',
     tasksCompleted: 3,
     activeVolunteers: 6,
   },
 ];
 
-/** Community stats row — replace with live metrics when available */
+/** Community stats row: replace with live metrics when available */
 const STATS = [
-  { label: 'Volunteers', value: '—', icon: '👥' },
-  { label: 'Ideas Submitted', value: '—', icon: '💡' },
+  { label: 'Volunteers', value: 'n/a', icon: '👥' },
+  { label: 'Ideas Submitted', value: 'n/a', icon: '💡' },
   { label: 'Active Projects', value: '3', icon: '⚒️' },
-  { label: 'Tasks Claimed', value: '—', icon: '✅' },
+  { label: 'Tasks Claimed', value: 'n/a', icon: '✅' },
 ];
 
 /** Recent activity feed samples */
@@ -145,7 +145,7 @@ const RECENT_ACTIVITY = [
 ];
 
 // External links
-// Placeholder invite — replace with the real Discord server URL when ready
+// Placeholder invite: replace with the real Discord server URL when ready
 const DISCORD_URL = 'https://discord.gg/togetherforge';
 const INTRO_VIDEO_URL = 'https://www.youtube.com/@MXDGameGuides';
 
@@ -177,7 +177,7 @@ const HomePage = () => {
           aria-hidden="true"
         />
 
-        {/* Main hero content — grows to fill space; mobile stack preserved */}
+        {/* Main hero content: grows to fill space; mobile stack preserved */}
         <div className="relative z-10 flex-1 flex items-center justify-center pt-20 pb-28 sm:pb-32">
           <div className="container-custom text-center px-6 w-full">
             <div className="max-w-5xl mx-auto">
@@ -205,7 +205,7 @@ const HomePage = () => {
                 {MISSION_BLURB}
               </p>
 
-              {/* Primary CTAs — stacked on mobile (kept as preferred) */}
+              {/* Primary CTAs: stacked on mobile (kept as preferred) */}
               <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3 sm:gap-4 mb-6">
                 <Button
                   size="lg"
@@ -274,7 +274,7 @@ const HomePage = () => {
         </div>
 
         {/*
-          Scroll hint — full-width flex row so text is truly centered on every
+          Scroll hint: full-width flex row so text is truly centered on every
           viewport (avoids left-1/2 + translate quirks with motion + long labels).
         */}
         <div className="absolute bottom-6 sm:bottom-8 inset-x-0 z-20 flex justify-center pointer-events-none px-4">
@@ -301,7 +301,7 @@ const HomePage = () => {
       </section>
 
       {/* ================================================================
-          SCROLL TRANSITION — neon bridge so users know more content awaits
+          SCROLL TRANSITION: neon bridge so users know more content awaits
           ================================================================ */}
       <div
         className="relative z-10 -mt-px border-t border-neon-cyan/10"
@@ -338,7 +338,7 @@ const HomePage = () => {
               <br className="hidden sm:block" /> For the Community
             </h2>
             <p className="text-text-secondary text-base sm:text-lg leading-relaxed">
-              Four principles guide every decision — from how we fund builds to
+              Four principles guide every decision. From how we fund builds to
               how volunteers get credit for their work.
             </p>
           </div>
@@ -399,7 +399,7 @@ const HomePage = () => {
                 What we&apos;re building
               </h2>
               <p className="text-text-secondary mt-2 max-w-xl">
-                From early prototypes to polish sprints — pick a project and see
+                From early prototypes to polish sprints. Pick a project and see
                 where you can jump in.
               </p>
             </div>
@@ -429,7 +429,7 @@ const HomePage = () => {
       </section>
 
       {/* ================================================================
-          COMMUNITY HIGHLIGHTS — stats + recent activity
+          COMMUNITY HIGHLIGHTS: stats + recent activity
           ================================================================ */}
       <section
         id="community"
@@ -485,7 +485,7 @@ const HomePage = () => {
                 </div>
                 <p className="text-text-secondary text-sm leading-relaxed mb-6">
                   Browse ideas, claim tasks, or just hang out on Discord. Every
-                  skill level is welcome — code, art, design, testing, or
+                  skill level is welcome. Code, art, design, testing, or
                   community support.
                 </p>
                 <ul className="space-y-2 text-sm text-text-muted mb-6">
@@ -546,7 +546,7 @@ const HomePage = () => {
             Build the next game <span className="neon-cyan">together</span>
           </h2>
           <p className="text-text-secondary text-base sm:text-lg mb-10 leading-relaxed">
-            Whether you ship pixels, prototypes, or pure enthusiasm — there is a
+            Whether you ship pixels, prototypes, or pure enthusiasm, there is a
             place for you at Together Forge. Start with an idea, a task, or a
             conversation.
           </p>

@@ -597,7 +597,7 @@ const GameIdeas = () => {
           </h1>
           <p className="text-text-secondary mt-4 text-base sm:text-lg leading-relaxed">
             {feedMode === 'community'
-              ? 'Browse every community pitch — vote, discuss, and spark the next build. Project leads can adopt ideas into workspaces.'
+              ? 'Browse every community pitch. Vote, discuss, and spark the next build. Project leads can adopt ideas into workspaces.'
               : 'Ideas tied to Together Forge projects. Pick a project or browse everything already linked.'}
           </p>
 

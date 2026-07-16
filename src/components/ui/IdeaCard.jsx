@@ -2,6 +2,7 @@ import { Flame, MessageCircle } from 'lucide-react';
 import Card from './Card';
 import Badge from './Badge';
 import UserAvatar from './UserAvatar';
+import ProfileLink from './ProfileLink';
 import {
   deriveIdeaStatus,
   getIdeaProjectKey,
@@ -9,6 +10,7 @@ import {
   statusChipClasses,
   statusLabel,
 } from '../../utils/ideaStatus';
+
 
 /**
  * Shared idea listing card for GameIdeas + Project Workspace.
@@ -37,8 +39,9 @@ const IdeaCard = ({
 }) => {
   const status = deriveIdeaStatus(idea);
   const isLinked = status === 'Linked';
+  const creatorUsername = idea.creator?.username || null;
   const creatorName =
-    idea.creator?.username || idea.submitter || 'Community';
+    creatorUsername || idea.submitter || 'Community';
   const avatarSrc =
     idea.creator?.avatar_url || idea.creator?.avatarUrl || null;
   const tags = showTags ? parseTags(idea.tags).slice(0, 4) : [];
@@ -187,15 +190,25 @@ const IdeaCard = ({
           )}
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-mono text-text-muted">
-            <div className="inline-flex items-center gap-2 min-w-0">
+            <div
+              className="inline-flex items-center gap-2 min-w-0"
+              onClick={(e) => e.stopPropagation()}
+            >
               <UserAvatar
                 src={avatarSrc}
                 name={creatorName}
+                username={creatorUsername}
                 size="sm"
                 borderClass="border border-neon-cyan/30"
               />
               <span className="truncate">
-                by <span className="text-neon-cyan">{creatorName}</span>
+                by{' '}
+                <ProfileLink
+                  username={creatorUsername}
+                  className="text-neon-cyan"
+                >
+                  {creatorName}
+                </ProfileLink>
               </span>
             </div>
 

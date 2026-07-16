@@ -42,6 +42,7 @@ import StatWidget from '../components/ui/StatWidget';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
 import UserAvatar from '../components/ui/UserAvatar';
+import ProfileLink from '../components/ui/ProfileLink';
 import IdeaCard from '../components/ui/IdeaCard';
 import { useIsModerator } from '../hooks/useIsModerator';
 import { tasksService } from '../services/tasksService';
@@ -1075,10 +1076,16 @@ const ProjectWorkspace = () => {
                     <UserAvatar
                       src={w.avatarUrl || w.avatar_url}
                       name={w.username}
+                      username={w.username}
                       initials={w.initials}
                       size="sm"
                     />
-                    <span className="text-sm text-text-primary">{w.username}</span>
+                    <ProfileLink
+                      username={w.username}
+                      className="text-sm text-text-primary"
+                    >
+                      {w.username}
+                    </ProfileLink>
                   </div>
                 ))}
               </div>

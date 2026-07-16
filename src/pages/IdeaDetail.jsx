@@ -18,6 +18,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import UserAvatar from '../components/ui/UserAvatar';
+import ProfileLink from '../components/ui/ProfileLink';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
 import Card from '../components/ui/Card';
@@ -546,6 +547,7 @@ const IdeaDetail = () => {
               <UserAvatar
                 src={idea.creator?.avatar_url || idea.creator?.avatarUrl}
                 name={idea.creator?.username || 'Community'}
+                username={idea.creator?.username}
                 size="md"
               />
               <div className="min-w-0">
@@ -553,7 +555,9 @@ const IdeaDetail = () => {
                   Submitted by
                 </div>
                 <div className="truncate text-text-primary">
-                  {idea.creator?.username || 'Community'}
+                  <ProfileLink username={idea.creator?.username}>
+                    {idea.creator?.username || 'Community'}
+                  </ProfileLink>
                 </div>
               </div>
             </div>
@@ -723,11 +727,15 @@ const IdeaDetail = () => {
                           c.profiles?.avatar_url || c.profiles?.avatarUrl
                         }
                         name={c.profiles?.username || 'Anonymous'}
+                        username={c.profiles?.username}
                         size="sm"
                       />
-                      <span className="truncate min-w-0 text-text-primary">
+                      <ProfileLink
+                        username={c.profiles?.username}
+                        className="truncate min-w-0 text-text-primary"
+                      >
                         {c.profiles?.username || 'Anonymous'}
-                      </span>
+                      </ProfileLink>
                       <button
                         type="button"
                         onClick={() => toggleCollapse(c.id)}

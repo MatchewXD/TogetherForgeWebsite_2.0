@@ -121,6 +121,7 @@ export function mapActivityRow(row) {
   return {
     id: row.id,
     user: username,
+    username,
     userInitials: initialsFromName(username),
     avatarUrl,
     avatar_url: avatarUrl,

@@ -17,6 +17,7 @@ import {
   Eye,
   Plus,
   Trash2,
+  Wand2,
 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -512,24 +513,39 @@ const IdeaSubmit = () => {
         </Link>
 
         <header className="mb-8">
-          <div className="section-header">Idea Creation</div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-white mb-2">
-            Share your vision
-          </h1>
-          <p className="text-text-secondary text-sm sm:text-base">
-            Three short steps: basics, optional details, then preview and
-            submit.
-            {formData.projectId && (
-              <>
-                {' '}
-                Linked to{' '}
-                <span className="text-neon-cyan font-mono">
-                  {formData.projectId}
-                </span>
-                .
-              </>
-            )}
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="min-w-0">
+              <div className="section-header">Idea Creation</div>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-white mb-2">
+                Share your vision
+              </h1>
+              <p className="text-text-secondary text-sm sm:text-base">
+                Three short steps: basics, optional details, then preview and
+                submit. Prefer one question at a time? Try the Idea Wizard.
+                {formData.projectId && (
+                  <>
+                    {' '}
+                    Linked to{' '}
+                    <span className="text-neon-cyan font-mono">
+                      {formData.projectId}
+                    </span>
+                    .
+                  </>
+                )}
+              </p>
+            </div>
+            <Link
+              to={
+                formData.projectId
+                  ? `/ideas/wizard?project=${encodeURIComponent(formData.projectId)}`
+                  : '/ideas/wizard'
+              }
+              className="inline-flex items-center justify-center gap-2 shrink-0 self-start sm:self-auto px-4 py-2.5 rounded-lg border border-neon-purple/50 bg-neon-purple/10 text-neon-purple hover:bg-neon-purple/20 hover:border-neon-purple font-mono text-xs tracking-widest uppercase transition-colors shadow-sm"
+            >
+              <Wand2 className="w-4 h-4" />
+              Use Idea Wizard
+            </Link>
+          </div>
         </header>
 
         {/* Step indicator */}
