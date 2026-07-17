@@ -26,6 +26,8 @@ import Button from '../components/ui/Buttons';
 import {
   startStripeCheckout,
   isStripeConfigured,
+  recordLocalSupportEvent,
+  validateAmountCents,
 } from '../services/supportService';
 
 /** One-time tiers */
@@ -144,12 +146,32 @@ const SupportPage = () => {
 
   useEffect(() => {
     const status = searchParams.get('checkout');
+    const sessionId = searchParams.get('session_id');
     if (status === 'success') {
+      // Optimistic local note only (webhook is source of truth for Transparency)
+      const pending = sessionStorage.getItem('tf_pending_support');
+      if (pending) {
+        try {
+          const p = JSON.parse(pending);
+          recordLocalSupportEvent({
+            amountCents: p.amountCents,
+            label: p.label || 'Studio support',
+            fundType: 'studio',
+            interval: p.interval || 'once',
+          });
+        } catch {
+          /* ignore */
+        }
+        sessionStorage.removeItem('tf_pending_support');
+      }
       setBanner({
         type: 'success',
-        text: 'Thank you! Your support helps fuel the forge. A receipt will come from Stripe if payment completed.',
+        text: sessionId
+          ? 'Thank you! Payment completed. A receipt will come from Stripe. Studio totals update on the Transparency Hub after the webhook records the payment.'
+          : 'Thank you! Your support helps fuel the forge. A receipt will come from Stripe if payment completed.',
       });
     } else if (status === 'cancel') {
+      sessionStorage.removeItem('tf_pending_support');
       setBanner({
         type: 'info',
         text: 'Checkout canceled. You can pick a tier anytime you are ready.',
@@ -160,22 +182,38 @@ const SupportPage = () => {
   const runCheckout = async ({ amount, tierId, label }) => {
     setError('');
     const amountCents = Math.round(Number(amount) * 100);
-    if (!Number.isFinite(amountCents) || amountCents < 100) {
-      setError('Enter at least $1.00.');
+    const validated = validateAmountCents(amountCents);
+    if (!validated.ok) {
+      setError(validated.error);
       return;
     }
 
     const key = `${tierId}_${interval}_${amountCents}`;
     setBusyKey(key);
     try {
+      try {
+        sessionStorage.setItem(
+          'tf_pending_support',
+          JSON.stringify({
+            amountCents: validated.amountCents,
+            label,
+            interval,
+            tierId,
+          })
+        );
+      } catch {
+        /* ignore */
+      }
       await startStripeCheckout({
-        amountCents,
+        amountCents: validated.amountCents,
         interval,
         tierId,
         label,
+        fundType: 'studio',
       });
     } catch (err) {
       console.error('[Support] checkout', err);
+      sessionStorage.removeItem('tf_pending_support');
       if (err?.code === 'STRIPE_NOT_CONFIGURED') {
         setError(
           'Stripe is not connected yet. Configure VITE_STRIPE_CHECKOUT_API_URL or VITE_STRIPE_PAYMENT_LINKS in your environment.'

@@ -32,6 +32,7 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
 import UserAvatar from '../components/ui/UserAvatar';
+import { getPublicSupportSummary } from '../services/donationsService';
 
 const SECTIONS = [
   { id: 'governance', label: 'Governance' },
@@ -43,14 +44,11 @@ const SECTIONS = [
   { id: 'founders', label: 'Founders' },
 ];
 
-/** Placeholder public financial summary (studio Support, not runway). */
-const FINANCIAL_PLACEHOLDERS = {
-  periodLabel: 'Q3 2026 (placeholder)',
-  totalSupport: 0,
-  reinvested: 0,
-  operations: 0,
-  reserve: 0,
-  note: 'Live Stripe aggregates will replace these zeros once reporting is connected.',
+/** Planned reinvestment split (targets until period reports publish). */
+const FINANCIAL_TARGETS = {
+  reinvestPct: 0.6,
+  operationsPct: 0.25,
+  reservePct: 0.15,
 };
 
 /** Planned usage of studio support funds. Founder pay is not from support. */
@@ -298,24 +296,45 @@ const formatDate = (iso, opts = { year: 'numeric', month: 'short', day: 'numeric
 
 const TransparencyHub = () => {
   const navigate = useNavigate();
-  const [demoTotal, setDemoTotal] = useState(0);
+  const [supportSummary, setSupportSummary] = useState({
+    studioTotalCents: 0,
+    studioPaymentCount: 0,
+    runwayTotalCents: 0,
+    runwayPaymentCount: 0,
+    source: 'empty',
+    lastPaymentAt: null,
+  });
+  const [financeLoading, setFinanceLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem('tf_donations') || '[]');
-      if (Array.isArray(stored) && stored.length) {
-        setDemoTotal(stored.reduce((acc, d) => acc + (Number(d.amount) || 0), 0));
+    let mounted = true;
+    (async () => {
+      setFinanceLoading(true);
+      const summary = await getPublicSupportSummary();
+      if (mounted) {
+        setSupportSummary(summary);
+        setFinanceLoading(false);
       }
-    } catch {
-      setDemoTotal(0);
-    }
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const usageRows = useMemo(() => USAGE_CATEGORIES, []);
-  const displayTotal =
-    FINANCIAL_PLACEHOLDERS.totalSupport > 0
-      ? FINANCIAL_PLACEHOLDERS.totalSupport
-      : demoTotal;
+  const displayTotal = (supportSummary.studioTotalCents || 0) / 100;
+  const paymentCount = supportSummary.studioPaymentCount || 0;
+  const reinvested =
+    displayTotal * FINANCIAL_TARGETS.reinvestPct;
+  const operations =
+    displayTotal * FINANCIAL_TARGETS.operationsPct;
+  const reserve = displayTotal * FINANCIAL_TARGETS.reservePct;
+  const financeNote =
+    supportSummary.source === 'supabase'
+      ? 'Studio support totals from anonymized Stripe records (no personal data).'
+      : supportSummary.source === 'local'
+        ? 'Showing local browser notes until Stripe webhooks write to the database. Not the public ledger of record.'
+        : 'No studio support recorded yet. Totals stay at $0 until the first completed checkout is recorded.';
 
   const scrollTo = (id) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -499,52 +518,75 @@ const TransparencyHub = () => {
                 </span>
               </div>
               <div className="text-3xl font-mono font-bold text-neon-cyan">
-                {formatMoney(displayTotal)}
+                {financeLoading ? '…' : formatMoney(displayTotal)}
               </div>
               <p className="text-xs text-text-muted mt-2">
-                {FINANCIAL_PLACEHOLDERS.periodLabel}
+                {paymentCount} anonymized payment
+                {paymentCount === 1 ? '' : 's'}
+                {supportSummary.source === 'supabase' && (
+                  <span className="text-neon-cyan"> · live</span>
+                )}
               </p>
             </Card>
             <Card className="bg-cyber-card/80">
               <div className="flex items-center gap-2 text-text-muted mb-2">
                 <RefreshCw className="w-4 h-4 text-neon-purple" />
                 <span className="text-xs font-mono tracking-widest uppercase">
-                  Reinvested
+                  Reinvested (target)
                 </span>
               </div>
               <div className="text-3xl font-mono font-bold text-white">
-                {formatMoney(FINANCIAL_PLACEHOLDERS.reinvested)}
+                {financeLoading ? '…' : formatMoney(reinvested)}
               </div>
-              <p className="text-xs text-text-muted mt-2">Into projects and systems</p>
+              <p className="text-xs text-text-muted mt-2">
+                ~{Math.round(FINANCIAL_TARGETS.reinvestPct * 100)}% into projects
+              </p>
             </Card>
             <Card className="bg-cyber-card/80">
               <div className="flex items-center gap-2 text-text-muted mb-2">
                 <Landmark className="w-4 h-4 text-neon-magenta" />
                 <span className="text-xs font-mono tracking-widest uppercase">
-                  Operations
+                  Operations (target)
                 </span>
               </div>
               <div className="text-3xl font-mono font-bold text-white">
-                {formatMoney(FINANCIAL_PLACEHOLDERS.operations)}
+                {financeLoading ? '…' : formatMoney(operations)}
               </div>
-              <p className="text-xs text-text-muted mt-2">Hosting, tools, taxes</p>
+              <p className="text-xs text-text-muted mt-2">
+                ~{Math.round(FINANCIAL_TARGETS.operationsPct * 100)}% hosting and tools
+              </p>
             </Card>
             <Card className="bg-cyber-card/80">
               <div className="flex items-center gap-2 text-text-muted mb-2">
                 <Shield className="w-4 h-4 text-neon-cyan" />
                 <span className="text-xs font-mono tracking-widest uppercase">
-                  Reserve
+                  Reserve (target)
                 </span>
               </div>
               <div className="text-3xl font-mono font-bold text-white">
-                {formatMoney(FINANCIAL_PLACEHOLDERS.reserve)}
+                {financeLoading ? '…' : formatMoney(reserve)}
               </div>
-              <p className="text-xs text-text-muted mt-2">Held for stability</p>
+              <p className="text-xs text-text-muted mt-2">
+                ~{Math.round(FINANCIAL_TARGETS.reservePct * 100)}% stability buffer
+              </p>
             </Card>
           </div>
 
           <p className="text-xs font-mono text-text-muted mb-6">
-            {FINANCIAL_PLACEHOLDERS.note}
+            {financeNote}
+            {supportSummary.runwayTotalCents > 0 && (
+              <>
+                {' '}
+                Founder runway (separate, personal) is tracked on{' '}
+                <Link
+                  to="/support-runway"
+                  className="text-neon-cyan hover:underline"
+                >
+                  Runway Support
+                </Link>
+                , not mixed into studio totals above.
+              </>
+            )}
           </p>
 
           <div className="grid lg:grid-cols-2 gap-4 md:gap-5 mb-6">

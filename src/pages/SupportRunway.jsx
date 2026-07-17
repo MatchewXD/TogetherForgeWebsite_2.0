@@ -20,6 +20,8 @@ import RunwayTransparency from '../components/ui/RunwayTransparency';
 import {
   startStripeCheckout,
   isStripeConfigured,
+  recordLocalSupportEvent,
+  validateAmountCents,
 } from '../services/supportService';
 
 const PRESETS = [25, 50, 100, 250];
@@ -37,11 +39,27 @@ const SupportRunway = () => {
   useEffect(() => {
     const status = searchParams.get('checkout');
     if (status === 'success') {
+      const pending = sessionStorage.getItem('tf_pending_runway');
+      if (pending) {
+        try {
+          const p = JSON.parse(pending);
+          recordLocalSupportEvent({
+            amountCents: p.amountCents,
+            label: p.label || 'Runway support',
+            fundType: 'runway',
+            interval: p.interval || 'once',
+          });
+        } catch {
+          /* ignore */
+        }
+        sessionStorage.removeItem('tf_pending_runway');
+      }
       setBanner({
         type: 'success',
-        text: 'Thank you for supporting the runway.',
+        text: 'Thank you for supporting the runway. This is separate from studio project funds.',
       });
     } else if (status === 'cancel') {
+      sessionStorage.removeItem('tf_pending_runway');
       setBanner({
         type: 'info',
         text: 'Checkout canceled. You can try again anytime.',
@@ -52,27 +70,43 @@ const SupportRunway = () => {
   const runCheckout = async (amount, key) => {
     setError('');
     const amountCents = Math.round(Number(amount) * 100);
-    if (!Number.isFinite(amountCents) || amountCents < 100) {
-      setError('Enter at least $1.00.');
+    const validated = validateAmountCents(amountCents);
+    if (!validated.ok) {
+      setError(validated.error);
       return;
     }
 
     setBusyKey(key);
     try {
+      const label =
+        interval === 'month'
+          ? 'Founder runway (monthly)'
+          : 'Founder runway (one-time)';
+      try {
+        sessionStorage.setItem(
+          'tf_pending_runway',
+          JSON.stringify({
+            amountCents: validated.amountCents,
+            label,
+            interval,
+          })
+        );
+      } catch {
+        /* ignore */
+      }
       const origin = window.location.origin;
       await startStripeCheckout({
-        amountCents,
+        amountCents: validated.amountCents,
         interval,
         tierId: 'runway',
-        label:
-          interval === 'month'
-            ? 'Founder runway (monthly)'
-            : 'Founder runway (one-time)',
+        label,
+        fundType: 'runway',
         successUrl: `${origin}/support-runway?checkout=success`,
         cancelUrl: `${origin}/support-runway?checkout=cancel`,
       });
     } catch (err) {
       console.error('[SupportRunway] checkout', err);
+      sessionStorage.removeItem('tf_pending_runway');
       if (err?.code === 'STRIPE_NOT_CONFIGURED') {
         setError(
           'Stripe is not connected yet. Configure VITE_STRIPE_CHECKOUT_API_URL or VITE_STRIPE_PAYMENT_LINKS (runway_once / runway_month) in your environment.'
