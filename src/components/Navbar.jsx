@@ -113,6 +113,7 @@ const Navbar = () => {
                             <div className="bg-cyber-surface border border-white/20 rounded p-4 w-48 text-sm space-y-3">
                                 <Link to="/about" className="block hover:text-neon-cyan">About</Link>
                                 <Link to="/how-it-works" className="block hover:text-neon-cyan">How It Works</Link>
+                                <Link to="/demos" className="block hover:text-neon-cyan">Mechanic Lab</Link>
                                 <Link to="/faq" className="block hover:text-neon-cyan">FAQ</Link>
                                 <Link to="/support" className="block hover:text-neon-cyan">Support</Link>
                                 <Link to="/transparency" className="block hover:text-neon-cyan">Transparency</Link>
@@ -175,6 +176,7 @@ const Navbar = () => {
                         ))}
                         <Link to="/about" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">About</Link>
                         <Link to="/how-it-works" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">How It Works</Link>
+                        <Link to="/demos" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Mechanic Lab</Link>
                         <Link to="/faq" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">FAQ</Link>
                         <Link to="/support" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Support</Link>
                         <Link to="/transparency" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Transparency</Link>

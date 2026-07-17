@@ -28,6 +28,7 @@ import ProjectsEdit from './pages/ProjectsEdit';
 import ProjectsEarlyEdit from './pages/ProjectsEarlyEdit';
 import ProjectWorkspace from './pages/ProjectWorkspace';
 import ModeratorDashboard from './pages/ModeratorDashboard';
+import MechanicLab from './pages/MechanicLab';
 import Footer from './components/layout/Footer';
 
 function App() {
@@ -57,6 +58,8 @@ function App() {
                         {/* Generic workspace — after static phase routes so early/mid/late are not captured */}
                         <Route path="/projects/:id" element={<ProjectWorkspace />} />
                         <Route path="/get-involved" element={<GetInvolved />} />
+                        <Route path="/demos" element={<MechanicLab />} />
+                        <Route path="/mechanic-lab" element={<MechanicLab />} />
                         <Route path="/how-it-works" element={<HowItWorks />} />
                         <Route path="/faq" element={<FAQ />} />
                         <Route path="/support" element={<Donations />} />
