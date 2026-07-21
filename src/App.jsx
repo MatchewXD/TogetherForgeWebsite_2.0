@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import ScrollToTop from './components/ScrollToTop';
 import HomePage from './pages/HomePage';
 import AboutPage from './pages/AboutPage';
 import GameIdeas from './pages/GameIdeas';
@@ -9,13 +10,17 @@ import IdeaDetail from './pages/IdeaDetail';
 import Projects from './pages/Projects';
 import GetInvolved from './pages/GetInvolved';
 import HowItWorks from './pages/HowItWorks';
+import EducationApprenticeship from './pages/EducationApprenticeship';
 import FAQ from './pages/FAQ';
+import BugTracker from './pages/BugTracker';
+import ReportBug from './pages/ReportBug';
 import Donations from './pages/Donations';
 import Contact from './pages/Contact';
 import TransparencyHub from './pages/TransparencyHub';
 import FoundersThoughts from './pages/FoundersThoughts';
 import SupportRunway from './pages/SupportRunway';
 import Profile from './pages/Profile';
+import Dashboard from './pages/Dashboard';
 import EditProfile from './pages/EditProfile';
 import EmailConfirmation from './pages/EmailConfirmation';
 import PublicProfile from './pages/PublicProfile';
@@ -34,6 +39,7 @@ import Footer from './components/layout/Footer';
 function App() {
     return (
         <Router>
+            <ScrollToTop />
             <div className="min-h-screen bg-cyber-bg text-text-primary font-display flex flex-col">
                 <Navbar />
 
@@ -61,7 +67,12 @@ function App() {
                         <Route path="/demos" element={<MechanicLab />} />
                         <Route path="/mechanic-lab" element={<MechanicLab />} />
                         <Route path="/how-it-works" element={<HowItWorks />} />
+                        <Route path="/education" element={<EducationApprenticeship />} />
+                        <Route path="/apprenticeships" element={<EducationApprenticeship />} />
                         <Route path="/faq" element={<FAQ />} />
+                        <Route path="/bugs" element={<BugTracker />} />
+                        <Route path="/bugs/report" element={<ReportBug />} />
+                        <Route path="/report-bug" element={<ReportBug />} />
                         <Route path="/support" element={<Donations />} />
                         <Route path="/donations" element={<Donations />} />
                         <Route path="/contact" element={<Contact />} />
@@ -69,6 +80,9 @@ function App() {
                         <Route path="/founders-thoughts" element={<FoundersThoughts />} />
                         <Route path="/support-runway" element={<SupportRunway />} />
                         <Route path="/moderator" element={<ModeratorDashboard />} />
+                        {/* Private hub (claims, requests, shortcuts) */}
+                        <Route path="/dashboard" element={<Dashboard />} />
+                        {/* Own account: login + light profile editing */}
                         <Route path="/profile" element={<Profile />} />
                         <Route path="/profile/edit" element={<EditProfile />} />
                         {/* Public profiles: /u/:username (canonical) and /profile/:username */}

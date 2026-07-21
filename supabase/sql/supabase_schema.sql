@@ -204,7 +204,7 @@ for insert with check (auth.uid() = user_id);
 
 -- =============================================================================
 -- TASK BOARD (projects, tasks, task_claims, activity_log)
--- Full script (tables + RLS + RPCs + seed): run supabase_tasks_schema.sql
+-- Full script (tables + RLS + RPCs + seed): run supabase/sql/supabase_tasks_schema.sql
 -- in the Supabase SQL Editor. Do not skip — the Project Workspace depends on it.
 -- =============================================================================
 

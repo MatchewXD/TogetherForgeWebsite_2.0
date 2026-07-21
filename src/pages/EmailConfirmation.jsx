@@ -15,7 +15,7 @@ const EmailConfirmation = () => {
         const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
             if (session?.user) {
                 // Only redirect if still on this confirmation page
-                navigate('/profile', { replace: true });
+                navigate('/dashboard', { replace: true });
                 localStorage.removeItem('pending_confirmation_email');
             }
         });

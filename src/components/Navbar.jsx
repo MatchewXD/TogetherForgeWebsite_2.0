@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Hammer, Users, Youtube, Heart, CheckCircle, User } from 'lucide-react';
+import { Menu, X, Hammer, Users, Heart, User, LayoutDashboard } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import UserAvatar from './ui/UserAvatar';
 import useIsModerator from '../hooks/useIsModerator';
@@ -113,12 +113,24 @@ const Navbar = () => {
                             <div className="bg-cyber-surface border border-white/20 rounded p-4 w-48 text-sm space-y-3">
                                 <Link to="/about" className="block hover:text-neon-cyan">About</Link>
                                 <Link to="/how-it-works" className="block hover:text-neon-cyan">How It Works</Link>
+                                <Link to="/education" className="block hover:text-neon-cyan">Education</Link>
                                 <Link to="/demos" className="block hover:text-neon-cyan">Mechanic Lab</Link>
                                 <Link to="/faq" className="block hover:text-neon-cyan">FAQ</Link>
+                                <Link to="/bugs" className="block hover:text-neon-cyan">Bug Tracker</Link>
+                                <Link to="/bugs/report" className="block hover:text-neon-cyan">Report a Bug</Link>
                                 <Link to="/support" className="block hover:text-neon-cyan">Support</Link>
                                 <Link to="/transparency" className="block hover:text-neon-cyan">Transparency</Link>
                                 <Link to="/contact" className="block hover:text-neon-cyan">Contact</Link>
-                                <Link to="/profile" className="block hover:text-neon-cyan">Profile</Link>
+                                {user ? (
+                                    <>
+                                        <div className="border-t border-white/10 pt-3 mt-1 space-y-3">
+                                            <Link to="/dashboard" className="block hover:text-neon-cyan">My Dashboard</Link>
+                                            <Link to="/profile" className="block hover:text-neon-cyan">Profile</Link>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <Link to="/profile" className="block hover:text-neon-cyan">Profile</Link>
+                                )}
                                 {isModerator && (
                                     <Link to="/moderator" className="block hover:text-neon-cyan">Moderator</Link>
                                 )}
@@ -126,16 +138,16 @@ const Navbar = () => {
                         </div>
                     </div>
 
-                    {/* Auth-aware right side action */}
+                    {/* Auth-aware right side: Dashboard home base when signed in */}
                     {!user ? (
                         <Link to="/profile" className="btn-neon btn-neon-magenta text-xs py-2 px-5">
                             <Heart className="w-3.5 h-3.5" /> JOIN THE FORGE
                         </Link>
                     ) : (
                         <Link
-                            to="/profile"
+                            to="/dashboard"
                             className="rounded-full hover:opacity-90 transition ring-1 ring-white/20 hover:ring-neon-cyan"
-                            title="Profile"
+                            title="My Dashboard"
                         >
                             <UserAvatar
                                 src={avatarUrl}
@@ -144,7 +156,7 @@ const Navbar = () => {
                                 size="md"
                                 className="!w-9 !h-9"
                                 borderClass="border border-transparent"
-                                alt="Profile"
+                                alt="My Dashboard"
                             />
                         </Link>
                     )}
@@ -176,11 +188,17 @@ const Navbar = () => {
                         ))}
                         <Link to="/about" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">About</Link>
                         <Link to="/how-it-works" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">How It Works</Link>
+                        <Link to="/education" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Education</Link>
                         <Link to="/demos" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Mechanic Lab</Link>
                         <Link to="/faq" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">FAQ</Link>
+                        <Link to="/bugs" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Bug Tracker</Link>
+                        <Link to="/bugs/report" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Report a Bug</Link>
                         <Link to="/support" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Support</Link>
                         <Link to="/transparency" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Transparency</Link>
                         <Link to="/contact" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Contact</Link>
+                        {user && (
+                            <Link to="/dashboard" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">My Dashboard</Link>
+                        )}
                         <Link to="/profile" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Profile</Link>
                         {isModerator && (
                             <Link to="/moderator" onClick={() => setIsOpen(false)} className="py-1 text-text-secondary hover:text-neon-cyan">Moderator</Link>
@@ -191,9 +209,14 @@ const Navbar = () => {
                                 <Heart className="w-4 h-4" /> JOIN THE FORGE
                             </Link>
                         ) : (
-                            <Link to="/profile" onClick={() => setIsOpen(false)} className="w-full mt-4 flex items-center justify-center gap-2 py-2 border border-white/20 rounded hover:border-neon-cyan">
-                                <User className="w-4 h-4 text-neon-cyan" /> PROFILE
-                            </Link>
+                            <div className="mt-4 flex flex-col gap-2">
+                                <Link to="/dashboard" onClick={() => setIsOpen(false)} className="w-full flex items-center justify-center gap-2 py-2 border border-neon-cyan/40 rounded hover:border-neon-cyan text-neon-cyan">
+                                    <LayoutDashboard className="w-4 h-4" /> MY DASHBOARD
+                                </Link>
+                                <Link to="/profile" onClick={() => setIsOpen(false)} className="w-full flex items-center justify-center gap-2 py-2 border border-white/20 rounded hover:border-neon-cyan">
+                                    <User className="w-4 h-4 text-neon-cyan" /> PROFILE
+                                </Link>
+                            </div>
                         )}
                     </div>
                 </div>

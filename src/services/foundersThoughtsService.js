@@ -1,7 +1,7 @@
 /**
  * Founders Thoughts + likes (Supabase).
  * Pattern mirrors ideasService votes: insert/delete row, recount, denormalized likes.
- * Requires: supabase_founders_thoughts.sql
+ * Requires: supabase/sql/supabase_founders_thoughts.sql
  */
 
 import { supabase } from '../lib/supabase';

@@ -37,17 +37,26 @@ import Button from '../components/ui/Buttons';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import TaskCard from '../components/ui/TaskCard';
+import SubTaskList from '../components/ui/SubTaskList';
 import ActivityItem from '../components/ui/ActivityItem';
 import StatWidget from '../components/ui/StatWidget';
 import Modal from '../components/ui/Modal';
-import Input from '../components/ui/Input';
 import UserAvatar from '../components/ui/UserAvatar';
 import ProfileLink from '../components/ui/ProfileLink';
 import IdeaCard from '../components/ui/IdeaCard';
 import { useIsModerator } from '../hooks/useIsModerator';
-import { tasksService } from '../services/tasksService';
+import {
+  tasksService,
+  getChildTasks,
+  getTaskBreadcrumb,
+  taskLevelLabel,
+  getTaskClaimBlockedReason,
+  normalizeChecklist,
+  progressFromChecklist,
+} from '../services/tasksService';
 import { ideasService } from '../services/ideasService';
 import { supabase } from '../lib/supabase';
+import { phaseImageSrc, phaseImageAlt } from '../utils/phaseImages';
 
 // ---------------------------------------------------------------------------
 // Fallback copy when projects table has no matching slug yet
@@ -208,6 +217,9 @@ const TASK_CATEGORIES = [
 
 const TASK_DIFFICULTIES = ['Easy', 'Medium', 'Hard'];
 
+/** Max optional checklist steps per task (staff create/edit form). */
+const MAX_CHECKLIST_STEPS = 20;
+
 const EMPTY_TASK_FORM = {
   title: '',
   description: '',
@@ -215,6 +227,7 @@ const EMPTY_TASK_FORM = {
   difficulty: 'Medium',
   estimatedEffort: '',
   subtaskLines: [''],
+  parentTaskId: null,
 };
 
 const fieldLabelClass =
@@ -250,7 +263,16 @@ function friendlyError(err) {
     return 'Only the claimant or a project lead can do that.';
   }
   if (/relation .* does not exist|Could not find the table/i.test(msg)) {
-    return 'Task tables are not set up yet. Run supabase_tasks_schema.sql in the Supabase SQL Editor.';
+    return 'Task tables are not set up yet. Run supabase/sql/supabase_tasks_schema.sql in the Supabase SQL Editor.';
+  }
+  if (/Maximum nesting|hierarchy|parent_task|Epic|sub-task|cannot be claimed|calculated from completed/i.test(msg)) {
+    return msg;
+  }
+  if (/do not hold an active claim|Claim it before/i.test(msg)) {
+    return 'Claim this task first before saving progress or checklist items.';
+  }
+  if (/already have a pending|already helping|already requested/i.test(msg)) {
+    return msg;
   }
   return msg;
 }
@@ -283,13 +305,19 @@ const ProjectWorkspace = () => {
   const [boardError, setBoardError] = useState(null);
   const [toast, setToast] = useState(null);
   const [claimingId, setClaimingId] = useState(null);
+  const [joiningId, setJoiningId] = useState(null);
   const [actionBusy, setActionBusy] = useState(false);
+  const [claimQuota, setClaimQuota] = useState(null);
+  const [joinRequests, setJoinRequests] = useState([]);
+  /** Task ids where the current user already has a pending join request */
+  const [myPendingJoinTaskIds, setMyPendingJoinTaskIds] = useState(
+    () => new Set()
+  );
 
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [progressDraft, setProgressDraft] = useState(0);
   const [notesDraft, setNotesDraft] = useState('');
   const [subtasksDraft, setSubtasksDraft] = useState([]);
-  const [helpersDraft, setHelpersDraft] = useState('');
 
   // Create / edit task form (Project Lead + Admin via useIsModerator)
   const [taskFormOpen, setTaskFormOpen] = useState(false);
@@ -298,6 +326,8 @@ const ProjectWorkspace = () => {
   const [taskForm, setTaskForm] = useState(EMPTY_TASK_FORM);
   const [taskFormError, setTaskFormError] = useState(null);
   const [taskFormBusy, setTaskFormBusy] = useState(false);
+  /** Kanban: top-level only (default) or full tree flattened */
+  const [boardScope, setBoardScope] = useState('top'); // 'top' | 'all'
 
   const [projectIdeas, setProjectIdeas] = useState([]);
   const [ideasLoading, setIdeasLoading] = useState(true);
@@ -311,7 +341,7 @@ const ProjectWorkspace = () => {
 
   const showToast = useCallback((message, kind = 'info') => {
     setToast({ message, kind });
-    window.setTimeout(() => setToast(null), 4000);
+    window.setTimeout(() => setToast(null), 8000);
   }, []);
 
   const refreshBoard = useCallback(
@@ -389,7 +419,7 @@ const ProjectWorkspace = () => {
       const msg = err?.message || String(err);
       if (/project_id|column .* does not exist/i.test(msg)) {
         setIdeasError(
-          'Ideas are missing project_id. Run supabase_ideas_project_id.sql in the Supabase SQL Editor, then refresh.'
+          'Ideas are missing project_id. Run supabase/sql/supabase_ideas_project_id.sql in the Supabase SQL Editor, then refresh.'
         );
       } else {
         setIdeasError(friendlyError(err));
@@ -476,7 +506,7 @@ const ProjectWorkspace = () => {
             recentWins: 0,
           });
           setBoardError(
-            'No project row found for this slug. Run supabase_tasks_schema.sql (seed section) in Supabase.'
+            'No project row found for this slug. Run supabase/sql/supabase_tasks_schema.sql (seed section) in Supabase.'
           );
         }
       } catch (err) {
@@ -504,34 +534,54 @@ const ProjectWorkspace = () => {
   // Sync modal drafts when opening a task
   useEffect(() => {
     if (!selectedTask) return;
-    setProgressDraft(selectedTask.progressPercent ?? 0);
     setNotesDraft(selectedTask.claim?.notes || '');
-    setSubtasksDraft(
-      Array.isArray(selectedTask.subtasks)
-        ? selectedTask.subtasks.map((s, i) => ({
-            id: s.id || `s${i}`,
-            label: s.label || s.title || `Step ${i + 1}`,
-            done: Boolean(s.done),
-          }))
-        : []
-    );
-    const helpers = selectedTask.claim?.helpers || [];
-    setHelpersDraft(
-      helpers
-        .map((h) => (typeof h === 'string' ? h : h?.username || h?.name || ''))
-        .filter(Boolean)
-        .join(', ')
-    );
+    const checklist = normalizeChecklist(selectedTask.subtasks);
+    setSubtasksDraft(checklist);
+    // Progress follows checklist when present; otherwise claim/task progress
+    const fromList = progressFromChecklist(checklist);
+    if (fromList != null) {
+      setProgressDraft(fromList);
+    } else {
+      setProgressDraft(selectedTask.progressPercent ?? 0);
+    }
   }, [selectedTask]);
+
+  /** Helper usernames on the active claim (filled when join requests are approved). */
+  const claimHelperNames = useMemo(() => {
+    const helpers = selectedTask?.claim?.helpers;
+    if (!Array.isArray(helpers)) return [];
+    return helpers
+      .map((h) =>
+        typeof h === 'string' ? h : h?.username || h?.name || ''
+      )
+      .map((s) => String(s || '').trim())
+      .filter(Boolean);
+  }, [selectedTask]);
+
+  const boardTasks = useMemo(() => {
+    if (boardScope === 'all') return tasks;
+    // Default: top-level only (no parent) for a clean kanban
+    return tasks.filter((t) => !t.parentTaskId);
+  }, [tasks, boardScope]);
 
   const tasksByStatus = useMemo(() => {
     const groups = { todo: [], in_progress: [], completed: [] };
-    for (const task of tasks) {
+    for (const task of boardTasks) {
       const key = groups[task.status] ? task.status : 'todo';
       groups[key].push(task);
     }
     return groups;
-  }, [tasks]);
+  }, [boardTasks]);
+
+  const selectedChildren = useMemo(() => {
+    if (!selectedTaskId) return [];
+    return getChildTasks(tasks, selectedTaskId);
+  }, [tasks, selectedTaskId]);
+
+  const selectedBreadcrumb = useMemo(() => {
+    if (!selectedTaskId) return [];
+    return getTaskBreadcrumb(tasks, selectedTaskId);
+  }, [tasks, selectedTaskId]);
 
   const sortedIdeas = useMemo(() => {
     const now = Date.now();
@@ -571,21 +621,86 @@ const ProjectWorkspace = () => {
       });
   }, [projectIdeas, ideaSortMode, ideaSearch, ideaCategoryFilter]);
 
-  const canManageSelected = useMemo(() => {
-    if (!selectedTask || !user) return false;
-    if (isModerator) return true;
-    return (
-      selectedTask.claim?.status === 'Active' &&
-      selectedTask.claim?.userId === user.id
-    );
-  }, [selectedTask, user, isModerator]);
+  /** Active claim holder (not staff override) — required for progress/checklist */
+  const isClaimHolder = useMemo(() => {
+    if (!selectedTask || !user?.id) return false;
+    if (selectedTask.claim?.status !== 'Active') return false;
+    const ownerId =
+      selectedTask.claim?.userId ?? selectedTask.claim?.user_id ?? null;
+    if (!ownerId) return false;
+    return String(ownerId) === String(user.id);
+  }, [selectedTask, user]);
 
-  const openCreateTaskForm = () => {
+  /**
+   * Progress + checklist for claim holder on leaf tasks only
+   * (no hierarchical children). Parent containers use rollup only.
+   */
+  const canEditProgress = useMemo(() => {
+    if (!isClaimHolder || !selectedTask) return false;
+    if (selectedTask.hasChildren || selectedTask.progressFromChildren) {
+      return false;
+    }
+    return selectedTask.status !== 'completed';
+  }, [isClaimHolder, selectedTask]);
+
+  /** Leaf = no hierarchical children (checklists live on leaves, including Small). */
+  const selectedIsLeaf = Boolean(
+    selectedTask && !selectedTask.hasChildren && !selectedTask.progressFromChildren
+  );
+
+  /** Complete / return: claim holder; staff may force-return for moderation */
+  const canCompleteOrReturn = useMemo(() => {
+    if (!selectedTask || selectedTask.status === 'completed') return false;
+    if (selectedTask.hasChildren) return false;
+    return isClaimHolder || isModerator;
+  }, [selectedTask, isClaimHolder, isModerator]);
+
+  /**
+   * Join-request Approve/Decline: only claim owner or staff.
+   * Requesters must never see these controls (even if they can view the task).
+   */
+  const canManageJoinRequests = useMemo(() => {
+    if (!selectedTask || !user?.id) return false;
+    if (selectedTask.claim?.status !== 'Active') return false;
+    if (isModerator) return true;
+    return isClaimHolder;
+  }, [selectedTask, user, isModerator, isClaimHolder]);
+
+  /** Current user's pending join request on this task (for read-only status). */
+  const myPendingJoinRequest = useMemo(() => {
+    if (!user?.id || !joinRequests?.length) return null;
+    return (
+      joinRequests.find(
+        (jr) =>
+          jr.status === 'pending' &&
+          String(jr.requesterId) === String(user.id)
+      ) || null
+    );
+  }, [joinRequests, user]);
+
+  const openCreateTaskForm = (parentTaskId = null) => {
     setTaskFormMode('create');
     setEditingTaskId(null);
-    setTaskForm({ ...EMPTY_TASK_FORM, subtaskLines: [''] });
+    setTaskForm({
+      ...EMPTY_TASK_FORM,
+      subtaskLines: [''],
+      parentTaskId: parentTaskId || null,
+    });
     setTaskFormError(null);
     setTaskFormOpen(true);
+  };
+
+  const openCreateSubTask = (parentTask) => {
+    if (!parentTask) return;
+    if (parentTask.canAddChild === false) {
+      showToast(
+        'Maximum nesting is 3 levels (Epic → Medium → Small). This task cannot have children.',
+        'warn'
+      );
+      return;
+    }
+    setSelectedTaskId(null);
+    openCreateTaskForm(parentTask.id);
   };
 
   const openEditTaskForm = (task) => {
@@ -602,6 +717,7 @@ const ProjectWorkspace = () => {
         Array.isArray(task.subtasks) && task.subtasks.length > 0
           ? task.subtasks.map((s) => s.label || s.title || '')
           : [''],
+      parentTaskId: task.parentTaskId || null,
     });
     setTaskFormError(null);
     setSelectedTaskId(null);
@@ -629,7 +745,7 @@ const ProjectWorkspace = () => {
 
   const addSubtaskLine = () => {
     setTaskForm((prev) => {
-      if (prev.subtaskLines.length >= 20) return prev;
+      if (prev.subtaskLines.length >= MAX_CHECKLIST_STEPS) return prev;
       return { ...prev, subtaskLines: [...prev.subtaskLines, ''] };
     });
   };
@@ -649,7 +765,7 @@ const ProjectWorkspace = () => {
     }
     if (!projectUuid) {
       setTaskFormError(
-        'Project is not wired to the database yet. Run supabase_tasks_schema.sql first.'
+        'Project is not wired to the database yet. Run supabase/sql/supabase_tasks_schema.sql first.'
       );
       return;
     }
@@ -671,13 +787,14 @@ const ProjectWorkspace = () => {
       difficulty: taskForm.difficulty || null,
       estimatedEffort: (taskForm.estimatedEffort || '').trim() || null,
       subtasks: parseSubtaskLines(taskForm.subtaskLines),
+      parentTaskId: taskForm.parentTaskId || null,
     };
 
     setTaskFormBusy(true);
     setTaskFormError(null);
     try {
       if (taskFormMode === 'edit' && editingTaskId) {
-        // Preserve done flags when editing existing subtasks by label match
+        // Preserve done flags when editing existing checklist by label match
         const existing = tasks.find((t) => t.id === editingTaskId);
         const prevByLabel = new Map(
           (existing?.subtasks || []).map((s) => [
@@ -700,17 +817,61 @@ const ProjectWorkspace = () => {
       } else {
         await tasksService.createTask(projectUuid, payload, user.id);
         await refreshBoard(projectUuid);
-        showToast('Task created — it is live in To Do and ready to claim!', 'success');
+        showToast(
+          payload.parentTaskId
+            ? 'Sub-task created under its parent. Open the parent to claim nested work.'
+            : 'Task created — it is live in To Do and ready to claim!',
+          'success'
+        );
       }
+      const reopenParent = payload.parentTaskId;
       setTaskFormOpen(false);
       setEditingTaskId(null);
-      setTaskForm({ ...EMPTY_TASK_FORM, subtaskLines: [''] });
+      setTaskForm({ ...EMPTY_TASK_FORM, subtaskLines: [''], parentTaskId: null });
+      if (reopenParent) setSelectedTaskId(reopenParent);
     } catch (err) {
       setTaskFormError(friendlyError(err));
     } finally {
       setTaskFormBusy(false);
     }
   };
+
+  const refreshClaimQuota = useCallback(async () => {
+    try {
+      const q = await tasksService.getMyClaimQuota();
+      setClaimQuota(q);
+    } catch {
+      setClaimQuota(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user?.id) refreshClaimQuota();
+    else setClaimQuota(null);
+  }, [user?.id, refreshClaimQuota]);
+
+  const refreshMyPendingJoins = useCallback(async () => {
+    if (!user?.id) {
+      setMyPendingJoinTaskIds(new Set());
+      return;
+    }
+    try {
+      const ids = await tasksService.listMyPendingJoinTaskIds();
+      setMyPendingJoinTaskIds(ids);
+    } catch {
+      setMyPendingJoinTaskIds(new Set());
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    refreshMyPendingJoins();
+  }, [refreshMyPendingJoins, projectUuid]);
+
+  // Release stale claims when opening a workspace (server is source of truth)
+  useEffect(() => {
+    if (!projectUuid) return;
+    tasksService.returnStaleClaims(14).catch(() => {});
+  }, [projectUuid]);
 
   const handleClaim = async (taskId) => {
     if (!user) {
@@ -723,17 +884,97 @@ const ProjectWorkspace = () => {
       return;
     }
 
+    const task = tasks.find((t) => t.id === taskId);
+    const blocked = getTaskClaimBlockedReason(task);
+    if (blocked) {
+      showToast(blocked, 'warn');
+      return;
+    }
+
     setClaimingId(taskId);
     try {
-      await tasksService.claimTask(taskId);
+      await tasksService.claimTask(taskId, { task });
       await refreshBoard(projectUuid);
-      showToast('Task claimed! It is on the board under In Progress.', 'success');
+      await refreshClaimQuota();
+      showToast('Task claimed! Update progress as you go, then mark completed.', 'success');
       setSelectedTaskId(taskId);
     } catch (err) {
       const msg = friendlyError(err);
-      showToast(msg, err?.code === 'CLAIM_LIMIT' ? 'warn' : 'error');
+      const soft =
+        err?.code === 'CLAIM_LIMIT' ||
+        err?.code === 'CLAIM_COOLDOWN' ||
+        err?.code === 'CLAIM_HIERARCHY';
+      showToast(msg, soft ? 'warn' : 'error');
+      refreshClaimQuota();
     } finally {
       setClaimingId(null);
+    }
+  };
+
+  const handleRequestJoin = async (taskId) => {
+    if (!user) {
+      showToast('Sign in to request joining a claim.', 'warn');
+      navigate('/profile');
+      return;
+    }
+    if (myPendingJoinTaskIds.has(taskId)) {
+      showToast('You already have a pending join request on this task.', 'warn');
+      return;
+    }
+    setJoiningId(taskId);
+    try {
+      await tasksService.requestJoinClaim(taskId);
+      setMyPendingJoinTaskIds((prev) => {
+        const next = new Set(prev);
+        next.add(taskId);
+        return next;
+      });
+      showToast(
+        'Join request sent. The claim owner can approve you as a helper.',
+        'success'
+      );
+      if (selectedTaskId === taskId) {
+        const list = await tasksService.listJoinRequestsForTask(taskId);
+        setJoinRequests(list);
+      }
+    } catch (err) {
+      if (err?.code === 'JOIN_ALREADY') {
+        setMyPendingJoinTaskIds((prev) => {
+          const next = new Set(prev);
+          next.add(taskId);
+          return next;
+        });
+        showToast(friendlyError(err), 'warn');
+      } else {
+        showToast(friendlyError(err), 'error');
+      }
+    } finally {
+      setJoiningId(null);
+    }
+  };
+
+  const handleResolveJoin = async (requestId, approve) => {
+    // Hard gate: only claim owner or staff (never the requester)
+    if (!canManageJoinRequests) {
+      showToast('Only the person who claimed this task can approve join requests.', 'warn');
+      return;
+    }
+    setActionBusy(true);
+    try {
+      await tasksService.resolveJoinRequest(requestId, approve);
+      showToast(
+        approve ? 'Helper approved and added to the claim.' : 'Join request declined.',
+        'success'
+      );
+      if (selectedTaskId) {
+        const list = await tasksService.listJoinRequestsForTask(selectedTaskId);
+        setJoinRequests(list);
+      }
+      if (projectUuid) await refreshBoard(projectUuid);
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
+    } finally {
+      setActionBusy(false);
     }
   };
 
@@ -741,17 +982,24 @@ const ProjectWorkspace = () => {
     setSelectedTaskId(taskId);
   };
 
+  useEffect(() => {
+    if (!selectedTaskId) {
+      setJoinRequests([]);
+      return;
+    }
+    let cancelled = false;
+    tasksService.listJoinRequestsForTask(selectedTaskId).then((list) => {
+      if (!cancelled) setJoinRequests(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTaskId]);
+
   const closeTaskModal = () => {
     if (actionBusy) return;
     setSelectedTaskId(null);
   };
-
-  const parseHelpers = (text) =>
-    text
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((username) => ({ username }));
 
   const handleSaveProgress = async () => {
     if (!selectedTask || !projectUuid) return;
@@ -760,16 +1008,38 @@ const ProjectWorkspace = () => {
       navigate('/profile');
       return;
     }
+    if (!isClaimHolder) {
+      showToast('Claim this task first before saving progress or checklist items.', 'warn');
+      return;
+    }
+    if (selectedTask.hasChildren) {
+      showToast(
+        'Progress on this task comes from completed sub-tasks. Update a child task instead.',
+        'warn'
+      );
+      return;
+    }
     setActionBusy(true);
     try {
+      // Do not send helpers — they are managed when join requests are approved
       await tasksService.updateProgress(selectedTask.id, {
         progressPercent: Number(progressDraft) || 0,
         subtasks: subtasksDraft,
         notes: notesDraft,
-        helpers: parseHelpers(helpersDraft),
       });
-      await refreshBoard(projectUuid);
-      showToast('Progress saved. The pulse and activity feed are updated.', 'success');
+
+      const checklistComplete =
+        subtasksDraft.length > 0 && subtasksDraft.every((s) => s.done);
+
+      if (checklistComplete) {
+        await tasksService.completeTask(selectedTask.id);
+        await refreshBoard(projectUuid);
+        showToast('All checklist items done — task completed!', 'success');
+        setSelectedTaskId(null);
+      } else {
+        await refreshBoard(projectUuid);
+        showToast('Progress saved.', 'success');
+      }
     } catch (err) {
       showToast(friendlyError(err), 'error');
     } finally {
@@ -786,14 +1056,13 @@ const ProjectWorkspace = () => {
     }
     setActionBusy(true);
     try {
-      // Persist latest progress before completing
-      if (canManageSelected && selectedTask.claim?.status === 'Active') {
+      // Persist latest progress before completing (claim holder on leaf only)
+      if (isClaimHolder && !selectedTask.hasChildren) {
         try {
           await tasksService.updateProgress(selectedTask.id, {
             progressPercent: 100,
             subtasks: subtasksDraft.map((s) => ({ ...s, done: true })),
             notes: notesDraft,
-            helpers: parseHelpers(helpersDraft),
           });
         } catch {
           // complete_task will still finish the claim
@@ -829,10 +1098,18 @@ const ProjectWorkspace = () => {
     }
   };
 
+  /** Toggle checklist item and derive progress % from completed items. */
   const toggleSubtask = (subId) => {
-    setSubtasksDraft((prev) =>
-      prev.map((s) => (s.id === subId ? { ...s, done: !s.done } : s))
-    );
+    setSubtasksDraft((prev) => {
+      const next = prev.map((s) =>
+        s.id === subId ? { ...s, done: !s.done } : s
+      );
+      if (next.length > 0) {
+        const done = next.filter((s) => s.done).length;
+        setProgressDraft(Math.round((100 * done) / next.length));
+      }
+      return next;
+    });
   };
 
   // Per-idea lock — prevents unlike→like race flicker
@@ -992,6 +1269,22 @@ const ProjectWorkspace = () => {
 
         {/* 1. PROJECT HEADER */}
         <header className="space-y-4">
+          {phaseImageSrc(displayProject.phase) && (
+            <div className="relative w-full h-40 sm:h-52 md:h-56 rounded-xl overflow-hidden border border-cyber-border bg-cyber-surface">
+              <img
+                src={phaseImageSrc(displayProject.phase)}
+                alt={phaseImageAlt(displayProject.phase, displayProject.title)}
+                className="absolute inset-0 w-full h-full object-cover"
+                loading="eager"
+                decoding="async"
+              />
+              <div
+                className="absolute inset-0 bg-gradient-to-t from-cyber-bg via-cyber-bg/40 to-transparent pointer-events-none"
+                aria-hidden="true"
+              />
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center gap-2">
             <div className="section-header mb-0">Project Workspace</div>
             <Badge variant={phaseVariant}>{displayProject.phase} Game</Badge>
@@ -1034,13 +1327,10 @@ const ProjectWorkspace = () => {
 
         {/* 2. PROJECT PULSE */}
         <section aria-labelledby="pulse-heading">
-          <div className="flex items-end justify-between gap-4 mb-6">
-            <div>
-              <div className="section-header">Project Pulse</div>
-              <h2 id="pulse-heading" className="text-2xl font-bold text-white">
-                Live momentum
-              </h2>
-            </div>
+          <div className="mb-6">
+            <h2 id="pulse-heading" className="section-header">
+              Project Pulse
+            </h2>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1131,20 +1421,59 @@ const ProjectWorkspace = () => {
                 Claim work. Ship wins.
               </h2>
               <p className="text-text-secondary text-sm mt-1 max-w-xl">
-                Claim an open task, update progress as you go, and complete it to
-                earn public credit. Project leads can help moderate claims.
+                Claim a task with a Claim button, ship it, earn credit.
               </p>
+              {claimQuota?.signedIn && (
+                <p className="mt-2 text-xs font-mono text-text-muted">
+                  Your claims: {claimQuota.activeClaims ?? 0}/
+                  {claimQuota.claimLimit ?? 2} active
+                  {claimQuota.completedClaims != null
+                    ? ` · ${claimQuota.completedClaims} completed`
+                    : ''}
+                  {claimQuota.cooldownEndsAt &&
+                  new Date(claimQuota.cooldownEndsAt) > new Date()
+                    ? ' · cooldown after last claim'
+                    : ''}
+                  . Idle claims auto-release after 14 days.
+                </p>
+              )}
             </div>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+              <div className="inline-flex rounded-lg border border-cyber-border overflow-hidden text-xs font-mono">
+                <button
+                  type="button"
+                  onClick={() => setBoardScope('top')}
+                  className={`px-3 py-2 transition-colors ${
+                    boardScope === 'top'
+                      ? 'bg-neon-cyan/15 text-neon-cyan'
+                      : 'text-text-muted hover:text-white'
+                  }`}
+                  title="Show only top-level epics/tasks"
+                >
+                  Top-level
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBoardScope('all')}
+                  className={`px-3 py-2 border-l border-cyber-border transition-colors ${
+                    boardScope === 'all'
+                      ? 'bg-neon-cyan/15 text-neon-cyan'
+                      : 'text-text-muted hover:text-white'
+                  }`}
+                  title="Show every task including nested sub-tasks"
+                >
+                  All tasks
+                </button>
+              </div>
               {isModerator && (
                 <Button
                   className="gap-2"
-                  onClick={openCreateTaskForm}
+                  onClick={() => openCreateTaskForm(null)}
                   disabled={!projectUuid || loading}
                   title={
                     !projectUuid
                       ? 'Project must be loaded from Supabase first'
-                      : 'Create a new task on this board'
+                      : 'Create a new top-level task on this board'
                   }
                 >
                   <Plus className="w-4 h-4" />
@@ -1154,8 +1483,8 @@ const ProjectWorkspace = () => {
               <Badge variant="neon" className="justify-center">
                 {loading
                   ? 'Loading…'
-                  : `${tasks.length} task${tasks.length === 1 ? '' : 's'}${
-                      user ? ' · live' : ' · sign in to claim'
+                  : `${boardTasks.length} shown · ${tasks.length} total${
+                      user ? '' : ' · sign in to claim'
                     }`}
               </Badge>
             </div>
@@ -1201,8 +1530,17 @@ const ProjectWorkspace = () => {
                               task={task}
                               currentUserId={user?.id}
                               claiming={claimingId === task.id}
+                              joining={joiningId === task.id}
+                              joinRequestPending={myPendingJoinTaskIds.has(
+                                task.id
+                              )}
                               onClaim={
                                 col.key === 'todo' ? handleClaim : undefined
+                              }
+                              onRequestJoin={
+                                col.key === 'in_progress'
+                                  ? handleRequestJoin
+                                  : undefined
                               }
                               onView={handleViewTask}
                             />
@@ -1220,12 +1558,8 @@ const ProjectWorkspace = () => {
         {/* 4 + 5. ACTIVITY + SHOUTOUTS */}
         <div className="grid lg:grid-cols-5 gap-6">
           <section aria-labelledby="activity-heading" className="lg:col-span-3">
-            <div className="section-header">Recent Activity</div>
-            <h2
-              id="activity-heading"
-              className="text-2xl font-bold text-white mb-4"
-            >
-              What just happened
+            <h2 id="activity-heading" className="section-header mb-4">
+              Recent Activity
             </h2>
             <Card className="bg-cyber-card/80">
               {activity.length === 0 ? (
@@ -1241,12 +1575,8 @@ const ProjectWorkspace = () => {
           </section>
 
           <section aria-labelledby="shoutouts-heading" className="lg:col-span-2">
-            <div className="section-header">Shoutouts</div>
-            <h2
-              id="shoutouts-heading"
-              className="text-2xl font-bold text-white mb-4"
-            >
-              Volunteer wins
+            <h2 id="shoutouts-heading" className="section-header mb-4">
+              Shoutouts
             </h2>
             <div className="space-y-3">
               {shoutouts.length === 0 ? (
@@ -1601,12 +1931,41 @@ const ProjectWorkspace = () => {
       >
         {selectedTask && (
           <div className="space-y-5 max-h-[70vh] overflow-y-auto pr-1">
+            {selectedBreadcrumb.length > 1 && (
+              <nav
+                aria-label="Task hierarchy"
+                className="flex flex-wrap items-center gap-1.5 text-xs font-mono text-text-muted"
+              >
+                {selectedBreadcrumb.map((crumb, i) => {
+                  const isLast = i === selectedBreadcrumb.length - 1;
+                  return (
+                    <span key={crumb.id} className="inline-flex items-center gap-1.5">
+                      {i > 0 && <span className="text-white/30">/</span>}
+                      {isLast ? (
+                        <span className="text-neon-cyan truncate max-w-[12rem]">
+                          {crumb.title}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTaskId(crumb.id)}
+                          className="hover:text-neon-cyan truncate max-w-[10rem] transition-colors"
+                        >
+                          {crumb.title}
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
+              </nav>
+            )}
+
             <div className="flex flex-wrap items-center gap-2">
+              {selectedTask.levelShort && (
+                <Badge variant="default">{selectedTask.levelShort}</Badge>
+              )}
               {selectedTask.category && (
                 <Badge variant="purple">{selectedTask.category}</Badge>
-              )}
-              {selectedTask.difficulty && (
-                <Badge variant="default">{selectedTask.difficulty}</Badge>
               )}
               <Badge variant="neon">
                 {selectedTask.status === 'todo'
@@ -1615,8 +1974,21 @@ const ProjectWorkspace = () => {
                     ? 'In Progress'
                     : 'Completed'}
               </Badge>
-              {selectedTask.estimatedEffort && (
-                <Badge variant="default">~{selectedTask.estimatedEffort}</Badge>
+              {/* Difficulty / estimate only on claimable leaf tasks */}
+              {!selectedTask.isEpic &&
+                !selectedTask.hasChildren &&
+                (selectedTask.difficulty || selectedTask.estimatedEffort) && (
+                  <Badge variant="default">
+                    {[selectedTask.difficulty, selectedTask.estimatedEffort]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Badge>
+                )}
+              {selectedTask.hasChildren && (
+                <Badge variant="default">
+                  {selectedTask.completedChildCount}/{selectedTask.childCount}{' '}
+                  sub-tasks
+                </Badge>
               )}
               {isModerator && (
                 <Button
@@ -1631,11 +2003,97 @@ const ProjectWorkspace = () => {
               )}
             </div>
 
-            <p className="text-sm text-text-secondary leading-relaxed">
-              {selectedTask.description || 'No description yet.'}
-            </p>
+            {selectedTask.description ? (
+              <p className="text-sm text-text-secondary leading-relaxed">
+                {selectedTask.description}
+              </p>
+            ) : null}
 
-            {selectedTask.claimedBy && (
+            {/* Hierarchy: volunteers only see this when children exist; staff can add */}
+            {(selectedChildren.length > 0 ||
+              (isModerator && selectedTask.canAddChild !== false)) && (
+              <SubTaskList
+                items={selectedChildren}
+                parentDepth={selectedTask.depth || 0}
+                onOpen={handleViewTask}
+                onClaim={handleClaim}
+                claimingId={claimingId}
+                canClaim={Boolean(user)}
+                canAdd={Boolean(
+                  isModerator && selectedTask.canAddChild !== false
+                )}
+                onAdd={
+                  isModerator
+                    ? () => openCreateSubTask(selectedTask)
+                    : undefined
+                }
+                hideEmptyMessage={!isModerator}
+              />
+            )}
+
+            {/* Progress for parents / non-editors (always labeled Progress) */}
+            {!canEditProgress &&
+              (selectedTask.hasChildren ||
+                selectedTask.hasChecklist ||
+                (selectedTask.subtasks && selectedTask.subtasks.length > 0) ||
+                selectedTask.claim?.status === 'Active' ||
+                selectedTask.progressPercent > 0 ||
+                selectedTask.status === 'completed') && (
+                <div>
+                  <div className="flex items-center justify-between text-[10px] font-mono tracking-widest text-text-muted mb-1">
+                    <span>PROGRESS</span>
+                    <span className="text-neon-cyan">
+                      {selectedTask.status === 'completed'
+                        ? 100
+                        : selectedTask.progressPercent ?? 0}
+                      %
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-cyber-surface border border-cyber-border overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-neon-cyan"
+                      style={{
+                        width: `${
+                          selectedTask.status === 'completed'
+                            ? 100
+                            : Math.min(
+                                100,
+                                Math.max(0, selectedTask.progressPercent ?? 0)
+                              )
+                        }%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+            {/* Read-only checklist on leaf tasks for non-claimants */}
+            {!canEditProgress &&
+              selectedIsLeaf &&
+              selectedTask.subtasks?.length > 0 && (
+                <div>
+                  <div className="text-xs font-mono tracking-widest text-text-muted mb-2">
+                    CHECKLIST
+                  </div>
+                  <ul className="space-y-1.5 text-sm text-text-secondary">
+                    {selectedTask.subtasks.map((s, i) => (
+                      <li key={s.id || i} className="flex gap-2">
+                        <span className="text-neon-cyan font-mono">
+                          {s.done ? '✓' : '○'}
+                        </span>
+                        <span
+                          className={s.done ? 'line-through opacity-70' : ''}
+                        >
+                          {s.label || s.title}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+            {/* Claimed leaf: assignee */}
+            {selectedTask.claimedBy && !selectedTask.hasChildren && (
               <div className="flex items-center gap-2">
                 <UserAvatar
                   src={
@@ -1644,16 +2102,78 @@ const ProjectWorkspace = () => {
                     selectedTask.claim?.avatar_url
                   }
                   name={selectedTask.claimedBy}
+                  username={
+                    selectedTask.claim?.username || selectedTask.claimedBy
+                  }
                   size="sm"
                 />
-                <p className="text-xs font-mono text-neon-cyan">
-                  {selectedTask.status === 'completed' ? 'Shipped by' : 'Claimed by'}{' '}
-                  {selectedTask.claimedBy}
-                </p>
+                <div className="text-xs font-mono text-neon-cyan">
+                  <p>
+                    {selectedTask.status === 'completed'
+                      ? 'Shipped by'
+                      : 'Claimed by'}{' '}
+                    {selectedTask.claimedBy}
+                  </p>
+                  {selectedTask.status !== 'completed' &&
+                    selectedTask.claim?.claimedAt && (
+                      <p className="text-text-muted">
+                        {selectedTask.claim.heldLabel ||
+                          `since ${new Date(
+                            selectedTask.claim.claimedAt
+                          ).toLocaleString()}`}
+                      </p>
+                    )}
+                </div>
               </div>
             )}
 
-            {canManageSelected && selectedTask.status !== 'completed' ? (
+            {/* Claim owner / staff: moderate join requests */}
+            {joinRequests.length > 0 && canManageJoinRequests && (
+              <div className="rounded-lg border border-cyber-border bg-cyber-surface/60 p-3 space-y-2">
+                <div className="text-xs font-mono tracking-widest text-text-muted uppercase">
+                  Join requests
+                </div>
+                {joinRequests.map((jr) => (
+                  <div
+                    key={jr.id}
+                    className="flex flex-wrap items-center justify-between gap-2 text-sm"
+                  >
+                    <span className="text-white">{jr.username}</span>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        disabled={actionBusy}
+                        onClick={() => handleResolveJoin(jr.id, true)}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={actionBusy}
+                        onClick={() => handleResolveJoin(jr.id, false)}
+                      >
+                        Decline
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Requester (not claim owner): read-only status only — no Approve/Decline */}
+            {!canManageJoinRequests && myPendingJoinRequest && (
+              <div className="rounded-lg border border-cyber-border bg-cyber-surface/60 px-3 py-2 text-sm text-text-secondary">
+                Your join request is pending. Waiting on{' '}
+                <span className="text-white">
+                  {selectedTask.claimedBy || 'the claim holder'}
+                </span>
+                .
+              </div>
+            )}
+
+            {/* Claim holder only: progress + checklist on leaf tasks */}
+            {canEditProgress && (
               <>
                 <div>
                   <label className="block text-sm text-text-secondary font-mono mb-2">
@@ -1663,17 +2183,27 @@ const ProjectWorkspace = () => {
                     type="range"
                     min={0}
                     max={100}
-                    step={5}
+                    step={subtasksDraft.length > 0 ? 1 : 5}
                     value={progressDraft}
-                    onChange={(e) => setProgressDraft(Number(e.target.value))}
-                    className="w-full accent-cyan-400"
+                    onChange={(e) => {
+                      // When a checklist exists, progress is driven by checkboxes only
+                      if (subtasksDraft.length > 0) return;
+                      setProgressDraft(Number(e.target.value));
+                    }}
+                    readOnly={subtasksDraft.length > 0}
+                    disabled={subtasksDraft.length > 0}
+                    className={`w-full accent-cyan-400 ${
+                      subtasksDraft.length > 0
+                        ? 'opacity-90 cursor-default'
+                        : ''
+                    }`}
                   />
                 </div>
 
                 {subtasksDraft.length > 0 && (
                   <div>
                     <div className="text-sm text-text-secondary font-mono mb-2">
-                      Subtasks
+                      Checklist
                     </div>
                     <ul className="space-y-2">
                       {subtasksDraft.map((s) => (
@@ -1701,7 +2231,7 @@ const ProjectWorkspace = () => {
 
                 <div>
                   <label className="block text-sm text-text-secondary font-mono mb-1.5">
-                    Progress notes
+                    Notes
                   </label>
                   <textarea
                     value={notesDraft}
@@ -1712,12 +2242,24 @@ const ProjectWorkspace = () => {
                   />
                 </div>
 
-                <Input
-                  label="Helpers (usernames, comma-separated)"
-                  value={helpersDraft}
-                  onChange={(e) => setHelpersDraft(e.target.value)}
-                  placeholder="alice, bob"
-                />
+                {claimHelperNames.length > 0 && (
+                  <div>
+                    <div className="text-sm text-text-secondary font-mono mb-2">
+                      Helpers
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {claimHelperNames.map((name) => (
+                        <Badge
+                          key={name}
+                          variant="default"
+                          className="!normal-case tracking-wide"
+                        >
+                          {name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex flex-wrap gap-2 pt-1">
                   <Button
@@ -1727,104 +2269,91 @@ const ProjectWorkspace = () => {
                   >
                     {actionBusy ? 'Saving…' : 'Save Progress'}
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={handleComplete}
-                    disabled={actionBusy}
-                  >
-                    Mark Completed
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleReturn}
-                    disabled={actionBusy}
-                  >
-                    Return Claim
-                  </Button>
+                  {canCompleteOrReturn && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={handleComplete}
+                        disabled={actionBusy}
+                      >
+                        Mark Completed
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleReturn}
+                        disabled={actionBusy}
+                      >
+                        Return Claim
+                      </Button>
+                    </>
+                  )}
                 </div>
               </>
-            ) : (
-              <>
-                {(selectedTask.progressPercent > 0 ||
-                  selectedTask.status === 'completed') && (
-                  <div>
-                    <div className="flex items-center justify-between text-[10px] font-mono tracking-widest text-text-muted mb-1">
-                      <span>PROGRESS</span>
-                      <span className="text-neon-cyan">
-                        {selectedTask.status === 'completed'
-                          ? 100
-                          : selectedTask.progressPercent}
-                        %
-                      </span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-cyber-surface border border-cyber-border overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-neon-cyan"
-                        style={{
-                          width: `${
-                            selectedTask.status === 'completed'
-                              ? 100
-                              : selectedTask.progressPercent
-                          }%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {selectedTask.subtasks?.length > 0 && (
-                  <ul className="space-y-1.5 text-sm text-text-secondary">
-                    {selectedTask.subtasks.map((s, i) => (
-                      <li key={s.id || i} className="flex gap-2">
-                        <span className="text-neon-cyan font-mono">
-                          {s.done ? '✓' : '○'}
-                        </span>
-                        <span className={s.done ? 'line-through opacity-70' : ''}>
-                          {s.label || s.title}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                {selectedTask.claim?.notes && (
-                  <p className="text-sm text-text-secondary border-l-2 border-neon-cyan/40 pl-3">
-                    {selectedTask.claim.notes}
-                  </p>
-                )}
-
-                {selectedTask.status === 'todo' && (
-                  <Button
-                    size="sm"
-                    onClick={() => handleClaim(selectedTask.id)}
-                    disabled={claimingId === selectedTask.id}
-                  >
-                    {claimingId === selectedTask.id ? 'Claiming…' : 'Claim Task'}
-                  </Button>
-                )}
-
-                {selectedTask.status === 'completed' && (
-                  <p className="text-sm text-neon-cyan font-mono">
-                    This one shipped — check Shoutouts for the credit.
-                  </p>
-                )}
-
-                {!user && selectedTask.status === 'todo' && (
-                  <p className="text-xs text-text-muted">
-                    <button
-                      type="button"
-                      className="text-neon-cyan hover:underline"
-                      onClick={() => navigate('/profile')}
-                    >
-                      Sign in
-                    </button>{' '}
-                    to claim this task.
-                  </p>
-                )}
-              </>
             )}
+
+            {/* Helpers for viewers when claim has helpers */}
+            {!canEditProgress &&
+              !selectedTask.hasChildren &&
+              claimHelperNames.length > 0 && (
+                <div>
+                  <div className="text-xs font-mono tracking-widest text-text-muted mb-2">
+                    HELPERS
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {claimHelperNames.map((name) => (
+                      <Badge
+                        key={name}
+                        variant="default"
+                        className="!normal-case tracking-wide"
+                      >
+                        {name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            {/* Notes for non-holders on leaf claims only */}
+            {!canEditProgress &&
+              !selectedTask.hasChildren &&
+              selectedTask.claim?.notes && (
+                <p className="text-sm text-text-secondary border-l-2 border-neon-cyan/40 pl-3">
+                  {selectedTask.claim.notes}
+                </p>
+              )}
+
+            {!canEditProgress &&
+              canCompleteOrReturn &&
+              isModerator &&
+              !isClaimHolder &&
+              selectedTask.claim?.status === 'Active' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleReturn}
+                  disabled={actionBusy}
+                >
+                  Return Claim
+                </Button>
+              )}
+
+            {selectedTask.volunteerClaimable &&
+              selectedTask.status === 'todo' &&
+              !selectedTask.claimedBy && (
+                <Button
+                  size="sm"
+                  onClick={() => handleClaim(selectedTask.id)}
+                  disabled={claimingId === selectedTask.id || !user}
+                >
+                  {claimingId === selectedTask.id
+                    ? 'Claiming…'
+                    : !user
+                      ? 'Sign in to claim'
+                      : 'Claim Task'}
+                </Button>
+              )}
           </div>
         )}
       </Modal>
@@ -1833,15 +2362,43 @@ const ProjectWorkspace = () => {
       <Modal
         isOpen={taskFormOpen}
         onClose={closeTaskForm}
-        title={taskFormMode === 'edit' ? 'Edit Task' : 'Add New Task'}
+        title={
+          taskFormMode === 'edit'
+            ? 'Edit Task'
+            : taskForm.parentTaskId
+              ? 'Add Sub-task'
+              : 'Add New Task'
+        }
         size="lg"
       >
         <form onSubmit={handleTaskFormSubmit} className="space-y-6 max-h-[70vh] overflow-y-auto pr-1">
           <p className="text-sm text-text-secondary leading-relaxed">
             {taskFormMode === 'edit'
-              ? 'Update the task details. Claimants keep their progress; subtask completion is preserved when labels match.'
-              : 'Drop a clear, claimable task onto the board. It will land in To Do for the community.'}
+              ? 'Update task details. Checklist labels keep their done state when unchanged.'
+              : taskForm.parentTaskId
+                ? 'Add a child task under the parent.'
+                : 'Top-level = Epic. Nest Medium/Small under it for claimable work.'}
           </p>
+
+          {taskForm.parentTaskId && (
+            <div className="rounded-lg border border-cyber-border bg-cyber-surface/60 px-3 py-2 text-sm text-text-secondary">
+              Parent:{' '}
+              <span className="text-white font-medium">
+                {tasks.find((t) => t.id === taskForm.parentTaskId)?.title ||
+                  'Selected task'}
+              </span>
+              {(() => {
+                const p = tasks.find((t) => t.id === taskForm.parentTaskId);
+                if (!p) return null;
+                return (
+                  <span className="text-text-muted">
+                    {' '}
+                    · will be a {taskLevelLabel((p.depth || 0) + 1)}
+                  </span>
+                );
+              })()}
+            </div>
+          )}
 
           <div>
             <label className={fieldLabelClass} htmlFor="task-title">
@@ -1935,23 +2492,51 @@ const ProjectWorkspace = () => {
           </div>
 
           <div>
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <label className={`${fieldLabelClass} mb-0`}>SUBTASKS</label>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                className="gap-1.5"
-                onClick={addSubtaskLine}
-                disabled={taskForm.subtaskLines.length >= 20}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add step
-              </Button>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <label className={`${fieldLabelClass} mb-0`}>
+                CHECKLIST (optional)
+              </label>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-[10px] font-mono tracking-widest ${
+                    taskForm.subtaskLines.length >= MAX_CHECKLIST_STEPS
+                      ? 'text-amber-300'
+                      : 'text-text-muted'
+                  }`}
+                >
+                  {taskForm.subtaskLines.length}/{MAX_CHECKLIST_STEPS}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="gap-1.5"
+                  onClick={addSubtaskLine}
+                  disabled={
+                    taskForm.subtaskLines.length >= MAX_CHECKLIST_STEPS
+                  }
+                  title={
+                    taskForm.subtaskLines.length >= MAX_CHECKLIST_STEPS
+                      ? `Maximum ${MAX_CHECKLIST_STEPS} checklist steps`
+                      : 'Add checklist step'
+                  }
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add step
+                </Button>
+              </div>
             </div>
-            <p className="text-xs text-text-muted mb-3">
-              Optional checklist items. Volunteers can tick these off while they work.
-            </p>
+            {taskForm.subtaskLines.length >= MAX_CHECKLIST_STEPS ? (
+              <p className="text-xs text-amber-300/90 mb-3">
+                Max checklist steps reached ({MAX_CHECKLIST_STEPS}). Remove a
+                step to add another.
+              </p>
+            ) : (
+              <p className="text-xs text-text-muted mb-3">
+                Optional checklist items (up to {MAX_CHECKLIST_STEPS}).
+                Volunteers tick these off while they work.
+              </p>
+            )}
             <div className="space-y-2">
               {taskForm.subtaskLines.map((line, index) => (
                 <div key={`sub-${index}`} className="flex gap-2 items-center">
@@ -1965,7 +2550,7 @@ const ProjectWorkspace = () => {
                   />
                   <button
                     type="button"
-                    aria-label="Remove subtask"
+                    aria-label="Remove checklist step"
                     className="shrink-0 p-2 rounded-lg border border-cyber-border text-text-muted hover:text-red-300 hover:border-red-400/40 transition-colors"
                     onClick={() => removeSubtaskLine(index)}
                     disabled={taskForm.subtaskLines.length <= 1 && !line}

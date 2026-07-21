@@ -1,7 +1,7 @@
 /**
  * Basic moderation helpers for Moderator Dashboard.
  * Requires staff role (moderator | admin | project_lead) and
- * supabase_moderation.sql for full RLS + content_reports.
+ * supabase/sql/supabase_moderation.sql for full RLS + content_reports.
  */
 
 import { supabase } from '../lib/supabase';
@@ -33,7 +33,7 @@ export const moderationService = {
 
   /**
    * List profiles for moderation (newest first).
-   * Note: profiles use joined_at (not created_at) per supabase_schema.sql.
+   * Note: profiles use joined_at (not created_at) per supabase/sql/supabase_schema.sql.
    */
   async listUsers({ limit = 50 } = {}) {
     const selectFull =
@@ -160,7 +160,7 @@ export const moderationService = {
     if (error) {
       if (isMissingTableError(error, 'content_reports')) {
         console.warn(
-          '[moderation] content_reports missing. Run supabase_moderation.sql in Supabase.',
+          '[moderation] content_reports missing. Run supabase/sql/supabase_moderation.sql in Supabase.',
           error.message
         );
         return { reports: [], tableMissing: true };
@@ -200,7 +200,7 @@ export const moderationService = {
     if (error) {
       if (isMissingTableError(error, 'content_reports')) {
         throw new Error(
-          'Reports table is not set up yet. Run supabase_moderation.sql in the Supabase SQL Editor, then refresh the API schema if needed.'
+          'Reports table is not set up yet. Run supabase/sql/supabase_moderation.sql in the Supabase SQL Editor, then refresh the API schema if needed.'
         );
       }
       throw error;
@@ -235,7 +235,7 @@ export const moderationService = {
     if (error) {
       if (isMissingTableError(error, 'content_reports')) {
         throw new Error(
-          'Reports table is not set up yet. Run supabase_moderation.sql in the Supabase SQL Editor.'
+          'Reports table is not set up yet. Run supabase/sql/supabase_moderation.sql in the Supabase SQL Editor.'
         );
       }
       throw error;

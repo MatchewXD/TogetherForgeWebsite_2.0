@@ -1,4 +1,4 @@
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ArrowRight, GraduationCap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const AboutPage = () => {
@@ -72,6 +72,49 @@ const AboutPage = () => {
                             We are not here to maximize short-term profits for investors. We are here to build incredible games and a thriving community.
                             Profits are reinvested into development, community projects, and the bigger vision.
                         </p>
+                    </div>
+                </section>
+
+                {/* Education & long-term vision */}
+                <section>
+                    <div className="grid md:grid-cols-12 gap-x-12 gap-y-8 items-start">
+                        <div className="md:col-span-5">
+                            <div className="sticky top-24">
+                                <div className="section-header">LONG-TERM VISION</div>
+                                <h2 className="text-4xl font-bold tracking-tight text-white">
+                                    Grow capability from within.
+                                </h2>
+                            </div>
+                        </div>
+                        <div className="md:col-span-7 text-lg text-text-secondary space-y-6 leading-relaxed">
+                            <p>
+                                Volunteering and open collaboration are how we start. Over time, once the studio has sustainable revenue,
+                                a full core team, and surplus resources, we plan a formal{' '}
+                                <strong className="text-white font-semibold">Education and Apprenticeship Program</strong>.
+                            </p>
+                            <p>
+                                That program pairs motivated learners with experienced practitioners in art, programming, design,
+                                writing, sound, production, and more. Teaching happens through real work on Together Forge projects:
+                                structured objectives, mentorship, progress reviews, and public recognition for people who complete the path.
+                            </p>
+                            <p>
+                                Mentors will be compensated for teaching time. Transparent feedback and accountability keep quality high
+                                for both mentors and apprentices. The goal is a pipeline of skilled, values-aligned contributors, less
+                                dependence on traditional industry gatekeeping, and genuine community uplift beyond short-term tasks.
+                            </p>
+                            <p>
+                                Until launch, the best way to grow with us is to contribute on live projects, claim tasks, and build
+                                with the community. Full program details, timing, and safeguards live on our Education page.
+                            </p>
+                            <Link
+                                to="/education"
+                                className="inline-flex items-center gap-2 text-neon-cyan hover:text-white font-mono text-sm tracking-widest transition-colors group"
+                            >
+                                <GraduationCap className="w-4 h-4" />
+                                EDUCATION &amp; APPRENTICESHIPS
+                                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition" />
+                            </Link>
+                        </div>
                     </div>
                 </section>
 

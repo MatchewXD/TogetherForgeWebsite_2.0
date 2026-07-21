@@ -14,8 +14,6 @@ import {
   Users,
   Hammer,
   CheckCircle2,
-  AlertTriangle,
-  HelpCircle,
   ExternalLink,
   Loader2,
 } from 'lucide-react';
@@ -23,12 +21,21 @@ import {
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
+import FaqAccordion from '../components/ui/FaqAccordion';
 import {
   startStripeCheckout,
   isStripeConfigured,
   recordLocalSupportEvent,
   validateAmountCents,
+  getCheckoutApiUrl,
 } from '../services/supportService';
+import StripeCheckoutButton from '../components/support/StripeCheckoutButton';
+import SupportTotals from '../components/support/SupportTotals';
+import RecentDonationsList from '../components/support/RecentDonationsList';
+import {
+  getPublicSupportSummary,
+  getPublicRecentDonations,
+} from '../services/donationsService';
 
 /** One-time tiers */
 const ONCE_TIERS = [
@@ -140,15 +147,47 @@ const SupportPage = () => {
   const [busyKey, setBusyKey] = useState(null);
   const [error, setError] = useState('');
   const [banner, setBanner] = useState(null);
+  const [socialLoading, setSocialLoading] = useState(true);
+  const [supportStats, setSupportStats] = useState({
+    studioTotalCents: 0,
+    studioPaymentCount: 0,
+    studioMrrCents: 0,
+    studioSubscriberCount: 0,
+    source: 'empty',
+  });
+  const [recentDonations, setRecentDonations] = useState([]);
+  const [recentSource, setRecentSource] = useState('empty');
 
   const stripeReady = useMemo(() => isStripeConfigured(), []);
   const tiers = interval === 'month' ? MONTH_TIERS : ONCE_TIERS;
 
+  const loadSocialProof = async ({ quiet = false } = {}) => {
+    if (!quiet) setSocialLoading(true);
+    try {
+      const [summary, recent] = await Promise.all([
+        getPublicSupportSummary(),
+        getPublicRecentDonations(12),
+      ]);
+      setSupportStats(summary);
+      setRecentDonations(recent.items || []);
+      setRecentSource(recent.source || 'empty');
+      return summary;
+    } catch (e) {
+      console.error('[Support] social proof load', e);
+      return null;
+    } finally {
+      if (!quiet) setSocialLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSocialProof();
+  }, []);
+
   useEffect(() => {
     const status = searchParams.get('checkout');
-    const sessionId = searchParams.get('session_id');
     if (status === 'success') {
-      // Optimistic local note only (webhook is source of truth for Transparency)
+      // Optimistic local note (shows if webhook/RPC not ready yet)
       const pending = sessionStorage.getItem('tf_pending_support');
       if (pending) {
         try {
@@ -166,10 +205,24 @@ const SupportPage = () => {
       }
       setBanner({
         type: 'success',
-        text: sessionId
-          ? 'Thank you! Payment completed. A receipt will come from Stripe. Studio totals update on the Transparency Hub after the webhook records the payment.'
-          : 'Thank you! Your support helps fuel the forge. A receipt will come from Stripe if payment completed.',
+        text: 'Thank you! Your payment was successful. We really appreciate your support',
       });
+
+      // Webhook may lag a few seconds — poll for updated totals
+      let cancelled = false;
+      (async () => {
+        await loadSocialProof({ quiet: true });
+        for (const delay of [1500, 3000, 5000]) {
+          await new Promise((r) => setTimeout(r, delay));
+          if (cancelled) return;
+          const summary = await loadSocialProof({ quiet: true });
+          if (summary && summary.studioTotalCents > 0) break;
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
     } else if (status === 'cancel') {
       sessionStorage.removeItem('tf_pending_support');
       setBanner({
@@ -268,7 +321,7 @@ const SupportPage = () => {
         </div>
       </div>
 
-      <div className="container-custom relative z-10 py-12 md:py-16 max-w-5xl space-y-14">
+      <div className="container-custom relative z-10 py-12 md:py-16 max-w-6xl space-y-12">
         {/* Status banners */}
         {banner && (
           <div
@@ -283,85 +336,61 @@ const SupportPage = () => {
           </div>
         )}
 
-        {/* How funds are used (single clear statement) */}
-        <Card className="bg-cyber-card/80 border-neon-cyan/25">
-          <p className="text-base sm:text-lg text-text-secondary leading-relaxed">
-            All contributions support general development, tools, assets,
-            playtesting, community growth, and advancing active projects. Funds
-            are used where most needed with full transparency reported in the{' '}
-            <Link to="/transparency" className="text-neon-cyan hover:underline">
-              Transparency Hub
-            </Link>
-            .
-          </p>
-        </Card>
+        {/* 1. Compact totals (full width) */}
+        <SupportTotals
+          totalCents={supportStats.studioTotalCents}
+          mrrCents={supportStats.studioMrrCents}
+          paymentCount={supportStats.studioPaymentCount}
+          subscriberCount={supportStats.studioSubscriberCount}
+          loading={socialLoading}
+          source={supportStats.source}
+        />
 
-        {/* Strong disclaimers */}
-        <Card className="bg-amber-500/5 border-amber-400/30">
-          <div className="flex gap-3">
-            <AlertTriangle className="w-6 h-6 text-amber-300 shrink-0 mt-0.5" />
-            <div className="space-y-2 text-sm text-text-secondary leading-relaxed">
-              <p className="font-semibold text-amber-100 text-base">
-                Important disclaimers
-              </p>
-              <ul className="list-disc pl-5 space-y-1.5">
-                <li>
-                  Contributions are <strong className="text-white">not tax-deductible</strong>.
-                  Together Forge is a community-supported for-profit studio, not a charity.
-                </li>
-                <li>
-                  Payments are support for development and operations, not equity or ownership.
-                </li>
-                <li>
-                  Funds go toward building projects and studio operations (tools,
-                  assets, infrastructure, taxes, and related costs). Founder pay
-                  comes only from future profits once the studio sustains itself,
-                  not from support contributions.
-                </li>
-                <li>
-                  Perks are thank-you incentives only and may evolve as the forge grows.
-                </li>
-              </ul>
-            </div>
-          </div>
-        </Card>
-
-        {/* Interval toggle + tiers */}
+        {/* 2. Donation options */}
         <section aria-labelledby="tiers-heading">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-            <div>
-              <div className="section-header">Choose a level</div>
-              <h2
-                id="tiers-heading"
-                className="text-2xl sm:text-3xl font-bold text-white"
-              >
-                One-time or monthly
-              </h2>
-            </div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <h2
+              id="tiers-heading"
+              className="section-header mb-0 text-base sm:text-lg tracking-[0.2em]"
+            >
+              Choose a level
+            </h2>
 
-            <div className="inline-flex items-center bg-cyber-surface border border-cyber-border rounded-lg p-1 self-start">
-              <button
-                type="button"
-                onClick={() => setInterval('once')}
-                className={`px-4 py-2 text-sm rounded-md transition-colors ${
-                  interval === 'once'
-                    ? 'bg-neon-cyan text-cyber-bg font-medium'
-                    : 'text-text-secondary hover:text-white'
-                }`}
+            {/* Billing interval toggle — high-contrast so it is hard to miss */}
+            <div className="self-start sm:self-auto">
+              <p className="text-[10px] font-mono tracking-widest uppercase text-neon-cyan mb-1.5 text-left sm:text-right">
+                Billing type
+              </p>
+              <div
+                className="inline-flex items-center rounded-xl border-2 border-neon-cyan/50 bg-cyber-surface p-1 shadow-[0_0_20px_rgba(0,249,255,0.12)]"
+                role="group"
+                aria-label="One-time or monthly billing"
               >
-                One-time
-              </button>
-              <button
-                type="button"
-                onClick={() => setInterval('month')}
-                className={`px-4 py-2 text-sm rounded-md transition-colors ${
-                  interval === 'month'
-                    ? 'bg-neon-cyan text-cyber-bg font-medium'
-                    : 'text-text-secondary hover:text-white'
-                }`}
-              >
-                Monthly
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setInterval('once')}
+                  aria-pressed={interval === 'once'}
+                  className={`px-5 py-2.5 text-sm font-mono tracking-wide rounded-lg transition-all ${
+                    interval === 'once'
+                      ? 'bg-neon-cyan text-cyber-bg font-semibold shadow-neon-cyan'
+                      : 'text-text-secondary hover:text-white'
+                  }`}
+                >
+                  One-time
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInterval('month')}
+                  aria-pressed={interval === 'month'}
+                  className={`px-5 py-2.5 text-sm font-mono tracking-wide rounded-lg transition-all ${
+                    interval === 'month'
+                      ? 'bg-neon-cyan text-cyber-bg font-semibold shadow-neon-cyan'
+                      : 'text-text-secondary hover:text-white'
+                  }`}
+                >
+                  Monthly
+                </button>
+              </div>
             </div>
           </div>
 
@@ -455,64 +484,121 @@ const SupportPage = () => {
           </div>
         </section>
 
-        {/* Custom amount */}
         <section aria-labelledby="custom-heading">
           <Card className="bg-cyber-card/80">
-            <div className="flex flex-col md:flex-row md:items-end gap-6">
-              <div className="flex-1">
-                <div className="section-header mb-1">Custom amount</div>
-                <h2
-                  id="custom-heading"
-                  className="text-xl font-bold text-white mb-2"
-                >
-                  Choose your own number
-                </h2>
-                <p className="text-sm text-text-secondary">
-                  Any amount from $1 up. Uses the same{' '}
-                  {interval === 'month' ? 'monthly' : 'one-time'} checkout mode
-                  selected above.
-                </p>
+            <h2 id="custom-heading" className="section-header mb-2">
+              Custom amount
+            </h2>
+            <p className="text-sm text-text-secondary mb-5">
+              Any amount from $1 up. Uses the same{' '}
+              {interval === 'month' ? 'monthly' : 'one-time'} checkout mode
+              selected above.
+            </p>
+            <form
+              onSubmit={handleCustom}
+              className="flex flex-col sm:flex-row gap-3 w-full items-stretch sm:items-center"
+            >
+              <div className="relative flex-1 min-w-0">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-lg font-mono">
+                  $
+                </span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="25"
+                  value={customAmount}
+                  onChange={(e) => setCustomAmount(e.target.value)}
+                  className="w-full bg-cyber-surface border border-cyber-border rounded-xl pl-10 pr-4 py-4 text-xl sm:text-2xl font-mono text-text-primary tabular-nums focus:border-neon-cyan outline-none"
+                  aria-label="Custom amount in dollars"
+                />
               </div>
-              <form
-                onSubmit={handleCustom}
-                className="flex flex-col sm:flex-row gap-3 w-full md:w-auto"
+              <Button
+                type="submit"
+                size="lg"
+                className="gap-2 w-full sm:w-auto sm:shrink-0 px-8"
+                disabled={!!busyKey}
               >
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="0.01"
-                    placeholder="25.00"
-                    value={customAmount}
-                    onChange={(e) => setCustomAmount(e.target.value)}
-                    className="w-full sm:w-40 bg-cyber-surface border border-cyber-border rounded-lg pl-7 pr-4 py-3 text-text-primary focus:border-neon-cyan outline-none"
-                    aria-label="Custom amount in dollars"
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="gap-2"
-                  disabled={!!busyKey}
-                >
-                  {busyKey?.startsWith('custom_') ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Redirecting...
-                    </>
-                  ) : (
-                    <>
-                      Continue to Stripe
-                      <ExternalLink className="w-4 h-4" />
-                    </>
-                  )}
-                </Button>
-              </form>
-            </div>
+                {busyKey?.startsWith('custom_') ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Redirecting...
+                  </>
+                ) : (
+                  <>
+                    Continue to Stripe
+                    <ExternalLink className="w-4 h-4" />
+                  </>
+                )}
+              </Button>
+            </form>
           </Card>
         </section>
+
+        {/* 3. Recent support */}
+        <RecentDonationsList
+          items={recentDonations}
+          loading={socialLoading}
+          source={recentSource}
+        />
+
+        {/* Dev-friendly single test button (uses Edge Function + product id) */}
+        {import.meta.env.DEV && (
+          <Card className="bg-cyber-card/80 border-neon-purple/30">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <div className="text-xs font-mono tracking-widest text-neon-purple uppercase mb-1">
+                  Local Stripe test
+                </div>
+                <p className="text-sm text-text-secondary">
+                  One-click $5 Checkout via Supabase Edge Function. Secret key stays on
+                  the server. API:{' '}
+                  <code className="text-xs text-neon-cyan font-mono break-all">
+                    {getCheckoutApiUrl() || '(not set)'}
+                  </code>
+                </p>
+              </div>
+              <StripeCheckoutButton
+                amountDollars={5}
+                interval="once"
+                tierId="test"
+                label="Together Forge Support (test)"
+                fundType="studio"
+                className="shrink-0"
+              />
+            </div>
+          </Card>
+        )}
+
+        {/* Funds use + important notes (single card) */}
+        <Card className="bg-cyber-card/80 border-cyber-border">
+          <p className="text-base sm:text-lg text-text-secondary leading-relaxed mb-5">
+            All contributions support general development, tools, assets,
+            playtesting, community growth, and advancing active projects. Funds
+            are used where most needed.
+          </p>
+          <p className="font-semibold text-white text-sm sm:text-base mb-2">
+            Important notes:
+          </p>
+          <ul className="list-disc pl-5 space-y-1.5 text-sm text-text-secondary leading-relaxed">
+            <li>
+              Contributions are not tax-deductible. Together Forge is a
+              community-supported for-profit studio.
+            </li>
+            <li>
+              Payments support development and operations, not equity or
+              ownership.
+            </li>
+            <li>
+              Founder pay comes only from future profits, not from supporter
+              contributions.
+            </li>
+            <li>
+              Perks are thank-you incentives only and may evolve as the forge
+              grows.
+            </li>
+          </ul>
+        </Card>
 
         {/* Impact */}
         <section aria-labelledby="impact-heading">
@@ -565,21 +651,7 @@ const SupportPage = () => {
               Common questions
             </h2>
           </div>
-          <div className="space-y-3">
-            {FAQ_ITEMS.map((item) => (
-              <Card key={item.q} className="bg-cyber-card/80 !p-5">
-                <div className="flex gap-3">
-                  <HelpCircle className="w-5 h-5 text-neon-cyan shrink-0 mt-0.5" />
-                  <div>
-                    <h3 className="font-semibold text-white mb-1.5">{item.q}</h3>
-                    <p className="text-sm text-text-secondary leading-relaxed">
-                      {item.a}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
+          <FaqAccordion items={FAQ_ITEMS} />
           <p className="mt-4 text-sm text-text-muted">
             More answers on the{' '}
             <Link to="/faq" className="text-neon-cyan hover:underline">

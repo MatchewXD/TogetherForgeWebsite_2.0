@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-1. Run SQL: `supabase_donations_stripe.sql` in Supabase.
+1. Run SQL: `supabase/sql/supabase_donations_stripe.sql` in Supabase.
 2. Deploy Edge Functions:
    - `supabase functions deploy create-checkout --no-verify-jwt`
    - `supabase functions deploy stripe-webhook --no-verify-jwt`

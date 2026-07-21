@@ -161,10 +161,14 @@ html {
         transform: translateY(-2px) scale(1.01);
     }
 
-/* Section Header with accent underline */
+/* Section Header with accent underline
+   Use block (not only inline) so a preceding "BACK TO …" link cannot
+   sit on the same line and collide with this label. */
 .section-header {
     position: relative;
-    display: inline-block;
+    display: block;
+    width: fit-content;
+    max-width: 100%;
     font-family: var(--font-mono, monospace);
     font-size: 0.875rem;
     letter-spacing: 3px;

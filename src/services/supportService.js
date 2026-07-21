@@ -1,18 +1,19 @@
 /**
- * Support / Stripe checkout helpers.
+ * Support / Stripe checkout helpers (Vite client).
  *
- * Configure one of:
- * 1) VITE_STRIPE_CHECKOUT_API_URL - Supabase Edge Function create-checkout
- * 2) VITE_STRIPE_PAYMENT_LINKS - JSON map of Payment Link URLs
+ * SECURITY
+ * - Never put STRIPE_SECRET_KEY (sk_...) in VITE_* env vars.
+ * - Client may only use: publishable key (optional), Supabase URL/anon, checkout API URL.
+ * - Checkout Sessions are created by Supabase Edge Function create-checkout.
  *
- * Never put secret Stripe keys in the Vite client.
+ * Local defaults (when VITE_STRIPE_CHECKOUT_API_URL is unset):
+ *   {VITE_SUPABASE_URL}/functions/v1/create-checkout
  */
 
 const MIN_CENTS = 100;
 const MAX_CENTS = 1_000_000;
 
 /**
- * Validate and normalize amount in cents.
  * @returns {{ ok: true, amountCents: number } | { ok: false, error: string }}
  */
 export function validateAmountCents(raw) {
@@ -24,7 +25,10 @@ export function validateAmountCents(raw) {
     return { ok: false, error: 'Minimum support amount is $1.00.' };
   }
   if (amountCents > MAX_CENTS) {
-    return { ok: false, error: 'Maximum support amount is $10,000.00 per checkout.' };
+    return {
+      ok: false,
+      error: 'Maximum support amount is $10,000.00 per checkout.',
+    };
   }
   return { ok: true, amountCents };
 }
@@ -41,6 +45,34 @@ function parseLinkMap() {
 }
 
 /**
+ * Resolve Edge Function URL for create-checkout.
+ */
+export function getCheckoutApiUrl() {
+  const explicit = import.meta.env.VITE_STRIPE_CHECKOUT_API_URL;
+  if (explicit && String(explicit).trim()) {
+    return String(explicit).replace(/\/$/, '');
+  }
+  const base = import.meta.env.VITE_SUPABASE_URL;
+  if (base && String(base).trim()) {
+    return `${String(base).replace(/\/$/, '')}/functions/v1/create-checkout`;
+  }
+  return '';
+}
+
+/**
+ * Headers required by local + hosted Supabase Edge Functions.
+ */
+function checkoutHeaders() {
+  const headers = { 'Content-Type': 'application/json' };
+  const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  if (anon) {
+    headers.Authorization = `Bearer ${anon}`;
+    headers.apikey = anon;
+  }
+  return headers;
+}
+
+/**
  * @param {object} opts
  * @param {number} opts.amountCents
  * @param {'once'|'month'} [opts.interval]
@@ -49,6 +81,7 @@ function parseLinkMap() {
  * @param {'studio'|'runway'} [opts.fundType]
  * @param {string} [opts.successUrl]
  * @param {string} [opts.cancelUrl]
+ * @param {string} [opts.productId] - optional Stripe product id override
  */
 export async function startStripeCheckout({
   amountCents,
@@ -58,6 +91,7 @@ export async function startStripeCheckout({
   fundType = 'studio',
   successUrl,
   cancelUrl,
+  productId,
 } = {}) {
   const validated = validateAmountCents(amountCents);
   if (!validated.ok) {
@@ -72,16 +106,18 @@ export async function startStripeCheckout({
   const safeLabel = String(label || 'Support').slice(0, 120);
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  // Local Vite default: http://localhost:5173
   const success =
     successUrl ||
     `${origin}/support?checkout=success&tier=${encodeURIComponent(safeTier)}&fund=${safeFund}`;
   const cancel =
     cancelUrl || `${origin}/support?checkout=cancel&fund=${safeFund}`;
 
-  const apiUrl = import.meta.env.VITE_STRIPE_CHECKOUT_API_URL;
+  const apiUrl = getCheckoutApiUrl();
 
   if (apiUrl) {
-    console.log('[support] creating checkout session via API', {
+    console.log('[support] creating checkout session via Edge Function', {
+      apiUrl,
       amountCents: cents,
       interval: safeInterval,
       tierId: safeTier,
@@ -92,7 +128,7 @@ export async function startStripeCheckout({
     try {
       res = await fetch(apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: checkoutHeaders(),
         body: JSON.stringify({
           amountCents: cents,
           interval: safeInterval,
@@ -102,41 +138,52 @@ export async function startStripeCheckout({
           fundType: safeFund,
           successUrl: success,
           cancelUrl: cancel,
+          ...(productId ? { productId } : {}),
         }),
       });
     } catch (networkErr) {
       console.error('[support] network error', networkErr);
       const err = new Error(
-        'Could not reach checkout service. Check your connection and try again.'
+        'Could not reach checkout service. Is Supabase running and create-checkout served? (' +
+          apiUrl +
+          ')'
       );
       err.code = 'NETWORK';
       throw err;
     }
 
+    let data = null;
+    const text = await res.text();
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = null;
+    }
+
     if (!res.ok) {
-      let detail = '';
-      try {
-        const j = await res.json();
-        detail = j?.error || j?.message || '';
-      } catch {
-        detail = await res.text().catch(() => '');
-      }
+      const detail =
+        data?.error || data?.message || text || `HTTP ${res.status}`;
       console.error('[support] checkout API error', res.status, detail);
       throw new Error(
-        detail ||
-          `Checkout API failed (${res.status}). Check Edge Function logs and STRIPE_SECRET_KEY.`
+        typeof detail === 'string'
+          ? detail
+          : `Checkout API failed (${res.status}). Check Edge Function logs and STRIPE_SECRET_KEY.`
       );
     }
 
-    const data = await res.json();
     if (!data?.url) {
       throw new Error('Checkout API did not return a url.');
     }
+
     window.location.assign(data.url);
-    return { redirected: true, mode: 'api', sessionId: data.sessionId || null };
+    return {
+      redirected: true,
+      mode: 'api',
+      sessionId: data.sessionId || null,
+    };
   }
 
-  // Fallback: Payment Links
+  // Fallback: Payment Links (no secret key)
   const links = parseLinkMap();
   const key = `${safeTier}_${safeInterval === 'month' ? 'month' : 'once'}`;
   const fundKey = `${safeFund}_${key}`;
@@ -152,18 +199,22 @@ export async function startStripeCheckout({
   }
 
   const err = new Error(
-    'Stripe is not configured yet. Set VITE_STRIPE_CHECKOUT_API_URL or VITE_STRIPE_PAYMENT_LINKS.'
+    'Stripe checkout is not configured. Set VITE_SUPABASE_URL (local functions) or VITE_STRIPE_CHECKOUT_API_URL, and ensure STRIPE_SECRET_KEY is set only on the Edge Function.'
   );
   err.code = 'STRIPE_NOT_CONFIGURED';
   throw err;
 }
 
 export function isStripeConfigured() {
-  if (import.meta.env.VITE_STRIPE_CHECKOUT_API_URL) return true;
+  if (getCheckoutApiUrl()) return true;
   return Object.keys(parseLinkMap()).length > 0;
 }
 
-/** Local browser demo ledger (not source of truth when webhooks run). */
+/** Optional publishable key (pk_test_...) — never required for Checkout redirect flow. */
+export function getStripePublishableKey() {
+  return import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '';
+}
+
 export function recordLocalSupportEvent({
   amountCents,
   label,
@@ -196,6 +247,8 @@ export default {
   isStripeConfigured,
   validateAmountCents,
   recordLocalSupportEvent,
+  getCheckoutApiUrl,
+  getStripePublishableKey,
   MIN_CENTS,
   MAX_CENTS,
 };

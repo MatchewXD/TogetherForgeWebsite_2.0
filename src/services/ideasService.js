@@ -196,7 +196,7 @@ export function buildGuidedData(raw = {}) {
 
 /**
  * Map a rich form payload into columns that exist on the base ideas table
- * (see supabase_schema.sql) plus optional project_id, status, guided_data.
+ * (see supabase/sql/supabase_schema.sql) plus optional project_id, status, guided_data.
  */
 export function buildSafeIdeaPayload(raw = {}) {
   const asText = (v) => {
@@ -607,7 +607,7 @@ export const ideasService = {
       if (!stripped) break;
 
       console.warn(
-        `[ideasService.createIdea] column "${stripped}" missing — retrying without it. Run supabase_ideas_guided.sql`
+        `[ideasService.createIdea] column "${stripped}" missing — retrying without it. Run supabase/sql/supabase_ideas_guided.sql`
       );
       if (stripped === 'project_id') meta._project_id_not_persisted = true;
       if (stripped === 'guided_data') meta._guided_data_not_persisted = true;
@@ -667,7 +667,7 @@ export const ideasService = {
 
   // -------------------------------------------------------------------------
   // VOTES — simple insert / delete + recount (no RPC)
-  // Requires supabase_votes_rls.sql (SELECT + DELETE policies, unique index).
+  // Requires supabase/sql/supabase_votes_rls.sql (SELECT + DELETE policies, unique index).
   // -------------------------------------------------------------------------
 
   /** @private */

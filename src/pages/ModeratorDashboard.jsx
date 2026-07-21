@@ -66,7 +66,7 @@ const ModeratorDashboard = () => {
 
   const showToast = (msg) => {
     setToast(msg);
-    setTimeout(() => setToast(''), 3200);
+    setTimeout(() => setToast(''), 8000);
   };
 
   const load = useCallback(async () => {
@@ -532,7 +532,7 @@ const ModeratorDashboard = () => {
                   The <code className="text-neon-cyan text-xs font-mono">content_reports</code>{' '}
                   table is not available yet. Run{' '}
                   <code className="text-neon-cyan text-xs font-mono">
-                    supabase_moderation.sql
+                    supabase/sql/supabase_moderation.sql
                   </code>{' '}
                   in Supabase to enable the reports queue. Pending items will
                   show here afterward.
@@ -653,7 +653,7 @@ const ModeratorDashboard = () => {
           <code className="text-neon-cyan">moderator</code>,{' '}
           <code className="text-neon-cyan">admin</code>, or{' '}
           <code className="text-neon-cyan">project_lead</code> for staff access.
-          Apply <code className="text-neon-cyan">supabase_moderation.sql</code> for
+          Apply <code className="text-neon-cyan">supabase/sql/supabase_moderation.sql</code> for
           ban/suspend columns, report queue, and staff RLS.
         </Card>
       </div>

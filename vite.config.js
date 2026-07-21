@@ -6,11 +6,19 @@ export default defineConfig({
     plugins: [react()],
     server: {
         watch: {
+            // Avoid EBUSY on Windows when large binaries are locked (e.g. open in Explorer/preview)
             ignored: [
                 '**/.git/**',
                 '**/node_modules/**',
                 '**/.vs/**',
-                '**/*.vsidx'
+                '**/*.vsidx',
+                '**/*.webp',
+                '**/*.png',
+                '**/*.jpg',
+                '**/*.jpeg',
+                '**/*.gif',
+                '**/*.mp4',
+                '**/public/images/**',
             ]
         }
     },

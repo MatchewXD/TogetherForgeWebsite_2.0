@@ -258,12 +258,20 @@ const PublicProfile = () => {
               )}
             </div>
             {isOwn && (
-              <Link
-                to="/profile/edit"
-                className="self-start sm:self-auto inline-flex items-center justify-center px-4 py-2 text-sm rounded-lg border border-cyber-border bg-cyber-surface text-text-primary hover:border-neon-cyan transition-colors"
-              >
-                Edit profile
-              </Link>
+              <div className="self-start sm:self-auto flex flex-wrap gap-2">
+                <Link
+                  to="/dashboard"
+                  className="inline-flex items-center justify-center px-4 py-2 text-sm rounded-lg border border-neon-cyan/40 bg-neon-cyan/5 text-neon-cyan hover:border-neon-cyan transition-colors"
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  to="/profile"
+                  className="inline-flex items-center justify-center px-4 py-2 text-sm rounded-lg border border-cyber-border bg-cyber-surface text-text-primary hover:border-neon-cyan transition-colors"
+                >
+                  Edit profile
+                </Link>
+              </div>
             )}
           </div>
         </div>

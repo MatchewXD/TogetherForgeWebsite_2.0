@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Camera } from 'lucide-react';
+import { ArrowLeft, Camera, LayoutDashboard } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useIsModerator } from '../hooks/useIsModerator';
@@ -127,7 +127,8 @@ const Profile = () => {
                     }
 
                     if (data.session) {
-                        navigate('/profile', { replace: true, state: { profile: readyProfile } });
+                        // New accounts land on private hub; profile edit is always available
+                        navigate('/dashboard', { replace: true, state: { profile: readyProfile } });
                     } else {
                         localStorage.setItem('pending_confirmation_email', form.email);
                         navigate('/confirm-email', { replace: true });
@@ -143,7 +144,7 @@ const Profile = () => {
                     setLoading(false);
                     return;
                 }
-                navigate('/profile', { replace: true });
+                navigate('/dashboard', { replace: true });
             }
         } catch (err) {
             setMessage(err.message || 'Failed to update username');
@@ -452,7 +453,14 @@ const Profile = () => {
 
                     <div>
                         <div className="section-header">PROFILE</div>
-                        <h1 className="text-5xl font-bold tracking-tight text-white">Your Forge Account</h1>
+                        <h1 className="text-5xl font-bold tracking-tight text-white">
+                            {user ? 'Your Profile' : 'Join the Forge'}
+                        </h1>
+                        <p className="text-text-secondary mt-2 text-sm max-w-xl">
+                            {user
+                                ? 'Public identity and light editing: avatar, bio, and personal details. Work and claims live on your Dashboard.'
+                                : 'Sign in or create an account to claim tasks, submit ideas, and join the community.'}
+                        </p>
                     </div>
                 </div>
             </div>
@@ -548,12 +556,19 @@ const Profile = () => {
                                         <div className="text-text-secondary text-sm mb-3">{user.email}</div>
 
                                         <div className="flex flex-wrap gap-2">
+                                            <Link
+                                                to="/dashboard"
+                                                className="text-xs px-3 py-1.5 rounded-full border border-neon-cyan/40 hover:border-neon-cyan text-neon-cyan bg-neon-cyan/5 inline-flex items-center gap-1.5"
+                                            >
+                                                <LayoutDashboard className="w-3 h-3" />
+                                                My Dashboard
+                                            </Link>
                                             <button onClick={openUsernameModal} className="text-xs px-3 py-1.5 rounded-full border border-white/20 hover:border-neon-cyan text-neon-cyan">Change username</button>
                                             <Link to="/profile/edit" className="text-xs px-3 py-1.5 rounded-full border border-white/20 hover:border-neon-cyan text-neon-cyan">Edit profile</Link>
                                             {publicProfilePath(profileData?.username) && (
                                                 <Link
                                                     to={publicProfilePath(profileData.username)}
-                                                    className="text-xs px-3 py-1.5 rounded-full border border-neon-cyan/40 hover:border-neon-cyan text-neon-cyan bg-neon-cyan/5"
+                                                    className="text-xs px-3 py-1.5 rounded-full border border-white/20 hover:border-neon-cyan text-neon-cyan"
                                                 >
                                                     View Public Profile
                                                 </Link>
@@ -571,10 +586,31 @@ const Profile = () => {
 
                         {/* Main Content */}
                         <div className="lg:col-span-8 space-y-6">
+                            {/* Private hub pointer */}
+                            <div className="cyber-card p-4 border border-neon-cyan/20 bg-neon-cyan/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div className="text-sm text-text-secondary">
+                                    <span className="text-white font-medium">Looking for your work?</span>{' '}
+                                    Active claims, join requests, and shortcuts are on your private dashboard.
+                                </div>
+                                <Link to="/dashboard" className="btn-neon text-xs px-4 py-2 shrink-0 inline-flex items-center gap-2 justify-center">
+                                    <LayoutDashboard className="w-3.5 h-3.5" />
+                                    OPEN DASHBOARD
+                                </Link>
+                            </div>
+
                             {/* Bio Section */}
                             <div className="cyber-card p-6">
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="text-sm font-mono tracking-widest text-neon-cyan">BIO</div>
+                                    {!editingBio && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditingBio(true)}
+                                            className="text-xs text-neon-cyan hover:underline"
+                                        >
+                                            Edit
+                                        </button>
+                                    )}
                                 </div>
                                 {editingBio ? (
                                     <div>

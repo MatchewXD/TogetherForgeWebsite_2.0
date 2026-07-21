@@ -16,6 +16,7 @@ import {
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import { useIsModerator } from '../hooks/useIsModerator';
+import { phaseImageSrc, phaseImageAlt } from '../utils/phaseImages';
 
 /** Placeholder catalog — replace with Supabase later */
 const PROJECTS = [
@@ -123,6 +124,7 @@ const Projects = () => {
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-6">
             {PROJECTS.map((project) => {
               const Icon = project.icon;
+              const coverSrc = phaseImageSrc(project.phase);
 
               return (
                 <Link
@@ -130,13 +132,27 @@ const Projects = () => {
                   to={`/projects/${project.id}`}
                   className="group block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-cyber-bg rounded-xl"
                 >
-                  <Card className="h-full flex flex-col bg-cyber-card/80 border-cyber-border group-hover:border-neon-cyan/50 group-hover:shadow-neon-glow transition-all duration-300">
-                    {/* Top row */}
-                    <div className="flex items-start justify-between gap-3 mb-5">
-                      <div className="w-12 h-12 rounded-xl bg-cyber-surface border border-cyber-border flex items-center justify-center group-hover:border-neon-cyan/40 transition-colors">
-                        <Icon className="w-5 h-5 text-neon-cyan" />
-                      </div>
-                      <div className="flex flex-wrap justify-end gap-2">
+                  <Card className="h-full flex flex-col overflow-hidden p-0 bg-cyber-card/80 border-cyber-border group-hover:border-neon-cyan/50 group-hover:shadow-neon-glow transition-all duration-300">
+                    {/* Phase illustration */}
+                    <div className="relative h-40 sm:h-44 overflow-hidden border-b border-cyber-border bg-cyber-surface">
+                      {coverSrc ? (
+                        <img
+                          src={coverSrc}
+                          alt={phaseImageAlt(project.phase, project.title)}
+                          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Icon className="w-10 h-10 text-neon-cyan opacity-40" />
+                        </div>
+                      )}
+                      <div
+                        className="absolute inset-0 bg-gradient-to-t from-cyber-card via-cyber-card/20 to-transparent pointer-events-none"
+                        aria-hidden="true"
+                      />
+                      <div className="absolute top-3 right-3 flex flex-wrap justify-end gap-2 z-10">
                         <Badge variant={phaseBadgeVariant(project.phase)}>
                           {project.phase}
                         </Badge>
@@ -144,6 +160,7 @@ const Projects = () => {
                       </div>
                     </div>
 
+                    <div className="p-6 flex flex-col flex-1">
                     {/* Title + body */}
                     <h3 className="text-xl font-bold text-white mb-2 group-hover:text-neon-cyan transition-colors">
                       {project.title}
@@ -173,6 +190,7 @@ const Projects = () => {
                     <p className="mt-3 text-[10px] font-mono tracking-widest text-text-muted/70">
                       /projects/{project.id}
                     </p>
+                    </div>
                   </Card>
                 </Link>
               );

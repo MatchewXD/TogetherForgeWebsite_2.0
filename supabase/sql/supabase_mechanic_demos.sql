@@ -84,7 +84,7 @@ create policy "Public can read mechanic_demos"
   on mechanic_demos for select
   using (true);
 
--- Staff write (reuse is_staff() from supabase_moderation.sql if present)
+-- Staff write (reuse is_staff() from supabase/sql/supabase_moderation.sql if present)
 drop policy if exists "Staff can write mechanic_demos" on mechanic_demos;
 create policy "Staff can write mechanic_demos"
   on mechanic_demos for all

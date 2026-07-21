@@ -1,7 +1,7 @@
 /**
  * Founders Thoughts: personal notes with backend-backed likes.
  * Route: /founders-thoughts
- * SQL: supabase_founders_thoughts.sql
+ * SQL: supabase/sql/supabase_founders_thoughts.sql
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -124,7 +124,7 @@ const FoundersThoughts = () => {
 
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3200);
+    const t = setTimeout(() => setToast(null), 8000);
     return () => clearTimeout(t);
   }, [toast]);
 
@@ -285,7 +285,7 @@ const FoundersThoughts = () => {
             <p className="text-sm text-text-secondary leading-relaxed">
               Showing local copies of these notes. Run{' '}
               <code className="text-neon-cyan font-mono text-xs">
-                supabase_founders_thoughts.sql
+                supabase/sql/supabase_founders_thoughts.sql
               </code>{' '}
               in Supabase so likes persist for everyone.
               {loadError ? (
