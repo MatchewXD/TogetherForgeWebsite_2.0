@@ -1,29 +1,52 @@
 import { ArrowLeft, ArrowRight, GraduationCap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+const ABOUT_BANNER_SRC = '/images/About_Page_Background.webp';
+
 const AboutPage = () => {
     return (
-        <div className="pt-20">
-            <div className="border-b border-white/10 bg-cyber-surface py-16">
-                <div className="container-custom">
-                    <Link to="/" className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group">
-                        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" /> BACK TO HOME
+        <div className="min-h-screen bg-cyber-bg text-text-primary">
+            {/* Page header banner */}
+            <header className="relative pt-20 overflow-hidden border-b border-cyber-border">
+                <div className="absolute inset-0" aria-hidden="true">
+                    <img
+                        src={ABOUT_BANNER_SRC}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover object-[center_40%] sm:object-center"
+                        decoding="async"
+                        fetchPriority="high"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyber-bg/92 via-cyber-bg/78 to-cyber-bg/50" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-cyber-bg/55 via-transparent to-cyber-bg" />
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgb(var(--tf-forge-gold)/0.08)_0%,transparent_50%)]" />
+                </div>
+
+                <div className="container-custom relative z-10 py-10 sm:py-12 md:py-14 min-h-[16rem] sm:min-h-[18rem] md:min-h-[20rem] flex flex-col justify-center">
+                    <Link
+                        to="/"
+                        className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-6 sm:mb-8 group transition-colors w-fit"
+                    >
+                        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
+                        BACK TO HOME
                     </Link>
 
-                    <div className="max-w-4xl">
-                        <div className="section-header">BY THE COMMUNITY, FOR THE COMMUNITY</div>
-                        <h1 className="text-6xl md:text-7xl font-bold tracking-[-3px] text-white mb-6">
+                    <div className="max-w-3xl">
+                        <div className="section-header">
+                            BY THE COMMUNITY, FOR THE COMMUNITY
+                        </div>
+                        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white mb-4 sm:mb-6 drop-shadow-sm">
                             A community-first independent game studio.
                         </h1>
-                        <p className="max-w-2xl text-2xl text-text-secondary">
-                            We are tired of AAA companies putting profits and ideology over good games.
-                            Together Forge puts gamers and quality mechanics first.
+                        <p className="max-w-2xl text-lg sm:text-xl md:text-2xl text-text-secondary leading-relaxed">
+                            We are tired of AAA companies putting profits and
+                            ideology over good games. Together Forge puts gamers
+                            and quality mechanics first.
                         </p>
                     </div>
                 </div>
-            </div>
+            </header>
 
-            <div className="container-custom py-20 space-y-20">
+            <div className="container-custom relative z-10 py-16 md:py-20 space-y-16 md:space-y-20">
                 <section>
                     <div className="grid md:grid-cols-12 gap-x-12 gap-y-8 items-start">
                         <div className="md:col-span-5">
@@ -34,11 +57,10 @@ const AboutPage = () => {
                         </div>
                         <div className="md:col-span-7 text-lg text-text-secondary space-y-6 leading-relaxed">
                             <p>
-                                Together Forge organizes, supports, and markets games created collaboratively by the community, for the community.
-                                Our focus is bringing people together through groups of friends, streamers with their audiences, and massive online communities.
+                                Together Forge is a community-driven game studio. We make cooperative games with the community, for gamers. Not for investors, not for outside agendas, and not for disposable slop designed to extract money.
                             </p>
                             <p>
-                                We prioritize quality mechanics, fun, and real connection. Profits are reinvested into growth and making better games, not into investors or excessive executive pay.
+                                We organize, build, and ship games focused on strong mechanics, real fun, and connection between players. Profits are reinvested into better games and long-term growth, never into shareholders or excessive executive pay.
                             </p>
                         </div>
                     </div>
@@ -46,19 +68,30 @@ const AboutPage = () => {
 
                 {/* Mission / Vision cards */}
                 <section className="grid md:grid-cols-2 gap-12">
-                    <div className="cyber-card p-10">
-                        <div className="section-header mb-4">MISSION</div>
-                        <h3 className="text-2xl font-bold mb-6">By the community, for the community!</h3>
-                        <p className="text-text-secondary">
-                            We organize and support the development of games created collaboratively by gamers, streamers, and massive online communities.
-                            We empower creativity, foster teamwork, and prioritize inclusivity.
+                    <div className="cyber-card cyber-card-gold p-10 space-y-4">
+                        <div className="section-header mb-0">MISSION</div>
+                        <h3 className="text-2xl font-bold text-white">
+                            By the community, for the community!
+                        </h3>
+                        <p className="text-text-secondary leading-relaxed">
+                            Together Forge makes cooperative games with gamers,
+                            streamers, and online communities. We build together,
+                            focus on strong mechanics and real fun, and put players
+                            first.
+                        </p>
+                        <p className="text-text-secondary leading-relaxed">
+                            We empower creativity, foster teamwork, and keep the work
+                            independent and free from investor pressure or outside
+                            agendas.
                         </p>
                     </div>
 
-                    <div className="cyber-card p-10">
+                    <div className="cyber-card cyber-card-gold p-10">
                         <div className="section-header mb-4">VISION</div>
-                        <h3 className="text-2xl font-bold mb-6">Redefine gaming through community power.</h3>
-                        <p className="text-text-secondary">
+                        <h3 className="text-2xl font-bold mb-6 text-white">
+                            Redefine gaming through community power.
+                        </h3>
+                        <p className="text-text-secondary leading-relaxed">
                             A future where players and creators work together to craft extraordinary games that connect people across the world.
                         </p>
                     </div>
@@ -125,8 +158,18 @@ const AboutPage = () => {
                             Share ideas. Volunteer your skills. Support the movement.
                         </p>
                         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                            <a href="#" className="btn-primary btn-neon px-10 py-4">SHARE A GAME IDEA</a>
-                            <a href="#" className="btn-neon px-8 py-4">JOIN AS VOLUNTEER</a>
+                            <Link
+                                to="/ideas/submit"
+                                className="btn-primary btn-neon px-10 py-4 text-center"
+                            >
+                                SHARE A GAME IDEA
+                            </Link>
+                            <Link
+                                to="/get-involved"
+                                className="btn-neon px-8 py-4 text-center"
+                            >
+                                JOIN AS VOLUNTEER
+                            </Link>
                         </div>
                     </div>
                 </section>

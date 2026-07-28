@@ -16,6 +16,7 @@ Run these in the **Supabase SQL Editor** (or via CLI migrations) as needed.
 | `supabase_votes_rls.sql` | Idea votes RLS + unique index |
 | `supabase_claim_limit.sql` | Active task claim cap (superseded by anti-hoarding) |
 | `supabase_claim_anti_hoarding.sql` | Claim limits, cooldown, auto-release, join requests |
+| `supabase_task_review_workflow.sql` | Submit for review + lead accept/reject (blocks self-complete) |
 | `supabase_moderation.sql` | Staff moderation + content reports |
 | `supabase_founders_thoughts.sql` | Founders Thoughts + likes |
 | `supabase_donations_stripe.sql` | Stripe donation columns + summary RPC |

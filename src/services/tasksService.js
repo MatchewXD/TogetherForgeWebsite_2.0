@@ -127,6 +127,7 @@ export function formatClaimHeldSince(iso) {
 export const STATUS_TO_UI = {
   ToDo: 'todo',
   InProgress: 'in_progress',
+  InReview: 'in_review',
   Completed: 'completed',
 };
 
@@ -134,8 +135,12 @@ export const STATUS_TO_UI = {
 export const STATUS_TO_DB = {
   todo: 'ToDo',
   in_progress: 'InProgress',
+  in_review: 'InReview',
   completed: 'Completed',
 };
+
+/** Claim statuses that block re-claim / count toward claim limit */
+export const OPEN_CLAIM_STATUSES = ['Active', 'PendingReview'];
 
 function relativeTime(iso) {
   if (!iso) return '';
@@ -157,6 +162,8 @@ function relativeTime(iso) {
 
 function pickActiveClaim(claims) {
   if (!Array.isArray(claims) || claims.length === 0) return null;
+  const pending = claims.find((c) => c.status === 'PendingReview');
+  if (pending) return pending;
   const active = claims.find((c) => c.status === 'Active');
   if (active) return active;
   // Prefer most recent completed claim for display on completed tasks
@@ -193,7 +200,10 @@ export function mapTaskRow(row) {
   const avatarUrl = profileAvatarUrl(profile);
   const uiStatus = STATUS_TO_UI[row.status] || 'todo';
   const showAssignee =
-    claim && (claim.status === 'Active' || row.status === 'Completed');
+    claim &&
+    (claim.status === 'Active' ||
+      claim.status === 'PendingReview' ||
+      row.status === 'Completed');
   const parentTaskId = row.parent_task_id || null;
   // jsonb checklist (not hierarchical child tasks)
   const subtasks = normalizeChecklist(row.subtasks);
@@ -203,11 +213,17 @@ export function mapTaskRow(row) {
   let progressPercent = 0;
   if (row.status === 'Completed') {
     progressPercent = 100;
-  } else if (claim?.status === 'Active') {
-    if (checklistProgress != null) {
-      progressPercent = checklistProgress;
+  } else if (
+    claim?.status === 'Active' ||
+    claim?.status === 'PendingReview'
+  ) {
+    if (claim.status === 'PendingReview') {
+      progressPercent = Math.max(claim.progress_percent ?? 90, 90);
+    } else if (checklistProgress != null) {
+      // Cap under 100 - full complete only after lead accept
+      progressPercent = Math.min(99, checklistProgress);
     } else {
-      progressPercent = claim.progress_percent ?? 0;
+      progressPercent = Math.min(99, claim.progress_percent ?? 0);
     }
   } else if (checklistProgress != null) {
     // Unclaimed but checklist exists - still useful on cards at 0%+
@@ -257,9 +273,13 @@ export function mapTaskRow(row) {
           avatarUrl,
           avatar_url: avatarUrl,
           heldLabel:
-            claim.status === 'Active'
+            claim.status === 'Active' || claim.status === 'PendingReview'
               ? formatClaimHeldSince(claim.claimed_at)
               : '',
+          submissionEvidence: claim.submission_evidence || '',
+          submittedAt: claim.submitted_at || null,
+          reviewFeedback: claim.review_feedback || '',
+          reviewedAt: claim.reviewed_at || null,
         }
       : null,
     claimedBy: showAssignee ? username : null,
@@ -418,7 +438,11 @@ const TASK_SELECT = `
     status,
     helpers,
     notes,
-    profiles (
+    submission_evidence,
+    submitted_at,
+    review_feedback,
+    reviewed_at,
+    profiles!user_id (
       username,
       avatar_url
     )
@@ -448,7 +472,11 @@ const TASK_SELECT_LEGACY = `
     status,
     helpers,
     notes,
-    profiles (
+    submission_evidence,
+    submitted_at,
+    review_feedback,
+    reviewed_at,
+    profiles!user_id (
       username,
       avatar_url
     )
@@ -571,19 +599,23 @@ export const tasksService = {
           id,
           user_id,
           status,
-          profiles ( username, avatar_url )
+          profiles!user_id ( username, avatar_url )
         )
       `
       )
       .eq('project_id', projectId)
-      .eq('status', 'InProgress');
+      .in('status', ['InProgress', 'InReview']);
 
     if (taskErr) throw taskErr;
 
     const workerMap = new Map();
     for (const t of inProgressTasks || []) {
       for (const c of t.task_claims || []) {
-        if (c.status !== 'Active' || !c.user_id) continue;
+        if (
+          (c.status !== 'Active' && c.status !== 'PendingReview') ||
+          !c.user_id
+        )
+          continue;
         if (!workerMap.has(c.user_id)) {
           const profile = pickProfile(c);
           const username = profile?.username || 'Volunteer';
@@ -684,7 +716,7 @@ export const tasksService = {
       .from('task_claims')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
-      .eq('status', 'Active');
+      .in('status', OPEN_CLAIM_STATUSES);
     if (error) {
       console.warn('[tasksService.countActiveClaims]', error);
       return 0;
@@ -948,6 +980,41 @@ export const tasksService = {
   async completeTask(taskId) {
     const { data, error } = await supabase.rpc('complete_task', {
       p_task_id: taskId,
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Claimant: submit work for Project Lead / moderator review (not final complete).
+   * @param {string} taskId
+   * @param {string} evidence - required note / link / PR / file reference
+   */
+  async submitForReview(taskId, evidence) {
+    const note = String(evidence || '').trim();
+    if (note.length < 15) {
+      const err = new Error(
+        'Add a short evidence note (at least 15 characters): what you did, plus a link, PR, or file reference if you have one.'
+      );
+      err.code = 'EVIDENCE_REQUIRED';
+      throw err;
+    }
+    const { data, error } = await supabase.rpc('submit_task_for_review', {
+      p_task_id: taskId,
+      p_evidence: note,
+    });
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Staff: accept (Completed + credit) or reject (back to Active with feedback).
+   */
+  async reviewSubmission(taskId, { accept, feedback } = {}) {
+    const { data, error } = await supabase.rpc('review_task_submission', {
+      p_task_id: taskId,
+      p_accept: !!accept,
+      p_feedback: feedback || null,
     });
     if (error) throw error;
     return data;

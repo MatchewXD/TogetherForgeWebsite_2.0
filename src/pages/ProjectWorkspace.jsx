@@ -31,6 +31,7 @@ import {
   Plus,
   Trash2,
   Pencil,
+  ChevronDown,
 } from 'lucide-react';
 
 import Button from '../components/ui/Buttons';
@@ -70,7 +71,7 @@ const FALLBACK_PROJECTS = {
     phase: 'Early',
     status: 'In Development',
     description:
-      'Core loop prototyping and networking tests. We are validating multiplayer foundations, claim/credit flows, and the volunteer task board itself - with design, code, and art volunteers welcome.',
+      'Small cooperative games built with the community. Early exists to prove the Together Forge model works: learn how we collaborate, ship focused playable experiences, and show that community-driven development can create real, fun games. Design, code, art, and testing volunteers are welcome.',
   },
   'core-features': {
     slug: 'core-features',
@@ -197,14 +198,21 @@ const KANBAN_COLUMNS = [
     dot: 'bg-neon-magenta',
   },
   {
-    key: 'completed',
-    label: 'Completed',
-    // semantic-success → cyan in Classic, green in Forge
-    accent: 'border-semantic-success/40',
-    header: 'text-semantic-success',
-    dot: 'bg-semantic-success',
+    key: 'in_review',
+    label: 'Ready for Review',
+    accent: 'border-semantic-warning/40',
+    header: 'text-semantic-warning',
+    dot: 'bg-semantic-warning',
   },
 ];
+
+const COMPLETED_COLUMN = {
+  key: 'completed',
+  label: 'Completed',
+  accent: 'border-semantic-success/40',
+  header: 'text-semantic-success',
+  dot: 'bg-semantic-success',
+};
 
 const TASK_CATEGORIES = [
   'Code',
@@ -318,8 +326,12 @@ const ProjectWorkspace = () => {
 
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [progressDraft, setProgressDraft] = useState(0);
+  const [evidenceDraft, setEvidenceDraft] = useState('');
+  const [reviewFeedbackDraft, setReviewFeedbackDraft] = useState('');
   const [notesDraft, setNotesDraft] = useState('');
   const [subtasksDraft, setSubtasksDraft] = useState([]);
+  /** Completed column: collapsed by default, full-width under active columns */
+  const [completedOpen, setCompletedOpen] = useState(false);
 
   // Create / edit task form (Project Lead + Admin via useIsModerator)
   const [taskFormOpen, setTaskFormOpen] = useState(false);
@@ -481,13 +493,19 @@ const ProjectWorkspace = () => {
         if (cancelled) return;
 
         if (dbProject) {
+          // Prefer FALLBACK_PROJECTS copy for known catalog slugs so site text
+          // stays under version control (DB description is often seed/stale).
+          const catalog = FALLBACK_PROJECTS[projectSlug];
           setProject({
             id: dbProject.slug,
             slug: dbProject.slug,
-            title: dbProject.title,
-            description: dbProject.description || fallback.description,
-            phase: dbProject.phase || fallback.phase,
-            status: dbProject.status || fallback.status,
+            title: catalog?.title || dbProject.title,
+            description:
+              catalog?.description ||
+              dbProject.description ||
+              fallback.description,
+            phase: catalog?.phase || dbProject.phase || fallback.phase,
+            status: catalog?.status || dbProject.status || fallback.status,
           });
           setProjectUuid(dbProject.id);
           await refreshBoard(dbProject.id);
@@ -537,14 +555,16 @@ const ProjectWorkspace = () => {
   useEffect(() => {
     if (!selectedTask) return;
     setNotesDraft(selectedTask.claim?.notes || '');
+    setEvidenceDraft(selectedTask.claim?.submissionEvidence || '');
+    setReviewFeedbackDraft('');
     const checklist = normalizeChecklist(selectedTask.subtasks);
     setSubtasksDraft(checklist);
     // Progress follows checklist when present; otherwise claim/task progress
     const fromList = progressFromChecklist(checklist);
     if (fromList != null) {
-      setProgressDraft(fromList);
+      setProgressDraft(Math.min(99, fromList));
     } else {
-      setProgressDraft(selectedTask.progressPercent ?? 0);
+      setProgressDraft(Math.min(99, selectedTask.progressPercent ?? 0));
     }
   }, [selectedTask]);
 
@@ -567,7 +587,12 @@ const ProjectWorkspace = () => {
   }, [tasks, boardScope]);
 
   const tasksByStatus = useMemo(() => {
-    const groups = { todo: [], in_progress: [], completed: [] };
+    const groups = {
+      todo: [],
+      in_progress: [],
+      in_review: [],
+      completed: [],
+    };
     for (const task of boardTasks) {
       const key = groups[task.status] ? task.status : 'todo';
       groups[key].push(task);
@@ -626,22 +651,30 @@ const ProjectWorkspace = () => {
   /** Active claim holder (not staff override) - required for progress/checklist */
   const isClaimHolder = useMemo(() => {
     if (!selectedTask || !user?.id) return false;
-    if (selectedTask.claim?.status !== 'Active') return false;
+    const claimStatus = selectedTask.claim?.status;
+    if (claimStatus !== 'Active' && claimStatus !== 'PendingReview') {
+      return false;
+    }
     const ownerId =
       selectedTask.claim?.userId ?? selectedTask.claim?.user_id ?? null;
     if (!ownerId) return false;
     return String(ownerId) === String(user.id);
   }, [selectedTask, user]);
 
+  const isPendingReview = selectedTask?.claim?.status === 'PendingReview'
+    || selectedTask?.status === 'in_review'
+    || selectedTask?.dbStatus === 'InReview';
+
   /**
    * Progress + checklist for claim holder on leaf tasks only
-   * (no hierarchical children). Parent containers use rollup only.
+   * while claim is Active (not while waiting for review).
    */
   const canEditProgress = useMemo(() => {
     if (!isClaimHolder || !selectedTask) return false;
     if (selectedTask.hasChildren || selectedTask.progressFromChildren) {
       return false;
     }
+    if (selectedTask.claim?.status !== 'Active') return false;
     return selectedTask.status !== 'completed';
   }, [isClaimHolder, selectedTask]);
 
@@ -650,11 +683,27 @@ const ProjectWorkspace = () => {
     selectedTask && !selectedTask.hasChildren && !selectedTask.progressFromChildren
   );
 
-  /** Complete / return: claim holder; staff may force-return for moderation */
-  const canCompleteOrReturn = useMemo(() => {
+  /** Claimant can submit Active leaf work for review (not self-complete). */
+  const canSubmitForReview = useMemo(() => {
+    if (!isClaimHolder || !selectedTask) return false;
+    if (selectedTask.hasChildren) return false;
+    if (selectedTask.claim?.status !== 'Active') return false;
+    return selectedTask.status !== 'completed';
+  }, [isClaimHolder, selectedTask]);
+
+  /** Staff: accept / reject pending submissions */
+  const canReviewSubmission = useMemo(() => {
+    if (!isModerator || !selectedTask) return false;
+    if (selectedTask.hasChildren) return false;
+    return isPendingReview;
+  }, [isModerator, selectedTask, isPendingReview]);
+
+  /** Return claim: holder (active only) or staff moderation */
+  const canReturnClaim = useMemo(() => {
     if (!selectedTask || selectedTask.status === 'completed') return false;
     if (selectedTask.hasChildren) return false;
-    return isClaimHolder || isModerator;
+    if (isModerator) return true;
+    return isClaimHolder && selectedTask.claim?.status === 'Active';
   }, [selectedTask, isClaimHolder, isModerator]);
 
   /**
@@ -898,7 +947,10 @@ const ProjectWorkspace = () => {
       await tasksService.claimTask(taskId, { task });
       await refreshBoard(projectUuid);
       await refreshClaimQuota();
-      showToast('Task claimed! Update progress as you go, then mark completed.', 'success');
+      showToast(
+        'Task claimed! Update progress as you go, then submit for review when ready.',
+        'success'
+      );
       setSelectedTaskId(taskId);
     } catch (err) {
       const msg = friendlyError(err);
@@ -984,6 +1036,17 @@ const ProjectWorkspace = () => {
     setSelectedTaskId(taskId);
   };
 
+  /** Staff: open edit form for a completed (or any) task */
+  const handleUpdateTask = (taskId) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+    if (!isModerator) {
+      showToast('Only Project Leads and moderators can update tasks.', 'warn');
+      return;
+    }
+    openEditTaskForm(task);
+  };
+
   useEffect(() => {
     if (!selectedTaskId) {
       setJoinRequests([]);
@@ -1010,8 +1073,11 @@ const ProjectWorkspace = () => {
       navigate('/profile');
       return;
     }
-    if (!isClaimHolder) {
-      showToast('Claim this task first before saving progress or checklist items.', 'warn');
+    if (!isClaimHolder || selectedTask.claim?.status !== 'Active') {
+      showToast(
+        'Claim this task first before saving progress or checklist items.',
+        'warn'
+      );
       return;
     }
     if (selectedTask.hasChildren) {
@@ -1023,25 +1089,18 @@ const ProjectWorkspace = () => {
     }
     setActionBusy(true);
     try {
-      // Do not send helpers - they are managed when join requests are approved
+      // Cap under 100 - completion only via accepted review
+      const pct = Math.min(99, Number(progressDraft) || 0);
       await tasksService.updateProgress(selectedTask.id, {
-        progressPercent: Number(progressDraft) || 0,
+        progressPercent: pct,
         subtasks: subtasksDraft,
         notes: notesDraft,
       });
-
-      const checklistComplete =
-        subtasksDraft.length > 0 && subtasksDraft.every((s) => s.done);
-
-      if (checklistComplete) {
-        await tasksService.completeTask(selectedTask.id);
-        await refreshBoard(projectUuid);
-        showToast('All checklist items done - task completed!', 'success');
-        setSelectedTaskId(null);
-      } else {
-        await refreshBoard(projectUuid);
-        showToast('Progress saved.', 'success');
-      }
+      await refreshBoard(projectUuid);
+      showToast(
+        'Progress saved. When ready, submit for review so a Project Lead can accept your work.',
+        'success'
+      );
     } catch (err) {
       showToast(friendlyError(err), 'error');
     } finally {
@@ -1049,30 +1108,82 @@ const ProjectWorkspace = () => {
     }
   };
 
-  const handleComplete = async () => {
+  /** Claimant: Ready for review (not final complete). */
+  const handleSubmitForReview = async () => {
     if (!selectedTask || !projectUuid) return;
     if (!user) {
-      showToast('Sign in to complete tasks.', 'warn');
+      showToast('Sign in to submit work for review.', 'warn');
       navigate('/profile');
+      return;
+    }
+    const evidence = String(evidenceDraft || '').trim();
+    if (evidence.length < 15) {
+      showToast(
+        'Add a short evidence note (at least 15 characters): what you did, plus a link, PR, or file reference if you have one.',
+        'warn'
+      );
       return;
     }
     setActionBusy(true);
     try {
-      // Persist latest progress before completing (claim holder on leaf only)
-      if (isClaimHolder && !selectedTask.hasChildren) {
-        try {
-          await tasksService.updateProgress(selectedTask.id, {
-            progressPercent: 100,
-            subtasks: subtasksDraft.map((s) => ({ ...s, done: true })),
-            notes: notesDraft,
-          });
-        } catch {
-          // complete_task will still finish the claim
-        }
+      try {
+        await tasksService.updateProgress(selectedTask.id, {
+          progressPercent: Math.min(99, Number(progressDraft) || 90),
+          subtasks: subtasksDraft,
+          notes: notesDraft,
+        });
+      } catch {
+        /* still attempt submit */
       }
-      await tasksService.completeTask(selectedTask.id);
+      await tasksService.submitForReview(selectedTask.id, evidence);
       await refreshBoard(projectUuid);
-      showToast('Task completed - shoutout unlocked! Thanks for shipping.', 'success');
+      showToast(
+        'Submitted for review. A Project Lead or moderator will accept or reject your work.',
+        'success'
+      );
+      setSelectedTaskId(null);
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  /** Staff: accept pending submission → Completed + credit */
+  const handleAcceptReview = async () => {
+    if (!selectedTask || !projectUuid) return;
+    setActionBusy(true);
+    try {
+      await tasksService.reviewSubmission(selectedTask.id, {
+        accept: true,
+        feedback: reviewFeedbackDraft.trim() || null,
+      });
+      await refreshBoard(projectUuid);
+      showToast(
+        'Work accepted. Task completed and credit recorded.',
+        'success'
+      );
+      setSelectedTaskId(null);
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  /** Staff: reject → claim back to Active with feedback */
+  const handleRejectReview = async () => {
+    if (!selectedTask || !projectUuid) return;
+    setActionBusy(true);
+    try {
+      await tasksService.reviewSubmission(selectedTask.id, {
+        accept: false,
+        feedback:
+          reviewFeedbackDraft.trim() ||
+          'Please revise and resubmit with clearer evidence.',
+      });
+      await refreshBoard(projectUuid);
+      showToast('Submission rejected. Claimant can revise and resubmit.', 'warn');
       setSelectedTaskId(null);
     } catch (err) {
       showToast(friendlyError(err), 'error');
@@ -1108,7 +1219,9 @@ const ProjectWorkspace = () => {
       );
       if (next.length > 0) {
         const done = next.filter((s) => s.done).length;
-        setProgressDraft(Math.round((100 * done) / next.length));
+        setProgressDraft(
+          Math.min(99, Math.round((100 * done) / next.length))
+        );
       }
       return next;
     });
@@ -1232,13 +1345,6 @@ const ProjectWorkspace = () => {
     );
   };
 
-  const phaseVariant =
-    project?.phase === 'Mid'
-      ? 'purple'
-      : project?.phase === 'Late'
-        ? 'default'
-        : 'neon';
-
   if (!project && loading) {
     return (
       <div className="pt-20 min-h-screen flex items-center justify-center text-text-secondary gap-2">
@@ -1287,12 +1393,6 @@ const ProjectWorkspace = () => {
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="section-header mb-0">Project Workspace</div>
-            <Badge variant={phaseVariant}>{displayProject.phase} Game</Badge>
-            <Badge variant="default">{displayProject.status}</Badge>
-          </div>
-
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
             <div className="max-w-3xl">
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-white">
@@ -1328,13 +1428,7 @@ const ProjectWorkspace = () => {
         </header>
 
         {/* 2. PROJECT PULSE */}
-        <section aria-labelledby="pulse-heading">
-          <div className="mb-6">
-            <h2 id="pulse-heading" className="section-header">
-              Project Pulse
-            </h2>
-          </div>
-
+        <section aria-label="Project activity stats">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <StatWidget
               label="Active People"
@@ -1499,89 +1593,166 @@ const ProjectWorkspace = () => {
           {loading ? (
             <LoadingScreen variant="section" message="Loading board…" />
           ) : (
-            <div className="flex lg:grid lg:grid-cols-3 gap-4 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory">
-              {KANBAN_COLUMNS.map((col) => {
-                const colTasks = tasksByStatus[col.key] || [];
+            <div className="space-y-4">
+              {/* Active columns: To Do / In Progress / Ready for Review */}
+              <div className="flex lg:grid lg:grid-cols-3 gap-4 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory">
+                {KANBAN_COLUMNS.map((col) => {
+                  const colTasks = tasksByStatus[col.key] || [];
+                  return (
+                    <div
+                      key={col.key}
+                      className={`snap-start shrink-0 w-[min(100%,20rem)] sm:w-[22rem] lg:w-auto flex flex-col rounded-xl border bg-cyber-surface/80 ${col.accent} min-h-[20rem]`}
+                    >
+                      <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-cyber-border">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${col.dot}`} />
+                          <h3
+                            className={`font-mono text-xs tracking-widest uppercase ${col.header}`}
+                          >
+                            {col.label}
+                          </h3>
+                        </div>
+                        <span className="text-xs font-mono text-text-muted">
+                          {colTasks.length}
+                        </span>
+                      </div>
+
+                      <div className="task-scroll flex-1 p-3 space-y-3 max-h-[28rem] overflow-y-auto">
+                        {colTasks.length === 0 ? (
+                          <p className="text-sm text-text-muted text-center py-8 px-2">
+                            No tasks in this column.
+                          </p>
+                        ) : (
+                          colTasks.map((task) => (
+                            <div key={task.id} id={`task-${task.id}`}>
+                              <TaskCard
+                                task={task}
+                                currentUserId={user?.id}
+                                claiming={claimingId === task.id}
+                                joining={joiningId === task.id}
+                                joinRequestPending={myPendingJoinTaskIds.has(
+                                  task.id
+                                )}
+                                onClaim={
+                                  col.key === 'todo' ? handleClaim : undefined
+                                }
+                                onRequestJoin={
+                                  col.key === 'in_progress'
+                                    ? handleRequestJoin
+                                    : undefined
+                                }
+                                onView={handleViewTask}
+                              />
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Completed: full-width collapsible under the active columns */}
+              {(() => {
+                const completedTasks =
+                  tasksByStatus[COMPLETED_COLUMN.key] || [];
                 return (
                   <div
-                    key={col.key}
-                    className={`snap-start shrink-0 w-[min(100%,20rem)] sm:w-[22rem] lg:w-auto flex flex-col rounded-xl border bg-cyber-surface/80 ${col.accent} min-h-[20rem]`}
+                    className={`w-full rounded-xl border bg-cyber-surface/80 ${COMPLETED_COLUMN.accent} overflow-hidden`}
                   >
-                    <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-cyber-border">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${col.dot}`} />
+                    <button
+                      type="button"
+                      onClick={() => setCompletedOpen((o) => !o)}
+                      className="w-full flex items-center justify-between gap-3 px-4 py-3 border-b border-cyber-border hover:bg-cyber-card/40 transition-colors text-left"
+                      aria-expanded={completedOpen}
+                      aria-controls="completed-tasks-panel"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${COMPLETED_COLUMN.dot}`}
+                        />
                         <h3
-                          className={`font-mono text-xs tracking-widest uppercase ${col.header}`}
+                          className={`font-mono text-xs tracking-widest uppercase ${COMPLETED_COLUMN.header}`}
                         >
-                          {col.label}
+                          {COMPLETED_COLUMN.label}
                         </h3>
+                        <span className="text-xs font-mono text-text-muted tabular-nums">
+                          {completedTasks.length}
+                        </span>
                       </div>
-                      <span className="text-xs font-mono text-text-muted">
-                        {colTasks.length}
-                      </span>
-                    </div>
+                      <ChevronDown
+                        className={`w-4 h-4 text-text-muted shrink-0 transition-transform duration-200 ${
+                          completedOpen ? 'rotate-180' : ''
+                        }`}
+                        aria-hidden
+                      />
+                    </button>
 
-                    <div className="task-scroll flex-1 p-3 space-y-3 max-h-[28rem] overflow-y-auto">
-                      {colTasks.length === 0 ? (
-                        <p className="text-sm text-text-muted text-center py-8 px-2">
-                          No tasks in this column.
-                        </p>
-                      ) : (
-                        colTasks.map((task) => (
-                          <div key={task.id} id={`task-${task.id}`}>
-                            <TaskCard
-                              task={task}
-                              currentUserId={user?.id}
-                              claiming={claimingId === task.id}
-                              joining={joiningId === task.id}
-                              joinRequestPending={myPendingJoinTaskIds.has(
-                                task.id
-                              )}
-                              onClaim={
-                                col.key === 'todo' ? handleClaim : undefined
-                              }
-                              onRequestJoin={
-                                col.key === 'in_progress'
-                                  ? handleRequestJoin
-                                  : undefined
-                              }
-                              onView={handleViewTask}
-                            />
+                    {completedOpen && (
+                      <div
+                        id="completed-tasks-panel"
+                        className="p-3 sm:p-4"
+                      >
+                        {completedTasks.length === 0 ? (
+                          <p className="text-sm text-text-muted text-center py-8 px-2">
+                            No completed tasks yet. Accepted work appears here.
+                          </p>
+                        ) : (
+                          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                            {completedTasks.map((task) => (
+                              <div key={task.id} id={`task-${task.id}`}>
+                                <TaskCard
+                                  task={task}
+                                  currentUserId={user?.id}
+                                  onView={handleViewTask}
+                                  canStaffUpdate={isModerator}
+                                  onUpdate={handleUpdateTask}
+                                />
+                              </div>
+                            ))}
                           </div>
-                        ))
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
-              })}
+              })()}
             </div>
           )}
         </section>
 
-        {/* 4 + 5. ACTIVITY + SHOUTOUTS */}
-        <div className="grid lg:grid-cols-5 gap-6">
-          <section aria-labelledby="activity-heading" className="lg:col-span-3">
-            <h2 id="activity-heading" className="section-header mb-4">
+        {/* 4 + 5. ACTIVITY + SHOUTOUTS - fixed height, scroll when overflowing */}
+        <div className="grid lg:grid-cols-5 gap-6 lg:items-stretch">
+          <section
+            aria-labelledby="activity-heading"
+            className="lg:col-span-3 flex flex-col min-h-0"
+          >
+            <h2 id="activity-heading" className="section-header mb-4 shrink-0">
               Recent Activity
             </h2>
-            <Card className="bg-cyber-card/80">
-              {activity.length === 0 ? (
-                <p className="text-sm text-text-muted py-4 text-center">
-                  No activity yet - claim a task to light up the feed.
-                </p>
-              ) : (
-                activity.map((item) => (
-                  <ActivityItem key={item.id} activity={item} />
-                ))
-              )}
+            <Card className="bg-cyber-card/80 !p-0 flex-1 min-h-0 max-h-[min(28rem,50vh)] flex flex-col overflow-hidden">
+              <div className="task-scroll overflow-y-auto flex-1 min-h-0 px-5 py-2">
+                {activity.length === 0 ? (
+                  <p className="text-sm text-text-muted py-6 text-center">
+                    No activity yet - claim a task to light up the feed.
+                  </p>
+                ) : (
+                  activity.map((item) => (
+                    <ActivityItem key={item.id} activity={item} />
+                  ))
+                )}
+              </div>
             </Card>
           </section>
 
-          <section aria-labelledby="shoutouts-heading" className="lg:col-span-2">
-            <h2 id="shoutouts-heading" className="section-header mb-4">
+          <section
+            aria-labelledby="shoutouts-heading"
+            className="lg:col-span-2 flex flex-col min-h-0"
+          >
+            <h2 id="shoutouts-heading" className="section-header mb-4 shrink-0">
               Shoutouts
             </h2>
-            <div className="space-y-3">
+            <div className="task-scroll overflow-y-auto flex-1 min-h-0 max-h-[min(28rem,50vh)] space-y-3 pr-0.5">
               {shoutouts.length === 0 ? (
                 <Card className="bg-cyber-card/80 border-semantic-achievement/25">
                   <p className="text-sm text-text-secondary">
@@ -2193,13 +2364,15 @@ const ProjectWorkspace = () => {
                   <input
                     type="range"
                     min={0}
-                    max={100}
+                    max={99}
                     step={subtasksDraft.length > 0 ? 1 : 5}
-                    value={progressDraft}
+                    value={Math.min(99, progressDraft)}
                     onChange={(e) => {
                       // When a checklist exists, progress is driven by checkboxes only
                       if (subtasksDraft.length > 0) return;
-                      setProgressDraft(Number(e.target.value));
+                      setProgressDraft(
+                        Math.min(99, Number(e.target.value))
+                      );
                     }}
                     readOnly={subtasksDraft.length > 0}
                     disabled={subtasksDraft.length > 0}
@@ -2209,6 +2382,10 @@ const ProjectWorkspace = () => {
                         : ''
                     }`}
                   />
+                  <p className="text-[11px] text-text-muted mt-1">
+                    100% completion requires a Project Lead to accept your
+                    review submission.
+                  </p>
                 </div>
 
                 {subtasksDraft.length > 0 && (
@@ -2242,15 +2419,32 @@ const ProjectWorkspace = () => {
 
                 <div>
                   <label className="block text-sm text-text-secondary font-mono mb-1.5">
-                    Notes
+                    Working notes
                   </label>
                   <textarea
                     value={notesDraft}
                     onChange={(e) => setNotesDraft(e.target.value)}
-                    rows={3}
+                    rows={2}
                     placeholder="What did you ship? What is blocked?"
                     className="w-full bg-cyber-surface border border-cyber-border rounded-lg px-4 py-3 text-text-primary placeholder:text-text-muted focus:border-neon-cyan focus:outline-none transition-colors text-sm"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-text-secondary font-mono mb-1.5">
+                    Evidence for review (required to submit)
+                  </label>
+                  <textarea
+                    value={evidenceDraft}
+                    onChange={(e) => setEvidenceDraft(e.target.value)}
+                    rows={3}
+                    placeholder="Short note + link, PR, screenshot, or file reference (min 15 characters)"
+                    className="w-full bg-cyber-surface border border-cyber-border rounded-lg px-4 py-3 text-text-primary placeholder:text-text-muted focus:border-neon-cyan focus:outline-none transition-colors text-sm"
+                  />
+                  <p className="text-[11px] text-text-muted mt-1">
+                    Submitting sends this to a Project Lead for Accept or Reject.
+                    You cannot mark the task completed yourself.
+                  </p>
                 </div>
 
                 {claimHelperNames.length > 0 && (
@@ -2272,6 +2466,15 @@ const ProjectWorkspace = () => {
                   </div>
                 )}
 
+                {selectedTask.claim?.reviewFeedback && (
+                  <div className="rounded-lg border border-semantic-warning/40 bg-semantic-warning/10 px-3 py-2 text-sm text-text-secondary">
+                    <span className="font-semibold text-semantic-warning">
+                      Review feedback:{' '}
+                    </span>
+                    {selectedTask.claim.reviewFeedback}
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-2 pt-1">
                   <Button
                     size="sm"
@@ -2280,28 +2483,83 @@ const ProjectWorkspace = () => {
                   >
                     {actionBusy ? 'Saving…' : 'Save Progress'}
                   </Button>
-                  {canCompleteOrReturn && (
-                    <>
+                  {canSubmitForReview && (
+                    <Button
+                      size="sm"
+                      variant="success"
+                      onClick={handleSubmitForReview}
+                      disabled={actionBusy}
+                    >
+                      Submit for Review
+                    </Button>
+                  )}
+                  {canReturnClaim && (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={handleReturn}
+                      disabled={actionBusy}
+                    >
+                      Return Claim
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Pending review: claimant read-only + staff accept/reject */}
+            {isPendingReview && selectedTask && (
+              <div className="space-y-3 rounded-lg border border-semantic-warning/40 bg-semantic-warning/10 p-4">
+                <div className="text-sm font-semibold text-semantic-warning">
+                  Ready for review
+                </div>
+                {selectedTask.claim?.submissionEvidence && (
+                  <p className="text-sm text-text-secondary whitespace-pre-wrap">
+                    <span className="text-text-muted">Evidence: </span>
+                    {selectedTask.claim.submissionEvidence}
+                  </p>
+                )}
+                {isClaimHolder && !isModerator && (
+                  <p className="text-xs text-text-muted">
+                    Waiting for a Project Lead or moderator to accept or reject
+                    this submission. Your claim slot stays occupied until then.
+                  </p>
+                )}
+                {canReviewSubmission && (
+                  <>
+                    <div>
+                      <label className="block text-sm text-text-secondary font-mono mb-1.5">
+                        Feedback (optional on accept, recommended on reject)
+                      </label>
+                      <textarea
+                        value={reviewFeedbackDraft}
+                        onChange={(e) => setReviewFeedbackDraft(e.target.value)}
+                        rows={2}
+                        placeholder="Notes for the contributor…"
+                        className="w-full bg-cyber-surface border border-cyber-border rounded-lg px-4 py-3 text-text-primary placeholder:text-text-muted focus:border-neon-cyan focus:outline-none transition-colors text-sm"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
                       <Button
                         size="sm"
                         variant="success"
-                        onClick={handleComplete}
+                        onClick={handleAcceptReview}
                         disabled={actionBusy}
                       >
-                        Mark Completed
+                        Accept work
                       </Button>
                       <Button
                         size="sm"
                         variant="danger"
-                        onClick={handleReturn}
+                        onClick={handleRejectReview}
                         disabled={actionBusy}
                       >
-                        Return Claim
+                        Reject
                       </Button>
-                    </>
-                  )}
-                </div>
-              </>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
 
             {/* Helpers for viewers when claim has helpers */}
@@ -2336,10 +2594,11 @@ const ProjectWorkspace = () => {
               )}
 
             {!canEditProgress &&
-              canCompleteOrReturn &&
+              canReturnClaim &&
               isModerator &&
               !isClaimHolder &&
-              selectedTask.claim?.status === 'Active' && (
+              (selectedTask.claim?.status === 'Active' ||
+                selectedTask.claim?.status === 'PendingReview') && (
                 <Button
                   size="sm"
                   variant="danger"

@@ -27,7 +27,7 @@ const PROJECTS = [
     status: 'In Development',
     open: true,
     description:
-      'Core loop prototyping and networking tests. Volunteers for design, code, and art as we validate the multiplayer foundation and claim/credit flows.',
+      'Small cooperative games built with the community. Early exists to prove the model works, learn how we build together, and ship focused playable experiences before moving on to larger projects.',
     icon: Hammer,
     tasksOpen: 4,
     volunteers: 8,
@@ -87,17 +87,12 @@ const Projects = () => {
 
         {/* Header */}
         <header className="mb-12 md:mb-14 max-w-3xl">
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            <div className="section-header mb-0">Projects</div>
-            <Badge variant="neon">Early focus</Badge>
-          </div>
-
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-4">
-            Forge directory
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white mb-4">
+            Projects
           </h1>
           <p className="text-text-secondary text-base sm:text-lg leading-relaxed">
-            Browse the pipeline. Early is open for claims and workspace work;
-            Mid and Late are planned next steps after earlier phases complete.
+            Browse the pipeline. Early is open now for community collaboration
+            and real work. Mid and Late come after Early is complete.
           </p>
 
           {isModerator && (

@@ -44,16 +44,25 @@ const TaskCard = ({
   task,
   onClaim,
   onView,
+  onUpdate,
   onRequestJoin,
   claiming = false,
   joining = false,
   currentUserId = null,
   joinRequestPending = false,
+  /** Project Lead / Admin / Moderator - Update on completed tasks */
+  canStaffUpdate = false,
 }) => {
   const isCompleted =
     task.status === 'completed' || task.dbStatus === 'Completed';
+  const isPendingReview =
+    task.status === 'in_review' ||
+    task.dbStatus === 'InReview' ||
+    task.claim?.status === 'PendingReview';
   const hasActiveClaim = Boolean(
-    task.claim?.status === 'Active' || (task.claimedBy && !isCompleted)
+    task.claim?.status === 'Active' ||
+      task.claim?.status === 'PendingReview' ||
+      (task.claimedBy && !isCompleted)
   );
   const hasChildren = Boolean(task.hasChildren || task.childCount > 0);
   const depth = task.depth || 0;
@@ -158,7 +167,12 @@ const TaskCard = ({
             Completed
           </Badge>
         )}
-        {stale && (
+        {isPendingReview && !isCompleted && (
+          <Badge variant="warning" className="!normal-case tracking-wide">
+            Ready for review
+          </Badge>
+        )}
+        {stale && !isPendingReview && (
           <Badge variant="warning" className="!normal-case tracking-wide">
             Needs attention
           </Badge>
@@ -292,7 +306,20 @@ const TaskCard = ({
         )}
         {onView && (
           <Button size="sm" variant="secondary" onClick={() => onView(task.id)}>
-            {isMine ? 'Update' : 'View Details'}
+            {isCompleted
+              ? 'View Details'
+              : isMine
+                ? 'Update'
+                : 'View Details'}
+          </Button>
+        )}
+        {isCompleted && canStaffUpdate && onUpdate && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onUpdate(task.id)}
+          >
+            Update
           </Button>
         )}
       </div>
