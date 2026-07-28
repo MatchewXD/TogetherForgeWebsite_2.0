@@ -1,13 +1,142 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="forge">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="TogetherForge — Community-supported indie game studio building cooperative survival-builder games that forge real human connection. From pixels to intentional communities." />
+    <meta name="description" content="TogetherForge - Community-supported indie game studio building cooperative survival-builder games that forge real human connection. From pixels to intentional communities." />
+    <meta name="theme-color" content="#05050a" />
+    <meta name="color-scheme" content="dark" />
     <title>TogetherForge • Forge the Future Together</title>
+    <!--
+      Critical first paint: dark shell + boot loader (no JS, no images, no fonts).
+      Matches cyber-bg #05050a so refresh never flashes white.
+    -->
+    <style>
+      html {
+        color-scheme: dark;
+        background-color: #05050a;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+        background-color: #05050a;
+        color: #e0e7ff;
+      }
+      body {
+        overflow-x: hidden;
+      }
+      #root {
+        min-height: 100vh;
+        background-color: #05050a;
+      }
+      /* Pre-React boot loader - pure CSS, instant */
+      #tf-boot-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: #05050a;
+        background-image: radial-gradient(
+          ellipse 55% 45% at 50% 42%,
+          rgba(0, 249, 255, 0.07) 0%,
+          transparent 62%
+        );
+        transition: opacity 0.28s ease, visibility 0.28s ease;
+      }
+      #tf-boot-loader.tf-boot-hide {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      #tf-boot-loader .tf-boot-label {
+        margin: 0 0 1.25rem;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: #00f9ff;
+      }
+      #tf-boot-loader .tf-boot-track {
+        position: relative;
+        width: min(14rem, 70vw);
+        height: 0.5rem;
+        background: #1f1f2e;
+        overflow: hidden;
+        clip-path: polygon(
+          6px 0,
+          calc(100% - 6px) 0,
+          100% 50%,
+          calc(100% - 6px) 100%,
+          6px 100%,
+          0 50%
+        );
+        box-shadow:
+          inset 0 0 0 1px rgba(0, 249, 255, 0.22),
+          0 0 14px rgba(0, 249, 255, 0.12);
+      }
+      #tf-boot-loader .tf-boot-fill {
+        position: absolute;
+        inset: 0;
+        width: 42%;
+        background: linear-gradient(
+          90deg,
+          rgba(0, 249, 255, 0.35) 0%,
+          rgba(0, 249, 255, 0.95) 48%,
+          rgba(240, 180, 41, 0.85) 100%
+        );
+        animation: tf-boot-scan 1.35s cubic-bezier(0.45, 0.05, 0.55, 0.95)
+          infinite;
+      }
+      @keyframes tf-boot-scan {
+        0% {
+          transform: translateX(-110%);
+        }
+        100% {
+          transform: translateX(280%);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #tf-boot-loader .tf-boot-fill {
+          animation: none;
+          width: 55%;
+          left: 22%;
+          transform: none;
+        }
+      }
+    </style>
+    <!-- League Spartan: primary industrial / forge face (non-blocking for first paint) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      /* Forge is the only theme - clear any legacy classic preference */
+      (function () {
+        try {
+          document.documentElement.setAttribute('data-theme', 'forge');
+          localStorage.removeItem('tf-color-theme');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
+    <!-- Instant dark loader until React mounts (no images) -->
+    <div id="tf-boot-loader" role="status" aria-live="polite" aria-busy="true">
+      <p class="tf-boot-label">Forging…</p>
+      <div class="tf-boot-track" aria-hidden="true">
+        <div class="tf-boot-fill"></div>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

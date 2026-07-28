@@ -512,7 +512,7 @@ const Profile = () => {
                         <button type="button" onClick={() => switchMode(mode === 'login' ? 'register' : 'login')} className="text-xs text-neon-cyan hover:underline w-full">
                             {mode === 'login' ? 'Need an account? Register' : 'Already have an account? Log in'}
                         </button>
-                        <p className="text-xs text-text-muted text-center">Uses Supabase Auth — data stored securely.</p>
+                        <p className="text-xs text-text-muted text-center">Uses Supabase Auth - data stored securely.</p>
                     </form>
                 ) : profileLoading ? (
                     <div className="cyber-card p-10 flex flex-col items-center justify-center min-h-[200px]">

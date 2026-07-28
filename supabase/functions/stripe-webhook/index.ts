@@ -29,7 +29,7 @@
  *   stripe listen --forward-to http://127.0.0.1:54321/functions/v1/stripe-webhook
  *   supabase functions serve stripe-webhook --env-file supabase/.env --no-verify-jwt
  *
- * Env (function only — never VITE_):
+ * Env (function only - never VITE_):
  *   STRIPE_SECRET_KEY
  *   STRIPE_WEBHOOK_SECRET
  *   SUPABASE_URL
@@ -195,7 +195,7 @@ async function upsertSubscription(sub: Stripe.Subscription) {
     onConflict: 'id',
   });
   if (error) {
-    // Table may not exist yet — log and continue so payment recording still works
+    // Table may not exist yet - log and continue so payment recording still works
     console.warn('[stripe-webhook] subscription upsert', error.message);
     return { ok: false, error: error.message };
   }

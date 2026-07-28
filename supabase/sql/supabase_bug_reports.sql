@@ -1,5 +1,5 @@
 -- =============================================================================
--- Together Forge — Bug reports / public tracker
+-- Together Forge - Bug reports / public tracker
 -- Run in Supabase → SQL Editor on project: lbstantgrrrupzeasndg
 -- Safe to re-run. Run the WHOLE script, then confirm the verify SELECT at the bottom.
 -- =============================================================================
@@ -22,7 +22,7 @@ as $$
 $$;
 
 -- ---------------------------------------------------------------------------
--- Table (core — must succeed)
+-- Table (core - must succeed)
 -- ---------------------------------------------------------------------------
 create table if not exists public.bug_reports (
   id uuid primary key default gen_random_uuid(),
@@ -121,7 +121,7 @@ create policy "Staff can delete bug reports"
 notify pgrst, 'reload schema';
 
 -- ---------------------------------------------------------------------------
--- Storage (optional — failures here must NOT block the table)
+-- Storage (optional - failures here must NOT block the table)
 -- Dashboard fallback: Storage → New bucket → id "bug-screenshots" → Public
 -- ---------------------------------------------------------------------------
 do $$

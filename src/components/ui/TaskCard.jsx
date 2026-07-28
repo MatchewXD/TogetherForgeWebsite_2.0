@@ -2,13 +2,22 @@ import Button from './Buttons';
 import Badge from './Badge';
 import UserAvatar from './UserAvatar';
 import ProfileLink from './ProfileLink';
-import { formatClaimHeldSince } from '../../services/tasksService';
+import {
+  formatClaimHeldSince,
+  CLAIM_STALE_DAYS,
+} from '../../services/tasksService';
 
-/** Level accent: Epic magenta, Medium cyan, Small muted */
-function levelAccentClass(depth) {
-  if (depth === 0) return 'border-l-4 border-l-neon-magenta';
-  if (depth === 1) return 'border-l-4 border-l-neon-cyan';
-  return 'border-l-2 border-l-white/25';
+/**
+ * Level / status rail on chamfered panels.
+ * Uses inset box-shadow classes (see index.css) - Tailwind border-l is
+ * disabled by .cyber-card { border: none }.
+ */
+function levelAccentClass(depth, { isCompleted, isStale } = {}) {
+  if (isCompleted) return 'task-card-accent-success';
+  if (isStale) return 'task-card-accent-warning';
+  if (depth === 0) return 'task-card-accent-epic';
+  if (depth === 1) return 'task-card-accent-medium';
+  return 'task-card-accent-small';
 }
 
 function levelBadgeVariant(depth) {
@@ -17,9 +26,19 @@ function levelBadgeVariant(depth) {
   return 'default';
 }
 
+/** True when claim is aging toward auto-release (half of stale window). */
+function isClaimStale(claimedAtIso) {
+  if (!claimedAtIso) return false;
+  const then = new Date(claimedAtIso).getTime();
+  if (Number.isNaN(then)) return false;
+  const days = (Date.now() - then) / (1000 * 60 * 60 * 24);
+  const warnAfter = Math.max(3, Math.floor(CLAIM_STALE_DAYS / 2));
+  return days >= warnAfter;
+}
+
 /**
  * Compact task card for kanban boards and task lists.
- * Claim button only when volunteerClaimable. Difficulty/effort only on claimable leaves.
+ * Semantic colors: completed=success, stale=warning (theme-mapped).
  */
 const TaskCard = ({
   task,
@@ -29,22 +48,20 @@ const TaskCard = ({
   claiming = false,
   joining = false,
   currentUserId = null,
-  /** User already has a pending join request on this task */
   joinRequestPending = false,
 }) => {
-  const isCompleted = task.status === 'completed' || task.dbStatus === 'Completed';
+  const isCompleted =
+    task.status === 'completed' || task.dbStatus === 'Completed';
   const hasActiveClaim = Boolean(
     task.claim?.status === 'Active' || (task.claimedBy && !isCompleted)
   );
   const hasChildren = Boolean(task.hasChildren || task.childCount > 0);
   const depth = task.depth || 0;
-  // Show Claim only when open and allowed (no button = not claimable)
   const showClaim =
     task.volunteerClaimable !== undefined
       ? task.volunteerClaimable && !hasActiveClaim && !isCompleted
       : !hasActiveClaim && !isCompleted && depth > 0 && !hasChildren;
 
-  // Difficulty + estimate only on leaf Medium/Small (not Epics or parent containers)
   const showDifficultyEffort =
     depth > 0 && !hasChildren && (task.difficulty || task.estimatedEffort);
 
@@ -76,6 +93,11 @@ const TaskCard = ({
       ? formatClaimHeldSince(task.claim?.claimedAt)
       : '');
 
+  const stale =
+    hasActiveClaim &&
+    !isCompleted &&
+    isClaimStale(task.claim?.claimedAt || task.claim?.lastActivityAt);
+
   const canRequestJoin =
     hasActiveClaim &&
     !isCompleted &&
@@ -88,7 +110,6 @@ const TaskCard = ({
   const hasChecklist = Boolean(
     task.hasChecklist || (task.subtasks && task.subtasks.length > 0)
   );
-  // Progress for parents (children), claimed/completed leaves, or any checklist leaf
   const showProgress =
     hasChildren || hasActiveClaim || isCompleted || hasChecklist;
 
@@ -96,9 +117,23 @@ const TaskCard = ({
     .filter(Boolean)
     .join(' · ');
 
+  const progressColor = isCompleted
+    ? 'text-semantic-success'
+    : stale
+      ? 'text-semantic-warning'
+      : 'text-neon-cyan';
+  const progressBarColor = isCompleted
+    ? 'bg-semantic-success'
+    : stale
+      ? 'bg-semantic-warning'
+      : 'bg-neon-cyan';
+
   return (
     <div
-      className={`task-card cyber-card p-4 border border-cyber-border hover:border-neon-cyan/50 transition-all group ${levelAccentClass(depth)}`}
+      className={`task-card cyber-card cyber-card-subtle p-4 transition-all group ${levelAccentClass(
+        depth,
+        { isCompleted, isStale: stale }
+      )}`}
       style={
         depth > 0 && task.parentTaskId
           ? { marginLeft: Math.min(depth, 2) * 6 }
@@ -118,6 +153,16 @@ const TaskCard = ({
         >
           {levelShort}
         </Badge>
+        {isCompleted && (
+          <Badge variant="success" className="!normal-case tracking-wide">
+            Completed
+          </Badge>
+        )}
+        {stale && (
+          <Badge variant="warning" className="!normal-case tracking-wide">
+            Needs attention
+          </Badge>
+        )}
         {task.category && (
           <Badge variant="purple" className="!normal-case tracking-wide">
             {task.category}
@@ -151,16 +196,30 @@ const TaskCard = ({
             username={task.claim?.username || assigneeName}
             size="sm"
             className="shrink-0"
-            borderClass="border border-neon-cyan/40"
+            borderClass={
+              isCompleted
+                ? 'border border-semantic-success/40'
+                : stale
+                  ? 'border border-semantic-warning/40'
+                  : 'border border-neon-cyan/40'
+            }
           />
           <div className="min-w-0 text-xs font-mono">
-            <p className="text-neon-cyan/80 truncate">
+            <p
+              className={`truncate ${
+                isCompleted
+                  ? 'text-semantic-success/90'
+                  : 'text-neon-cyan/80'
+              }`}
+            >
               <span className="text-text-muted">
                 {isCompleted ? 'Shipped by' : 'Claimed by'}{' '}
               </span>
               <ProfileLink
                 username={task.claim?.username || assigneeName}
-                className="text-neon-cyan"
+                className={
+                  isCompleted ? 'text-semantic-success' : 'text-neon-cyan'
+                }
               >
                 {assigneeName}
               </ProfileLink>
@@ -169,8 +228,18 @@ const TaskCard = ({
               ) : null}
             </p>
             {heldLabel && !isCompleted && (
-              <p className="text-text-muted truncate" title="Time since claim">
+              <p
+                className={`truncate ${
+                  stale ? 'text-semantic-warning' : 'text-text-muted'
+                }`}
+                title={
+                  stale
+                    ? 'Claim is aging - update progress or it may auto-release'
+                    : 'Time since claim'
+                }
+              >
                 {heldLabel}
+                {stale ? ' · update soon' : ''}
               </p>
             )}
           </div>
@@ -181,13 +250,13 @@ const TaskCard = ({
         <div className="mb-3">
           <div className="flex items-center justify-between text-[10px] font-mono tracking-widest text-text-muted mb-1">
             <span>PROGRESS</span>
-            <span className="text-neon-cyan">
+            <span className={progressColor}>
               {isCompleted ? 100 : progress}%
             </span>
           </div>
           <div className="h-1.5 rounded-full bg-cyber-surface border border-cyber-border overflow-hidden">
             <div
-              className="h-full rounded-full bg-neon-cyan transition-all duration-300"
+              className={`h-full rounded-full transition-all duration-300 ${progressBarColor}`}
               style={{
                 width: `${isCompleted ? 100 : Math.min(100, Math.max(0, progress))}%`,
               }}
@@ -217,7 +286,7 @@ const TaskCard = ({
           </Button>
         )}
         {joinRequestPending && !isMine && hasActiveClaim && !isCompleted && (
-          <span className="text-[10px] font-mono text-text-muted tracking-wide">
+          <span className="text-[10px] font-mono text-semantic-warning tracking-wide">
             Join pending
           </span>
         )}

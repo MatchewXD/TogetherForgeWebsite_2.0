@@ -210,7 +210,7 @@ export function isStripeConfigured() {
   return Object.keys(parseLinkMap()).length > 0;
 }
 
-/** Optional publishable key (pk_test_...) — never required for Checkout redirect flow. */
+/** Optional publishable key (pk_test_...) - never required for Checkout redirect flow. */
 export function getStripePublishableKey() {
   return import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '';
 }

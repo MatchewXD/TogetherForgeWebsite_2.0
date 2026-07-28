@@ -3,12 +3,35 @@ import Badge from './Badge';
 import { phaseImageSrc, phaseImageAlt } from '../../utils/phaseImages';
 
 /**
- * Featured project card. Entire card is the hit target (hover + click),
- * with a visual CTA button that does not capture separate clicks.
+ * Project card. Tech-panel frame via .cyber-card.
+ * Active projects link to a live workspace; planned phases show summary only.
+ *
+ * @param {object} project
+ * @param {'active'|'planned'} [project.status] - active = open workspace; planned = future phase
+ * @param {boolean} [featured] - heavier recognition treatment (gold under Forge)
+ * @param {function} [onView] - called with project when card is activated (active / planned with href)
+ * @param {string} [className]
  */
-const ProjectCard = ({ project, onView }) => {
+const ProjectCard = ({ project, onView, featured = false, className = '' }) => {
+  const status =
+    project.status ||
+    (project.phase === 'Early' ? 'active' : 'planned');
+  const isActive = status === 'active';
+  const isPlanned = !isActive;
+
+  const hasLiveStats =
+    isActive &&
+    (typeof project.tasksCompleted === 'number' ||
+      typeof project.activeVolunteers === 'number');
+
+  const ctaLabel = isActive
+    ? project.ctaLabel || 'View Project'
+    : project.ctaLabel || 'View Plans';
+
+  const canActivate = Boolean(onView && project?.id != null);
+
   const open = () => {
-    if (onView && project?.id != null) onView(project.id);
+    if (canActivate) onView(project);
   };
 
   const imageSrc =
@@ -17,23 +40,31 @@ const ProjectCard = ({ project, onView }) => {
 
   return (
     <div
-      role="link"
-      tabIndex={0}
-      onClick={open}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          open();
-        }
-      }}
-      className="cyber-card group overflow-hidden border border-cyber-border hover:border-neon-cyan transition-all duration-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-cyber-bg"
+      role={canActivate ? 'link' : 'article'}
+      tabIndex={canActivate ? 0 : undefined}
+      onClick={canActivate ? open : undefined}
+      onKeyDown={
+        canActivate
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                open();
+              }
+            }
+          : undefined
+      }
+      className={`cyber-card group overflow-hidden flex flex-col h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-cyber-bg ${
+        canActivate ? 'interactive cursor-pointer' : ''
+      } ${featured ? 'cyber-card-panel home-project-featured' : ''} ${className}`}
     >
-      <div className="h-48 bg-gradient-to-br from-cyber-surface to-cyber-card flex items-center justify-center border-b border-cyber-border overflow-hidden relative">
+      <div className="h-40 sm:h-44 shrink-0 bg-gradient-to-br from-cyber-surface to-cyber-card flex items-center justify-center border-b border-cyber-border overflow-hidden relative">
         {imageSrc ? (
           <img
             src={imageSrc}
             alt={imageAlt}
-            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 ${
+              canActivate ? 'group-hover:scale-[1.03]' : ''
+            }`}
             loading="lazy"
             decoding="async"
           />
@@ -44,30 +75,70 @@ const ProjectCard = ({ project, onView }) => {
           className="absolute inset-0 bg-gradient-to-t from-cyber-card/80 via-transparent to-transparent pointer-events-none"
           aria-hidden="true"
         />
+        <div className="absolute top-3 left-3 z-10 flex flex-wrap gap-2">
+          {featured && isActive && <Badge variant="gold">Featured</Badge>}
+          {isPlanned && <Badge variant="default">Coming Soon</Badge>}
+        </div>
       </div>
 
-      <div className="p-5">
-        <div className="flex justify-between items-start mb-3">
-          <h3 className="text-lg font-semibold text-text-primary group-hover:text-neon-cyan transition-colors">
+      <div className="p-5 flex flex-col flex-1 min-h-0">
+        <div className="flex justify-between items-start mb-3 gap-2">
+          <h3
+            className={`text-lg font-semibold transition-colors ${
+              featured && isActive
+                ? 'text-text-primary group-hover:text-neon-purple'
+                : canActivate
+                  ? 'text-text-primary group-hover:text-neon-cyan'
+                  : 'text-text-primary'
+            }`}
+          >
             {project.title}
           </h3>
-          <Badge variant="neon">{project.phase}</Badge>
+          <Badge variant={featured && isActive ? 'gold' : 'neon'}>
+            {project.phase}
+          </Badge>
         </div>
 
-        <p className="text-text-secondary text-sm line-clamp-3 mb-4">
+        <p className="text-text-secondary text-sm line-clamp-3 mb-4 flex-1">
           {project.description}
         </p>
 
-        <div className="flex items-center justify-between text-xs text-text-muted">
-          <span>{project.tasksCompleted || 0} tasks completed</span>
-          <span className="text-neon-cyan">
-            {project.activeVolunteers || 0} active
-          </span>
-        </div>
+        {hasLiveStats ? (
+          <div className="flex items-center justify-between text-xs text-text-muted mb-4">
+            <span>
+              <span className="text-semantic-success font-mono">
+                {project.tasksCompleted ?? 0}
+              </span>{' '}
+              completed
+            </span>
+            <span className="text-neon-cyan font-mono">
+              {project.activeVolunteers ?? 0} active
+            </span>
+          </div>
+        ) : isPlanned ? (
+          <div className="mb-4 text-xs font-mono tracking-wide text-text-muted">
+            <span className="text-neon-purple/90">Planned phase</span>
+            <span className="text-text-muted">
+              {' '}
+              ·{' '}
+              {project.statusNote ||
+                (project.phase === 'Late'
+                  ? 'after Mid is completed'
+                  : project.phase === 'Mid'
+                    ? 'after Early is completed'
+                    : 'upcoming')}
+            </span>
+          </div>
+        ) : (
+          <div className="mb-4" aria-hidden="true" />
+        )}
 
-        {/* Visual affordance only — card handles navigation */}
-        <Button className="w-full mt-5 pointer-events-none" tabIndex={-1}>
-          View Project
+        <Button
+          className="w-full pointer-events-none mt-auto"
+          tabIndex={-1}
+          variant={featured && isActive ? 'gold' : isPlanned ? 'secondary' : 'primary'}
+        >
+          {ctaLabel}
         </Button>
       </div>
     </div>

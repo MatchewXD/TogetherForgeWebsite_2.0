@@ -1,5 +1,5 @@
 /**
- * ProjectWorkspace — single-project hub at /projects/:id
+ * ProjectWorkspace - single-project hub at /projects/:id
  *
  * Sections (SDD):
  *  1. Project Header (title, phase badge, description)
@@ -43,6 +43,7 @@ import StatWidget from '../components/ui/StatWidget';
 import Modal from '../components/ui/Modal';
 import UserAvatar from '../components/ui/UserAvatar';
 import ProfileLink from '../components/ui/ProfileLink';
+import LoadingScreen from '../components/ui/LoadingScreen';
 import IdeaCard from '../components/ui/IdeaCard';
 import { useIsModerator } from '../hooks/useIsModerator';
 import {
@@ -69,7 +70,7 @@ const FALLBACK_PROJECTS = {
     phase: 'Early',
     status: 'In Development',
     description:
-      'Core loop prototyping and networking tests. We are validating multiplayer foundations, claim/credit flows, and the volunteer task board itself — with design, code, and art volunteers welcome.',
+      'Core loop prototyping and networking tests. We are validating multiplayer foundations, claim/credit flows, and the volunteer task board itself - with design, code, and art volunteers welcome.',
   },
   'core-features': {
     slug: 'core-features',
@@ -85,7 +86,7 @@ const FALLBACK_PROJECTS = {
     phase: 'Late',
     status: 'Vision',
     description:
-      'Polish passes, optimization, and wider playtests. Help stress-test builds and report what breaks — or what delights.',
+      'Polish passes, optimization, and wider playtests. Help stress-test builds and report what breaks - or what delights.',
   },
 };
 
@@ -159,7 +160,7 @@ const mapWorkspaceIdea = (idea) => ({
 const UPDATES = [
   {
     id: 'u1',
-    title: 'Weekly pulse — networking & map',
+    title: 'Weekly pulse - networking & map',
     date: 'Jul 8, 2026',
     body: 'Interpolation fixes landed on player movement. Demo map is ready for internal playtests. Next: claim UI polish and HUD mockups review.',
     tag: 'Devlog',
@@ -173,7 +174,7 @@ const UPDATES = [
   },
   {
     id: 'u3',
-    title: 'Art drop — placeholder set A',
+    title: 'Art drop - placeholder set A',
     date: 'Jun 28, 2026',
     body: 'First placeholder sprites are in. Enough visual language to run co-op loops without blocking on final art.',
     tag: 'Art',
@@ -198,9 +199,10 @@ const KANBAN_COLUMNS = [
   {
     key: 'completed',
     label: 'Completed',
-    accent: 'border-neon-purple/40',
-    header: 'text-neon-purple',
-    dot: 'bg-neon-purple',
+    // semantic-success → cyan in Classic, green in Forge
+    accent: 'border-semantic-success/40',
+    header: 'text-semantic-success',
+    dot: 'bg-semantic-success',
   },
 ];
 
@@ -433,7 +435,7 @@ const ProjectWorkspace = () => {
     loadProjectIdeas();
   }, [loadProjectIdeas]);
 
-  // Scroll to Project Ideas after submit redirect — do NOT re-fetch here
+  // Scroll to Project Ideas after submit redirect - do NOT re-fetch here
   // (re-fetching overwrites optimistic vote counts and causes flicker).
   useEffect(() => {
     if (location.hash !== '#project-ideas') return undefined;
@@ -621,7 +623,7 @@ const ProjectWorkspace = () => {
       });
   }, [projectIdeas, ideaSortMode, ideaSearch, ideaCategoryFilter]);
 
-  /** Active claim holder (not staff override) — required for progress/checklist */
+  /** Active claim holder (not staff override) - required for progress/checklist */
   const isClaimHolder = useMemo(() => {
     if (!selectedTask || !user?.id) return false;
     if (selectedTask.claim?.status !== 'Active') return false;
@@ -820,7 +822,7 @@ const ProjectWorkspace = () => {
         showToast(
           payload.parentTaskId
             ? 'Sub-task created under its parent. Open the parent to claim nested work.'
-            : 'Task created — it is live in To Do and ready to claim!',
+            : 'Task created - it is live in To Do and ready to claim!',
           'success'
         );
       }
@@ -1021,7 +1023,7 @@ const ProjectWorkspace = () => {
     }
     setActionBusy(true);
     try {
-      // Do not send helpers — they are managed when join requests are approved
+      // Do not send helpers - they are managed when join requests are approved
       await tasksService.updateProgress(selectedTask.id, {
         progressPercent: Number(progressDraft) || 0,
         subtasks: subtasksDraft,
@@ -1034,7 +1036,7 @@ const ProjectWorkspace = () => {
       if (checklistComplete) {
         await tasksService.completeTask(selectedTask.id);
         await refreshBoard(projectUuid);
-        showToast('All checklist items done — task completed!', 'success');
+        showToast('All checklist items done - task completed!', 'success');
         setSelectedTaskId(null);
       } else {
         await refreshBoard(projectUuid);
@@ -1070,7 +1072,7 @@ const ProjectWorkspace = () => {
       }
       await tasksService.completeTask(selectedTask.id);
       await refreshBoard(projectUuid);
-      showToast('Task completed — shoutout unlocked! Thanks for shipping.', 'success');
+      showToast('Task completed - shoutout unlocked! Thanks for shipping.', 'success');
       setSelectedTaskId(null);
     } catch (err) {
       showToast(friendlyError(err), 'error');
@@ -1112,7 +1114,7 @@ const ProjectWorkspace = () => {
     });
   };
 
-  // Per-idea lock — prevents unlike→like race flicker
+  // Per-idea lock - prevents unlike→like race flicker
   const voteInflight = useRef(new Map());
 
   const voteKey = (id) => {
@@ -1122,7 +1124,7 @@ const ProjectWorkspace = () => {
   };
 
   /**
-   * Vote toggle — matches GameIdeas:
+   * Vote toggle - matches GameIdeas:
    * userIdeaVotes Set = this user only; optimistic UI; ideasService.toggleVote.
    * Own ideas allowed. Idempotent server ops.
    */
@@ -1347,7 +1349,9 @@ const ProjectWorkspace = () => {
             <StatWidget
               label="Recent Wins"
               value={pulse.recentWins}
-              icon={<Trophy className="w-7 h-7 text-neon-cyan mx-auto" />}
+              icon={
+                <Trophy className="w-7 h-7 text-semantic-achievement mx-auto" />
+              }
             />
           </div>
 
@@ -1391,12 +1395,14 @@ const ProjectWorkspace = () => {
         {toast && (
           <div
             role="status"
-            className={`status-bar text-xs w-full sm:w-auto justify-center sm:justify-start ${
+            className={`rounded-lg border px-4 py-2 text-xs font-mono tracking-wide w-full sm:w-auto ${
               toast.kind === 'error'
-                ? 'border-red-400/40 text-red-200'
+                ? 'border-semantic-danger/40 bg-semantic-danger/10 text-semantic-danger'
                 : toast.kind === 'success'
-                  ? 'border-neon-cyan/50'
-                  : ''
+                  ? 'border-semantic-success/40 bg-semantic-success/10 text-semantic-success'
+                  : toast.kind === 'warn'
+                    ? 'border-semantic-warning/40 bg-semantic-warning/10 text-semantic-warning'
+                    : 'border-neon-cyan/40 bg-neon-cyan/5 text-neon-cyan'
             }`}
           >
             {toast.message}
@@ -1406,7 +1412,7 @@ const ProjectWorkspace = () => {
         {boardError && (
           <div
             role="alert"
-            className="rounded-xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-sm text-amber-100/90"
+            className="rounded-xl border border-semantic-warning/40 bg-semantic-warning/10 px-4 py-3 text-sm text-semantic-warning"
           >
             {boardError}
           </div>
@@ -1491,10 +1497,7 @@ const ProjectWorkspace = () => {
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center gap-2 py-16 text-text-secondary">
-              <Loader2 className="w-5 h-5 animate-spin text-neon-cyan" />
-              Loading board…
-            </div>
+            <LoadingScreen variant="section" message="Loading board…" />
           ) : (
             <div className="flex lg:grid lg:grid-cols-3 gap-4 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory">
               {KANBAN_COLUMNS.map((col) => {
@@ -1564,7 +1567,7 @@ const ProjectWorkspace = () => {
             <Card className="bg-cyber-card/80">
               {activity.length === 0 ? (
                 <p className="text-sm text-text-muted py-4 text-center">
-                  No activity yet — claim a task to light up the feed.
+                  No activity yet - claim a task to light up the feed.
                 </p>
               ) : (
                 activity.map((item) => (
@@ -1580,7 +1583,7 @@ const ProjectWorkspace = () => {
             </h2>
             <div className="space-y-3">
               {shoutouts.length === 0 ? (
-                <Card className="bg-cyber-card/80 border-neon-cyan/20">
+                <Card className="bg-cyber-card/80 border-semantic-achievement/25">
                   <p className="text-sm text-text-secondary">
                     Complete a task to earn a public shoutout here. The forge
                     celebrates shippers.
@@ -1590,7 +1593,7 @@ const ProjectWorkspace = () => {
                 shoutouts.map((person) => (
                   <Card
                     key={person.id}
-                    className="bg-cyber-card/80 border-neon-cyan/20"
+                    className="bg-cyber-card/80 border-semantic-achievement/30"
                   >
                     <div className="flex items-start gap-3">
                       <UserAvatar
@@ -1599,14 +1602,14 @@ const ProjectWorkspace = () => {
                         initials={person.initials}
                         size="lg"
                         className="shrink-0 mt-0.5"
-                        borderClass="border border-neon-cyan/40"
+                        borderClass="border border-semantic-achievement/50"
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <span className="font-medium text-text-primary">
+                          <span className="font-medium text-semantic-achievement">
                             {person.name}
                           </span>
-                          <Badge variant="default">{person.role}</Badge>
+                          <Badge variant="gold">{person.role}</Badge>
                         </div>
                         <p className="text-sm text-text-secondary leading-relaxed">
                           {person.note}
@@ -1682,7 +1685,7 @@ const ProjectWorkspace = () => {
           </div>
         </section>
 
-        {/* 7. PROJECT IDEAS — scoped to this project only */}
+        {/* 7. PROJECT IDEAS - scoped to this project only */}
         <section id="project-ideas" aria-labelledby="project-ideas-heading">
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-6">
             <div className="max-w-2xl">
@@ -1793,7 +1796,7 @@ const ProjectWorkspace = () => {
               <Card className="bg-cyber-card/80 border-neon-cyan/20">
                 <p className="text-sm text-text-secondary leading-relaxed">
                   {projectIdeas.length === 0
-                    ? 'No ideas linked to this project yet. Be the first — submit an idea and it will land here for the team.'
+                    ? 'No ideas linked to this project yet. Be the first - submit an idea and it will land here for the team.'
                     : 'No ideas match your search or filters. Clear filters to see everything for this project.'}
                 </p>
                 <Button
@@ -1967,7 +1970,15 @@ const ProjectWorkspace = () => {
               {selectedTask.category && (
                 <Badge variant="purple">{selectedTask.category}</Badge>
               )}
-              <Badge variant="neon">
+              <Badge
+                variant={
+                  selectedTask.status === 'completed'
+                    ? 'success'
+                    : selectedTask.status === 'in_progress'
+                      ? 'purple'
+                      : 'neon'
+                }
+              >
                 {selectedTask.status === 'todo'
                   ? 'To Do'
                   : selectedTask.status === 'in_progress'
@@ -2161,7 +2172,7 @@ const ProjectWorkspace = () => {
               </div>
             )}
 
-            {/* Requester (not claim owner): read-only status only — no Approve/Decline */}
+            {/* Requester (not claim owner): read-only status only - no Approve/Decline */}
             {!canManageJoinRequests && myPendingJoinRequest && (
               <div className="rounded-lg border border-cyber-border bg-cyber-surface/60 px-3 py-2 text-sm text-text-secondary">
                 Your join request is pending. Waiting on{' '}
@@ -2177,7 +2188,7 @@ const ProjectWorkspace = () => {
               <>
                 <div>
                   <label className="block text-sm text-text-secondary font-mono mb-2">
-                    Progress — {progressDraft}%
+                    Progress - {progressDraft}%
                   </label>
                   <input
                     type="range"
@@ -2273,7 +2284,7 @@ const ProjectWorkspace = () => {
                     <>
                       <Button
                         size="sm"
-                        variant="secondary"
+                        variant="success"
                         onClick={handleComplete}
                         disabled={actionBusy}
                       >
@@ -2281,7 +2292,7 @@ const ProjectWorkspace = () => {
                       </Button>
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="danger"
                         onClick={handleReturn}
                         disabled={actionBusy}
                       >
@@ -2331,7 +2342,7 @@ const ProjectWorkspace = () => {
               selectedTask.claim?.status === 'Active' && (
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="danger"
                   onClick={handleReturn}
                   disabled={actionBusy}
                 >

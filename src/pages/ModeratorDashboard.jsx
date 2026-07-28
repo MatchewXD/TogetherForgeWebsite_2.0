@@ -25,6 +25,7 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
 import UserAvatar from '../components/ui/UserAvatar';
+import LoadingScreen from '../components/ui/LoadingScreen';
 import useIsModerator from '../hooks/useIsModerator';
 import moderationService, {
   WORKFLOW_STATUSES,
@@ -261,12 +262,7 @@ const ModeratorDashboard = () => {
         )}
 
         {loading && !users.length && !ideas.length && (
-          <div className="flex items-center justify-center gap-2 py-16 text-text-muted">
-            <Loader2 className="w-5 h-5 animate-spin text-neon-cyan" />
-            <span className="text-sm font-mono tracking-widest uppercase">
-              Loading
-            </span>
-          </div>
+          <LoadingScreen variant="section" message="Loading…" />
         )}
 
         {/* ---------- Users ---------- */}

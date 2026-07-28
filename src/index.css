@@ -3,46 +3,150 @@
 @tailwind utilities;
 
 /* ============================================
-   TOGETHERFORGE - DARK CYBERPUNK / SCI-FI THEME
-   Neon Cyan + Magenta on deep void black
+   TOGETHERFORGE - Forge design system (sole theme)
+   Channel vars (R G B) for Tailwind opacity modifiers.
    ============================================ */
 
 :root {
-    --bg: #05050a;
-    --surface: #0a0a12;
-    --card: #11111a;
-    --border: #1f2937;
-    --text: #e0e7ff;
-    --text-secondary: #94a3b8;
-    --neon-cyan: #00f9ff;
-    --neon-magenta: #c026d3;
-    --neon-purple: #c084fc;
+    /* Typography - League Spartan primary */
+    --font-sans: "League Spartan", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-display: "League Spartan", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-body: "League Spartan", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: "League Spartan", system-ui, sans-serif;
+    --font-code: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+    /* Backgrounds */
+    --tf-cyber-bg: 5 5 10;
+    --tf-cyber-surface: 10 10 18;
+    --tf-cyber-card: 17 17 26;
+    --tf-cyber-border: 31 31 46;
+
+    /* Core accents */
+    --tf-neon-cyan: 0 249 255;
+    --tf-neon-magenta: 192 38 211;
+    --tf-neon-purple: 192 132 252;
+    --tf-neon-green: 34 255 136;
+
+    /* Semantic + gold (Forge palette) */
+    --tf-warning-amber: 245 158 11;
+    --tf-danger-red: 239 68 68;
+    --tf-forge-gold: 240 180 41;
+
+    --tf-semantic-success: 34 255 136;      /* neon-green */
+    --tf-semantic-warning: 245 158 11;      /* amber */
+    --tf-semantic-danger: 239 68 68;        /* red */
+    --tf-semantic-achievement: 240 180 41;  /* forge-gold */
+
+    /* Text */
+    --tf-text-primary: 224 231 255;
+    --tf-text-secondary: 148 163 184;
+    --tf-text-muted: 100 116 139;
+    --tf-text-accent: 0 249 255;
+
+    /* CSS-only gradient / glow helpers */
+    --tf-gradient-from: rgb(var(--tf-neon-cyan));
+    --tf-gradient-to: rgb(var(--tf-forge-gold));
+    --tf-section-line-to: rgb(var(--tf-forge-gold));
+    --tf-glow-rgb: 240 180 41;
+
+    /* Legacy aliases used by custom CSS */
+    --bg: rgb(var(--tf-cyber-bg));
+    --surface: rgb(var(--tf-cyber-surface));
+    --card: rgb(var(--tf-cyber-card));
+    --border: rgb(var(--tf-cyber-border));
+    --text: rgb(var(--tf-text-primary));
+    --text-secondary: rgb(var(--tf-text-secondary));
+    --neon-cyan: rgb(var(--tf-neon-cyan));
+    --neon-magenta: rgb(var(--tf-neon-magenta));
+    --neon-purple: rgb(var(--tf-neon-purple));
+    --neon-green: rgb(var(--tf-neon-green));
+    --warning-amber: rgb(var(--tf-warning-amber));
+    --danger-red: rgb(var(--tf-danger-red));
+    --forge-gold: rgb(var(--tf-forge-gold));
+    --semantic-success: rgb(var(--tf-semantic-success));
+    --semantic-warning: rgb(var(--tf-semantic-warning));
+    --semantic-danger: rgb(var(--tf-semantic-danger));
+    --semantic-achievement: rgb(var(--tf-semantic-achievement));
 }
 
+/* Force dark theme, cyberpunk aesthetic - match index.html critical paint */
+html {
+    color-scheme: dark;
+    background-color: #05050a;
+}
+
+#root {
+    min-height: 100vh;
+    background-color: rgb(var(--tf-cyber-bg));
+}
+
+/*
+ * Typography base - League Spartan sitewide
+ * Condensed geometric face: slightly open tracking + taller leading on body
+ * for long-form readability; tighter tracking on display headings.
+ */
 body {
-    font-family: var(--font-display, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+    font-family: var(--font-body);
+    font-weight: 400;
+    font-size: 1rem;
+    line-height: 1.65;
+    letter-spacing: 0.015em;
     background-color: var(--bg);
     color: var(--text);
     margin: 0;
     padding: 0;
     min-height: 100vh;
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-/* Force dark theme, cyberpunk aesthetic */
-html {
-    color-scheme: dark;
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+}
+
+h1 { font-weight: 800; }
+h2 { font-weight: 700; }
+h3 { font-weight: 600; }
+
+p {
+    line-height: 1.7;
+    letter-spacing: 0.01em;
+}
+
+button,
+input,
+select,
+textarea {
+    font-family: inherit;
+}
+
+/* Comfortable long copy on small screens */
+@media (max-width: 640px) {
+    body {
+        font-size: 0.9375rem;
+        line-height: 1.7;
+    }
+
+    p {
+        line-height: 1.75;
+    }
 }
 
 /* Softer Neon Text Effects */
 .neon-cyan {
-    color: #00f9ff;
-    text-shadow: 0 0 3px #00f9ff, 0 0 8px #00f9ff;
+    color: var(--neon-cyan);
+    text-shadow: 0 0 3px var(--neon-cyan), 0 0 8px var(--neon-cyan);
 }
 
 .neon-magenta {
-    color: #c026d3;
-    text-shadow: 0 0 3px #c026d3, 0 0 8px #c026d3;
+    color: var(--neon-magenta);
+    text-shadow: 0 0 3px var(--neon-magenta), 0 0 8px var(--neon-magenta);
 }
 
 .neon-text {
@@ -51,7 +155,9 @@ html {
 
 /* Cyberpunk Grid Background */
 .cyber-grid {
-    background-image: linear-gradient(rgba(0, 249, 255, 0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 249, 255, 0.06) 1px, transparent 1px);
+    background-image:
+        linear-gradient(rgb(var(--tf-neon-cyan) / 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(var(--tf-neon-cyan) / 0.06) 1px, transparent 1px);
     background-size: 48px 48px;
     animation: grid-move 25s linear infinite;
 }
@@ -65,30 +171,314 @@ html {
     height: 100%;
     pointer-events: none;
     z-index: 50;
-    background: repeating-linear-gradient( to bottom, transparent 0px, transparent 3px, rgba(0, 249, 255, 0.015) 3px, rgba(0, 249, 255, 0.015) 6px );
+    background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgb(var(--tf-neon-cyan) / 0.015) 3px,
+        rgb(var(--tf-neon-cyan) / 0.015) 6px
+    );
     animation: scanline 6s linear infinite;
     mix-blend-mode: screen;
 }
 
-/* Glassmorphism / Cyber Card */
+/* ============================================================
+   Tech panel cards - shape + frame only
+   ----------------------------------------------------------
+   • 45° chamfered corners (clip-path)
+   • Thin HUD / etched border (::before ring via mask)
+   • Optional corner ticks (::after) - on the frame edge, not a fill
+   • Clean dark interior = host background (cyber-card token / utilities)
+   • NO interior hatch, NO interior recolor on hover
+   • Lift / movement ONLY on a.cyber-card or .interactive
+   Variants:
+     default - feature / general (14px cut)
+     panel   - featured / large exploration (16px, stronger frame)
+     subtle  - dense utility (7px, quieter frame)
+   ============================================================ */
 .cyber-card {
-    background-color: rgba(17, 17, 26, 0.85);
-    border: 1px solid rgba(0, 249, 255, 0.15);
+    --panel-cut: 14px;
+    --panel-frame: 1px;
+    --panel-tick: 12px;
+    position: relative;
+    isolation: isolate;
+    border-radius: 0 !important;
+    /* Clean dark panel - utilities (bg-cyber-card/80 etc.) still win when set */
+    background-color: rgb(var(--tf-cyber-card) / 0.85);
+    /* Rectangular CSS borders can't follow the chamfer - frame is ::before */
+    border-color: transparent;
+    border-style: solid;
+    border-width: 0;
     backdrop-filter: blur(12px);
-    transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+    /* No transform here - non-interactive cards stay still */
+    transition: filter 0.25s ease;
+    clip-path: polygon(
+        var(--panel-cut) 0,
+        calc(100% - var(--panel-cut)) 0,
+        100% var(--panel-cut),
+        100% calc(100% - var(--panel-cut)),
+        calc(100% - var(--panel-cut)) 100%,
+        var(--panel-cut) 100%,
+        0 calc(100% - var(--panel-cut)),
+        0 var(--panel-cut)
+    );
 }
 
-    /* Only apply the hover highlight to anchor cards or cards explicitly marked interactive */
-    a.cyber-card:hover, .cyber-card.interactive:hover {
-        border-color: rgba(0, 249, 255, 0.4);
-        box-shadow: 0 0 0 1px rgba(0, 249, 255, 0.1), 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-        transform: translateY(-2px);
-    }
+/* Thin tech frame - 1px ring only (mask punches out the interior) */
+.cyber-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    padding: var(--panel-frame);
+    background: linear-gradient(
+        135deg,
+        rgb(var(--tf-neon-cyan) / 0.42) 0%,
+        rgb(var(--tf-cyber-border) / 0.95) 20%,
+        rgb(var(--tf-cyber-border) / 0.9) 80%,
+        rgb(var(--tf-neon-purple) / 0.32) 100%
+    );
+    -webkit-mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    transition: background 0.25s ease, opacity 0.25s ease;
+}
 
-/* Task-specific card variant: higher contrast against the task-board surface */
-.task-card {
-    background-color: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+/*
+ * Restrained corner ticks (HUD brackets) - aligned to the visible edges
+ * just past each 45° cut so they aren't clipped off the chamfer.
+ * Transparent center: content color is never painted over.
+ */
+.cyber-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+        /* top-left (along top & left after cut) */
+        linear-gradient(
+            rgb(var(--tf-neon-cyan) / 0.55),
+            rgb(var(--tf-neon-cyan) / 0.55)
+        )
+        var(--panel-cut) 0 / var(--panel-tick) 1px no-repeat,
+        linear-gradient(
+            rgb(var(--tf-neon-cyan) / 0.55),
+            rgb(var(--tf-neon-cyan) / 0.55)
+        )
+        0 var(--panel-cut) / 1px var(--panel-tick) no-repeat,
+        /* top-right */
+        linear-gradient(
+            rgb(var(--tf-neon-cyan) / 0.4),
+            rgb(var(--tf-neon-cyan) / 0.4)
+        )
+        calc(100% - var(--panel-cut) - var(--panel-tick)) 0 / var(--panel-tick) 1px
+            no-repeat,
+        linear-gradient(
+            rgb(var(--tf-neon-cyan) / 0.4),
+            rgb(var(--tf-neon-cyan) / 0.4)
+        )
+        100% var(--panel-cut) / 1px var(--panel-tick) no-repeat,
+        /* bottom-left */
+        linear-gradient(
+            rgb(var(--tf-neon-purple) / 0.35),
+            rgb(var(--tf-neon-purple) / 0.35)
+        )
+        var(--panel-cut) 100% / var(--panel-tick) 1px no-repeat,
+        linear-gradient(
+            rgb(var(--tf-neon-purple) / 0.35),
+            rgb(var(--tf-neon-purple) / 0.35)
+        )
+        0 calc(100% - var(--panel-cut) - var(--panel-tick)) / 1px var(--panel-tick)
+            no-repeat,
+        /* bottom-right */
+        linear-gradient(
+            rgb(var(--tf-neon-purple) / 0.3),
+            rgb(var(--tf-neon-purple) / 0.3)
+        )
+        calc(100% - var(--panel-cut) - var(--panel-tick)) 100% / var(--panel-tick) 1px
+            no-repeat,
+        linear-gradient(
+            rgb(var(--tf-neon-purple) / 0.3),
+            rgb(var(--tf-neon-purple) / 0.3)
+        )
+        100% calc(100% - var(--panel-cut) - var(--panel-tick)) / 1px
+            var(--panel-tick) no-repeat;
+    opacity: 0.85;
+    transition: opacity 0.25s ease;
+}
+
+/* ---------- Interactive only: glow + slight lift ---------- */
+a.cyber-card,
+.cyber-card.interactive {
+    transition:
+        transform 0.25s cubic-bezier(0.23, 1, 0.32, 1),
+        filter 0.25s ease;
+}
+
+a.cyber-card:hover,
+.cyber-card.interactive:hover {
+    filter: drop-shadow(0 0 10px rgb(var(--tf-neon-cyan) / 0.22));
+    transform: translateY(-2px);
+}
+
+a.cyber-card:hover::before,
+.cyber-card.interactive:hover::before {
+    background: linear-gradient(
+        135deg,
+        rgb(var(--tf-neon-cyan) / 0.7) 0%,
+        rgb(var(--tf-neon-cyan) / 0.35) 28%,
+        rgb(var(--tf-cyber-border) / 0.95) 55%,
+        rgb(var(--tf-neon-purple) / 0.45) 100%
+    );
+}
+
+a.cyber-card:hover::after,
+.cyber-card.interactive:hover::after {
+    opacity: 1;
+}
+
+a.cyber-card:focus-visible,
+.cyber-card.interactive:focus-visible {
+    outline: none;
+    filter: drop-shadow(0 0 0 2px rgb(var(--tf-neon-cyan) / 0.55));
+}
+
+/* Non-interactive: never move (guard against accidental utilities) */
+.cyber-card:not(a):not(.interactive):hover {
+    transform: none;
+}
+
+/* ---------- Utility / dense - smaller cut, quieter frame ---------- */
+.cyber-card.cyber-card-subtle,
+.cyber-card.task-card,
+.task-card.cyber-card {
+    --panel-cut: 7px;
+    --panel-frame: 1px;
+    --panel-tick: 8px;
+    backdrop-filter: none;
+}
+
+.cyber-card.cyber-card-subtle::before,
+.cyber-card.task-card::before,
+.task-card.cyber-card::before {
+    background: linear-gradient(
+        135deg,
+        rgb(var(--tf-cyber-border) / 0.95) 0%,
+        rgb(var(--tf-cyber-border) / 0.85) 40%,
+        rgb(var(--tf-cyber-border) / 0.85) 60%,
+        rgb(var(--tf-neon-cyan) / 0.18) 100%
+    );
+}
+
+/* Utility: drop corner ticks - keep scanning clean */
+.cyber-card.cyber-card-subtle::after,
+.cyber-card.task-card::after,
+.task-card.cyber-card::after {
+    display: none;
+}
+
+/*
+ * Task level / status rail - inset box-shadow (border-width is 0 for chamfer).
+ */
+.task-card-accent-success {
+    box-shadow: inset 3px 0 0 0 rgb(var(--tf-semantic-success));
+}
+.task-card-accent-warning {
+    box-shadow: inset 3px 0 0 0 rgb(var(--tf-semantic-warning));
+}
+.task-card-accent-epic {
+    box-shadow: inset 3px 0 0 0 rgb(var(--tf-neon-magenta));
+}
+.task-card-accent-medium {
+    box-shadow: inset 3px 0 0 0 rgb(var(--tf-neon-cyan));
+}
+.task-card-accent-small {
+    box-shadow: inset 2px 0 0 0 rgb(255 255 255 / 0.22);
+}
+
+/* ---------- Exploration / featured panels ---------- */
+.cyber-card.cyber-card-panel {
+    --panel-cut: 16px;
+    --panel-frame: 1.5px;
+    --panel-tick: 16px;
+}
+
+.cyber-card.cyber-card-panel::before {
+    background: linear-gradient(
+        135deg,
+        rgb(var(--tf-neon-cyan) / 0.5) 0%,
+        rgb(var(--tf-cyber-border) / 0.95) 22%,
+        rgb(var(--tf-cyber-border) / 0.9) 78%,
+        rgb(var(--tf-neon-purple) / 0.4) 100%
+    );
+}
+
+/* Featured project - gold edge recognition only (interior unchanged) */
+.cyber-card.cyber-card-panel.home-project-featured::before,
+.cyber-card.home-project-featured.cyber-card-panel::before {
+    background: linear-gradient(
+        135deg,
+        rgb(var(--tf-forge-gold) / 0.55) 0%,
+        rgb(var(--tf-cyber-border) / 0.95) 24%,
+        rgb(var(--tf-cyber-border) / 0.9) 76%,
+        rgb(var(--tf-neon-purple) / 0.35) 100%
+    );
+}
+
+.cyber-card.cyber-card-panel.home-project-featured::after,
+.cyber-card.home-project-featured.cyber-card-panel::after {
+    background:
+        linear-gradient(
+            rgb(var(--tf-forge-gold) / 0.65),
+            rgb(var(--tf-forge-gold) / 0.65)
+        )
+        var(--panel-cut) 0 / var(--panel-tick) 1px no-repeat,
+        linear-gradient(
+            rgb(var(--tf-forge-gold) / 0.65),
+            rgb(var(--tf-forge-gold) / 0.65)
+        )
+        0 var(--panel-cut) / 1px var(--panel-tick) no-repeat,
+        linear-gradient(
+            rgb(var(--tf-forge-gold) / 0.45),
+            rgb(var(--tf-forge-gold) / 0.45)
+        )
+        calc(100% - var(--panel-cut) - var(--panel-tick)) 0 / var(--panel-tick) 1px
+            no-repeat,
+        linear-gradient(
+            rgb(var(--tf-forge-gold) / 0.45),
+            rgb(var(--tf-forge-gold) / 0.45)
+        )
+        100% var(--panel-cut) / 1px var(--panel-tick) no-repeat,
+        linear-gradient(
+            rgb(var(--tf-neon-purple) / 0.35),
+            rgb(var(--tf-neon-purple) / 0.35)
+        )
+        var(--panel-cut) 100% / var(--panel-tick) 1px no-repeat,
+        linear-gradient(
+            rgb(var(--tf-neon-purple) / 0.35),
+            rgb(var(--tf-neon-purple) / 0.35)
+        )
+        0 calc(100% - var(--panel-cut) - var(--panel-tick)) / 1px var(--panel-tick)
+            no-repeat,
+        linear-gradient(
+            rgb(var(--tf-neon-cyan) / 0.35),
+            rgb(var(--tf-neon-cyan) / 0.35)
+        )
+        calc(100% - var(--panel-cut) - var(--panel-tick)) 100% / var(--panel-tick) 1px
+            no-repeat,
+        linear-gradient(
+            rgb(var(--tf-neon-cyan) / 0.35),
+            rgb(var(--tf-neon-cyan) / 0.35)
+        )
+        100% calc(100% - var(--panel-cut) - var(--panel-tick)) / 1px
+            var(--panel-tick) no-repeat;
 }
 /* Task column scroll area: fully hide native scrollbars but keep scrolling functional */
 .task-scroll {
@@ -113,7 +503,7 @@ html {
     justify-content: center;
     gap: 0.5rem;
     padding: 0.75rem 1.75rem;
-    font-family: var(--font-mono, ui-monospace, monospace);
+    font-family: var(--font-display);
     font-size: 0.875rem;
     font-weight: 600;
     letter-spacing: 1.5px;
@@ -128,9 +518,9 @@ html {
 }
 
     .btn-neon:hover {
-        background: rgba(0, 249, 255, 0.1);
+        background: rgb(var(--tf-neon-cyan) / 0.1);
         color: white;
-        box-shadow: 0 0 15px rgba(0, 249, 255, 0.5), 0 0 30px rgba(0, 249, 255, 0.2);
+        box-shadow: 0 0 15px rgb(var(--tf-neon-cyan) / 0.5), 0 0 30px rgb(var(--tf-neon-cyan) / 0.2);
         border-color: var(--neon-cyan);
         transform: translateY(-1px);
     }
@@ -141,23 +531,23 @@ html {
 }
 
     .btn-neon-magenta:hover {
-        background: rgba(192, 38, 211, 0.1);
-        box-shadow: 0 0 15px rgba(192, 38, 211, 0.5), 0 0 30px rgba(192, 38, 211, 0.2);
+        background: rgb(var(--tf-neon-magenta) / 0.1);
+        box-shadow: 0 0 15px rgb(var(--tf-neon-magenta) / 0.5), 0 0 30px rgb(var(--tf-neon-magenta) / 0.2);
         border-color: var(--neon-magenta);
     }
 
-/* Primary CTA - stronger glow */
+/* Primary CTA - stronger glow (gradient ends differ by theme) */
 .btn-primary {
-    background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple));
+    background: linear-gradient(90deg, var(--tf-gradient-from), var(--tf-gradient-to));
     border: none;
-    color: #05050a;
+    color: rgb(var(--tf-cyber-bg));
     font-weight: 700;
-    box-shadow: 0 0 20px rgba(0, 249, 255, 0.4);
+    box-shadow: 0 0 20px rgb(var(--tf-glow-rgb) / 0.4);
 }
 
     .btn-primary:hover {
         filter: brightness(1.1);
-        box-shadow: 0 0 30px rgba(0, 249, 255, 0.6);
+        box-shadow: 0 0 30px rgb(var(--tf-glow-rgb) / 0.6);
         transform: translateY(-2px) scale(1.01);
     }
 
@@ -169,9 +559,10 @@ html {
     display: block;
     width: fit-content;
     max-width: 100%;
-    font-family: var(--font-mono, monospace);
+    font-family: var(--font-display);
     font-size: 0.875rem;
-    letter-spacing: 3px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
     color: var(--neon-cyan);
     margin-bottom: 1rem;
@@ -184,17 +575,19 @@ html {
         left: 0;
         width: 60px;
         height: 2px;
+        /* Original accent: cyan → magenta (not gold) */
         background: linear-gradient(to right, var(--neon-cyan), var(--neon-magenta));
     }
 
-/* Status / Terminal style labels */
+/* Status / HUD style labels */
 .status-bar {
-    font-family: var(--font-mono, monospace);
+    font-family: var(--font-display);
     font-size: 0.75rem;
-    letter-spacing: 2px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
     padding: 0.35rem 0.9rem;
-    background: rgba(0, 249, 255, 0.08);
-    border: 1px solid rgba(0, 249, 255, 0.2);
+    background: rgb(var(--tf-neon-cyan) / 0.08);
+    border: 1px solid rgb(var(--tf-neon-cyan) / 0.2);
     color: var(--neon-cyan);
     display: inline-flex;
     align-items: center;
@@ -223,9 +616,9 @@ html {
 
 /* Navbar glass */
 .navbar {
-    background: rgba(5, 5, 10, 0.95);
+    background: rgb(var(--tf-cyber-bg) / 0.95);
     backdrop-filter: blur(16px);
-    border-bottom: 1px solid rgba(0, 249, 255, 0.1);
+    border-bottom: 1px solid rgb(var(--tf-neon-cyan) / 0.1);
 }
 
 /* Mobile menu */
@@ -273,14 +666,397 @@ html {
     scroll-behavior: smooth;
 }
 
+/* ============================================
+   HOME - Tier 1 Exploration: Dark Future Atmospheric Forge
+   Metallic TF emblem + ember/gold workshop energy.
+   ============================================ */
+.home-page {
+    --home-ember: radial-gradient(
+        ellipse 80% 55% at 50% 28%,
+        rgb(var(--tf-forge-gold) / 0.14) 0%,
+        rgb(var(--tf-forge-gold) / 0.04) 35%,
+        transparent 62%
+      );
+    --home-forge-depth: radial-gradient(
+        ellipse 100% 80% at 50% 100%,
+        rgb(var(--tf-cyber-surface) / 0.9) 0%,
+        transparent 55%
+      );
+}
+
+/* -- Hero: cinematic, image-led -- */
+.home-page .home-hero {
+    background-color: rgb(3 3 8);
+    isolation: isolate;
+}
+
+/* Let the hero background image lead; quiet the grid */
+.home-page .home-hero .cyber-grid {
+    opacity: 0.06;
+    animation: none;
+}
+
+/* Slightly lighter scrim so the art reads through more under Forge */
+.home-page .home-hero-bg-scrim {
+    background: linear-gradient(
+      to bottom,
+      rgb(var(--tf-cyber-bg) / 0.45) 0%,
+      rgb(var(--tf-cyber-bg) / 0.55) 45%,
+      rgb(var(--tf-cyber-bg) / 0.78) 100%
+    );
+}
+
+.home-page .home-hero-bg-img {
+    filter: saturate(1.05) contrast(1.04);
+}
+
+.home-page .home-hero-atmosphere {
+    background-image: var(--home-ember), var(--home-forge-depth);
+    opacity: 0.85;
+    mix-blend-mode: soft-light;
+}
+
+.home-page .home-hero-vignette {
+    background: radial-gradient(
+      ellipse 80% 75% at 50% 38%,
+      transparent 0%,
+      rgb(var(--tf-cyber-bg) / 0.35) 65%,
+      rgb(var(--tf-cyber-bg) / 0.82) 100%
+    );
+}
+
+/* Logo: metallic focal + ember spark glow */
+.home-page .home-hero-logo-wrap {
+    filter: drop-shadow(0 0 28px rgb(var(--tf-forge-gold) / 0.35))
+      drop-shadow(0 12px 40px rgb(0 0 0 / 0.65));
+}
+
+.home-page .home-hero-logo-ember {
+    background: radial-gradient(
+      circle,
+      rgb(var(--tf-forge-gold) / 0.45) 0%,
+      rgb(var(--tf-forge-gold) / 0.12) 40%,
+      transparent 70%
+    );
+    animation: home-ember-pulse 5s ease-in-out infinite;
+}
+
+@keyframes home-ember-pulse {
+    0%,
+    100% {
+        opacity: 0.75;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.06);
+    }
+}
+
+.home-page .home-hero-title {
+    letter-spacing: -0.03em;
+    font-weight: 700;
+}
+
+/* Heading accents stay purple (not gold - gold is recognition only) */
+.home-page .home-hero-title .home-hero-accent {
+    color: rgb(var(--tf-neon-purple));
+    text-shadow:
+      0 0 2px rgb(var(--tf-neon-purple) / 0.55),
+      0 0 28px rgb(var(--tf-neon-purple) / 0.25);
+}
+
+.home-page .home-hero .neon-magenta {
+    color: rgb(var(--tf-neon-magenta));
+    text-shadow:
+      0 0 3px rgb(var(--tf-neon-magenta) / 0.55),
+      0 0 16px rgb(var(--tf-neon-magenta) / 0.28);
+}
+
+.home-page .home-hero-status {
+    border-color: rgb(var(--tf-neon-cyan) / 0.4);
+    background: rgb(var(--tf-cyber-bg) / 0.65);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 0 20px rgb(var(--tf-neon-cyan) / 0.1);
+}
+
+.home-page .home-hero-cta-primary {
+    box-shadow:
+      0 0 0 1px rgb(var(--tf-neon-cyan) / 0.55),
+      0 0 32px rgb(var(--tf-neon-cyan) / 0.32),
+      0 16px 48px rgb(0 0 0 / 0.5);
+    transform: translateZ(0);
+}
+
+.home-page .home-hero-cta-primary:hover {
+    box-shadow:
+      0 0 0 1px rgb(var(--tf-neon-cyan) / 0.7),
+      0 0 40px rgb(var(--tf-neon-cyan) / 0.4),
+      0 16px 48px rgb(0 0 0 / 0.55);
+}
+
+/* Quieter working-style sections under the hero */
+.home-page .home-section-quiet {
+    background: rgb(var(--tf-cyber-surface) / 0.96);
+}
+
+.home-page .home-section-quiet .section-header {
+    opacity: 0.85;
+    letter-spacing: 0.2em;
+}
+
+/* Value cards: clean dark panels - frame treatment from .cyber-card only */
+.home-page .home-value-card {
+    background-color: rgb(var(--tf-cyber-card) / 0.8);
+    backdrop-filter: none;
+}
+
+/* Non-clickable: stay still; no interior recolor on hover */
+.home-page .home-value-card:hover {
+    transform: none;
+    filter: none;
+}
+
+.home-page .home-value-card--featured::before {
+    background: linear-gradient(
+        135deg,
+        rgb(var(--tf-forge-gold) / 0.45) 0%,
+        rgb(var(--tf-cyber-border) / 0.95) 28%,
+        rgb(var(--tf-cyber-border) / 0.9) 72%,
+        rgb(var(--tf-neon-purple) / 0.3) 100%
+    );
+}
+
+/* Projects: featured frame weight; supporting cards stay clean & scannable */
+.home-page .home-project-featured {
+    filter: drop-shadow(0 18px 40px rgb(0 0 0 / 0.45));
+}
+
+.home-page .home-project-card {
+    background-color: rgb(var(--tf-cyber-card) / 0.8);
+    backdrop-filter: none;
+}
+
+/* Stats & activity: utility-quiet, no movement */
+.home-page .home-stat {
+    background-color: rgb(var(--tf-cyber-card) / 0.75);
+    backdrop-filter: none;
+}
+
+.home-page .home-activity-panel {
+    background-color: rgb(var(--tf-cyber-card) / 0.8);
+    backdrop-filter: none;
+}
+
+.home-page .home-promo-panel {
+    background-color: rgb(var(--tf-cyber-card) / 0.85);
+    backdrop-filter: none;
+}
+
+.home-page .home-promo-panel::before {
+    background: linear-gradient(
+        135deg,
+        rgb(var(--tf-neon-cyan) / 0.5) 0%,
+        rgb(var(--tf-cyber-border) / 0.95) 30%,
+        rgb(var(--tf-cyber-border) / 0.9) 70%,
+        rgb(var(--tf-neon-purple) / 0.35) 100%
+    );
+}
+
+/* Closing CTA: sparse forge hearth */
+.home-page .home-closing {
+    background-color: rgb(3 3 8);
+    background-image:
+      radial-gradient(
+        ellipse 55% 45% at 50% 85%,
+        rgb(var(--tf-semantic-achievement) / 0.1) 0%,
+        transparent 55%
+      ),
+      radial-gradient(
+        ellipse 40% 35% at 50% 40%,
+        rgb(var(--tf-neon-cyan) / 0.04) 0%,
+        transparent 60%
+      );
+}
+
+.home-page .home-closing-accent {
+    color: rgb(var(--tf-neon-purple));
+    text-shadow: 0 0 20px rgb(var(--tf-neon-purple) / 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .home-page .home-hero-logo-ember {
+        animation: none;
+    }
+}
+
+/* ============================================================
+   Transparency cyber dashboard - gauges, HUD bars
+   ============================================================ */
+.tf-gauge-ring {
+    transition: stroke-dashoffset 0.7s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.tf-hud-bar-track {
+    clip-path: polygon(
+        4px 0,
+        calc(100% - 4px) 0,
+        100% 50%,
+        calc(100% - 4px) 100%,
+        4px 100%,
+        0 50%
+    );
+}
+
+/* ============================================================
+   Scroll progress (Home / long pages) - thin top rail
+   ============================================================ */
+.tf-scroll-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    height: 2px;
+    pointer-events: none;
+    background: rgb(var(--tf-cyber-border) / 0.35);
+}
+
+.tf-scroll-progress-fill {
+    height: 100%;
+    width: 100%;
+    transform-origin: left center;
+    transform: scaleX(0);
+    will-change: transform;
+    background: linear-gradient(
+        90deg,
+        rgb(var(--tf-neon-cyan) / 0.5) 0%,
+        rgb(var(--tf-forge-gold) / 0.85) 100%
+    );
+    box-shadow: 0 0 8px rgb(var(--tf-forge-gold) / 0.18);
+    transition: none;
+}
+
+/* Quiet section-end cue - restrained handoff, not a CTA */
+.tf-section-continue {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 1.25rem 0 0.25rem;
+    pointer-events: none;
+    opacity: 0.45;
+}
+
+.tf-section-continue-line {
+    width: min(8rem, 40vw);
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgb(var(--tf-neon-cyan) / 0.35) 30%,
+        rgb(var(--tf-neon-purple) / 0.3) 70%,
+        transparent 100%
+    );
+    clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 100%, 0 100%);
+}
+
+.tf-section-continue-mark {
+    width: 5px;
+    height: 5px;
+    border: 1px solid rgb(var(--tf-neon-cyan) / 0.4);
+    transform: rotate(45deg);
+    background: rgb(var(--tf-cyber-bg) / 0.5);
+}
+
+/* ============================================================
+   Branded forge loader - angular progress (no circular spinner)
+   ============================================================ */
+.tf-loader-track {
+    position: relative;
+    /* Chamfered ends via clip-path */
+    clip-path: polygon(
+        6px 0,
+        calc(100% - 6px) 0,
+        100% 50%,
+        calc(100% - 6px) 100%,
+        6px 100%,
+        0 50%
+    );
+    background: rgb(var(--tf-cyber-border) / 0.85);
+    overflow: hidden;
+    box-shadow:
+        inset 0 0 0 1px rgb(var(--tf-neon-cyan) / 0.2),
+        0 0 12px rgb(var(--tf-neon-cyan) / 0.12);
+}
+
+.tf-loader-fill {
+    position: absolute;
+    inset: 0;
+    width: 42%;
+    background: linear-gradient(
+        90deg,
+        rgb(var(--tf-neon-cyan) / 0.35) 0%,
+        rgb(var(--tf-neon-cyan) / 0.95) 45%,
+        rgb(var(--tf-forge-gold) / 0.85) 100%
+    );
+    animation: tf-loader-scan 1.35s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+.tf-loader-sheen {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgb(255 255 255 / 0.18) 50%,
+        transparent 100%
+    );
+    width: 35%;
+    animation: tf-loader-sheen 1.35s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes tf-loader-scan {
+    0% {
+        transform: translateX(-110%);
+    }
+    100% {
+        transform: translateX(280%);
+    }
+}
+
+@keyframes tf-loader-sheen {
+    0% {
+        transform: translateX(-120%);
+        opacity: 0;
+    }
+    30% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateX(320%);
+        opacity: 0;
+    }
+}
+
 /* Reduce motion preference */
 @media (prefers-reduced-motion: reduce) {
     .cyber-grid,
     .scanline-overlay,
     .btn-neon,
-    .cyber-card {
+    .cyber-card,
+    .tf-loader-fill,
+    .tf-loader-sheen {
         animation: none !important;
         transition: none !important;
+    }
+
+    .tf-loader-fill {
+        width: 55%;
+        left: 22%;
+        transform: none;
+        opacity: 0.85;
     }
 }
 

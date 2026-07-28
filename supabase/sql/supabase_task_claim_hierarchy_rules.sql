@@ -1,5 +1,5 @@
 -- =============================================================================
--- Together Forge — Claim rules for hierarchical tasks
+-- Together Forge - Claim rules for hierarchical tasks
 -- Run AFTER: supabase_tasks_schema.sql, supabase_claim_anti_hoarding.sql,
 --            supabase_task_hierarchy.sql
 -- Safe to re-run

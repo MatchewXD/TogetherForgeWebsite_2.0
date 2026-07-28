@@ -1,4 +1,4 @@
--- Together Forge — Ideas guided wizard + workflow status
+-- Together Forge - Ideas guided wizard + workflow status
 -- Run this in the Supabase SQL Editor (idempotent).
 -- Do NOT auto-run from the app.
 

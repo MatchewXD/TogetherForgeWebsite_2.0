@@ -210,7 +210,7 @@ export function mapTaskRow(row) {
       progressPercent = claim.progress_percent ?? 0;
     }
   } else if (checklistProgress != null) {
-    // Unclaimed but checklist exists — still useful on cards at 0%+
+    // Unclaimed but checklist exists - still useful on cards at 0%+
     progressPercent = checklistProgress;
   }
 
@@ -668,7 +668,7 @@ export const tasksService = {
         initials: initialsFromName(name),
         avatarUrl,
         avatar_url: avatarUrl,
-        note: `Shipped “${row.target_title || 'a task'}” — thanks for moving the forge forward!`,
+        note: `Shipped “${row.target_title || 'a task'}” - thanks for moving the forge forward!`,
         role: 'Contributor',
         time: relativeTime(row.created_at),
       };

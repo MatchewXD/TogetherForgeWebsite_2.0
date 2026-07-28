@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { dismissBootLoader } from './lib/bootLoader';
 import Navbar from './components/Navbar';
 import ScrollToTop from './components/ScrollToTop';
 import HomePage from './pages/HomePage';
@@ -34,9 +36,15 @@ import ProjectsEarlyEdit from './pages/ProjectsEarlyEdit';
 import ProjectWorkspace from './pages/ProjectWorkspace';
 import ModeratorDashboard from './pages/ModeratorDashboard';
 import MechanicLab from './pages/MechanicLab';
+import NotFound from './pages/NotFound';
 import Footer from './components/layout/Footer';
 
 function App() {
+    // Handoff: hide pre-React boot loader once the app shell has mounted
+    useEffect(() => {
+        dismissBootLoader();
+    }, []);
+
     return (
         <Router>
             <ScrollToTop />
@@ -61,7 +69,7 @@ function App() {
                         <Route path="/projects/early/edit" element={<ProjectsEarlyEdit />} />
                         <Route path="/projects/mid" element={<ProjectsMid />} />
                         <Route path="/projects/late" element={<ProjectsLate />} />
-                        {/* Generic workspace — after static phase routes so early/mid/late are not captured */}
+                        {/* Generic workspace - after static phase routes so early/mid/late are not captured */}
                         <Route path="/projects/:id" element={<ProjectWorkspace />} />
                         <Route path="/get-involved" element={<GetInvolved />} />
                         <Route path="/demos" element={<MechanicLab />} />
@@ -89,6 +97,8 @@ function App() {
                         <Route path="/u/:username" element={<PublicProfile />} />
                         <Route path="/profile/:username" element={<PublicProfile />} />
                         <Route path="/confirm-email" element={<EmailConfirmation />} />
+                        {/* Unknown routes */}
+                        <Route path="*" element={<NotFound />} />
                     </Routes>
                 </main>
                 <Footer />

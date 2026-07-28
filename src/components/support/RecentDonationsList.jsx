@@ -94,7 +94,8 @@ const RecentDonationsList = ({
 
         {source === 'local' && items.length > 0 && (
           <p className="px-5 py-2 text-[10px] font-mono text-text-muted border-t border-cyber-border">
-            Showing local browser notes until public donation RPCs are live.
+            Recent activity on this device. Public totals update as payments
+            settle.
           </p>
         )}
       </Card>

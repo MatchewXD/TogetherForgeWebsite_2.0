@@ -607,7 +607,7 @@ export const ideasService = {
       if (!stripped) break;
 
       console.warn(
-        `[ideasService.createIdea] column "${stripped}" missing — retrying without it. Run supabase/sql/supabase_ideas_guided.sql`
+        `[ideasService.createIdea] column "${stripped}" missing - retrying without it. Run supabase/sql/supabase_ideas_guided.sql`
       );
       if (stripped === 'project_id') meta._project_id_not_persisted = true;
       if (stripped === 'guided_data') meta._guided_data_not_persisted = true;
@@ -666,7 +666,7 @@ export const ideasService = {
   },
 
   // -------------------------------------------------------------------------
-  // VOTES — simple insert / delete + recount (no RPC)
+  // VOTES - simple insert / delete + recount (no RPC)
   // Requires supabase/sql/supabase_votes_rls.sql (SELECT + DELETE policies, unique index).
   // -------------------------------------------------------------------------
 
@@ -796,7 +796,7 @@ export const ideasService = {
           insError.code === '23505' ||
           /duplicate|unique/i.test(insError.message || '')
         ) {
-          console.warn('[votes] insert duplicate — already voted');
+          console.warn('[votes] insert duplicate - already voted');
         } else {
           console.error('[votes] insert failed', insError);
           throw insError;
@@ -824,7 +824,7 @@ export const ideasService = {
     return result;
   },
 
-  /** @deprecated use toggleVote — kept for call sites during transition */
+  /** @deprecated use toggleVote - kept for call sites during transition */
   async toggleVoteAndSync(ideaId, userId) {
     return this.toggleVote(ideaId, userId);
   },

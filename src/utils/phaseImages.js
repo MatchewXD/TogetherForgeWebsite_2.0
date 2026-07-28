@@ -29,7 +29,7 @@ export function phaseImageSrc(phase) {
  */
 export function phaseImageAlt(phase, projectTitle = '') {
   const p = phase ? String(phase) : 'Studio';
-  if (projectTitle) return `${projectTitle} — ${p} phase illustration`;
+  if (projectTitle) return `${projectTitle} - ${p} phase illustration`;
   return `${p} phase studio illustration`;
 }
 

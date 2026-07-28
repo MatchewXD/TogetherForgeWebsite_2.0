@@ -1,5 +1,5 @@
 /**
- * GameIdeas — global Ideas hub (SDD: community idea listing)
+ * GameIdeas - global Ideas hub (SDD: community idea listing)
  *
  * Features: search, category/tag/status filters, sort (newest / voted / discussed),
  * fire-vote, UserAvatar cards, pagination, empty/loading states, project feed.
@@ -10,7 +10,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Plus,
-  Loader2,
   Search,
   Sparkles,
   Lightbulb,
@@ -25,6 +24,7 @@ import IdeaCard from '../components/ui/IdeaCard';
 import Badge from '../components/ui/Badge';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Buttons';
+import LoadingScreen from '../components/ui/LoadingScreen';
 
 const CATEGORIES = [
   'Full Game Idea',
@@ -40,19 +40,20 @@ const CATEGORIES = [
   'Other',
 ];
 
-/** Status filter options — values must match deriveIdeaStatus() */
+/** Status filter options - values must match deriveIdeaStatus() */
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All statuses' },
-  { value: 'Proposed', label: 'Proposed — new / under 5 votes' },
+  { value: 'Proposed', label: 'Proposed - new / under 5 votes' },
   { value: 'UnderReview', label: 'Under Review' },
-  { value: 'Promising', label: 'Promising — 5–14 votes' },
-  { value: 'Hot', label: 'Hot — 15+ votes' },
+  { value: 'Promising', label: 'Promising - 5–14 votes' },
+  { value: 'Hot', label: 'Hot - 15+ votes' },
   { value: 'Linked', label: 'Linked to project' },
   { value: 'Adopted', label: 'Adopted' },
   { value: 'Archived', label: 'Archived' },
 ];
 
 const PAGE_SIZE = 12;
+const IDEAS_BANNER_SRC = '/images/Ideas_Page_Background.webp';
 
 /** Normalize idea/vote ids so Set lookups are stable across number|string */
 function voteKey(id) {
@@ -572,75 +573,87 @@ const GameIdeas = () => {
     (searchTerm.trim() ? 1 : 0);
 
   return (
-    <div className="pt-20 min-h-screen bg-cyber-bg text-text-primary">
-      <div
-        className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,249,255,0.05)_0%,transparent_50%)]"
-        aria-hidden="true"
-      />
+    <div className="min-h-screen bg-cyber-bg text-text-primary">
+      {/* Page header banner */}
+      <header className="relative pt-20 overflow-hidden border-b border-cyber-border">
+        <div className="absolute inset-0" aria-hidden="true">
+          <img
+            src={IDEAS_BANNER_SRC}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover object-center"
+            decoding="async"
+            fetchPriority="high"
+          />
+          {/* Readability scrim - keeps title + controls legible */}
+          <div className="absolute inset-0 bg-gradient-to-b from-cyber-bg/75 via-cyber-bg/70 to-cyber-bg" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgb(var(--tf-neon-cyan)/0.08)_0%,transparent_55%)]" />
+        </div>
 
-      <div className="container-custom relative z-10 py-10 md:py-14">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
-          BACK TO HOME
-        </Link>
+        <div className="container-custom relative z-10 py-10 md:py-14">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
+            BACK TO HOME
+          </Link>
 
-        {/* Header */}
-        <header className="mb-10 md:mb-12 text-center max-w-3xl mx-auto">
-          <div className="section-header justify-center">Game Ideas</div>
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mt-2">
-            {feedMode === 'community'
-              ? 'Community idea forge'
-              : 'Project-linked ideas'}
-          </h1>
-          <p className="text-text-secondary mt-4 text-base sm:text-lg leading-relaxed">
-            {feedMode === 'community'
-              ? 'Browse every community pitch. Vote, discuss, and spark the next build. Project leads can adopt ideas into workspaces.'
-              : 'Ideas tied to Together Forge projects. Pick a project or browse everything already linked.'}
-          </p>
+          <div className="text-center max-w-3xl mx-auto">
+            <div className="section-header justify-center">Game Ideas</div>
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mt-2 drop-shadow-sm">
+              {feedMode === 'community'
+                ? 'Community idea forge'
+                : 'Project-linked ideas'}
+            </h1>
+            <p className="text-text-secondary mt-4 text-base sm:text-lg leading-relaxed">
+              {feedMode === 'community'
+                ? 'Browse every community pitch. Vote, discuss, and spark the next build. Project leads can adopt ideas into workspaces.'
+                : 'Ideas tied to Together Forge projects. Pick a project or browse everything already linked.'}
+            </p>
 
-          {/* Feed toggle + CTA */}
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <div className="inline-flex items-center bg-cyber-surface border border-cyber-border rounded-lg p-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setFeedMode('community');
-                  setSelectedProject(null);
-                }}
-                className={`px-4 py-2 text-sm rounded-md transition-colors ${
-                  feedMode === 'community'
-                    ? 'bg-neon-cyan text-cyber-bg font-medium'
-                    : 'text-text-secondary hover:text-white'
-                }`}
+            {/* Feed toggle + CTA */}
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <div className="inline-flex items-center bg-cyber-surface/90 backdrop-blur-sm border border-cyber-border rounded-lg p-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFeedMode('community');
+                    setSelectedProject(null);
+                  }}
+                  className={`px-4 py-2 text-sm rounded-md transition-colors ${
+                    feedMode === 'community'
+                      ? 'bg-neon-cyan text-cyber-bg font-medium'
+                      : 'text-text-secondary hover:text-white'
+                  }`}
+                >
+                  Community
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFeedMode('together')}
+                  className={`px-4 py-2 text-sm rounded-md transition-colors ${
+                    feedMode === 'together'
+                      ? 'bg-neon-cyan text-cyber-bg font-medium'
+                      : 'text-text-secondary hover:text-white'
+                  }`}
+                >
+                  Together Forge
+                </button>
+              </div>
+
+              <Link
+                to={submitHref}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-neon-cyan text-cyber-bg font-medium border border-neon-cyan shadow-neon-cyan hover:bg-cyan-400 transition-colors w-full sm:w-auto"
               >
-                Community
-              </button>
-              <button
-                type="button"
-                onClick={() => setFeedMode('together')}
-                className={`px-4 py-2 text-sm rounded-md transition-colors ${
-                  feedMode === 'together'
-                    ? 'bg-neon-cyan text-cyber-bg font-medium'
-                    : 'text-text-secondary hover:text-white'
-                }`}
-              >
-                Together Forge
-              </button>
+                <Sparkles className="w-5 h-5" />
+                Submit an Idea
+              </Link>
             </div>
-
-            <Link
-              to={submitHref}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-neon-cyan text-cyber-bg font-medium border border-neon-cyan shadow-neon-cyan hover:bg-cyan-400 transition-colors w-full sm:w-auto"
-            >
-              <Sparkles className="w-5 h-5" />
-              Submit an Idea
-            </Link>
           </div>
-        </header>
+        </div>
+      </header>
 
+      <div className="container-custom relative z-10 py-8 md:py-10">
         {message && (
           <div
             role="status"
@@ -975,21 +988,19 @@ const GameIdeas = () => {
           </div>
         )}
 
-        {/* Listing — card grid (IdeaCard mirrors ProjectCard cyber styling) */}
+        {/* Listing - card grid (IdeaCard mirrors ProjectCard cyber styling) */}
         <div className="max-w-5xl mx-auto">
           {loading ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-20 text-text-secondary">
-              <Loader2 className="w-8 h-8 animate-spin text-neon-cyan" />
-              <p className="text-sm font-mono tracking-widest">
-                Loading the forge…
-              </p>
-            </div>
+            <LoadingScreen
+              variant="section"
+              message="Loading the forge…"
+            />
           ) : filteredIdeas.length === 0 ? (
             <Card className="bg-cyber-card/80 border-neon-cyan/20 text-center py-12 px-6 max-w-3xl mx-auto">
               <Lightbulb className="w-10 h-10 text-neon-cyan mx-auto mb-4 opacity-80" />
               <h2 className="text-xl font-semibold text-white mb-2">
                 {allIdeas.length === 0
-                  ? 'No ideas yet — spark the first one'
+                  ? 'No ideas yet - spark the first one'
                   : 'No ideas match your filters'}
               </h2>
               <p className="text-sm text-text-secondary mb-6 max-w-md mx-auto">

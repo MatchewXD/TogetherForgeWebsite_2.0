@@ -1,5 +1,5 @@
 -- =============================================================================
--- Together Forge — Task hierarchy (Epic → Medium → Small)
+-- Together Forge - Task hierarchy (Epic → Medium → Small)
 -- Run after supabase_tasks_schema.sql
 -- Safe to re-run
 -- =============================================================================

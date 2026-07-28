@@ -179,7 +179,7 @@ const MechanicLab = () => {
           <div className="max-w-3xl">
             <div className="flex flex-wrap items-center gap-3 mb-4">
               <div className="section-header mb-0">Mechanic Lab</div>
-              <Badge variant="neon">Informational MVP</Badge>
+              <Badge variant="neon">Open lab</Badge>
             </div>
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-4">
               Mechanic Lab: Test, Share, Forge Mechanics Together
@@ -272,11 +272,11 @@ const MechanicLab = () => {
                 Current mechanics in focus
               </h2>
               <p className="text-text-secondary mt-2 text-sm sm:text-base">
-                Static cards for now. Learn more and vote through the Ideas
-                board. Playable embeds arrive in a later phase.
+                Explore the mechanics in focus, then vote and discuss on the
+                Ideas board. Playable demos expand as the lab grows.
               </p>
             </div>
-            <Badge variant="default">MVP placeholders</Badge>
+            <Badge variant="default">In focus</Badge>
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4 md:gap-5">

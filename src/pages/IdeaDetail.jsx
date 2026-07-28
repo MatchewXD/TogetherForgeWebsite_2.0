@@ -1,5 +1,5 @@
 /**
- * IdeaDetail — single idea page
+ * IdeaDetail - single idea page
  * - Workflow status badges (Proposed / Under Review / Adopted / Archived)
  * - Idea upvoting (fire)
  * - guided_data + legacy structured fields
@@ -22,6 +22,7 @@ import ProfileLink from '../components/ui/ProfileLink';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
 import Card from '../components/ui/Card';
+import LoadingScreen from '../components/ui/LoadingScreen';
 import { ideasService } from '../services/ideasService';
 import { tasksService } from '../services/tasksService';
 import {
@@ -409,8 +410,8 @@ const IdeaDetail = () => {
 
   if (loading) {
     return (
-      <div className="pt-20 min-h-screen flex items-center justify-center text-text-secondary">
-        Loading idea...
+      <div className="pt-20 min-h-screen bg-cyber-bg">
+        <LoadingScreen variant="section" message="Loading idea…" />
       </div>
     );
   }

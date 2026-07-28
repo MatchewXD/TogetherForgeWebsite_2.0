@@ -39,7 +39,7 @@ const ProjectsLate = () => {
 
                 <div className="mb-8">
                     <div className="section-header">LATE GAME</div>
-                    <h1 className="text-4xl font-bold tracking-tight text-white">Late Game — Phase Overview</h1>
+                    <h1 className="text-4xl font-bold tracking-tight text-white">Late Game - Phase Overview</h1>
                     <p className="text-text-secondary mt-4 max-w-3xl">Late Game focuses on polish, optimization, and scaling to larger audiences. This includes matchmaking, server scaling, and wide playtests. Projects here will be chosen based on progress in earlier phases and community priorities.</p>
                 </div>
 

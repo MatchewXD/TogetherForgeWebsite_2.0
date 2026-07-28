@@ -208,7 +208,7 @@ const SupportPage = () => {
         text: 'Thank you! Your payment was successful. We really appreciate your support',
       });
 
-      // Webhook may lag a few seconds — poll for updated totals
+      // Webhook may lag a few seconds - poll for updated totals
       let cancelled = false;
       (async () => {
         await loadSocialProof({ quiet: true });
@@ -356,7 +356,7 @@ const SupportPage = () => {
               Choose a level
             </h2>
 
-            {/* Billing interval toggle — high-contrast so it is hard to miss */}
+            {/* Billing interval toggle - high-contrast so it is hard to miss */}
             <div className="self-start sm:self-auto">
               <p className="text-[10px] font-mono tracking-widest uppercase text-neon-cyan mb-1.5 text-left sm:text-right">
                 Billing type
@@ -396,8 +396,8 @@ const SupportPage = () => {
 
           {!stripeReady && (
             <p className="text-xs font-mono text-text-muted mb-4 tracking-wide">
-              Stripe checkout URLs are not set in this environment. CTAs still
-              work; you will see a setup message until env vars are configured.
+              Online checkout is temporarily unavailable. Please try again
+              later, or reach out through Contact if you need help.
             </p>
           )}
 

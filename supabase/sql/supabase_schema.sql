@@ -156,7 +156,7 @@ create policy "Public can read ideas" on ideas for select using (true);
 drop policy if exists "Public can read comments" on comments;
 create policy "Public can read comments" on comments for select using (true);
 
--- Allow anyone to submit ideas (public insert) — replace later with auth-only
+-- Allow anyone to submit ideas (public insert) - replace later with auth-only
 drop policy if exists "Anyone can submit ideas" on ideas;
 create policy "Anyone can submit ideas" on ideas for insert with check (true);
 
@@ -205,7 +205,7 @@ for insert with check (auth.uid() = user_id);
 -- =============================================================================
 -- TASK BOARD (projects, tasks, task_claims, activity_log)
 -- Full script (tables + RLS + RPCs + seed): run supabase/sql/supabase_tasks_schema.sql
--- in the Supabase SQL Editor. Do not skip — the Project Workspace depends on it.
+-- in the Supabase SQL Editor. Do not skip - the Project Workspace depends on it.
 -- =============================================================================
 
 -- Ideas ↔ project linking (Project Workspace Project Ideas section)

@@ -79,11 +79,11 @@ Use **Test mode** while developing.
 ## 6. Local testing with Stripe CLI
 
 ```bash
-# Terminal A — local Supabase + function
+# Terminal A - local Supabase + function
 supabase start
 supabase functions serve stripe-webhook --env-file supabase/.env --no-verify-jwt
 
-# Terminal B — forward Stripe events
+# Terminal B - forward Stripe events
 stripe listen --forward-to http://127.0.0.1:54321/functions/v1/stripe-webhook
 ```
 

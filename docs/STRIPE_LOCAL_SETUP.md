@@ -93,7 +93,7 @@ window.location = url  -->  Stripe hosted page  -->  success/cancel URLs
 If you do not want Edge Functions, a minimal Express route works the same way:
 
 ```js
-// server only — never import this into Vite
+// server only - never import this into Vite
 import Stripe from 'stripe';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 

@@ -1,10 +1,10 @@
 /**
- * Transparency Hub (SDD): legal/governance, financial summaries & reinvestment
+ * Transparency Hub: legal/governance, financial summaries & reinvestment
  * reports, roadmaps, volunteer credits, decision logs, State of the Forge,
- * Founders Thoughts. Placeholders until live ledgers connect.
+ * Founders Thoughts.
  */
 
-import { useMemo, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -23,16 +23,18 @@ import {
   Layers,
   Sparkles,
   FileText,
-  TrendingUp,
   RefreshCw,
-  Landmark,
 } from 'lucide-react';
 
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
 import UserAvatar from '../components/ui/UserAvatar';
-import { getPublicSupportSummary } from '../services/donationsService';
+import FinanceDashboard from '../components/transparency/FinanceDashboard';
+import {
+  getPublicSupportSummary,
+  getPublicRecentDonations,
+} from '../services/donationsService';
 
 const SECTIONS = [
   { id: 'governance', label: 'Governance' },
@@ -44,46 +46,15 @@ const SECTIONS = [
   { id: 'founders', label: 'Founders' },
 ];
 
-/** Planned reinvestment split (targets until period reports publish). */
-const FINANCIAL_TARGETS = {
-  reinvestPct: 0.6,
-  operationsPct: 0.25,
-  reservePct: 0.15,
-};
-
-/** Planned usage of studio support funds. Founder pay is not from support. */
-const USAGE_CATEGORIES = [
-  {
-    label: 'Project development and tools',
-    pct: 40,
-    desc: 'Engines, licenses, build pipelines, and software that ship games.',
-  },
-  {
-    label: 'Assets and creative production',
-    pct: 25,
-    desc: 'Art, audio, design assets, and production needs for active projects.',
-  },
-  {
-    label: 'Community infrastructure',
-    pct: 20,
-    desc: 'Site features, credit systems, moderation tools, volunteer systems.',
-  },
-  {
-    label: 'Studio operations and hosting',
-    pct: 15,
-    desc: 'Hosting, databases, test servers, taxes, and legitimate operating costs.',
-  },
-];
-
-/** Placeholder reinvestment reports (public, high-level). */
+/** Period reinvestment reports - expand as published. */
 const REINVESTMENT_REPORTS = [
   {
     id: 'r1',
     period: 'July 2026',
-    status: 'Placeholder',
+    status: 'Open',
     headline: 'First public reinvestment period',
     summary:
-      'Once support volume is meaningful, this card will list what was reinvested into projects, tools, and community systems versus held as operating reserve.',
+      'As studio support grows, this report will show what was put into projects, tools, and community systems versus held in reserve.',
     items: [
       { label: 'Reinvested into development', value: '$0' },
       { label: 'Operations and hosting', value: '$0' },
@@ -96,10 +67,10 @@ const REINVESTMENT_REPORTS = [
     status: 'Coming soon',
     headline: 'Historical reports',
     summary:
-      'Past months will stack here so anyone can audit the pattern over time. No silent rewrites of prior totals.',
+      'Earlier months will appear here so anyone can review the pattern over time. Prior totals stay public once published.',
     items: [
       { label: 'Reports published', value: '0' },
-      { label: 'Open questions', value: 'n/a' },
+      { label: 'Open questions', value: '0' },
     ],
   },
 ];
@@ -110,30 +81,39 @@ const ROADMAP = [
     title: 'Prototype Systems',
     phase: 'Early',
     status: 'In Development',
+    open: true,
     progress: 42,
+    progressLabel: 'Progress',
     href: '/projects/prototype-systems',
+    ctaLabel: 'Open workspace',
     summary:
-      'Core loop, networking, and claim/credit prototypes. Open volunteer tasks on the board.',
+      'Active focus: core loop, networking, and claim/credit prototypes. Open volunteer tasks on the board.',
   },
   {
     id: 'core-features',
     title: 'Core Features Sprint',
     phase: 'Mid',
     status: 'Planning',
-    progress: 18,
-    href: '/projects/core-features',
+    open: false,
+    progress: null,
+    progressLabel: 'Planned estimate',
+    href: '/projects/mid',
+    ctaLabel: 'View plans',
     summary:
-      'Cooperative systems design and early integrations. Public ownership of sprints.',
+      'Opens after Early is completed: cooperative systems design and integrations. Not open for claims yet.',
   },
   {
     id: 'polish-playtests',
     title: 'Stability and Polish',
     phase: 'Late',
     status: 'Vision',
-    progress: 5,
-    href: '/projects/polish-playtests',
+    open: false,
+    progress: null,
+    progressLabel: 'Planned estimate',
+    href: '/projects/late',
+    ctaLabel: 'View plans',
     summary:
-      'Playtests, polish passes, and hardening for release. Early task drafts welcome.',
+      'Opens only after Mid is completed: playtests, polish, and hardening. Not open for claims yet.',
   },
 ];
 
@@ -160,7 +140,7 @@ const DECISION_LOGS = [
     title: 'Support is not a charitable donation',
     tag: 'Legal',
     summary:
-      'Together Forge is a community-supported for-profit studio. Contributions are not tax-deductible. Stated clearly on Support and here.',
+      'Together Forge is a community-supported for-profit studio. Contributions are not tax-deductible. That is stated clearly on Support and here.',
   },
   {
     id: 'd4',
@@ -178,7 +158,7 @@ const STATE_UPDATES = [
     date: '2026-07-15',
     title: 'July: Transparency Hub, Founders Thoughts, and Support paths',
     highlight: true,
-    body: 'Public governance, placeholder financial summaries, project roadmaps, and Founders Thoughts are live. Studio Support and personal runway Support stay clearly separated so money trails stay honest.',
+    body: 'Public governance, financial summaries, project roadmaps, and Founders Thoughts are live. Studio Support and personal runway Support stay clearly separated so money trails stay clear.',
     links: [
       { label: 'Founders Thoughts', to: '/founders-thoughts' },
       { label: 'Studio Support', to: '/support' },
@@ -282,13 +262,6 @@ const phaseBadgeVariant = (phase) => {
   return 'neon';
 };
 
-const formatMoney = (n) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(n || 0);
-
 const formatDate = (iso, opts = { year: 'numeric', month: 'short', day: 'numeric' }) => {
   if (!iso) return '';
   return new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, opts);
@@ -299,42 +272,53 @@ const TransparencyHub = () => {
   const [supportSummary, setSupportSummary] = useState({
     studioTotalCents: 0,
     studioPaymentCount: 0,
+    studioMrrCents: 0,
     runwayTotalCents: 0,
     runwayPaymentCount: 0,
     source: 'empty',
     lastPaymentAt: null,
   });
+  const [recentSupport, setRecentSupport] = useState([]);
   const [financeLoading, setFinanceLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       setFinanceLoading(true);
-      const summary = await getPublicSupportSummary();
-      if (mounted) {
-        setSupportSummary(summary);
-        setFinanceLoading(false);
+      try {
+        const [summary, recent] = await Promise.all([
+          getPublicSupportSummary(),
+          getPublicRecentDonations(24),
+        ]);
+        if (!mounted) return;
+        setSupportSummary(
+          summary && typeof summary === 'object'
+            ? summary
+            : {
+                studioTotalCents: 0,
+                studioPaymentCount: 0,
+                source: 'empty',
+              }
+        );
+        setRecentSupport(Array.isArray(recent?.items) ? recent.items : []);
+      } catch (err) {
+        console.warn('[TransparencyHub] finance load failed', err);
+        if (mounted) {
+          setSupportSummary({
+            studioTotalCents: 0,
+            studioPaymentCount: 0,
+            source: 'empty',
+          });
+          setRecentSupport([]);
+        }
+      } finally {
+        if (mounted) setFinanceLoading(false);
       }
     })();
     return () => {
       mounted = false;
     };
   }, []);
-
-  const usageRows = useMemo(() => USAGE_CATEGORIES, []);
-  const displayTotal = (supportSummary.studioTotalCents || 0) / 100;
-  const paymentCount = supportSummary.studioPaymentCount || 0;
-  const reinvested =
-    displayTotal * FINANCIAL_TARGETS.reinvestPct;
-  const operations =
-    displayTotal * FINANCIAL_TARGETS.operationsPct;
-  const reserve = displayTotal * FINANCIAL_TARGETS.reservePct;
-  const financeNote =
-    supportSummary.source === 'supabase'
-      ? 'Studio support totals from anonymized Stripe records (no personal data).'
-      : supportSummary.source === 'local'
-        ? 'Showing local browser notes until Stripe webhooks write to the database. Not the public ledger of record.'
-        : 'No studio support recorded yet. Totals stay at $0 until the first completed checkout is recorded.';
 
   const scrollTo = (id) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -477,163 +461,55 @@ const TransparencyHub = () => {
           </div>
         </section>
 
-        {/* Financial summaries & reinvestment */}
+        {/* Financial cyber dashboard */}
         <section id="financials" aria-labelledby="financials-heading" className="scroll-mt-24">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
-            <div className="max-w-2xl">
-              <div className="section-header">Financial summaries</div>
-              <h2
-                id="financials-heading"
-                className="text-2xl sm:text-3xl font-bold text-white"
-              >
-                Public money trails
-              </h2>
-              <p className="text-text-secondary mt-2 text-sm sm:text-base">
-                Studio Support totals, planned usage, and reinvestment reports.
-                Placeholders until Stripe reporting is live. Personal runway is
-                tracked separately on{' '}
-                <Link to="/support-runway" className="text-neon-cyan hover:underline">
-                  Runway Support
-                </Link>
-                .
-              </p>
-            </div>
+          <div className="mb-4 flex justify-end">
             <Button
               variant="secondary"
-              className="gap-2 self-start sm:self-auto shrink-0"
+              size="sm"
+              className="gap-2"
               onClick={() => navigate('/support')}
             >
-              <Heart className="w-4 h-4" />
-              Studio Support
+              <Heart className="w-3.5 h-3.5" />
+              Support
             </Button>
           </div>
 
-          {/* Snapshot stats */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <Card className="bg-cyber-card/80 border-neon-cyan/20">
-              <div className="flex items-center gap-2 text-text-muted mb-2">
-                <Wallet className="w-4 h-4 text-neon-cyan" />
-                <span className="text-xs font-mono tracking-widest uppercase">
-                  Total support
-                </span>
-              </div>
-              <div className="text-3xl font-mono font-bold text-neon-cyan">
-                {financeLoading ? '…' : formatMoney(displayTotal)}
-              </div>
-              <p className="text-xs text-text-muted mt-2">
-                {paymentCount} anonymized payment
-                {paymentCount === 1 ? '' : 's'}
-                {supportSummary.source === 'supabase' && (
-                  <span className="text-neon-cyan"> · live</span>
-                )}
-              </p>
-            </Card>
-            <Card className="bg-cyber-card/80">
-              <div className="flex items-center gap-2 text-text-muted mb-2">
-                <RefreshCw className="w-4 h-4 text-neon-purple" />
-                <span className="text-xs font-mono tracking-widest uppercase">
-                  Reinvested (target)
-                </span>
-              </div>
-              <div className="text-3xl font-mono font-bold text-white">
-                {financeLoading ? '…' : formatMoney(reinvested)}
-              </div>
-              <p className="text-xs text-text-muted mt-2">
-                ~{Math.round(FINANCIAL_TARGETS.reinvestPct * 100)}% into projects
-              </p>
-            </Card>
-            <Card className="bg-cyber-card/80">
-              <div className="flex items-center gap-2 text-text-muted mb-2">
-                <Landmark className="w-4 h-4 text-neon-magenta" />
-                <span className="text-xs font-mono tracking-widest uppercase">
-                  Operations (target)
-                </span>
-              </div>
-              <div className="text-3xl font-mono font-bold text-white">
-                {financeLoading ? '…' : formatMoney(operations)}
-              </div>
-              <p className="text-xs text-text-muted mt-2">
-                ~{Math.round(FINANCIAL_TARGETS.operationsPct * 100)}% hosting and tools
-              </p>
-            </Card>
-            <Card className="bg-cyber-card/80">
-              <div className="flex items-center gap-2 text-text-muted mb-2">
-                <Shield className="w-4 h-4 text-neon-cyan" />
-                <span className="text-xs font-mono tracking-widest uppercase">
-                  Reserve (target)
-                </span>
-              </div>
-              <div className="text-3xl font-mono font-bold text-white">
-                {financeLoading ? '…' : formatMoney(reserve)}
-              </div>
-              <p className="text-xs text-text-muted mt-2">
-                ~{Math.round(FINANCIAL_TARGETS.reservePct * 100)}% stability buffer
-              </p>
-            </Card>
+          <div className="mb-8 max-w-2xl">
+            <div className="section-header" id="financials-heading">
+              Financial dashboard
+            </div>
+            <p className="text-text-secondary mt-2 text-sm sm:text-base">
+              What is available right now, what is reserved for taxes and
+              obligations, and how support has been received and used over
+              time. Personal runway stays separate on{' '}
+              <Link to="/support-runway" className="text-neon-cyan hover:underline">
+                Runway Support
+              </Link>
+              .
+            </p>
           </div>
 
-          <p className="text-xs font-mono text-text-muted mb-6">
-            {financeNote}
-            {supportSummary.runwayTotalCents > 0 && (
-              <>
-                {' '}
-                Founder runway (separate, personal) is tracked on{' '}
-                <Link
-                  to="/support-runway"
-                  className="text-neon-cyan hover:underline"
-                >
-                  Runway Support
-                </Link>
-                , not mixed into studio totals above.
-              </>
-            )}
-          </p>
+          <FinanceDashboard
+            summary={supportSummary}
+            recentItems={recentSupport}
+            loading={financeLoading}
+          />
 
-          <div className="grid lg:grid-cols-2 gap-4 md:gap-5 mb-6">
-            <Card className="bg-cyber-card/80">
-              <div className="flex items-center gap-2 text-text-muted mb-4">
-                <TrendingUp className="w-4 h-4 text-neon-purple" />
-                <span className="text-xs font-mono tracking-widest uppercase">
-                  Planned usage split
-                </span>
-              </div>
-              <p className="text-sm text-text-secondary mb-5 leading-relaxed">
-                Target allocation for studio Support. Founder pay is not in this
-                split.
-              </p>
-              <ul className="space-y-4">
-                {usageRows.map((row) => (
-                  <li key={row.label}>
-                    <div className="flex justify-between gap-3 text-sm mb-1.5">
-                      <span className="text-white font-medium">{row.label}</span>
-                      <span className="font-mono text-neon-cyan shrink-0">
-                        {row.pct}%
-                      </span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-cyber-surface border border-cyber-border overflow-hidden mb-1">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-neon-cyan/80 to-neon-purple/80"
-                        style={{ width: `${row.pct}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-text-muted">{row.desc}</p>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-1">
-                <RefreshCw className="w-4 h-4 text-neon-cyan" />
-                <h3 className="text-lg font-semibold text-white">
-                  Reinvestment reports
-                </h3>
-                <Badge variant="default">Placeholder</Badge>
-              </div>
+          {/* Period reinvestment reports */}
+          <div className="mt-8 space-y-4">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 text-neon-cyan" />
+              <h3 className="text-lg font-semibold text-white">
+                Reinvestment reports
+              </h3>
+              <Badge variant="default">Public</Badge>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
               {REINVESTMENT_REPORTS.map((report) => (
                 <Card key={report.id} className="bg-cyber-card/80">
                   <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <span className="text-xs font-mono tracking-widest text-text-muted uppercase">
+                    <span className="text-xs font-sans tracking-widest text-text-muted uppercase">
                       {report.period}
                     </span>
                     <Badge variant="default">{report.status}</Badge>
@@ -651,7 +527,9 @@ const TransparencyHub = () => {
                         className="flex justify-between gap-3 py-2 text-sm"
                       >
                         <span className="text-text-muted">{item.label}</span>
-                        <span className="font-mono text-neon-cyan">{item.value}</span>
+                        <span className="font-sans font-semibold tabular-nums text-neon-cyan">
+                          {item.value}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -659,42 +537,18 @@ const TransparencyHub = () => {
               ))}
             </div>
           </div>
-
-          <Card className="bg-cyber-surface/60 border-dashed">
-            <p className="text-xs text-text-muted leading-relaxed">
-              Disclaimer: Studio Support is not a charitable donation. Funds go
-              toward building projects and studio operations. Founder compensation
-              from the company comes only from future profits under the rules
-              above. See{' '}
-              <Link to="/support" className="text-neon-cyan hover:underline">
-                Support
-              </Link>{' '}
-              and{' '}
-              <Link
-                to="/founders-thoughts#founder-compensation"
-                className="text-neon-cyan hover:underline"
-              >
-                Founder Compensation
-              </Link>
-              .
-            </p>
-          </Card>
         </section>
 
         {/* Project roadmaps */}
         <section id="roadmap" aria-labelledby="roadmap-heading" className="scroll-mt-24">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
             <div className="max-w-2xl">
-              <div className="section-header">Project roadmaps</div>
-              <h2
-                id="roadmap-heading"
-                className="text-2xl sm:text-3xl font-bold text-white"
-              >
-                Progress you can open
-              </h2>
+              <div className="section-header" id="roadmap-heading">
+                Project roadmaps
+              </div>
               <p className="text-text-secondary mt-2 text-sm sm:text-base">
-                Each card links to a live workspace. Progress bars are estimates
-                until task metrics feed this view.
+                Early is the active focus with a live workspace. Mid and Late are
+                planned next steps - plans only, not open claim boards yet.
               </p>
             </div>
             <Button
@@ -708,46 +562,87 @@ const TransparencyHub = () => {
           </div>
 
           <div className="grid md:grid-cols-3 gap-4 md:gap-5">
-            {ROADMAP.map((project) => (
-              <Link
-                key={project.id}
-                to={project.href}
-                className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-cyber-bg rounded-xl"
-              >
-                <Card className="bg-cyber-card/80 h-full border-cyber-border group-hover:border-neon-cyan/50 group-hover:shadow-neon-glow transition-all">
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <Badge variant={phaseBadgeVariant(project.phase)}>
-                      {project.phase}
-                    </Badge>
-                    <span className="text-xs font-mono text-text-muted">
-                      {project.status}
+            {ROADMAP.map((project) => {
+              const isOpen = Boolean(project.open);
+              return (
+                <Link
+                  key={project.id}
+                  to={project.href}
+                  className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-cyber-bg h-full"
+                >
+                  <Card
+                    interactive
+                    variant={isOpen ? 'panel' : 'subtle'}
+                    className={`h-full flex flex-col ${
+                      isOpen
+                        ? 'border-neon-cyan/30'
+                        : ''
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant={phaseBadgeVariant(project.phase)}>
+                          {project.phase}
+                        </Badge>
+                        {!isOpen && (
+                          <Badge variant="default">Coming Soon</Badge>
+                        )}
+                      </div>
+                      <span className="text-xs font-sans tracking-widest text-text-muted uppercase shrink-0">
+                        {project.status}
+                      </span>
+                    </div>
+                    <h3
+                      className={`text-lg font-bold mb-2 transition-colors ${
+                        isOpen
+                          ? 'text-white group-hover:text-neon-cyan'
+                          : 'text-white group-hover:text-neon-purple'
+                      }`}
+                    >
+                      {project.title}
+                    </h3>
+                    <p className="text-sm text-text-secondary leading-relaxed mb-4 flex-1">
+                      {project.summary}
+                    </p>
+
+                    {isOpen && typeof project.progress === 'number' ? (
+                      <div className="mb-4">
+                        <div className="flex justify-between text-xs font-sans text-text-muted mb-1 tracking-wide">
+                          <span>{project.progressLabel || 'Progress'}</span>
+                          <span className="text-neon-cyan tabular-nums">
+                            {project.progress}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-cyber-surface border border-cyber-border overflow-hidden tf-hud-bar-track">
+                          <div
+                            className="h-full bg-neon-cyan/80"
+                            style={{ width: `${project.progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mb-4 text-xs font-sans tracking-wide text-text-muted">
+                        <span className="text-neon-purple/90">Planned phase</span>
+                        <span>
+                          {project.phase === 'Late'
+                            ? ' · after Mid is completed'
+                            : ' · after Early is completed'}
+                        </span>
+                      </div>
+                    )}
+
+                    <span
+                      className={`inline-flex items-center gap-1 text-xs font-sans font-semibold tracking-widest mt-auto ${
+                        isOpen ? 'text-neon-cyan' : 'text-text-muted'
+                      }`}
+                    >
+                      {project.ctaLabel}
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition" />
                     </span>
-                  </div>
-                  <h3 className="text-lg font-bold text-white group-hover:text-neon-cyan transition-colors mb-2">
-                    {project.title}
-                  </h3>
-                  <p className="text-sm text-text-secondary leading-relaxed mb-4">
-                    {project.summary}
-                  </p>
-                  <div className="mb-3">
-                    <div className="flex justify-between text-xs font-mono text-text-muted mb-1">
-                      <span>Progress</span>
-                      <span className="text-neon-cyan">{project.progress}%</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-cyber-surface border border-cyber-border overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-neon-cyan/80"
-                        style={{ width: `${project.progress}%` }}
-                      />
-                    </div>
-                  </div>
-                  <span className="inline-flex items-center gap-1 text-xs font-mono tracking-widest text-neon-cyan">
-                    Open workspace
-                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition" />
-                  </span>
-                </Card>
-              </Link>
-            ))}
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
 
           <div className="mt-5 flex flex-wrap gap-3 text-sm">
@@ -793,7 +688,6 @@ const TransparencyHub = () => {
                 <p className="text-text-secondary text-sm sm:text-base leading-relaxed mb-4">
                   People who ship work deserve public credit. This gallery grows
                   from task completions, shoutouts, and opt-in supporter names.
-                  Layout teaser below until live credit data connects.
                 </p>
                 <ul className="space-y-2 text-sm text-text-muted mb-6">
                   <li className="flex items-center gap-2">

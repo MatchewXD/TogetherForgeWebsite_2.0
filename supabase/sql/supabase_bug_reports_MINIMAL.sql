@@ -1,5 +1,5 @@
 -- =============================================================================
--- MINIMAL bug_reports setup — run this FIRST if full script failed
+-- MINIMAL bug_reports setup - run this FIRST if full script failed
 -- Supabase → project lbstantgrrrupzeasndg → SQL Editor → Run
 -- =============================================================================
 
@@ -104,5 +104,5 @@ end $$;
 -- 6) Reload API schema cache
 notify pgrst, 'reload schema';
 
--- 7) VERIFY — must print public.bug_reports (not null)
+-- 7) VERIFY - must print public.bug_reports (not null)
 select to_regclass('public.bug_reports') as bug_reports_table;

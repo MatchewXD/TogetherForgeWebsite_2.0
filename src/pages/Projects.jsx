@@ -1,5 +1,5 @@
 /**
- * Projects — clean directory of all Together Forge projects.
+ * Projects - clean directory of all Together Forge projects.
  * Each card links to Project Workspace at /projects/:id
  */
 
@@ -18,13 +18,14 @@ import Badge from '../components/ui/Badge';
 import { useIsModerator } from '../hooks/useIsModerator';
 import { phaseImageSrc, phaseImageAlt } from '../utils/phaseImages';
 
-/** Placeholder catalog — replace with Supabase later */
+/** Project directory catalog */
 const PROJECTS = [
   {
     id: 'prototype-systems',
     title: 'Prototype Systems',
     phase: 'Early',
     status: 'In Development',
+    open: true,
     description:
       'Core loop prototyping and networking tests. Volunteers for design, code, and art as we validate the multiplayer foundation and claim/credit flows.',
     icon: Hammer,
@@ -36,22 +37,24 @@ const PROJECTS = [
     title: 'Core Features Sprint',
     phase: 'Mid',
     status: 'Planning',
+    open: false,
     description:
-      'Design work and early integrations for systems that make cooperative play feel great. Focused sprints with clear ownership and public progress.',
+      'Opens after Early is completed: design and integrations for cooperative play. View plans - not open for claims yet.',
     icon: Users,
-    tasksOpen: 6,
-    volunteers: 4,
+    tasksOpen: null,
+    volunteers: null,
   },
   {
     id: 'polish-playtests',
     title: 'Stability & Polish',
     phase: 'Late',
     status: 'Vision',
+    open: false,
     description:
-      'Polish passes, optimization, and wider playtests. Help stress-test builds and report what breaks — or what delights.',
+      'Opens after Mid is completed: polish, optimization, and wider playtests. View plans - not open for claims yet.',
     icon: Zap,
-    tasksOpen: 3,
-    volunteers: 6,
+    tasksOpen: null,
+    volunteers: null,
   },
 ];
 
@@ -86,15 +89,15 @@ const Projects = () => {
         <header className="mb-12 md:mb-14 max-w-3xl">
           <div className="flex flex-wrap items-center gap-3 mb-4">
             <div className="section-header mb-0">Projects</div>
-            <Badge variant="neon">{PROJECTS.length} active</Badge>
+            <Badge variant="neon">Early focus</Badge>
           </div>
 
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-4">
             Forge directory
           </h1>
           <p className="text-text-secondary text-base sm:text-lg leading-relaxed">
-            Browse every community project. Open a workspace to claim tasks,
-            follow pulse metrics, and ship wins with the team.
+            Browse the pipeline. Early is open for claims and workspace work;
+            Mid and Late are planned next steps after earlier phases complete.
           </p>
 
           {isModerator && (
@@ -125,15 +128,26 @@ const Projects = () => {
             {PROJECTS.map((project) => {
               const Icon = project.icon;
               const coverSrc = phaseImageSrc(project.phase);
+              const isOpen = Boolean(project.open);
+              const href = isOpen
+                ? `/projects/${project.id}`
+                : project.phase === 'Mid'
+                  ? '/projects/mid'
+                  : project.phase === 'Late'
+                    ? '/projects/late'
+                    : `/projects/${project.id}`;
 
               return (
                 <Link
                   key={project.id}
-                  to={`/projects/${project.id}`}
-                  className="group block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-cyber-bg rounded-xl"
+                  to={href}
+                  className="group block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-cyber-bg"
                 >
-                  <Card className="h-full flex flex-col overflow-hidden p-0 bg-cyber-card/80 border-cyber-border group-hover:border-neon-cyan/50 group-hover:shadow-neon-glow transition-all duration-300">
-                    {/* Phase illustration */}
+                  <Card
+                    interactive
+                    variant={isOpen ? 'panel' : 'subtle'}
+                    className="h-full flex flex-col overflow-hidden p-0"
+                  >
                     <div className="relative h-40 sm:h-44 overflow-hidden border-b border-cyber-border bg-cyber-surface">
                       {coverSrc ? (
                         <img
@@ -152,44 +166,57 @@ const Projects = () => {
                         className="absolute inset-0 bg-gradient-to-t from-cyber-card via-cyber-card/20 to-transparent pointer-events-none"
                         aria-hidden="true"
                       />
-                      <div className="absolute top-3 right-3 flex flex-wrap justify-end gap-2 z-10">
-                        <Badge variant={phaseBadgeVariant(project.phase)}>
-                          {project.phase}
-                        </Badge>
+                      <div className="absolute top-3 left-3 right-3 flex flex-wrap justify-between gap-2 z-10">
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant={phaseBadgeVariant(project.phase)}>
+                            {project.phase}
+                          </Badge>
+                          {!isOpen && (
+                            <Badge variant="default">Coming Soon</Badge>
+                          )}
+                        </div>
                         <Badge variant="default">{project.status}</Badge>
                       </div>
                     </div>
 
                     <div className="p-6 flex flex-col flex-1">
-                    {/* Title + body */}
-                    <h3 className="text-xl font-bold text-white mb-2 group-hover:text-neon-cyan transition-colors">
-                      {project.title}
-                    </h3>
-                    <p className="text-sm text-text-secondary leading-relaxed flex-1 line-clamp-4 mb-6">
-                      {project.description}
-                    </p>
+                      <h3 className="text-xl font-bold text-white mb-2 group-hover:text-neon-cyan transition-colors">
+                        {project.title}
+                      </h3>
+                      <p className="text-sm text-text-secondary leading-relaxed flex-1 line-clamp-4 mb-6">
+                        {project.description}
+                      </p>
 
-                    {/* Meta footer */}
-                    <div className="pt-4 border-t border-cyber-border flex items-center justify-between gap-3">
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-mono text-text-muted">
-                        <span>
-                          <span className="text-neon-cyan">{project.tasksOpen}</span>{' '}
-                          open tasks
-                        </span>
-                        <span>
-                          <span className="text-neon-cyan">{project.volunteers}</span>{' '}
-                          active
+                      <div className="pt-4 border-t border-cyber-border flex items-center justify-between gap-3">
+                        {isOpen ? (
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-sans text-text-muted">
+                            <span>
+                              <span className="text-neon-cyan tabular-nums">
+                                {project.tasksOpen ?? 0}
+                              </span>{' '}
+                              open tasks
+                            </span>
+                            <span>
+                              <span className="text-neon-cyan tabular-nums">
+                                {project.volunteers ?? 0}
+                              </span>{' '}
+                              active
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs font-sans text-text-muted tracking-wide">
+                            Planned phase
+                          </span>
+                        )}
+                        <span
+                          className={`inline-flex items-center gap-1 text-xs font-sans font-semibold tracking-widest shrink-0 ${
+                            isOpen ? 'text-neon-cyan' : 'text-text-muted'
+                          }`}
+                        >
+                          {isOpen ? 'Open workspace' : 'View plans'}
+                          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition" />
                         </span>
                       </div>
-                      <span className="inline-flex items-center gap-1 text-xs font-mono tracking-widest text-neon-cyan shrink-0">
-                        Workspace
-                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition" />
-                      </span>
-                    </div>
-
-                    <p className="mt-3 text-[10px] font-mono tracking-widest text-text-muted/70">
-                      /projects/{project.id}
-                    </p>
                     </div>
                   </Card>
                 </Link>

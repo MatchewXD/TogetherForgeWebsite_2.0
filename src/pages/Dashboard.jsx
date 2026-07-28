@@ -29,6 +29,7 @@ import tasksService, {
 import UserAvatar from '../components/ui/UserAvatar';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
+import LoadingScreen from '../components/ui/LoadingScreen';
 import { publicProfilePath } from '../utils/profileLinks';
 
 const Dashboard = () => {
@@ -222,10 +223,7 @@ const Dashboard = () => {
         )}
 
         {loading ? (
-          <div className="cyber-card p-12 flex flex-col items-center justify-center min-h-[200px]">
-            <div className="w-8 h-8 border-4 border-neon-cyan border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-text-muted text-sm">Loading dashboard…</p>
-          </div>
+          <LoadingScreen variant="section" message="Loading dashboard…" />
         ) : (
           <>
             {/* Stats */}

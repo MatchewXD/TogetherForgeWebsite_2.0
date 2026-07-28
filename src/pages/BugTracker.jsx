@@ -160,7 +160,7 @@ const BugTracker = () => {
         {toast && (
           <div
             role="status"
-            className="rounded-lg border border-neon-cyan/30 bg-neon-cyan/5 px-4 py-2 text-sm text-neon-cyan"
+            className="rounded-lg border border-semantic-success/40 bg-semantic-success/10 px-4 py-2 text-sm text-semantic-success"
           >
             {toast}
           </div>
@@ -191,7 +191,7 @@ const BugTracker = () => {
         </div>
 
         {error && (
-          <Card className="bg-cyber-card/80 border-amber-400/30 text-amber-100/90 text-sm">
+          <Card className="bg-cyber-card/80 border-semantic-danger/40 bg-semantic-danger/10 text-semantic-danger text-sm">
             {error}
           </Card>
         )}
@@ -346,7 +346,7 @@ const BugTracker = () => {
 
         {isModerator && (
           <p className="text-xs text-text-muted font-mono text-center pt-4">
-            Signed in as staff — expand a bug to change status.
+            Signed in as staff - expand a bug to change status.
           </p>
         )}
       </div>

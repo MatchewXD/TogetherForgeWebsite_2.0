@@ -1,6 +1,6 @@
 /**
  * Hierarchical child tasks under a parent (Epic/Medium).
- * Not the jsonb checklist — those remain separate "checklist" items.
+ * Not the jsonb checklist - those remain separate "checklist" items.
  */
 
 import Badge from './Badge';
@@ -19,7 +19,7 @@ const statusLabel = (task) => {
 
 const statusVariant = (task) => {
   if (task.status === 'completed' || task.dbStatus === 'Completed') {
-    return 'neon';
+    return 'success';
   }
   if (task.status === 'in_progress' || task.dbStatus === 'InProgress') {
     return 'purple';
@@ -140,7 +140,11 @@ const SubTaskList = ({
                     <div className="mt-1.5 max-w-[12rem]">
                       <div className="flex items-center justify-between text-[9px] font-mono text-text-muted mb-0.5">
                         <span>PROGRESS</span>
-                        <span className="text-neon-cyan">
+                        <span
+                          className={
+                            isDone ? 'text-semantic-success' : 'text-neon-cyan'
+                          }
+                        >
                           {isDone
                             ? 100
                             : Math.min(100, child.progressPercent || 0)}
@@ -149,7 +153,11 @@ const SubTaskList = ({
                       </div>
                       <div className="h-1 rounded-full bg-white/10 overflow-hidden">
                         <div
-                          className="h-full bg-neon-cyan/80 rounded-full"
+                          className={`h-full rounded-full ${
+                            isDone
+                              ? 'bg-semantic-success'
+                              : 'bg-neon-cyan/80'
+                          }`}
                           style={{
                             width: `${
                               isDone

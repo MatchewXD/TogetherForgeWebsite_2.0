@@ -32,7 +32,7 @@ const CONTRIBUTION_WAYS = [
   {
     icon: Hammer,
     title: 'Game Development',
-    desc: 'Code, design, art, audio, or testing. Claim tasks on project boards and ship real work on Early, Mid, and Late phase games.',
+    desc: 'Code, design, art, audio, or testing. Claim tasks on open project boards - Early is active now - and ship real work with the team.',
     accent: 'text-neon-cyan',
   },
   {
@@ -72,15 +72,15 @@ const TASK_BOARDS = [
   {
     id: 'global',
     title: 'All Projects Hub',
-    subtitle: 'Browse every workspace',
+    subtitle: 'Browse every project',
     href: '/projects',
     badge: 'Directory',
-    desc: 'See active projects, open a workspace, and jump into kanban boards from one place.',
+    desc: 'See the full pipeline and open the Early workspace where claims are live today.',
   },
   {
     id: 'prototype-systems',
     title: 'Prototype Systems',
-    subtitle: 'Early phase',
+    subtitle: 'Early phase · open',
     href: '/projects/prototype-systems',
     badge: 'Early',
     desc: 'Core loop, networking, and claim/credit prototypes. Good first tasks for new volunteers.',
@@ -88,18 +88,18 @@ const TASK_BOARDS = [
   {
     id: 'core-features',
     title: 'Core Features Sprint',
-    subtitle: 'Mid phase',
-    href: '/projects/core-features',
+    subtitle: 'Mid phase · planned',
+    href: '/projects/mid',
     badge: 'Mid',
-    desc: 'Design and systems work that makes cooperative play feel solid.',
+    desc: 'Opens after Early is completed. View plans - not open for claims yet.',
   },
   {
     id: 'polish-playtests',
     title: 'Stability and Polish',
-    subtitle: 'Late phase',
-    href: '/projects/polish-playtests',
+    subtitle: 'Late phase · planned',
+    href: '/projects/late',
     badge: 'Late',
-    desc: 'Playtests, polish passes, and bug reports that harden builds for release.',
+    desc: 'Opens after Mid is completed. View plans - not open for claims yet.',
   },
 ];
 
@@ -135,40 +135,49 @@ const ONBOARDING_STEPS = [
   },
 ];
 
+const GET_INVOLVED_BANNER_SRC = '/images/Get_Involved_Background.webp';
+
 const GetInvolved = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="pt-20 min-h-screen bg-cyber-bg text-text-primary">
-      <div
-        className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,249,255,0.05)_0%,transparent_55%)]"
-        aria-hidden="true"
-      />
+    <div className="min-h-screen bg-cyber-bg text-text-primary">
+      {/* Page header banner - medium height, not a full-viewport hero */}
+      <header className="relative pt-20 overflow-hidden border-b border-cyber-border">
+        <div className="absolute inset-0" aria-hidden="true">
+          <img
+            src={GET_INVOLVED_BANNER_SRC}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover object-[center_40%] sm:object-center"
+            decoding="async"
+            fetchPriority="high"
+          />
+          {/* Readability scrim - left-weighted so title + CTAs stay clear */}
+          <div className="absolute inset-0 bg-gradient-to-r from-cyber-bg/90 via-cyber-bg/75 to-cyber-bg/45" />
+          <div className="absolute inset-0 bg-gradient-to-b from-cyber-bg/50 via-transparent to-cyber-bg" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgb(var(--tf-neon-cyan)/0.08)_0%,transparent_50%)]" />
+        </div>
 
-      {/* Header */}
-      <div className="relative z-10 border-b border-cyber-border bg-cyber-surface/80">
-        <div className="container-custom py-12 md:py-16">
+        <div className="container-custom relative z-10 py-8 sm:py-10 md:py-12 min-h-[16rem] sm:min-h-[18rem] md:min-h-[20rem] flex flex-col justify-center">
           <Link
             to="/"
-            className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group transition-colors"
+            className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-6 sm:mb-8 group transition-colors w-fit"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
             BACK TO HOME
           </Link>
 
-          <div className="max-w-3xl">
-            <div className="section-header">Get Involved</div>
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-4">
-              Be part of the Forge
+          <div className="max-w-2xl">
+            <div className="section-header">Volunteer hub</div>
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-3 sm:mb-4 drop-shadow-sm">
+              Get Involved
             </h1>
-            <p className="text-lg sm:text-xl text-text-secondary leading-relaxed">
-              Together Forge is built by volunteers and community members.
-              Whether you ship code, art, ideas, moderation, or support, there is
-              a clear way in.
+            <p className="text-base sm:text-lg text-text-secondary leading-relaxed max-w-xl">
+              Be part of the Forge. Ship code, art, ideas, moderation, or
+              support - there is a clear way in for every skill.
             </p>
 
-            {/* Hero CTAs */}
-            <div className="mt-8 flex flex-col sm:flex-row flex-wrap gap-3">
+            <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row flex-wrap gap-3">
               <Button
                 size="lg"
                 className="gap-2 w-full sm:w-auto"
@@ -198,7 +207,7 @@ const GetInvolved = () => {
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       <div className="container-custom relative z-10 py-12 md:py-16 space-y-16 md:space-y-20">
         {/* ---------- Ways to contribute ---------- */}

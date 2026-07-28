@@ -72,7 +72,8 @@ const IdeaCard = ({
   return (
     <Card
       interactive
-      className={`bg-cyber-card/80 transition-colors group relative p-5 sm:p-6 ${className}`}
+      variant="subtle"
+      className={`transition-colors group relative p-5 sm:p-6 ${className}`}
       onClick={open}
       role="link"
       tabIndex={0}
@@ -83,7 +84,7 @@ const IdeaCard = ({
         }
       }}
     >
-      {/* Status — top right */}
+      {/* Status - top right */}
       <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 max-w-[45%] sm:max-w-[40%]">
         {isLinked ? (
           <button
@@ -159,7 +160,7 @@ const IdeaCard = ({
           </button>
         </div>
 
-        {/* Main content — pad right so title doesn’t collide with status */}
+        {/* Main content - pad right so title doesn’t collide with status */}
         <div className="flex-1 min-w-0 pr-0 sm:pr-28">
           <div className="flex flex-wrap items-center gap-2 mb-1.5">
             {category && (

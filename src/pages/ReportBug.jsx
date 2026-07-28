@@ -1,5 +1,5 @@
 /**
- * Public bug report form — no login required (login encouraged).
+ * Public bug report form - no login required (login encouraged).
  */
 
 import { useEffect, useState } from 'react';
@@ -114,7 +114,7 @@ const ReportBug = () => {
             Report a Bug
           </h1>
           <p className="text-text-secondary mt-3 max-w-2xl text-sm sm:text-base">
-            Help us keep the forge stable. Anyone can report — signing in links
+            Help us keep the forge stable. Anyone can report - signing in links
             the report to your account.
           </p>
         </div>
@@ -138,7 +138,7 @@ const ReportBug = () => {
 
         {submittedId ? (
           <Card className="bg-cyber-card/80 text-center py-12 space-y-4">
-            <CheckCircle2 className="w-12 h-12 text-neon-cyan mx-auto" />
+            <CheckCircle2 className="w-12 h-12 text-semantic-success mx-auto" />
             <h2 className="text-xl font-bold text-white">Report received</h2>
             <p className="text-sm text-text-secondary max-w-md mx-auto">
               Thanks for filing this. Staff will triage it on the public
@@ -336,7 +336,7 @@ const ReportBug = () => {
               {error && (
                 <div
                   role="alert"
-                  className="rounded-lg border border-red-400/30 bg-red-400/5 px-3 py-2 text-sm text-red-200"
+                  className="rounded-lg border border-semantic-danger/40 bg-semantic-danger/10 px-3 py-2 text-sm text-semantic-danger"
                 >
                   {error}
                 </div>

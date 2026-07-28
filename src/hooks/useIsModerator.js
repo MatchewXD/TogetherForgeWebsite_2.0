@@ -11,7 +11,8 @@ export function useIsModerator() {
         const checkRole = async () => {
             setLoading(true);
             try {
-                const { data: { user } } = await supabase.auth.getUser();
+                const { data } = await supabase.auth.getUser();
+                const user = data?.user || null;
                 if (!user) {
                     if (mounted) {
                         setIsModerator(false);
@@ -24,7 +25,7 @@ export function useIsModerator() {
                     .from('profiles')
                     .select('role')
                     .eq('id', user.id)
-                    .single();
+                    .maybeSingle();
 
                 if (mounted) {
                     // Staff roles that can create/edit tasks and moderate (SDD §3 & §6)
@@ -43,13 +44,23 @@ export function useIsModerator() {
 
         checkRole();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-            checkRole();
-        });
+        let subscription = null;
+        try {
+            const { data } = supabase.auth.onAuthStateChange(() => {
+                checkRole();
+            });
+            subscription = data?.subscription || null;
+        } catch {
+            subscription = null;
+        }
 
         return () => {
             mounted = false;
-            subscription?.unsubscribe();
+            try {
+                subscription?.unsubscribe?.();
+            } catch {
+                /* ignore */
+            }
         };
     }, []);
 

@@ -1,5 +1,5 @@
-﻿-- =============================================================================
--- Together Forge — Tasks, Claims, Activity Log, Projects
+-- =============================================================================
+-- Together Forge - Tasks, Claims, Activity Log, Projects
 -- Paste this ENTIRE script into Supabase → SQL Editor → Run
 -- Safe to re-run (idempotent where possible)
 -- =============================================================================
@@ -194,7 +194,7 @@ values
   (
     'prototype-systems',
     'Prototype Systems',
-    'Core loop prototyping and networking tests. We are validating multiplayer foundations, claim/credit flows, and the volunteer task board itself — with design, code, and art volunteers welcome.',
+    'Core loop prototyping and networking tests. We are validating multiplayer foundations, claim/credit flows, and the volunteer task board itself - with design, code, and art volunteers welcome.',
     'Early',
     'In Development'
   ),
@@ -208,7 +208,7 @@ values
   (
     'polish-playtests',
     'Stability & Polish',
-    'Polish passes, optimization, and wider playtests. Help stress-test builds and report what breaks — or what delights.',
+    'Polish passes, optimization, and wider playtests. Help stress-test builds and report what breaks - or what delights.',
     'Late',
     'Vision'
   )
@@ -253,7 +253,7 @@ end $$;
 -- select title, status from tasks t join projects p on p.id = t.project_id where p.slug = 'prototype-systems';
 
 -- ---------------------------------------------------------------------------
--- 8. Atomic RPCs (SECURITY DEFINER) — claim / progress / complete / return
+-- 8. Atomic RPCs (SECURITY DEFINER) - claim / progress / complete / return
 -- Run after tables + RLS above. Safe to re-run.
 -- ---------------------------------------------------------------------------
 
@@ -432,7 +432,7 @@ begin
     where id = v_claim.id
     returning * into v_claim;
   elsif not v_is_staff then
-    raise exception 'No active claim — claim the task first, or ask a project lead';
+    raise exception 'No active claim - claim the task first, or ask a project lead';
   end if;
 
   update tasks set

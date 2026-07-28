@@ -38,7 +38,7 @@ function missingTableMessage(error) {
     'Bug tracker table is missing on this Supabase project. ' +
     'Open SQL Editor for project lbstantgrrrupzeasndg, run the FULL file ' +
     'supabase/sql/supabase_bug_reports.sql, then run: ' +
-    "select to_regclass('public.bug_reports'); — it must return public.bug_reports. " +
+    "select to_regclass('public.bug_reports'); - it must return public.bug_reports. " +
     (detail ? `(API: ${detail})` : '')
   );
 }
@@ -66,15 +66,16 @@ function mapBugRow(row) {
 }
 
 export function severityBadgeVariant(severity) {
-  if (severity === 'Critical' || severity === 'High') return 'purple';
+  if (severity === 'Critical') return 'danger';
+  if (severity === 'High') return 'warning';
   if (severity === 'Medium') return 'neon';
   return 'default';
 }
 
 export function statusBadgeVariant(status) {
-  if (status === 'Fixed') return 'neon';
+  if (status === 'Fixed') return 'success';
   if (status === 'In Progress') return 'purple';
-  if (status === 'Confirmed') return 'neon';
+  if (status === 'Confirmed') return 'warning';
   if (status === 'Closed') return 'default';
   return 'default';
 }
@@ -140,7 +141,7 @@ export function detectBrowserOsOption() {
   return '';
 }
 
-/** @deprecated use detectBrowserOsOption — kept for older imports */
+/** @deprecated use detectBrowserOsOption - kept for older imports */
 export function detectBrowserInfo() {
   return detectBrowserOsOption();
 }

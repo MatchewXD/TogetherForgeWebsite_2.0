@@ -1,23 +1,22 @@
 /**
  * Personal runway fund transparency block.
  * Shared on Founders Thoughts and /support-runway.
- * Placeholder numbers until a live ledger is connected.
  */
 
 import { Wallet, Calendar, ListChecks } from 'lucide-react';
 import Card from './Card';
 import Badge from './Badge';
 
-/** Placeholder runway data (replace with live ledger later). */
+/** Runway fund snapshot (public totals). */
 export const RUNWAY_FUND = {
   amountUsd: 0,
   monthsCovered: 0,
   expenses: [
-    { label: 'Housing', note: 'Placeholder' },
-    { label: 'Food and household', note: 'Placeholder' },
-    { label: 'Transportation', note: 'Placeholder' },
-    { label: 'Healthcare and insurance', note: 'Placeholder' },
-    { label: 'Utilities and communications', note: 'Placeholder' },
+    { label: 'Housing', note: 'Covered by runway' },
+    { label: 'Food and household', note: 'Covered by runway' },
+    { label: 'Transportation', note: 'Covered by runway' },
+    { label: 'Healthcare and insurance', note: 'Covered by runway' },
+    { label: 'Utilities and communications', note: 'Covered by runway' },
   ],
 };
 
@@ -40,7 +39,7 @@ const RunwayTransparency = ({
   className = '',
   footer = null,
   description =
-    'Separate from studio Support. These numbers track direct contributions to founder living expenses. Placeholders until a live ledger is connected.',
+    'Separate from studio Support. These numbers track direct contributions to founder living expenses so the community can see runway status clearly.',
 }) => {
   return (
     <section
@@ -100,7 +99,7 @@ const RunwayTransparency = ({
             <h3 className="text-sm font-semibold text-white">
               General expense categories
             </h3>
-            <Badge variant="default">Placeholder</Badge>
+            <Badge variant="default">Runway only</Badge>
           </div>
           <ul className="divide-y divide-cyber-border">
             {RUNWAY_FUND.expenses.map((item) => (

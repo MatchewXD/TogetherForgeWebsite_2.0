@@ -19,6 +19,7 @@ import { supabase } from '../lib/supabase';
 import UserAvatar from '../components/ui/UserAvatar';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
+import LoadingScreen from '../components/ui/LoadingScreen';
 
 /** Columns safe to show publicly (no email). moderation_status is checked then stripped. */
 const PUBLIC_PROFILE_SELECT = [
@@ -169,8 +170,8 @@ const PublicProfile = () => {
 
   if (loading) {
     return (
-      <div className="pt-28 min-h-screen text-center text-text-muted font-mono text-sm tracking-widest uppercase">
-        Loading profile…
+      <div className="pt-20 min-h-screen bg-cyber-bg">
+        <LoadingScreen variant="section" message="Loading profile…" />
       </div>
     );
   }

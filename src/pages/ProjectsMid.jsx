@@ -39,7 +39,7 @@ const ProjectsMid = () => {
 
                 <div className="mb-8">
                     <div className="section-header">MID GAME</div>
-                    <h1 className="text-4xl font-bold tracking-tight text-white">Mid Game — Phase Overview</h1>
+                    <h1 className="text-4xl font-bold tracking-tight text-white">Mid Game - Phase Overview</h1>
                     <p className="text-text-secondary mt-4 max-w-3xl">The Mid Game phase contains projects that expand the core systems validated during Early Game. This includes polishing mechanics, expanding content, and scaling volunteer workflows.</p>
                 </div>
 
