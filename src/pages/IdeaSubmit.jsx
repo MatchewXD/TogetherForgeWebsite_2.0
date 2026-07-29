@@ -41,13 +41,28 @@ import {
   deactivateOptionalSection,
   optionalFormFromIdea,
   buildPreviewTextSections,
-  localDraftStorageKey,
 } from '../utils/ideaOptionalSections';
+import {
+  AUTOSAVE_INTERVAL_MS,
+  AUTOSAVE_FLASH_MS,
+  formHasMeaningfulContent,
+  readComposeSession,
+  writeComposeSession,
+  clearComposeSessions,
+} from '../utils/ideaComposeDraft';
 import Button from '../components/ui/Buttons';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
 import CharCount from '../components/ui/CharCount';
+import RelatedToSelect from '../components/ideas/RelatedToSelect';
+import {
+  RELATED_PHASE_OPTIONS,
+  getRelatedToGroupedOptions,
+} from '../utils/relatedToOptions';
+import { resolveLinkDisplayName } from '../utils/ideaStatus';
+
+const COMPOSE_FLOW = 'guided';
 
 const CATEGORIES = [
   'Full Game Idea',
@@ -97,6 +112,11 @@ const IdeaSubmit = () => {
     return raw ? String(raw).trim() : null;
   }, [searchParams]);
 
+  const tagFromQuery = useMemo(() => {
+    const raw = searchParams.get('tag') || searchParams.get('tags');
+    return raw ? String(raw).trim().replace(/^#/, '') : null;
+  }, [searchParams]);
+
   const draftFromQuery = useMemo(() => {
     const raw = searchParams.get('draft');
     if (!raw) return null;
@@ -108,6 +128,7 @@ const IdeaSubmit = () => {
   const [formData, setFormData] = useState(() => ({
     ...emptyForm,
     projectId: linkedFromQuery || '',
+    tags: tagFromQuery || '',
   }));
   const [draftId, setDraftId] = useState(null);
   const [tagDraft, setTagDraft] = useState('');
@@ -116,15 +137,25 @@ const IdeaSubmit = () => {
   const [submitting, setSubmitting] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState(null);
-  const [projects, setProjects] = useState([]);
+  const [autosaveFlash, setAutosaveFlash] = useState(false);
+  const [relatedPhases, setRelatedPhases] = useState(RELATED_PHASE_OPTIONS);
+  const [relatedProjects, setRelatedProjects] = useState([]);
   const [user, setUser] = useState(null);
-  const [loadingDraft, setLoadingDraft] = useState(!!draftFromQuery);
+  const [loadingDraft, setLoadingDraft] = useState(true);
   /** Pending field removal: { kind: 'feature'|'note'|'single'|'section', index?, key?, label? } */
   const [removeTarget, setRemoveTarget] = useState(null);
   const removeTargetRef = useRef(null);
   const formDataRef = useRef(formData);
   const draftIdRef = useRef(draftId);
-  const autoSaveTimer = useRef(null);
+  const stepRef = useRef(step);
+  const dirtyRef = useRef(false);
+  const savingDraftRef = useRef(false);
+  const flashTimerRef = useRef(null);
+  const resumeDoneRef = useRef(false);
+  /** Ignore one dirty cycle after programmatically loading a draft */
+  const skipDirtyRef = useRef(false);
+  /** After publish, block autosave from re-writing submitted fields */
+  const publishedRef = useRef(false);
 
   useEffect(() => {
     formDataRef.current = formData;
@@ -132,6 +163,9 @@ const IdeaSubmit = () => {
   useEffect(() => {
     draftIdRef.current = draftId;
   }, [draftId]);
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -143,45 +177,21 @@ const IdeaSubmit = () => {
     return () => sub?.subscription?.unsubscribe?.();
   }, []);
 
+  // Phases (fixed) + Projects (live from projects table — auto-updates)
   useEffect(() => {
     let mounted = true;
     (async () => {
-      try {
-        const list = [];
-        const { data: workspace } = await supabase
-          .from('projects')
-          .select('id, slug, title')
-          .order('created_at', { ascending: false });
-        if (workspace?.length) {
-          list.push(
-            ...workspace.map((p) => ({
-              id: p.slug || p.id,
-              title: p.title || p.slug || p.id,
-            }))
-          );
-        }
-        if (list.length === 0) {
-          list.push(
-            { id: 'prototype-systems', title: 'Tether' },
-            { id: 'core-features', title: 'Core Features Sprint' },
-            { id: 'polish-playtests', title: 'Stability and Polish' }
-          );
-        }
-        if (mounted) setProjects(list);
-      } catch {
-        if (mounted) {
-          setProjects([
-            { id: 'prototype-systems', title: 'Tether' },
-            { id: 'core-features', title: 'Core Features Sprint' },
-            { id: 'polish-playtests', title: 'Stability and Polish' },
-          ]);
-        }
+      const grouped = await getRelatedToGroupedOptions(formData.projectId);
+      if (mounted) {
+        setRelatedPhases(grouped.phases);
+        setRelatedProjects(grouped.projects);
       }
     })();
     return () => {
       mounted = false;
     };
-  }, []);
+    // Re-run when current value changes so legacy ids still appear
+  }, [formData.projectId]);
 
   useEffect(() => {
     if (linkedFromQuery) {
@@ -191,127 +201,153 @@ const IdeaSubmit = () => {
     }
   }, [linkedFromQuery]);
 
-  // Load draft from ?draft=id
   useEffect(() => {
-    if (!draftFromQuery) {
-      setLoadingDraft(false);
-      return;
-    }
+    if (!tagFromQuery) return;
+    setFormData((f) => {
+      const existing = (f.tags || '')
+        .split(/[,;#]+/)
+        .map((t) => t.trim())
+        .filter(Boolean);
+      if (
+        existing.some((t) => t.toLowerCase() === tagFromQuery.toLowerCase())
+      ) {
+        return f;
+      }
+      return { ...f, tags: [...existing, tagFromQuery].join(', ') };
+    });
+  }, [tagFromQuery]);
+
+  const applyIdeaRowToForm = useCallback(
+    (data) => {
+      setFormData({
+        title: data.title === 'Untitled draft' ? '' : data.title || '',
+        category: data.category || '',
+        summary: data.summary || '',
+        description: data.description || '',
+        tags: data.tags || '',
+        projectId: data.project_id || linkedFromQuery || '',
+        ...optionalFormFromIdea(data),
+      });
+      setDraftId(data.id);
+      dirtyRef.current = false;
+      skipDirtyRef.current = true;
+    },
+    [linkedFromQuery]
+  );
+
+  // Load explicit ?draft= or resume last in-progress autosave session
+  useEffect(() => {
+    if (resumeDoneRef.current) return;
     let mounted = true;
+
     (async () => {
       setLoadingDraft(true);
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession();
-        if (!session?.user) {
+        const uid = session?.user?.id || null;
+        if (!uid) {
+          if (mounted) setLoadingDraft(false);
+          return;
+        }
+
+        let targetId = draftFromQuery;
+        if (!targetId) {
+          const sessionMeta = readComposeSession(uid, COMPOSE_FLOW);
+          if (sessionMeta?.draftId) targetId = Number(sessionMeta.draftId);
+        }
+
+        if (!targetId) {
           if (mounted) {
-            setMessage('Sign in to continue a draft.');
-            setMessageTone('error');
+            resumeDoneRef.current = true;
             setLoadingDraft(false);
           }
           return;
         }
+
         const { data, error } = await supabase
           .from('ideas')
           .select('*')
-          .eq('id', draftFromQuery)
-          .eq('user_id', session.user.id)
+          .eq('id', targetId)
+          .eq('user_id', uid)
           .maybeSingle();
+
+        if (!mounted) return;
+
         if (error || !data) {
-          if (mounted) {
+          clearComposeSessions(uid);
+          if (draftFromQuery) {
             setMessage('Draft not found or you do not own it.');
             setMessageTone('error');
-            setLoadingDraft(false);
           }
+          resumeDoneRef.current = true;
+          setLoadingDraft(false);
           return;
         }
-        if (mounted) {
-          setFormData({
-            title: data.title === 'Untitled draft' ? '' : data.title || '',
-            category: data.category || '',
-            summary: data.summary || '',
-            description: data.description || '',
-            tags: data.tags || '',
-            projectId: data.project_id || linkedFromQuery || '',
-            ...optionalFormFromIdea(data),
-          });
-          setDraftId(data.id);
-          setMessage('Draft loaded. Continue editing and publish when ready.');
-          setMessageTone('info');
+
+        // Only resume drafts — never re-open a published idea as a compose form
+        const status = String(data.status || '').toLowerCase();
+        if (status && status !== 'draft') {
+          clearComposeSessions(uid);
+          resumeDoneRef.current = true;
+          setLoadingDraft(false);
+          return;
         }
+
+        applyIdeaRowToForm(data);
+        const sessionMeta = readComposeSession(uid, COMPOSE_FLOW);
+        if (
+          sessionMeta?.step &&
+          Number(sessionMeta.step) >= 1 &&
+          Number(sessionMeta.step) <= 3
+        ) {
+          setStep(Number(sessionMeta.step));
+        }
+        writeComposeSession(uid, COMPOSE_FLOW, {
+          draftId: data.id,
+          step: sessionMeta?.step || 1,
+        });
+        // Keep URL aligned with the active draft
+        if (!draftFromQuery) {
+          const next = new URLSearchParams(searchParams);
+          next.set('draft', String(data.id));
+          setSearchParams(next, { replace: true });
+        }
+        setMessage(
+          draftFromQuery
+            ? 'Draft loaded. Continue editing and publish when ready.'
+            : 'Restored your in-progress draft. Continue where you left off.'
+        );
+        setMessageTone('info');
+        resumeDoneRef.current = true;
       } catch (err) {
         console.error('[IdeaSubmit] load draft', err);
         if (mounted) {
           setMessage('Could not load draft.');
           setMessageTone('error');
+          resumeDoneRef.current = true;
         }
       } finally {
         if (mounted) setLoadingDraft(false);
       }
     })();
+
     return () => {
       mounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftFromQuery, linkedFromQuery]);
 
-  // Light local auto-save while working (debounced)
+  // Mark dirty when the user edits (after initial restore)
   useEffect(() => {
-    if (!user) return;
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(() => {
-      try {
-        const key = localDraftStorageKey(user.id, 'guided');
-        const payload = {
-          formData: formDataRef.current,
-          draftId: draftIdRef.current,
-          step,
-          savedAt: Date.now(),
-        };
-        localStorage.setItem(key, JSON.stringify(payload));
-      } catch {
-        /* ignore quota / private mode */
-      }
-    }, 1500);
-    return () => {
-      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    };
-  }, [formData, step, user, draftId]);
-
-  // Restore local auto-save if no draft query (once per mount when signed in)
-  useEffect(() => {
-    if (!user || draftFromQuery) return;
-    try {
-      const key = localDraftStorageKey(user.id, 'guided');
-      const raw = localStorage.getItem(key);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (!parsed?.formData) return;
-      const f = parsed.formData;
-      const hasContent =
-        (f.title || '').trim() ||
-        (f.summary || '').trim() ||
-        (f.description || '').trim();
-      if (!hasContent) return;
-      // Only restore if form is still empty
-      setFormData((current) => {
-        const empty =
-          !(current.title || '').trim() &&
-          !(current.summary || '').trim() &&
-          !(current.description || '').trim();
-        if (!empty) return current;
-        return {
-          ...emptyForm,
-          ...f,
-          projectId: f.projectId || linkedFromQuery || '',
-        };
-      });
-      if (parsed.draftId) setDraftId(parsed.draftId);
-    } catch {
-      /* ignore */
+    if (loadingDraft || !resumeDoneRef.current) return;
+    if (skipDirtyRef.current) {
+      skipDirtyRef.current = false;
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+    dirtyRef.current = true;
+  }, [formData, step, loadingDraft]);
 
   const tags = useMemo(
     () =>
@@ -443,6 +479,147 @@ const IdeaSubmit = () => {
     return null;
   };
 
+  const buildIdeaPayloadFrom = useCallback((form, status, id) => {
+    const projectId = (form.projectId || '').trim() || null;
+    const tagList = [
+      ...new Set(
+        (form.tags || '')
+          .split(/[,;#]+/)
+          .map((t) => t.trim().replace(/^#/, ''))
+          .filter(Boolean)
+      ),
+    ];
+    const guided_data = buildGuidedData(guidedFieldsFromForm(form));
+    return {
+      ...(id ? { id } : {}),
+      title: (form.title || '').trim(),
+      summary: (form.summary || '').trim(),
+      category: form.category || 'Idea',
+      description: (form.description || '').trim(),
+      tags: tagList.join(', '),
+      ...guidedFieldsFromForm(form),
+      guided_data,
+      status,
+      votes: 0,
+      ...(projectId ? { project_id: projectId } : {}),
+    };
+  }, []);
+
+  const flashAutosave = useCallback(() => {
+    setDraftSavedAt(new Date());
+    setAutosaveFlash(true);
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = setTimeout(() => {
+      setAutosaveFlash(false);
+    }, AUTOSAVE_FLASH_MS);
+  }, []);
+
+  /**
+   * Save/update the single in-progress draft (manual or autosave).
+   * @param {{ silent?: boolean, force?: boolean }} opts
+   */
+  const performSaveDraft = useCallback(
+    async ({ silent = false, force = false } = {}) => {
+      if (publishedRef.current) return null;
+      if (!user) {
+        if (!silent) {
+          setMessage('Sign in to save a draft.');
+          setMessageTone('error');
+        }
+        return null;
+      }
+      const form = formDataRef.current;
+      const id = draftIdRef.current;
+      if (!force && !id && !formHasMeaningfulContent(form)) return null;
+      if (savingDraftRef.current) return null;
+
+      savingDraftRef.current = true;
+      if (!silent) setSavingDraft(true);
+      try {
+        const payload = buildIdeaPayloadFrom(form, 'Draft', id);
+        const data = await ideasService.saveDraft({
+          ...payload,
+          user_id: user.id,
+        });
+        if (!data?.id) throw new Error('Draft saved but no id returned.');
+
+        setDraftId(data.id);
+        draftIdRef.current = data.id;
+        dirtyRef.current = false;
+        writeComposeSession(user.id, COMPOSE_FLOW, {
+          draftId: data.id,
+          step: stepRef.current,
+          formSnapshot: form,
+        });
+
+        const next = new URLSearchParams(searchParams);
+        if (String(next.get('draft') || '') !== String(data.id)) {
+          next.set('draft', String(data.id));
+          setSearchParams(next, { replace: true });
+        }
+
+        if (silent) {
+          flashAutosave();
+        } else {
+          setDraftSavedAt(new Date());
+          setMessage(
+            'Draft saved. You can find it under My Drafts on your Dashboard.'
+          );
+          setMessageTone('success');
+        }
+        return data;
+      } catch (err) {
+        console.error('[IdeaSubmit] save draft', err);
+        if (!silent) {
+          setMessage(
+            'Could not save draft: ' + (err?.message || 'Unknown error')
+          );
+          setMessageTone('error');
+        }
+        return null;
+      } finally {
+        savingDraftRef.current = false;
+        if (!silent) setSavingDraft(false);
+      }
+    },
+    [user, buildIdeaPayloadFrom, searchParams, setSearchParams, flashAutosave]
+  );
+
+  // Interval autosave (every ~25s) when dirty
+  useEffect(() => {
+    if (!user || loadingDraft || publishedRef.current) return undefined;
+    const tick = setInterval(() => {
+      if (publishedRef.current) return;
+      if (!dirtyRef.current) return;
+      performSaveDraft({ silent: true });
+    }, AUTOSAVE_INTERVAL_MS);
+    return () => clearInterval(tick);
+  }, [user, loadingDraft, performSaveDraft]);
+
+  // Persist a local session pointer on leave (server save is async; local helps resume)
+  useEffect(() => {
+    if (!user) return undefined;
+    const onLeave = () => {
+      if (publishedRef.current) return;
+      const form = formDataRef.current;
+      if (!formHasMeaningfulContent(form) && !draftIdRef.current) return;
+      writeComposeSession(user.id, COMPOSE_FLOW, {
+        draftId: draftIdRef.current,
+        step: stepRef.current,
+        formSnapshot: form,
+      });
+    };
+    window.addEventListener('beforeunload', onLeave);
+    return () => window.removeEventListener('beforeunload', onLeave);
+  }, [user]);
+
+  useEffect(
+    () => () => {
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    },
+    []
+  );
+
   const goNext = () => {
     setMessage('');
     if (step === 1) {
@@ -453,65 +630,31 @@ const IdeaSubmit = () => {
         return;
       }
     }
+    // Autosave on step change for logged-in users
+    if (user && !publishedRef.current) {
+      dirtyRef.current = true;
+      performSaveDraft({ silent: true });
+    }
     setStep((s) => Math.min(3, s + 1));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const goBack = () => {
     setMessage('');
+    if (user && !publishedRef.current && dirtyRef.current) {
+      performSaveDraft({ silent: true });
+    }
     setStep((s) => Math.max(1, s - 1));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const buildIdeaPayload = (status) => {
-    const projectId = (formData.projectId || '').trim() || null;
-    const guided_data = buildGuidedData(guidedFieldsFromForm(formData));
-    return {
-      ...(draftId ? { id: draftId } : {}),
-      title: (formData.title || '').trim(),
-      summary: (formData.summary || '').trim(),
-      category: formData.category || 'Idea',
-      description: (formData.description || '').trim(),
-      tags: tags.join(', '),
-      ...guidedFieldsFromForm(formData),
-      guided_data,
-      status,
-      votes: 0,
-      ...(projectId ? { project_id: projectId } : {}),
-    };
-  };
-
   const handleSaveDraft = async () => {
     setMessage('');
-    if (!user) {
-      setMessage('Sign in to save a draft.');
-      setMessageTone('error');
-      return;
-    }
-    setSavingDraft(true);
-    try {
-      const payload = buildIdeaPayload('Draft');
-      const data = await ideasService.saveDraft({
-        ...payload,
-        user_id: user.id,
-      });
-      if (!data?.id) throw new Error('Draft saved but no id returned.');
-      setDraftId(data.id);
-      setDraftSavedAt(new Date());
-      // Keep URL in sync so refresh resumes the same draft
-      const next = new URLSearchParams(searchParams);
-      next.set('draft', String(data.id));
-      setSearchParams(next, { replace: true });
-      setMessage('Draft saved. You can find it under My Drafts on your Dashboard.');
-      setMessageTone('success');
-    } catch (err) {
-      console.error('[IdeaSubmit] save draft', err);
-      setMessage('Could not save draft: ' + (err?.message || 'Unknown error'));
-      setMessageTone('error');
-    } finally {
-      setSavingDraft(false);
-    }
+    await performSaveDraft({ silent: false, force: true });
   };
+
+  const buildIdeaPayload = (status) =>
+    buildIdeaPayloadFrom(formData, status, draftId);
 
   const previewGuided = useMemo(
     () => buildGuidedData(guidedFieldsFromForm(formData)),
@@ -552,11 +695,9 @@ const IdeaSubmit = () => {
       if (!data?.id) {
         throw new Error('Idea was created but no id was returned.');
       }
-      try {
-        localStorage.removeItem(localDraftStorageKey(session.user.id, 'guided'));
-      } catch {
-        /* ignore */
-      }
+      publishedRef.current = true;
+      dirtyRef.current = false;
+      clearComposeSessions(session.user.id);
       if (projectId) {
         navigate(`/projects/${projectId}#project-ideas`, {
           replace: true,
@@ -660,14 +801,6 @@ const IdeaSubmit = () => {
       />
 
       <div className="container-custom relative z-10 py-10 md:py-14 max-w-3xl">
-        <Link
-          to={backHref}
-          className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
-          {formData.projectId ? 'BACK TO PROJECT' : 'BACK TO IDEAS'}
-        </Link>
-
         <header className="mb-8">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div className="min-w-0">
@@ -935,22 +1068,21 @@ const IdeaSubmit = () => {
               </div>
 
               <div>
-                <label className={labelClass} htmlFor="idea-project">
-                  Link to project (optional)
+                <label className={labelClass} htmlFor="idea-related-to">
+                  Related to (optional)
                 </label>
-                <select
-                  id="idea-project"
+                <RelatedToSelect
+                  id="idea-related-to"
                   className={fieldClass}
                   value={formData.projectId}
-                  onChange={(e) => setField('projectId', e.target.value)}
-                >
-                  <option value="">Community idea (no project)</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setField('projectId', v)}
+                  phases={relatedPhases}
+                  projects={relatedProjects}
+                />
+                <p className="mt-1.5 text-xs text-text-muted">
+                  Choose a game stage or a live project. Leave as Community Idea
+                  for the global board.
+                </p>
               </div>
             </div>
           )}
@@ -1269,7 +1401,9 @@ const IdeaSubmit = () => {
                   )}
                   {formData.projectId && (
                     <Badge variant="purple">
-                      Project · {formData.projectId}
+                      Related ·{' '}
+                      {resolveLinkDisplayName(formData.projectId) ||
+                        formData.projectId}
                     </Badge>
                   )}
                 </div>
@@ -1398,16 +1532,29 @@ const IdeaSubmit = () => {
                 )}
               </div>
             </div>
-            {user && draftSavedAt && (
-              <p className="text-[11px] font-mono text-text-muted text-right">
-                Draft saved {draftSavedAt.toLocaleTimeString()}
-                {draftId ? ` · #${draftId}` : ''}
-              </p>
-            )}
             {user && (
-              <p className="text-[11px] text-text-muted text-center sm:text-right">
-                Progress is also auto-saved locally while you type.
-              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 min-h-[1.25rem]">
+                <p className="text-[11px] text-text-muted">
+                  Progress autosaves every few seconds while signed in. Manual
+                  Save as Draft still available.
+                </p>
+                <p
+                  className={`text-[11px] font-mono text-right transition-opacity duration-500 ${
+                    autosaveFlash
+                      ? 'opacity-100 text-neon-cyan'
+                      : draftSavedAt
+                        ? 'opacity-70 text-text-muted'
+                        : 'opacity-0'
+                  }`}
+                  aria-live="polite"
+                >
+                  {draftSavedAt
+                    ? `Draft saved ${draftSavedAt.toLocaleTimeString()}${
+                        draftId ? ` · #${draftId}` : ''
+                      }`
+                    : 'Draft saved'}
+                </p>
+              </div>
             )}
           </div>
         </Card>

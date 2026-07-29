@@ -123,7 +123,6 @@ const EditProfile = () => {
         <div className="pt-20 min-h-screen">
             <div className="border-b border-white/10 bg-cyber-surface py-16">
                 <div className="container-custom">
-                    <Link to="/profile" className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8">Back to Profile</Link>
                     <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
                         <div>
                             <div className="section-header">EDIT PROFILE</div>

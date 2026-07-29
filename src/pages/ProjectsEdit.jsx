@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Save, Plus } from 'lucide-react';
+import { Save, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useIsModerator } from '../hooks/useIsModerator';
 
@@ -33,7 +33,6 @@ const ProjectsEdit = () => {
         return (
             <div className="pt-20 p-8">
                 <div className="cyber-card p-6 text-center text-text-secondary">Access denied. Moderator role required.</div>
-                <Link to="/projects" className="inline-block mt-4 text-neon-cyan">← Back to Projects</Link>
             </div>
         );
     }
@@ -83,10 +82,6 @@ const ProjectsEdit = () => {
     return (
         <div className="pt-20 min-h-screen">
             <div className="container-custom py-12">
-                <Link to="/projects" className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group">
-                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" /> BACK TO PROJECTS
-                </Link>
-
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <div className="section-header">OFFICIAL PROJECTS</div>

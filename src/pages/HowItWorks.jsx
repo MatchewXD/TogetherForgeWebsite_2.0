@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle, Users, Hammer } from 'lucide-react';
+import { CheckCircle, Users, Hammer } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const HowItWorks = () => {
@@ -40,10 +40,6 @@ const HowItWorks = () => {
             {/* Header Wrapper */}
             <div className="border-b border-white/10 bg-cyber-surface py-16">
                 <div className="container-custom">
-                    <Link to="/" className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group">
-                        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" /> BACK TO HOME
-                    </Link>
-
                     <div>
                         <div className="section-header">HOW IT WORKS</div>
                         <h1 className="text-5xl font-bold tracking-tight text-white">From Idea to Game, Together</h1>

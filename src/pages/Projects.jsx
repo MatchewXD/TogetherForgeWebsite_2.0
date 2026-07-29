@@ -5,7 +5,6 @@
 
 import { Link } from 'react-router-dom';
 import {
-  ArrowLeft,
   ArrowRight,
   Hammer,
   Layers,
@@ -28,7 +27,7 @@ const PHASES = [
     open: true,
     summary:
       'Smaller cooperative games built with the community. Prove the model, ship playable experiences, learn how we create together.',
-    href: '/projects/prototype-systems',
+    href: '/projects/early',
     cta: 'Open workspace',
     icon: Hammer,
     badgeVariant: 'neon',
@@ -90,14 +89,6 @@ const Projects = () => {
       />
 
       <div className="container-custom relative z-10 py-12 md:py-16">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-10 group transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
-          BACK TO HOME
-        </Link>
-
         {/* 1. Page title — cyan color + accent bar (from former "Pipeline" label) */}
         <header className="mb-12 md:mb-14 max-w-3xl">
           <h1 className="relative w-fit max-w-full text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-neon-cyan pb-2 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-[60px] after:h-0.5 after:bg-gradient-to-r after:from-neon-cyan after:to-neon-magenta">

@@ -1,4 +1,3 @@
-import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import FaqAccordion from '../components/ui/FaqAccordion';
 
@@ -30,14 +29,6 @@ const FAQ = () => {
     <div className="pt-20 min-h-screen bg-cyber-bg text-text-primary">
       <div className="border-b border-cyber-border bg-cyber-surface/80 py-12 md:py-16">
         <div className="container-custom">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />{' '}
-            BACK TO HOME
-          </Link>
-
           <div>
             <div className="section-header">FAQ</div>
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white">

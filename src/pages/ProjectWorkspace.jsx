@@ -18,7 +18,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
-  ArrowLeft,
   Users,
   CheckCircle2,
   Trophy,
@@ -1367,14 +1366,6 @@ const ProjectWorkspace = () => {
       />
 
       <div className="container-custom relative z-10 py-10 md:py-14 space-y-12 md:space-y-16">
-        <Link
-          to="/projects"
-          className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white transition-colors group"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
-          BACK TO PROJECTS
-        </Link>
-
         {/* 1. PROJECT HEADER */}
         <header className="space-y-4">
           {phaseImageSrc(displayProject.phase) && (

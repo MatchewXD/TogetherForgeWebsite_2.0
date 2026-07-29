@@ -6,7 +6,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowLeft,
   Bug,
   Loader2,
   Plus,
@@ -113,14 +112,6 @@ const BugTracker = () => {
     <div className="pt-20 min-h-screen bg-cyber-bg text-text-primary">
       <div className="border-b border-white/10 bg-cyber-surface py-12 md:py-16">
         <div className="container-custom">
-          <Link
-            to="/"
-            className="flex w-fit items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
-            BACK TO HOME
-          </Link>
-
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
             <div className="max-w-2xl">
               <div className="section-header !block mb-3">Transparency</div>

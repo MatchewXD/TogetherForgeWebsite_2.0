@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, GraduationCap } from 'lucide-react';
+import { ArrowRight, GraduationCap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const ABOUT_BANNER_SRC = '/images/About_Page_Background.webp';
@@ -22,14 +22,6 @@ const AboutPage = () => {
                 </div>
 
                 <div className="container-custom relative z-10 py-10 sm:py-12 md:py-14 min-h-[16rem] sm:min-h-[18rem] md:min-h-[20rem] flex flex-col justify-center">
-                    <Link
-                        to="/"
-                        className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-6 sm:mb-8 group transition-colors w-fit"
-                    >
-                        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
-                        BACK TO HOME
-                    </Link>
-
                     <div className="max-w-3xl">
                         <div className="section-header">
                             BY THE COMMUNITY, FOR THE COMMUNITY

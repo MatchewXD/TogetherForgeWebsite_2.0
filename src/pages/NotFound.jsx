@@ -4,7 +4,6 @@
 
 import { Link } from 'react-router-dom';
 import {
-  ArrowLeft,
   Home,
   Hammer,
   Lightbulb,
@@ -56,14 +55,6 @@ const NotFound = () => {
       </div>
 
       <div className="container-custom relative z-10 pt-28 pb-16 md:pt-32 md:pb-24 flex flex-col items-center text-center">
-        <Link
-          to="/"
-          className="self-start inline-flex items-center gap-2 text-sm font-sans tracking-widest text-neon-cyan hover:text-white mb-10 group transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
-          BACK TO HOME
-        </Link>
-
         <div className="relative mb-8">
           <div
             className="absolute inset-[-25%] rounded-full bg-neon-cyan/10 blur-2xl pointer-events-none"

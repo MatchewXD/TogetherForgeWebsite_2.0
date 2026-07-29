@@ -616,6 +616,84 @@ export const ideasService = {
   },
 
   /**
+   * Published (non-draft) ideas owned by the user, with comment activity stats.
+   * Used by Dashboard "My Ideas".
+   */
+  async getMyIdeasWithActivity(userId) {
+    if (!userId) return [];
+
+    let { data, error } = await supabase
+      .from('ideas')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('[ideasService.getMyIdeasWithActivity]', error);
+      throw error;
+    }
+
+    const published = filterPublicIdeas(data || []).filter(
+      (i) => !isDraftIdea(i)
+    );
+    if (!published.length) return [];
+
+    const ids = published.map((i) => i.id).filter((id) => id != null);
+
+    // Comments on the user's ideas
+    const commentMeta = {};
+    try {
+      const { data: comments, error: cErr } = await supabase
+        .from('comments')
+        .select('idea_id, created_at, user_id')
+        .in('idea_id', ids);
+      if (!cErr && comments) {
+        for (const row of comments) {
+          if (row.idea_id == null) continue;
+          const key = row.idea_id;
+          if (!commentMeta[key]) {
+            commentMeta[key] = {
+              count: 0,
+              latestAt: null,
+              byOthers: 0,
+              latestOtherAt: null,
+            };
+          }
+          const m = commentMeta[key];
+          m.count += 1;
+          const t = row.created_at ? new Date(row.created_at).getTime() : 0;
+          if (t && (!m.latestAt || t > m.latestAt)) m.latestAt = t;
+          // Activity from others is what owners care about
+          if (row.user_id && row.user_id !== userId) {
+            m.byOthers += 1;
+            if (t && (!m.latestOtherAt || t > m.latestOtherAt)) {
+              m.latestOtherAt = t;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[ideasService.getMyIdeasWithActivity] comments', err);
+    }
+
+    return published.map((idea) => {
+      const c = commentMeta[idea.id] || commentMeta[String(idea.id)] || {};
+      // Prefer activity from others; fall back to any comment time
+      const latestCommentAt = c.latestOtherAt || c.latestAt || null;
+      return {
+        ...idea,
+        commentCount: c.count || 0,
+        commentsByOthers: c.byOthers || 0,
+        latestCommentAt: latestCommentAt
+          ? new Date(latestCommentAt).toISOString()
+          : null,
+        relatedCount: 0,
+        latestRelatedAt: null,
+      };
+    });
+  },
+
+  /**
    * Save or update a draft. Requires auth user_id.
    * Title may be empty → stored as "Untitled draft".
    * @returns {Promise<object>} saved idea row

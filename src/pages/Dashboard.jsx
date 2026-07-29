@@ -7,7 +7,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowLeft,
   LayoutDashboard,
   ListTodo,
   CheckCircle2,
@@ -21,6 +20,8 @@ import {
   FolderOpen,
   Pencil,
   Trash2,
+  MessageCircle,
+  Sparkles,
 } from 'lucide-react';
 
 import { supabase } from '../lib/supabase';
@@ -35,6 +36,16 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import LoadingScreen from '../components/ui/LoadingScreen';
 import { publicProfilePath } from '../utils/profileLinks';
+import {
+  deriveIdeaStatus,
+  statusChipClasses,
+  statusLabel,
+} from '../utils/ideaStatus';
+import {
+  getIdeaLastViewedMap,
+  ideaHasNewActivity,
+  formatIdeaActivityHint,
+} from '../utils/ideaActivity';
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
@@ -44,6 +55,7 @@ const Dashboard = () => {
   const [claims, setClaims] = useState([]);
   const [joinRequests, setJoinRequests] = useState([]);
   const [ideaCount, setIdeaCount] = useState(0);
+  const [myIdeas, setMyIdeas] = useState([]);
   const [myDrafts, setMyDrafts] = useState([]);
   const [deletingDraftId, setDeletingDraftId] = useState(null);
   const [error, setError] = useState('');
@@ -64,6 +76,7 @@ const Dashboard = () => {
         setClaims([]);
         setJoinRequests([]);
         setIdeaCount(0);
+        setMyIdeas([]);
         setMyDrafts([]);
         setLoading(false);
         return;
@@ -79,21 +92,54 @@ const Dashboard = () => {
           tasksService.getMyClaimQuota(),
           tasksService.listMyActiveClaims(),
           tasksService.listMyPendingJoinRequests(),
-          supabase
-            .from('ideas')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', current.id),
+          ideasService.getMyIdeasWithActivity(current.id).catch((err) => {
+            console.warn('[Dashboard] getMyIdeasWithActivity', err);
+            return [];
+          }),
           ideasService.getMyDrafts(current.id).catch((err) => {
             console.warn('[Dashboard] getMyDrafts', err);
             return [];
           }),
         ]);
 
+      const ideasList = ideasRes || [];
+      const lastViewed = getIdeaLastViewedMap(current.id);
+      const withActivity = ideasList.map((idea) => {
+        const lastIso = lastViewed[String(idea.id)] || null;
+        const baseline = lastIso
+          ? new Date(lastIso).getTime()
+          : new Date(idea.created_at || 0).getTime();
+
+        // Count comments from others after last view
+        let newCommentCount = 0;
+        if (idea.latestCommentAt) {
+          const t = new Date(idea.latestCommentAt).getTime();
+          if (t > baseline && (idea.commentsByOthers || 0) > 0) {
+            // We only know latest time + total-by-others; use total-by-others
+            // as a conservative "has new" signal (exact delta needs per-comment filter)
+            newCommentCount = idea.commentsByOthers || 0;
+          }
+        }
+
+        const hasNew = ideaHasNewActivity(idea, lastIso);
+        return {
+          ...idea,
+          hasNewActivity: hasNew,
+          newCommentCount: hasNew ? newCommentCount : 0,
+          activityHint: formatIdeaActivityHint({
+            ...idea,
+            hasNewActivity: hasNew,
+            newCommentCount: hasNew ? newCommentCount : 0,
+          }),
+        };
+      });
+
       setProfile(profileRes.data || null);
       setQuota(quotaRes?.signedIn ? quotaRes : null);
       setClaims(claimsRes || []);
       setJoinRequests(joinsRes || []);
-      setIdeaCount(ideasRes.count ?? 0);
+      setMyIdeas(withActivity);
+      setIdeaCount(withActivity.length);
       setMyDrafts(draftsRes || []);
     } catch (err) {
       console.error('[Dashboard]', err);
@@ -111,15 +157,16 @@ const Dashboard = () => {
     return () => listener.subscription.unsubscribe();
   }, [load]);
 
-  // Deep-link: /dashboard#my-drafts
+  // Deep-link: /dashboard#my-drafts | #my-ideas
   useEffect(() => {
     if (loading) return;
-    if (window.location.hash !== '#my-drafts') return;
-    const el = document.getElementById('my-drafts');
+    const hash = window.location.hash;
+    if (hash !== '#my-drafts' && hash !== '#my-ideas') return;
+    const el = document.getElementById(hash.slice(1));
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-  }, [loading, myDrafts.length]);
+  }, [loading, myDrafts.length, myIdeas.length]);
 
   const handleDeleteDraft = async (draftId) => {
     if (!user?.id || !draftId) return;
@@ -146,13 +193,6 @@ const Dashboard = () => {
       <div className="pt-20 min-h-screen">
         <div className="border-b border-white/10 bg-cyber-surface py-16">
           <div className="container-custom">
-            <Link
-              to="/"
-              className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group"
-            >
-              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />{' '}
-              BACK TO HOME
-            </Link>
             <div className="section-header">DASHBOARD</div>
             <h1 className="text-5xl font-bold tracking-tight text-white">
               My Dashboard
@@ -190,14 +230,6 @@ const Dashboard = () => {
     <div className="pt-20 min-h-screen bg-cyber-bg">
       <div className="border-b border-white/10 bg-cyber-surface py-12 sm:py-16">
         <div className="container-custom">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />{' '}
-            BACK TO HOME
-          </Link>
-
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
             <div>
               <div className="section-header">DASHBOARD</div>
@@ -295,15 +327,22 @@ const Dashboard = () => {
                   Claim slots left
                 </div>
               </Card>
-              <Card className="bg-cyber-card/80 text-center py-5">
-                <Lightbulb className="w-5 h-5 text-neon-cyan mx-auto mb-2" />
-                <div className="text-2xl font-mono font-bold text-neon-cyan">
-                  {ideaCount}
-                </div>
-                <div className="text-xs font-mono tracking-widest text-text-muted uppercase mt-1">
-                  Ideas submitted
-                </div>
-              </Card>
+              <a href="#my-ideas" className="block group">
+                <Card className="bg-cyber-card/80 text-center py-5 group-hover:border-neon-cyan/40 transition-colors">
+                  <Lightbulb className="w-5 h-5 text-neon-cyan mx-auto mb-2" />
+                  <div className="text-2xl font-mono font-bold text-neon-cyan">
+                    {ideaCount}
+                  </div>
+                  <div className="text-xs font-mono tracking-widest text-text-muted uppercase mt-1">
+                    Ideas submitted
+                  </div>
+                  {myIdeas.some((i) => i.hasNewActivity) && (
+                    <div className="mt-2 text-[10px] font-mono tracking-widest uppercase text-forge-gold">
+                      New activity
+                    </div>
+                  )}
+                </Card>
+              </a>
             </div>
 
             {quota && completedCount < CLAIM_LIMIT_UNLOCK_COMPLETIONS && (
@@ -461,6 +500,139 @@ const Dashboard = () => {
                   )}
                 </Card>
 
+                {/* My submitted ideas */}
+                <Card id="my-ideas" className="bg-cyber-card/80 scroll-mt-24">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <div className="text-sm font-mono tracking-widest text-neon-cyan flex items-center gap-2">
+                      <Lightbulb className="w-4 h-4" />
+                      MY IDEAS
+                      <Badge variant="default">{ideaCount}</Badge>
+                      {myIdeas.filter((i) => i.hasNewActivity).length > 0 && (
+                        <Badge
+                          variant="gold"
+                          className="!normal-case tracking-wide"
+                        >
+                          {
+                            myIdeas.filter((i) => i.hasNewActivity).length
+                          }{' '}
+                          with activity
+                        </Badge>
+                      )}
+                    </div>
+                    <Link
+                      to="/ideas/submit"
+                      className="text-xs text-neon-cyan hover:underline font-mono tracking-widest"
+                    >
+                      + New idea
+                    </Link>
+                  </div>
+
+                  {myIdeas.length === 0 ? (
+                    <div className="text-sm text-text-secondary py-6 text-center border border-dashed border-white/10 rounded-lg">
+                      <p className="mb-3">You have not submitted any ideas yet.</p>
+                      <Link
+                        to="/ideas/submit"
+                        className="btn-neon text-xs px-4 py-2 inline-flex"
+                      >
+                        SUBMIT AN IDEA
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <ul className="task-scroll space-y-3 max-h-[28rem] overflow-y-auto overscroll-contain">
+                        {myIdeas.map((idea) => {
+                          const chip = deriveIdeaStatus(idea);
+                          const submitted = idea.created_at
+                            ? new Date(idea.created_at).toLocaleDateString()
+                            : null;
+                          return (
+                            <li
+                              key={idea.id}
+                              className={`rounded-lg border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-colors ${
+                                idea.hasNewActivity
+                                  ? 'border-forge-gold/40 bg-forge-gold/5'
+                                  : 'border-white/10 bg-cyber-surface/50 hover:border-neon-cyan/30'
+                              }`}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2 mb-1">
+                                  {idea.hasNewActivity && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-mono tracking-widest uppercase text-forge-gold">
+                                      <Sparkles className="w-3 h-3" />
+                                      New activity
+                                    </span>
+                                  )}
+                                  <span
+                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono tracking-wide border ${statusChipClasses(
+                                      chip
+                                    )}`}
+                                  >
+                                    {statusLabel(chip)}
+                                  </span>
+                                  {idea.category && (
+                                    <span className="text-[10px] font-mono text-text-muted">
+                                      {idea.category}
+                                    </span>
+                                  )}
+                                </div>
+                                <Link
+                                  to={`/ideas/${idea.id}`}
+                                  className="font-semibold text-white hover:text-neon-cyan transition-colors block truncate"
+                                >
+                                  {idea.title || 'Untitled idea'}
+                                </Link>
+                                <div className="text-xs text-text-muted mt-1 flex flex-wrap gap-x-2 gap-y-1">
+                                  {submitted && (
+                                    <span>Submitted {submitted}</span>
+                                  )}
+                                  {(idea.commentCount || 0) > 0 && (
+                                    <span className="inline-flex items-center gap-1">
+                                      <MessageCircle className="w-3 h-3" />
+                                      {idea.commentCount} comment
+                                      {idea.commentCount === 1 ? '' : 's'}
+                                    </span>
+                                  )}
+                                  {(idea.votes || 0) > 0 && (
+                                    <span>{idea.votes} votes</span>
+                                  )}
+                                </div>
+                                {idea.activityHint && (
+                                  <p className="text-xs text-forge-gold mt-1.5">
+                                    {idea.activityHint}
+                                  </p>
+                                )}
+                                {idea.summary && (
+                                  <p className="text-xs text-text-secondary mt-1 line-clamp-2">
+                                    {idea.summary}
+                                  </p>
+                                )}
+                              </div>
+                              <Link
+                                to={`/ideas/${idea.id}`}
+                                className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-neon-cyan/40 text-neon-cyan text-xs font-mono tracking-widest uppercase hover:bg-neon-cyan/10 transition-colors self-start sm:self-center"
+                              >
+                                Open idea
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      {/* Themed scroll hint: fade edge instead of native scrollbar */}
+                      {myIdeas.length > 3 && (
+                        <div
+                          className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-cyber-card via-cyber-card/80 to-transparent flex items-end justify-center pb-1"
+                          aria-hidden="true"
+                        >
+                          <span className="text-[10px] font-mono tracking-widest uppercase text-neon-cyan/60">
+                            Scroll for more
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Card>
+
                 {/* Private idea drafts */}
                 <Card
                   id="my-drafts"
@@ -596,6 +768,18 @@ const Dashboard = () => {
                       <Lightbulb className="w-4 h-4 text-neon-magenta shrink-0" />
                       Idea wizard
                     </Link>
+                    <a
+                      href="#my-ideas"
+                      className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-cyan hover:text-white transition-colors"
+                    >
+                      <Lightbulb className="w-4 h-4 text-neon-cyan shrink-0" />
+                      <span className="flex-1">My ideas</span>
+                      {ideaCount > 0 && (
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-neon-cyan/40 text-neon-cyan">
+                          {ideaCount}
+                        </span>
+                      )}
+                    </a>
                     <a
                       href="#my-drafts"
                       className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-cyan hover:text-white transition-colors"

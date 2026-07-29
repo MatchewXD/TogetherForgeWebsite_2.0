@@ -6,6 +6,8 @@ import ProfileLink from './ProfileLink';
 import {
   deriveIdeaStatus,
   getIdeaProjectKey,
+  isStudioStageKey,
+  resolveLinkDisplayName,
   parseTags,
   statusChipClasses,
   statusLabel,
@@ -16,7 +18,7 @@ import {
  * Shared idea listing card for GameIdeas + Project Workspace.
  *
  * Layout:
- *  [vote]  title ………………………………… [status top-right]
+ *  [vote]  title ………………………………… [status + link badges top-right]
  *          category · summary · tags
  *          avatar · creator · date · comments
  */
@@ -27,11 +29,11 @@ const IdeaCard = ({
   voting = false,
   onVote,
   onOpen,
-  /** Resolved project display name when status is Linked */
+  /** Resolved project/game display name when linked */
   projectName = null,
-  /** Slug/id used when clicking the Linked chip */
+  /** Slug/id used when clicking the link target chip */
   projectSlug = null,
-  /** Called when Linked chip is clicked (stopPropagation applied) */
+  /** Called when the project/game chip is clicked (stopPropagation applied) */
   onProjectClick,
   commentCount,
   showTags = true,
@@ -46,7 +48,9 @@ const IdeaCard = ({
     idea.creator?.avatar_url || idea.creator?.avatarUrl || null;
   const tags = showTags ? parseTags(idea.tags).slice(0, 4) : [];
   const projectKey = getIdeaProjectKey(idea);
-  const linkedLabel = projectName || projectKey || 'Linked project';
+  const linkedLabel =
+    resolveLinkDisplayName(projectKey, projectName) || projectName || null;
+  const linkIsStage = isStudioStageKey(projectKey);
   const comments =
     typeof commentCount === 'number'
       ? commentCount
@@ -65,6 +69,7 @@ const IdeaCard = ({
         slug: projectSlug || projectKey,
         name: linkedLabel,
         key: projectKey,
+        isStage: linkIsStage,
       });
     }
   };
@@ -84,7 +89,7 @@ const IdeaCard = ({
         }
       }}
     >
-      {/* Status - top right */}
+      {/* Status - top right (combined Linked · Early Game / Linked · Tether) */}
       <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 max-w-[45%] sm:max-w-[40%]">
         {isLinked ? (
           <button
@@ -92,15 +97,20 @@ const IdeaCard = ({
             onClick={handleProjectChip}
             title={
               onProjectClick
-                ? `View ideas for ${linkedLabel}`
-                : linkedLabel
+                ? `View ideas for ${linkedLabel || 'link'}`
+                : linkedLabel || 'Linked'
             }
             className={`inline-flex items-center max-w-full gap-1 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-mono tracking-wide border transition-colors ${statusChipClasses(
               'Linked'
             )}`}
           >
-            <span className="opacity-80 shrink-0">Linked ·</span>
-            <span className="truncate font-medium">{linkedLabel}</span>
+            <span className="opacity-80 shrink-0">Linked</span>
+            {linkedLabel && (
+              <>
+                <span className="opacity-80 shrink-0">·</span>
+                <span className="truncate font-medium">{linkedLabel}</span>
+              </>
+            )}
           </button>
         ) : (
           <span

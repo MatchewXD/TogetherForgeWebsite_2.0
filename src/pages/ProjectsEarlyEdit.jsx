@@ -1,165 +1,339 @@
+/**
+ * Staff editor for Early Phase page content.
+ * Pattern is reusable for Mid/Late (swap phase key + defaults).
+ */
+
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { Save } from 'lucide-react';
 import { useIsModerator } from '../hooks/useIsModerator';
-import { normalizeGoals } from '../utils/normalizeGoals';
+import { phasePageService } from '../services/phasePageService';
+import {
+  EARLY_PHASE_DEFAULTS,
+  contentToEditForm,
+  editFormToContent,
+} from '../utils/phasePageContent';
+import Button from '../components/ui/Buttons';
+import Card from '../components/ui/Card';
 
-const DEFAULT_CONTENT = {
-    heroTitle: 'Early Game Project Hub',
-    heroSubtitle: 'Early Game (Proof of Concept)\nA small, focused multiplayer game that promotes teamwork and cooperation. The primary goal is to test and refine our community development systems (task management, volunteering, crediting, feedback loops). It should be relatively quick to make while still being genuinely fun and multiplayer.',
-    goals: `- Test and prove our community-driven development model works.
-- Build and refine core cooperation and teamwork mechanics.
-- Create a genuinely fun experience that brings players together.
-- Establish transparent systems for volunteering, task tracking, and crediting contributors.
-- Gather real community feedback to improve future projects.
+const PHASE = 'early';
+const DEFAULTS = EARLY_PHASE_DEFAULTS;
 
-Success metric: Strong community engagement during development + positive feedback on cooperative gameplay.`,
-    aboutText: 'Early Game is the foundation of Together Forge. We intentionally start small so we can focus on what matters most: building fun cooperative mechanics and proving that a transparent, community-supported development process can create great games.',
-    howToHelp: `- Submit game concepts, mechanics, or ideas through the Game Ideas page.
-- Volunteer your skills (development, art, design, testing, writing, moderation, etc.).
-- Help test prototypes and give honest feedback on what feels fun.
-- Join discussions on existing ideas to help refine them.
-- Share the project with streamers, communities, and other creators.
-- Support the Forge through donations to help fund development tools and time.`,
-    targetStyle: `We are looking for small, focused multiplayer games that emphasize cooperation and teamwork.
+const fieldClass =
+  'w-full bg-cyber-surface border border-cyber-border rounded-lg px-4 py-3 text-text-primary placeholder:text-text-muted focus:border-neon-cyan focus:outline-none transition-colors';
 
-**Examples of the kind of games we want to make:**
-- Cooperative survival challenges (inspired by Lethal Company or PlateUp!)
-- Shared vehicle/mech operation or crew-based gameplay
-- Simple team-based exploration, building, and defense
-- Light resource management with clear role differentiation in short sessions`
-};
+const labelClass =
+  'block text-sm font-mono tracking-widest text-neon-cyan mb-2';
 
 const ProjectsEarlyEdit = () => {
-    const { isModerator, loading: roleLoading } = useIsModerator();
-    const navigate = useNavigate();
-    const [content, setContent] = useState(DEFAULT_CONTENT);
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
+  const { isModerator, loading: roleLoading } = useIsModerator();
+  const navigate = useNavigate();
+  const [form, setForm] = useState(() => contentToEditForm(DEFAULTS));
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
 
-    const load = async () => {
-        setLoading(true);
-        try {
-            const { data } = await supabase.from('page_content').select('content').eq('page_key', 'early_game').single();
-            if (data?.content) {
-                let loaded = { ...DEFAULT_CONTENT, ...data.content };
-                // Normalize goals: convert old array format to markdown string and strip HTML
-                if (Array.isArray(loaded.goals)) {
-                    loaded.goals = loaded.goals.map(g => `- ${g}`).join('\n');
-                } else if (typeof loaded.goals === 'string') {
-                    // Store raw markdown exactly as saved – normalization happens only on display
-                    loaded.goals = loaded.goals;
-                } else {
-                    loaded.goals = DEFAULT_CONTENT.goals;
-                }
-                setContent(loaded);
-            }
-        } catch {
-            // fall back to defaults
-        }
-        setLoading(false);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const content = await phasePageService.getPageContent(PHASE);
+        if (mounted) setForm(contentToEditForm(content));
+      } catch (err) {
+        console.warn('[ProjectsEarlyEdit] load', err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
     };
+  }, []);
 
-    useEffect(() => { load(); }, []);
+  const updateField = (key, value) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
 
-    if (roleLoading) return <div className="pt-20 p-8">Checking permissions…</div>;
-    if (!isModerator) {
-        return (
-            <div className="pt-20 p-8">
-                <div className="cyber-card p-6 text-center text-text-secondary">Access denied. Moderator role required.</div>
-                <Link to="/projects/early" className="inline-block mt-4 text-neon-cyan">← Back to Early Game</Link>
-            </div>
-        );
+  const save = async () => {
+    setSaving(true);
+    setMessage('');
+    try {
+      const content = editFormToContent(form, DEFAULTS);
+      await phasePageService.savePageContent(PHASE, content);
+      navigate('/projects/early');
+    } catch (err) {
+      console.error('[ProjectsEarlyEdit] save', err);
+      setMessage(
+        err?.message ||
+          'Failed to save. Confirm page_content table exists and you have staff permission.'
+      );
+    } finally {
+      setSaving(false);
     }
+  };
 
-    const updateField = (key, value) => setContent(prev => ({ ...prev, [key]: value }));
-
-    const save = async () => {
-        setSaving(true);
-        try {
-            const { error } = await supabase.from('page_content').upsert({ page_key: 'early_game', content }, { onConflict: 'page_key' });
-            if (error) {
-                console.error('Failed to save page content:', error);
-                alert('Failed to save changes. Check console for details.');
-            } else {
-                navigate('/projects/early');
-            }
-        } finally {
-            setSaving(false);
-        }
-    };
-
+  if (roleLoading) {
     return (
-        <div className="pt-20 min-h-screen bg-red-900/10">
-            <div className="container-custom py-12">
-                <Link to="/projects/early" className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group">
-                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" /> BACK TO EARLY GAME
-                </Link>
-
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <div className="section-header">EARLY GAME</div>
-                        <h1 className="text-4xl font-bold tracking-tight text-white">Edit Page Content</h1>
-                    </div>
-                    <button onClick={save} disabled={saving} className="btn-primary inline-flex items-center gap-2"><Save className="w-4 h-4" />{saving ? 'Saving…' : 'Save Changes'}</button>
-                </div>
-
-                {loading ? (
-                    <div className="cyber-card p-6">Loading…</div>
-                ) : (
-                    <div className="space-y-8">
-                        {/* Hero */}
-                        <div className="cyber-card p-6">
-                            <div className="section-header mb-4">Hero</div>
-                            <input className="w-full bg-cyber-surface border border-white/10 px-3 py-2 rounded text-white mb-3" value={content.heroTitle} onChange={e => updateField('heroTitle', e.target.value)} />
-                            <textarea className="w-full bg-cyber-surface border border-white/10 px-3 py-2 rounded text-white h-20" value={content.heroSubtitle} onChange={e => updateField('heroSubtitle', e.target.value)} />
-                        </div>
-
-                        {/* Goals */}
-                        <div className="cyber-card p-6">
-                            <div className="section-header mb-4">Early Game Goals</div>
-                            <textarea
-                                className="w-full bg-cyber-surface border border-white/10 px-3 py-2 rounded text-white h-40 font-mono text-sm"
-                                value={content.goals}
-                                onChange={e => updateField('goals', e.target.value)}
-                                placeholder="Enter goals in markdown (use - for bullets)"
-                            />
-                            <p className="text-xs text-text-muted mt-2">Supports markdown. Use `- ` for bullet points.</p>
-                        </div>
-
-                        {/* About */}
-                        <div className="cyber-card p-6">
-                            <div className="section-header mb-4">About Early Game</div>
-                            <textarea className="w-full bg-cyber-surface border border-white/10 px-3 py-2 rounded text-white h-28" value={content.aboutText} onChange={e => updateField('aboutText', e.target.value)} />
-                        </div>
-
-                        {/* Target Style */}
-                        <div className="cyber-card p-6">
-                            <div className="section-header mb-4">Target Style for Early Game Projects</div>
-                            <textarea
-                                className="w-full bg-cyber-surface border border-white/10 px-3 py-2 rounded text-white h-40 font-mono text-sm"
-                                value={content.targetStyle || ''}
-                                onChange={e => updateField('targetStyle', e.target.value)}
-                            />
-                        </div>
-
-                        {/* How to Help */}
-                        <div className="cyber-card p-6">
-                            <div className="section-header mb-4">How to Help</div>
-                            <textarea
-                                className="w-full bg-cyber-surface border border-white/10 px-3 py-2 rounded text-white h-40 font-mono text-sm"
-                                value={content.howToHelp}
-                                onChange={e => updateField('howToHelp', e.target.value)}
-                                placeholder="Enter how to help in markdown (use - for bullets)"
-                            />
-                            <p className="text-xs text-text-muted mt-2">Supports markdown. Use `- ` for bullet points.</p>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
+      <div className="pt-20 min-h-screen bg-cyber-bg text-text-secondary p-8 font-mono text-sm tracking-widest">
+        Checking permissions…
+      </div>
     );
+  }
+
+  if (!isModerator) {
+    return (
+      <div className="pt-20 min-h-screen bg-cyber-bg">
+        <div className="container-custom py-12 max-w-lg">
+          <Card className="p-8 text-center space-y-4">
+            <p className="text-text-secondary">
+              Access denied. Staff role (moderator, admin, or project lead)
+              required.
+            </p>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pt-20 min-h-screen bg-cyber-bg text-text-primary">
+      <div className="container-custom py-12 max-w-3xl">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
+          <div>
+            <div className="section-header">STAFF EDIT</div>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
+              Early Phase content
+            </h1>
+            <p className="text-sm text-text-secondary mt-2 max-w-lg">
+              Update public copy on the Early Phase hub. Layout stays the same;
+              only the text changes. Mid and Late can reuse this same editor
+              pattern.
+            </p>
+          </div>
+          <Button
+            type="button"
+            className="gap-2 shrink-0"
+            disabled={saving || loading}
+            onClick={save}
+          >
+            <Save className="w-4 h-4" />
+            {saving ? 'Saving…' : 'Save changes'}
+          </Button>
+        </div>
+
+        {message && (
+          <div
+            role="alert"
+            className="mb-6 rounded-lg border border-red-400/40 bg-red-400/10 px-4 py-3 text-sm text-red-100"
+          >
+            {message}
+          </div>
+        )}
+
+        {loading ? (
+          <Card className="p-6 text-text-muted font-mono text-sm">Loading…</Card>
+        ) : (
+          <div className="space-y-6">
+            <Card className="p-5 sm:p-6 space-y-4">
+              <h2 className="section-header mb-0">Hero</h2>
+              <div>
+                <label className={labelClass}>Page title</label>
+                <input
+                  className={fieldClass}
+                  value={form.heroTitle}
+                  onChange={(e) => updateField('heroTitle', e.target.value)}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Series label</label>
+                <input
+                  className={fieldClass}
+                  value={form.heroSeriesLabel}
+                  onChange={(e) =>
+                    updateField('heroSeriesLabel', e.target.value)
+                  }
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Intro body</label>
+                <textarea
+                  className={`${fieldClass} min-h-[6rem]`}
+                  value={form.heroBody}
+                  onChange={(e) => updateField('heroBody', e.target.value)}
+                />
+              </div>
+            </Card>
+
+            <Card className="p-5 sm:p-6 space-y-4">
+              <h2 className="section-header mb-0">Early Game Goals</h2>
+              <div>
+                <label className={labelClass}>Goals intro line</label>
+                <input
+                  className={fieldClass}
+                  value={form.goalsIntro}
+                  onChange={(e) => updateField('goalsIntro', e.target.value)}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>
+                  Goals (one item per line — plain text, no markdown or HTML)
+                </label>
+                <textarea
+                  className={`${fieldClass} min-h-[10rem] font-mono text-sm`}
+                  value={form.goals}
+                  onChange={(e) => updateField('goals', e.target.value)}
+                />
+                <p className="text-xs text-text-muted mt-1.5">
+                  Do not use *, **, or HTML tags. Formatting is applied by the
+                  page layout automatically.
+                </p>
+              </div>
+              <div>
+                <label className={labelClass}>Success metric</label>
+                <textarea
+                  className={`${fieldClass} min-h-[4rem]`}
+                  value={form.successMetric}
+                  onChange={(e) => updateField('successMetric', e.target.value)}
+                />
+              </div>
+            </Card>
+
+            <Card className="p-5 sm:p-6 space-y-4">
+              <h2 className="section-header mb-0">Active project card</h2>
+              <div>
+                <label className={labelClass}>Title</label>
+                <input
+                  className={fieldClass}
+                  value={form.activeProjectTitle}
+                  onChange={(e) =>
+                    updateField('activeProjectTitle', e.target.value)
+                  }
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Status label</label>
+                <input
+                  className={fieldClass}
+                  value={form.activeProjectStatus}
+                  onChange={(e) =>
+                    updateField('activeProjectStatus', e.target.value)
+                  }
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Summary</label>
+                <textarea
+                  className={`${fieldClass} min-h-[6rem]`}
+                  value={form.activeProjectSummary}
+                  onChange={(e) =>
+                    updateField('activeProjectSummary', e.target.value)
+                  }
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Workspace link path</label>
+                <input
+                  className={fieldClass}
+                  value={form.activeProjectHref}
+                  onChange={(e) =>
+                    updateField('activeProjectHref', e.target.value)
+                  }
+                  placeholder="/projects/prototype-systems"
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Game overviews note</label>
+                <textarea
+                  className={`${fieldClass} min-h-[4rem]`}
+                  value={form.gameOverviewsNote}
+                  onChange={(e) =>
+                    updateField('gameOverviewsNote', e.target.value)
+                  }
+                />
+              </div>
+            </Card>
+
+            <Card className="p-5 sm:p-6 space-y-4">
+              <h2 className="section-header mb-0">Target style</h2>
+              <div>
+                <label className={labelClass}>Intro</label>
+                <textarea
+                  className={`${fieldClass} min-h-[4rem]`}
+                  value={form.targetIntro}
+                  onChange={(e) => updateField('targetIntro', e.target.value)}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>
+                  Examples (one item per line — plain text only)
+                </label>
+                <textarea
+                  className={`${fieldClass} min-h-[10rem] font-mono text-sm`}
+                  value={form.targetExamples}
+                  onChange={(e) =>
+                    updateField('targetExamples', e.target.value)
+                  }
+                />
+              </div>
+            </Card>
+
+            <Card className="p-5 sm:p-6 space-y-4">
+              <h2 className="section-header mb-0">About Early Game</h2>
+              <div>
+                <label className={labelClass}>
+                  About text (blank line between paragraphs)
+                </label>
+                <textarea
+                  className={`${fieldClass} min-h-[8rem]`}
+                  value={form.aboutText}
+                  onChange={(e) => updateField('aboutText', e.target.value)}
+                />
+              </div>
+            </Card>
+
+            <Card className="p-5 sm:p-6 space-y-4">
+              <h2 className="section-header mb-0">How to Help</h2>
+              <div>
+                <label className={labelClass}>
+                  Help items (one per line — plain text only)
+                </label>
+                <textarea
+                  className={`${fieldClass} min-h-[10rem] font-mono text-sm`}
+                  value={form.howToHelp}
+                  onChange={(e) => updateField('howToHelp', e.target.value)}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Footer note</label>
+                <textarea
+                  className={`${fieldClass} min-h-[3rem]`}
+                  value={form.howToHelpNote}
+                  onChange={(e) => updateField('howToHelpNote', e.target.value)}
+                />
+              </div>
+            </Card>
+
+            <div className="flex flex-wrap gap-3 justify-end">
+              <Link to="/projects/early">
+                <Button type="button" variant="ghost">
+                  Cancel
+                </Button>
+              </Link>
+              <Button
+                type="button"
+                className="gap-2"
+                disabled={saving}
+                onClick={save}
+              >
+                <Save className="w-4 h-4" />
+                {saving ? 'Saving…' : 'Save changes'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default ProjectsEarlyEdit;

@@ -1,5 +1,4 @@
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
 
 const ProjectsEarlyDetail = () => {
     const { id } = useParams();
@@ -8,10 +7,6 @@ const ProjectsEarlyDetail = () => {
     return (
         <div className="pt-20 min-h-screen">
             <div className="container-custom py-12">
-                <Link to="/projects/early" className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group">
-                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" /> BACK TO EARLY GAME
-                </Link>
-
                 {/* 1. Header / Hero */}
                 <div className="mb-12">
                     <div className="section-header">EARLY GAME</div>
@@ -107,7 +102,6 @@ const ProjectsEarlyDetail = () => {
 
                 {/* 8. Footer / Next Steps */}
                 <div className="pt-4 border-t border-white/10 flex flex-wrap gap-4 items-center">
-                    <Link to="/projects/early" className="btn-neon">Back to Early Game Overview</Link>
                     <Link to={`/ideas/submit?project=${id}`} className="btn-primary">Suggest More Ideas</Link>
                 </div>
             </div>

@@ -7,7 +7,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   Shield,
   Users,
   Lightbulb,
@@ -184,14 +183,6 @@ const ModeratorDashboard = () => {
 
       <div className="relative z-10 border-b border-cyber-border bg-cyber-surface/80">
         <div className="container-custom py-10 md:py-12">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-6 group transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
-            BACK TO HOME
-          </Link>
-
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
             <div>
               <div className="flex flex-wrap items-center gap-3 mb-3">

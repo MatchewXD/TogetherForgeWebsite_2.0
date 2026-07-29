@@ -6,7 +6,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
-  ArrowLeft,
   Lightbulb,
   CheckCircle2,
   ListTodo,
@@ -180,12 +179,6 @@ const PublicProfile = () => {
     return (
       <div className="pt-20 min-h-screen bg-cyber-bg">
         <div className="container-custom py-12 max-w-3xl">
-          <Link
-            to="/ideas"
-            className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8"
-          >
-            <ArrowLeft className="w-4 h-4" /> BACK
-          </Link>
           <Card className="bg-cyber-card/80 text-center py-12">
             <h1 className="text-2xl font-bold text-white mb-2">
               Profile not found
@@ -212,14 +205,6 @@ const PublicProfile = () => {
       />
 
       <div className="container-custom relative z-10 py-12 max-w-5xl">
-        <Link
-          to="/ideas"
-          className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />{' '}
-          BACK
-        </Link>
-
         {/* Banner + identity */}
         <div className="relative mb-8">
           <div className="h-40 sm:h-48 w-full rounded-xl overflow-hidden bg-cyber-surface border border-cyber-border">

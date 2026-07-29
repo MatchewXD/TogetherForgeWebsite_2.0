@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
+import { Save, Plus, Trash2 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { buildGuidedData } from '../services/ideasService';
@@ -353,14 +353,6 @@ const IdeaEdit = () => {
   return (
     <div className="pt-20 min-h-screen bg-cyber-bg text-text-primary">
       <div className="container-custom py-12 max-w-3xl">
-        <Link
-          to={`/ideas/${id}`}
-          className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />{' '}
-          BACK TO IDEA
-        </Link>
-
         <div className="mb-8">
           <div className="section-header">EDIT IDEA</div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-2">

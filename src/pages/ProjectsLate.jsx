@@ -1,4 +1,3 @@
-import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
@@ -33,10 +32,6 @@ const ProjectsLate = () => {
     return (
         <div className="pt-20 min-h-screen">
             <div className="container-custom py-12">
-                <Link to="/projects" className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group">
-                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" /> BACK TO PROJECTS
-                </Link>
-
                 <div className="mb-8">
                     <div className="section-header">LATE GAME</div>
                     <h1 className="text-4xl font-bold tracking-tight text-white">Late Game - Phase Overview</h1>

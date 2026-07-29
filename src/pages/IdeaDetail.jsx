@@ -7,7 +7,6 @@
  */
 
 import {
-  ArrowLeft,
   MessageCircle,
   Flame,
   ExternalLink,
@@ -35,7 +34,11 @@ import {
   parseTags,
   statusChipClasses,
   statusLabel,
+  getProjectDisplayName,
+  isStudioStageKey,
+  resolveLinkDisplayName,
 } from '../utils/ideaStatus';
+import { markIdeaViewed } from '../utils/ideaActivity';
 import {
   buildGuidedDisplayItems,
   GUIDED_GRID_CLASS,
@@ -174,6 +177,17 @@ const IdeaDetail = () => {
             hasGuided: !!data.guided_data,
           });
           setIdea({ ...data, votes });
+          // Owner (or any signed-in visitor): mark viewed so Dashboard "new activity" clears
+          try {
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+            if (session?.user?.id) {
+              markIdeaViewed(session.user.id, data.id ?? ideaId);
+            }
+          } catch {
+            /* ignore */
+          }
         } else {
           setIdea({
             id: ideaId,
@@ -217,11 +231,27 @@ const IdeaDetail = () => {
       }
       const key = String(raw).trim();
       try {
+        // Studio stages (Early/Mid/Late Game) are not workspace projects
+        if (isStudioStageKey(key)) {
+          if (!cancelled) {
+            setLinkedProject({
+              slug: key,
+              title: resolveLinkDisplayName(key),
+              isStage: true,
+            });
+          }
+          return;
+        }
+
         const bySlug = await tasksService.getProjectBySlug(key);
         if (!cancelled && bySlug) {
           setLinkedProject({
             slug: bySlug.slug || key,
-            title: bySlug.title || bySlug.slug || key,
+            title: resolveLinkDisplayName(
+              bySlug.slug || key,
+              bySlug.title
+            ),
+            isStage: false,
           });
           return;
         }
@@ -238,7 +268,8 @@ const IdeaDetail = () => {
         if (!cancelled && data) {
           setLinkedProject({
             slug: data.slug || key,
-            title: data.title || data.slug || key,
+            title: resolveLinkDisplayName(data.slug || key, data.title),
+            isStage: false,
           });
           return;
         }
@@ -247,7 +278,11 @@ const IdeaDetail = () => {
       }
 
       if (!cancelled) {
-        setLinkedProject({ slug: key, title: key });
+        setLinkedProject({
+          slug: key,
+          title: resolveLinkDisplayName(key) || key,
+          isStage: isStudioStageKey(key),
+        });
       }
     };
     resolveProject();
@@ -258,6 +293,14 @@ const IdeaDetail = () => {
 
   const projectPath = useMemo(() => {
     if (!linkedProject?.slug) return null;
+    // Stages open the public hub (not a project workspace)
+    if (linkedProject?.isStage) {
+      const k = String(linkedProject.slug).toLowerCase();
+      if (k.startsWith('early')) return '/projects/early';
+      if (k.startsWith('mid')) return '/projects/mid';
+      if (k.startsWith('late')) return '/projects/late';
+      return null;
+    }
     return `/projects/${linkedProject.slug}`;
   }, [linkedProject]);
 
@@ -455,14 +498,6 @@ const IdeaDetail = () => {
       />
 
       <div className="container-custom relative z-10 py-12 max-w-4xl">
-        <Link
-          to="/ideas"
-          className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
-          BACK TO IDEAS
-        </Link>
-
         {message && (
           <div
             role="status"
@@ -494,15 +529,6 @@ const IdeaDetail = () => {
             >
               {statusLabel(workflowStatus)}
             </span>
-            {chipStatus !== workflowStatus && chipStatus === 'Linked' && (
-              <span
-                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono tracking-wide border ${statusChipClasses(
-                  'Linked'
-                )}`}
-              >
-                Linked
-              </span>
-            )}
             {(chipStatus === 'Hot' || chipStatus === 'Promising') && (
               <span
                 className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono tracking-wide border ${statusChipClasses(
@@ -512,10 +538,21 @@ const IdeaDetail = () => {
                 {statusLabel(chipStatus)}
               </span>
             )}
-            {linkedProject && (
-              <Badge variant="purple" className="!normal-case tracking-wide">
-                Project · {linkedProject.title}
-              </Badge>
+            {/* One badge: Linked · Early Game / Linked · Tether */}
+            {(chipStatus === 'Linked' || linkedProject) && (
+              <span
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono tracking-wide border ${statusChipClasses(
+                  'Linked'
+                )}`}
+              >
+                <span className="opacity-90">Linked</span>
+                {linkedProject?.title && (
+                  <>
+                    <span className="opacity-70">·</span>
+                    <span className="font-medium">{linkedProject.title}</span>
+                  </>
+                )}
+              </span>
             )}
           </div>
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, Mail } from 'lucide-react';
+import { Mail } from 'lucide-react';
 
 const EmailConfirmation = () => {
     const navigate = useNavigate();
@@ -26,10 +26,6 @@ const EmailConfirmation = () => {
     return (
         <div className="pt-20 min-h-screen flex items-center justify-center">
             <div className="container-custom max-w-md text-center">
-                <Link to="/" className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group">
-                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" /> BACK TO HOME
-                </Link>
-
                 <div className="cyber-card p-10">
                     <div className="flex justify-center mb-6">
                         <div className="w-16 h-16 rounded-full bg-neon-cyan/10 flex items-center justify-center">

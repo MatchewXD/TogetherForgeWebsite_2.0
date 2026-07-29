@@ -5,7 +5,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   Bug,
   ImagePlus,
   Loader2,
@@ -102,13 +101,6 @@ const ReportBug = () => {
     <div className="pt-20 min-h-screen bg-cyber-bg text-text-primary">
       <div className="border-b border-white/10 bg-cyber-surface py-12 md:py-16">
         <div className="container-custom">
-          <Link
-            to="/bugs"
-            className="flex w-fit items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
-            BACK TO BUG TRACKER
-          </Link>
           <div className="section-header !block mb-3">Bugs</div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white">
             Report a Bug

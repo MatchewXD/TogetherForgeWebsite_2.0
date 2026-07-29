@@ -1,165 +1,255 @@
-import { ArrowLeft } from 'lucide-react';
+/**
+ * Early Phase Project Hub — series of proof-of-concept games.
+ * Staff can edit descriptive content via /projects/early/edit (page_content).
+ */
+
+import { useEffect, useState } from 'react';
+import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { useIsModerator } from '../hooks/useIsModerator';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { normalizeGoals } from '../utils/normalizeGoals';
+import Badge from '../components/ui/Badge';
+import Card from '../components/ui/Card';
+import PhaseIdeasSection from '../components/phase/PhaseIdeasSection';
+import { phasePageService } from '../services/phasePageService';
+import { EARLY_PHASE_DEFAULTS } from '../utils/phasePageContent';
 
 const ProjectsEarly = () => {
-    const [games, setGames] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [pageContent, setPageContent] = useState(null);
+  const { isModerator } = useIsModerator();
+  const [content, setContent] = useState(EARLY_PHASE_DEFAULTS);
+  const [loading, setLoading] = useState(true);
 
-    const SAMPLE_GAMES = [
-        { id: 'g1', title: 'Minimap Mayhem', desc: 'Small co-op arena focusing on resource delivery and defense.', status: 'in_progress' },
-        { id: 'g2', title: 'Collector Caravan', desc: 'A short mission-based game that validates item collection loop.', status: 'todo' },
-        { id: 'g3', title: 'Prototype PVP-lite', desc: 'Basic competitive prototype to test network and latency concerns.', status: 'completed' }
-    ];
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await phasePageService.getPageContent('early');
+        if (mounted && data) setContent(data);
+      } catch (err) {
+        console.warn('[ProjectsEarly] load content', err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-    useEffect(() => {
-        let mounted = true;
-        const load = async () => {
-            setLoading(true);
-            try {
-                const { data: gamesData } = await supabase.from('phase_games').select('*').eq('phase', 'early');
-                if (mounted) setGames(gamesData && gamesData.length ? gamesData : SAMPLE_GAMES);
+  const c = content || EARLY_PHASE_DEFAULTS;
+  const tetherHref = c.activeProjectHref || '/projects/prototype-systems';
 
-                const { data: contentData } = await supabase.from('page_content').select('content').eq('page_key', 'early_game').single();
-                if (mounted && contentData?.content) {
-                    // Store raw content; normalization happens only at render time via normalizeGoals()
-                    setPageContent(contentData.content);
-                }
-            } catch {
-                if (mounted) setGames(SAMPLE_GAMES);
-            }
-            setLoading(false);
-        };
-        load();
-        return () => { mounted = false; };
-    }, []);
+  return (
+    <div className="pt-20 min-h-screen bg-cyber-bg text-text-primary">
+      <div
+        className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,249,255,0.05)_0%,transparent_50%)]"
+        aria-hidden="true"
+      />
 
-    const { isModerator } = useIsModerator();
-    const doneCount = games.filter(g => g.status === 'completed').length;
-
-    return (
-        <div className="pt-20 min-h-screen">
-            <div className="container-custom py-12">
-                <Link to="/projects" className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group">
-                    <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" /> BACK TO PROJECTS
-                </Link>
-
-                <div className="mb-8 relative flex items-start justify-center">
-                    <div className="text-center max-w-3xl">
-                        <div className="section-header">EARLY GAME</div>
-                        <h1 className="text-4xl font-bold tracking-tight text-white">{pageContent?.heroTitle || 'Early Game Project Hub'}</h1>
-                        <div className="text-text-secondary mt-4 space-y-4">
-                            <div>
-                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                    {pageContent?.heroSubtitle || `Early Game (Proof of Concept)
-A small, focused multiplayer game that promotes teamwork and cooperation. The primary goal is to test and refine our community development systems (task management, volunteering, crediting, feedback loops). It should be relatively quick to make while still being genuinely fun and multiplayer.`}
-                                </ReactMarkdown>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2">
-                        <Link to="/projects" className="btn-primary">Volunteer</Link>
-                    </div>
-                </div>
-
-                <div className="grid md:grid-cols-3 gap-6">
-                    <div className="md:col-span-2">
-                        <div className="section-header">Early game goals</div>
-                        <div className="cyber-card p-4 mb-6 text-text-secondary prose prose-invert max-w-none">
-                            {(() => {
-                                const rawGoals = pageContent?.goals || `**Early Game (Proof of Concept)**
-
-* Test and prove our community-driven development model works.
-* Build and refine core cooperation and teamwork mechanics.
-* Create a genuinely fun experience that brings players together.
-* Establish transparent systems for volunteering, task tracking, and crediting contributors.
-* Gather real community feedback to improve future projects.
-
-<small>Success metric: Strong community engagement during development + positive feedback on cooperative gameplay.</small>`;
-                                const goalsText = normalizeGoals(rawGoals);
-                                return <ReactMarkdown remarkPlugins={[remarkGfm]}>{goalsText}</ReactMarkdown>;
-                            })()}
-                        </div>
-
-                        <div className="section-header mb-4">Game Overviews</div>
-                        <div className="grid md:grid-cols-3 gap-4 mb-4">
-                            <Link to="/projects/early/g1" className="cyber-card interactive p-6 hover:border-neon-cyan/40">
-                                <div className="font-bold text-white text-lg">Early Game Project 1</div>
-                                <div className="text-text-secondary mt-2">In Development</div>
-                                <div className="text-sm text-neon-cyan mt-4">View Project →</div>
-                            </Link>
-
-                            <Link to="/projects/early/g2" className="cyber-card interactive p-6 hover:border-neon-cyan/40">
-                                <div className="font-bold text-white text-lg">Early Game Project 2</div>
-                                <div className="text-text-secondary mt-2">Brainstorming</div>
-                                <div className="text-sm text-neon-cyan mt-4">View Project →</div>
-                            </Link>
-
-                            <Link to="/projects/early/g3" className="cyber-card interactive p-6 hover:border-neon-cyan/40">
-                                <div className="font-bold text-white text-lg">Early Game Project 3</div>
-                                <div className="text-text-secondary mt-2">Brainstorming</div>
-                                <div className="text-sm text-neon-cyan mt-4">View Project →</div>
-                            </Link>
-                        </div>
-
-                        <div className="mt-6">
-                            <div className="section-header">Target Style for Early Game Projects</div>
-                            <div className="cyber-card p-4 text-text-secondary prose prose-invert max-w-none">
-                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                    {pageContent?.targetStyle || `We are looking for small, focused multiplayer games that emphasize cooperation and teamwork.
-
-**Examples of the kind of games we want to make:**
-- Cooperative survival challenges (inspired by Lethal Company or PlateUp!)
-- Shared vehicle/mech operation or crew-based gameplay
-- Simple team-based exploration, building, and defense
-- Light resource management with clear role differentiation in short sessions`}
-                                </ReactMarkdown>
-                            </div>
-                        </div>
-
-                        <div className="mt-6">
-                            <Link to="/ideas" className="btn-neon">Submit Ideas for Early Game</Link>
-                            {isModerator && (
-                                <Link to="/projects/early/edit" className="btn-neon ml-4">Edit Page</Link>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="md:col-span-1">
-                        <div className="section-header mb-4">About Early Game</div>
-                        <div className="cyber-card p-4 mb-4 text-text-secondary prose prose-invert max-w-none">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                {pageContent?.aboutText || 'Early Game is the foundation of Together Forge. We intentionally start small so we can focus on what matters most: building fun cooperative mechanics and proving that a transparent, community-supported development process can create great games. No flashy graphics. No corporate mandates. Just real teamwork, meaningful systems, and games made by the community, for the community.'}
-                            </ReactMarkdown>
-                        </div>
-
-                        <div className="section-header mb-2">How to Help</div>
-                        <div className="cyber-card p-4 text-text-secondary prose prose-invert max-w-none">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                {pageContent?.howToHelp || `- Submit game concepts, mechanics, or ideas through the Game Ideas page.\n- Volunteer your skills (development, art, design, testing, writing, moderation, etc.).\n- Help test prototypes and give honest feedback on what feels fun.\n- Join discussions on existing ideas to help refine them.\n- Share the project with streamers, communities, and other creators.\n- Support the Forge through donations to help fund development tools and time.`}
-                            </ReactMarkdown>
-                            <div className="text-text-secondary text-sm mt-3">Every contribution is credited publicly, and we are transparent about how support is used.</div>
-                            <div className="mt-4">
-                                <Link to="/get-involved" className="btn-primary">Get Involved</Link>
-                                <button 
-                                    onClick={() => alert("Test successful.")}
-                                    className="ml-3 px-4 py-2 bg-neon-cyan text-black font-semibold rounded hover:bg-white transition"
-                                >
-                                    We did it
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+      <div className="container-custom relative z-10 py-12 md:py-14">
+        {/* Hero */}
+        <header className="mb-12 md:mb-14 max-w-3xl">
+          <h1 className="relative w-fit max-w-full text-4xl sm:text-5xl font-bold tracking-tight text-neon-cyan pb-2 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-[60px] after:h-0.5 after:bg-gradient-to-r after:from-neon-cyan after:to-neon-magenta">
+            {c.heroTitle}
+          </h1>
+          <div className="mt-6 space-y-3 text-text-secondary text-base sm:text-lg leading-relaxed">
+            {c.heroSeriesLabel && (
+              <p className="font-semibold text-white">{c.heroSeriesLabel}</p>
+            )}
+            {c.heroBody && <p>{c.heroBody}</p>}
+          </div>
+          {isModerator && (
+            <div className="mt-5">
+              <Link
+                to="/projects/early/edit"
+                className="text-xs font-mono tracking-widest px-3 py-1.5 rounded-full border border-neon-cyan text-neon-cyan hover:bg-neon-cyan/10 transition-colors"
+              >
+                Edit Page
+              </Link>
             </div>
+          )}
+        </header>
+
+        {loading ? (
+          <p className="text-sm font-mono tracking-widest text-text-muted mb-10">
+            Loading…
+          </p>
+        ) : null}
+
+        <div className="grid lg:grid-cols-12 gap-8 lg:gap-10">
+          {/* Main column */}
+          <div className="lg:col-span-8 space-y-10">
+            {/* Early Game Goals */}
+            <section aria-labelledby="early-goals-heading">
+              <h2 id="early-goals-heading" className="section-header mb-4">
+                Early Game Goals
+              </h2>
+              <Card className="bg-cyber-card/80 border-cyber-border p-5 sm:p-6">
+                {c.goalsIntro && (
+                  <p className="font-semibold text-white mb-4">{c.goalsIntro}</p>
+                )}
+                <ul className="list-disc pl-5 space-y-2 text-text-secondary text-sm sm:text-base leading-relaxed">
+                  {(c.goals || []).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+                {c.successMetric && (
+                  <p className="mt-5 pt-4 border-t border-cyber-border text-sm text-text-muted leading-relaxed">
+                    <span className="text-neon-cyan font-mono text-xs tracking-widest uppercase mr-2">
+                      Success metric
+                    </span>
+                    {c.successMetric}
+                  </p>
+                )}
+              </Card>
+            </section>
+
+            {/* Active Project */}
+            <section aria-labelledby="active-project-heading">
+              <h2 id="active-project-heading" className="section-header mb-4">
+                Active Project
+              </h2>
+              <Link
+                to={tetherHref}
+                className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-cyber-bg"
+              >
+                <Card
+                  interactive
+                  variant="panel"
+                  className="cyber-card-gold p-5 sm:p-6"
+                >
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <Badge
+                      variant="neon"
+                      className="!bg-neon-cyan/15 !text-neon-cyan !border-neon-cyan/50 !shadow-none"
+                    >
+                      Featured
+                    </Badge>
+                    <Badge variant="default">
+                      {c.activeProjectStatus || 'In Development'}
+                    </Badge>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-bold text-white group-hover:text-neon-cyan transition-colors">
+                    {c.activeProjectTitle || 'Tether'}
+                  </h3>
+                  <p className="mt-3 text-sm sm:text-base text-text-secondary leading-relaxed">
+                    {c.activeProjectSummary}
+                  </p>
+                  <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-neon-cyan tracking-wide">
+                    Open workspace
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition" />
+                  </span>
+                </Card>
+              </Link>
+            </section>
+
+            {/* Game Overviews */}
+            <section aria-labelledby="game-overviews-heading">
+              <h2 id="game-overviews-heading" className="section-header mb-4">
+                Game Overviews
+              </h2>
+              <div className="grid sm:grid-cols-2 gap-4 mb-4">
+                <Link
+                  to={tetherHref}
+                  className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-cyber-bg"
+                >
+                  <Card interactive className="p-5 h-full">
+                    <h3 className="font-bold text-white text-lg group-hover:text-neon-cyan transition-colors">
+                      {c.activeProjectTitle || 'Tether'}
+                    </h3>
+                    <p className="text-text-secondary mt-2 text-sm">
+                      {c.activeProjectStatus || 'In Development'}
+                    </p>
+                    <span className="mt-4 inline-flex items-center gap-1 text-sm text-neon-cyan">
+                      View Project
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition" />
+                    </span>
+                  </Card>
+                </Link>
+              </div>
+              {c.gameOverviewsNote && (
+                <p className="text-sm text-text-muted leading-relaxed">
+                  {c.gameOverviewsNote}
+                </p>
+              )}
+            </section>
+
+            {/* Target Style */}
+            <section aria-labelledby="target-style-heading">
+              <h2 id="target-style-heading" className="section-header mb-4">
+                Target Style for Early Game Projects
+              </h2>
+              <Card className="bg-cyber-card/80 border-cyber-border p-5 sm:p-6">
+                {c.targetIntro && (
+                  <p className="text-text-secondary text-sm sm:text-base leading-relaxed mb-4">
+                    {c.targetIntro}
+                  </p>
+                )}
+                {c.targetExamplesHeading && (
+                  <p className="text-white font-semibold text-sm mb-2">
+                    {c.targetExamplesHeading}
+                  </p>
+                )}
+                <ul className="list-disc pl-5 space-y-2 text-text-secondary text-sm sm:text-base leading-relaxed">
+                  {(c.targetExamples || []).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </Card>
+            </section>
+
+            <div>
+              <Link
+                to={`/ideas/submit?project=early&tag=early`}
+                className="btn-neon inline-flex items-center"
+              >
+                Submit Ideas for Early Game
+              </Link>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <aside className="lg:col-span-4 space-y-8">
+            <section aria-labelledby="about-early-heading">
+              <h2 id="about-early-heading" className="section-header mb-4">
+                About Early Game
+              </h2>
+              <Card className="bg-cyber-card/80 border-cyber-border p-5 space-y-4 text-text-secondary text-sm sm:text-base leading-relaxed">
+                {(c.aboutParagraphs || []).map((p) => (
+                  <p key={p.slice(0, 40)}>{p}</p>
+                ))}
+              </Card>
+            </section>
+
+            <section aria-labelledby="how-to-help-heading">
+              <h2 id="how-to-help-heading" className="section-header mb-4">
+                How to Help
+              </h2>
+              <Card className="bg-cyber-card/80 border-cyber-border p-5">
+                <ul className="list-disc pl-5 space-y-2 text-text-secondary text-sm leading-relaxed">
+                  {(c.howToHelp || []).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+                {c.howToHelpNote && (
+                  <p className="mt-4 text-sm text-text-muted leading-relaxed">
+                    {c.howToHelpNote}
+                  </p>
+                )}
+                <div className="mt-5">
+                  <Link to="/get-involved" className="btn-primary inline-flex">
+                    Get Involved
+                  </Link>
+                </div>
+              </Card>
+            </section>
+          </aside>
         </div>
-    );
+
+        {/* Early Phase Ideas — reusable pattern for Mid/Late */}
+        <PhaseIdeasSection phase="early" />
+      </div>
+    </div>
+  );
 };
 
 export default ProjectsEarly;

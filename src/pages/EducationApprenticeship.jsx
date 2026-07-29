@@ -5,7 +5,6 @@
 
 import { Link } from 'react-router-dom';
 import {
-  ArrowLeft,
   GraduationCap,
   Clock,
   Users,
@@ -53,14 +52,6 @@ const EducationApprenticeship = () => {
       {/* Header */}
       <div className="border-b border-white/10 bg-cyber-surface py-14 md:py-16 relative z-10">
         <div className="container-custom">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
-            BACK TO HOME
-          </Link>
-
           <div className="max-w-3xl">
             <div className="flex flex-wrap items-center gap-3 mb-4">
               <div className="section-header mb-0">Education</div>

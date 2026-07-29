@@ -8,7 +8,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  ArrowLeft,
   Plus,
   Search,
   Sparkles,
@@ -19,7 +18,11 @@ import {
 
 import { supabase } from '../lib/supabase';
 import { ideasService, ideaMatchesProject } from '../services/ideasService';
-import { deriveIdeaStatus, parseTags } from '../utils/ideaStatus';
+import {
+  deriveIdeaStatus,
+  parseTags,
+  resolveLinkDisplayName,
+} from '../utils/ideaStatus';
 import IdeaCard from '../components/ui/IdeaCard';
 import Badge from '../components/ui/Badge';
 import Card from '../components/ui/Card';
@@ -430,8 +433,10 @@ const GameIdeas = () => {
           String(p.slug) === String(key) ||
           String(p.title || '').toLowerCase() === String(key).toLowerCase()
       );
+      // Stages → Early/Mid/Late Game; projects → Tether etc. Never raw slugs.
+      const name = resolveLinkDisplayName(key, match?.title);
       return {
-        name: match?.title || String(key),
+        name,
         slug: match?.slug || match?.id || String(key),
       };
     },
@@ -590,14 +595,6 @@ const GameIdeas = () => {
         </div>
 
         <div className="container-custom relative z-10 py-10 md:py-14">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-8 group transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
-            BACK TO HOME
-          </Link>
-
           <div className="text-center max-w-3xl mx-auto">
             <div className="section-header justify-center">Game Ideas</div>
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mt-2 drop-shadow-sm">

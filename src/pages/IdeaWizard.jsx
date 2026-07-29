@@ -19,6 +19,7 @@ import {
   Pencil,
   Save,
   FolderOpen,
+  Trash2,
 } from 'lucide-react';
 
 import { supabase } from '../lib/supabase';
@@ -33,12 +34,27 @@ import {
   guidedFieldsFromForm,
   optionalFormFromIdea,
   buildPreviewTextSections,
-  localDraftStorageKey,
 } from '../utils/ideaOptionalSections';
+import {
+  AUTOSAVE_INTERVAL_MS,
+  AUTOSAVE_FLASH_MS,
+  formHasMeaningfulContent,
+  readComposeSession,
+  writeComposeSession,
+  clearComposeSessions,
+} from '../utils/ideaComposeDraft';
 import Button from '../components/ui/Buttons';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import CharCount from '../components/ui/CharCount';
+import RelatedToSelect from '../components/ideas/RelatedToSelect';
+import {
+  RELATED_PHASE_OPTIONS,
+  getRelatedToGroupedOptions,
+} from '../utils/relatedToOptions';
+import { resolveLinkDisplayName } from '../utils/ideaStatus';
+
+const COMPOSE_FLOW = 'wizard';
 
 const CATEGORIES = [
   {
@@ -189,8 +205,8 @@ function buildStepDefs() {
     },
     {
       id: 'project',
-      title: 'Link a project? (optional)',
-      tip: 'Leave blank for the global ideas board. Link only if this is meant for a specific forge project.',
+      title: 'Related to (optional)',
+      tip: 'Pick a game stage (Early / Mid / Late Game) or a live project like Tether. Community Idea keeps it on the global board.',
       required: false,
       kind: 'project',
     },
@@ -227,6 +243,11 @@ const IdeaWizard = () => {
     return raw ? String(raw).trim() : null;
   }, [searchParams]);
 
+  const tagFromQuery = useMemo(() => {
+    const raw = searchParams.get('tag') || searchParams.get('tags');
+    return raw ? String(raw).trim().replace(/^#/, '') : null;
+  }, [searchParams]);
+
   const draftFromQuery = useMemo(() => {
     const raw = searchParams.get('draft');
     if (!raw) return null;
@@ -237,6 +258,7 @@ const IdeaWizard = () => {
   const [form, setForm] = useState(() => ({
     ...emptyForm,
     projectId: linkedFromQuery || '',
+    tags: tagFromQuery || '',
   }));
   const [draftId, setDraftId] = useState(null);
   const [stepIndex, setStepIndex] = useState(0);
@@ -246,13 +268,23 @@ const IdeaWizard = () => {
   const [submitting, setSubmitting] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState(null);
-  const [projects, setProjects] = useState([]);
+  const [autosaveFlash, setAutosaveFlash] = useState(false);
+  const [relatedPhases, setRelatedPhases] = useState(RELATED_PHASE_OPTIONS);
+  const [relatedProjects, setRelatedProjects] = useState([]);
   const [user, setUser] = useState(null);
-  const [loadingDraft, setLoadingDraft] = useState(!!draftFromQuery);
+  const [loadingDraft, setLoadingDraft] = useState(true);
 
   const formRef = useRef(form);
   const draftIdRef = useRef(draftId);
-  const autoSaveTimer = useRef(null);
+  const stepIndexRef = useRef(stepIndex);
+  const dirtyRef = useRef(false);
+  const savingDraftRef = useRef(false);
+  const flashTimerRef = useRef(null);
+  const resumeDoneRef = useRef(false);
+  /** Ignore one dirty cycle after programmatically loading a draft */
+  const skipDirtyRef = useRef(false);
+  /** After publish, block autosave from re-writing submitted fields */
+  const publishedRef = useRef(false);
 
   useEffect(() => {
     formRef.current = form;
@@ -260,6 +292,9 @@ const IdeaWizard = () => {
   useEffect(() => {
     draftIdRef.current = draftId;
   }, [draftId]);
+  useEffect(() => {
+    stepIndexRef.current = stepIndex;
+  }, [stepIndex]);
 
   const steps = useMemo(() => buildStepDefs(), []);
 
@@ -280,42 +315,16 @@ const IdeaWizard = () => {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      try {
-        const list = [];
-        const { data: workspace } = await supabase
-          .from('projects')
-          .select('id, slug, title')
-          .order('created_at', { ascending: false });
-        if (workspace?.length) {
-          list.push(
-            ...workspace.map((p) => ({
-              id: p.slug || p.id,
-              title: p.title || p.slug || p.id,
-            }))
-          );
-        }
-        if (list.length === 0) {
-          list.push(
-            { id: 'prototype-systems', title: 'Tether' },
-            { id: 'core-features', title: 'Core Features Sprint' },
-            { id: 'polish-playtests', title: 'Stability and Polish' }
-          );
-        }
-        if (mounted) setProjects(list);
-      } catch {
-        if (mounted) {
-          setProjects([
-            { id: 'prototype-systems', title: 'Tether' },
-            { id: 'core-features', title: 'Core Features Sprint' },
-            { id: 'polish-playtests', title: 'Stability and Polish' },
-          ]);
-        }
+      const grouped = await getRelatedToGroupedOptions(form.projectId);
+      if (mounted) {
+        setRelatedPhases(grouped.phases);
+        setRelatedProjects(grouped.projects);
       }
     })();
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [form.projectId]);
 
   useEffect(() => {
     if (linkedFromQuery) {
@@ -323,151 +332,170 @@ const IdeaWizard = () => {
     }
   }, [linkedFromQuery]);
 
-  // Load draft
   useEffect(() => {
-    if (!draftFromQuery) {
-      setLoadingDraft(false);
-      return;
-    }
+    if (!tagFromQuery) return;
+    setForm((f) => {
+      const existing = (f.tags || '')
+        .split(/[,;#]+/)
+        .map((t) => t.trim())
+        .filter(Boolean);
+      if (
+        existing.some((t) => t.toLowerCase() === tagFromQuery.toLowerCase())
+      ) {
+        return f;
+      }
+      return { ...f, tags: [...existing, tagFromQuery].join(', ') };
+    });
+  }, [tagFromQuery]);
+
+  const applyIdeaRowToForm = useCallback(
+    (data) => {
+      const optional = optionalFormFromIdea(data);
+      setForm({
+        ...emptyForm,
+        title: data.title === 'Untitled draft' ? '' : data.title || '',
+        category: data.category || '',
+        summary: data.summary || '',
+        description: data.description || '',
+        tags: data.tags || '',
+        projectId: data.project_id || linkedFromQuery || '',
+        features:
+          Array.isArray(optional.features) && optional.features.length
+            ? optional.features
+            : [{ name: '', description: '' }],
+        additionalNotes:
+          Array.isArray(optional.additionalNotes) &&
+          optional.additionalNotes.length
+            ? optional.additionalNotes
+            : [''],
+        artStyle: optional.artStyle || '',
+        targetPlatforms: optional.targetPlatforms || '',
+        coreLoopLength: optional.coreLoopLength || '',
+        primaryInspiration: optional.primaryInspiration || '',
+        estimatedScope: optional.estimatedScope || '',
+        twitchIntegration: optional.twitchIntegration || '',
+        environmentalStorytelling: optional.environmentalStorytelling || '',
+        economySystem: optional.economySystem || '',
+        storyNarrative: optional.storyNarrative || '',
+      });
+      setDraftId(data.id);
+      dirtyRef.current = false;
+      skipDirtyRef.current = true;
+    },
+    [linkedFromQuery]
+  );
+
+  // Load explicit ?draft= or resume last in-progress autosave session
+  useEffect(() => {
+    if (resumeDoneRef.current) return;
     let mounted = true;
+
     (async () => {
       setLoadingDraft(true);
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession();
-        if (!session?.user) {
+        const uid = session?.user?.id || null;
+        if (!uid) {
+          if (mounted) setLoadingDraft(false);
+          return;
+        }
+
+        let targetId = draftFromQuery;
+        if (!targetId) {
+          const sessionMeta = readComposeSession(uid, COMPOSE_FLOW);
+          if (sessionMeta?.draftId) targetId = Number(sessionMeta.draftId);
+        }
+
+        if (!targetId) {
           if (mounted) {
-            setMessage('Sign in to continue a draft.');
-            setMessageTone('error');
+            resumeDoneRef.current = true;
             setLoadingDraft(false);
           }
           return;
         }
+
         const { data, error } = await supabase
           .from('ideas')
           .select('*')
-          .eq('id', draftFromQuery)
-          .eq('user_id', session.user.id)
+          .eq('id', targetId)
+          .eq('user_id', uid)
           .maybeSingle();
+
+        if (!mounted) return;
+
         if (error || !data) {
-          if (mounted) {
+          clearComposeSessions(uid);
+          if (draftFromQuery) {
             setMessage('Draft not found or you do not own it.');
             setMessageTone('error');
-            setLoadingDraft(false);
           }
+          resumeDoneRef.current = true;
+          setLoadingDraft(false);
           return;
         }
-        if (mounted) {
-          const optional = optionalFormFromIdea(data);
-          setForm({
-            ...emptyForm,
-            title: data.title === 'Untitled draft' ? '' : data.title || '',
-            category: data.category || '',
-            summary: data.summary || '',
-            description: data.description || '',
-            tags: data.tags || '',
-            projectId: data.project_id || linkedFromQuery || '',
-            features:
-              Array.isArray(optional.features) && optional.features.length
-                ? optional.features
-                : [{ name: '', description: '' }],
-            additionalNotes:
-              Array.isArray(optional.additionalNotes) &&
-              optional.additionalNotes.length
-                ? optional.additionalNotes
-                : [''],
-            artStyle: optional.artStyle || '',
-            targetPlatforms: optional.targetPlatforms || '',
-            coreLoopLength: optional.coreLoopLength || '',
-            primaryInspiration: optional.primaryInspiration || '',
-            estimatedScope: optional.estimatedScope || '',
-            twitchIntegration: optional.twitchIntegration || '',
-            environmentalStorytelling: optional.environmentalStorytelling || '',
-            economySystem: optional.economySystem || '',
-            storyNarrative: optional.storyNarrative || '',
-          });
-          setDraftId(data.id);
-          setMessage('Draft loaded. Continue when ready.');
-          setMessageTone('info');
+
+        const status = String(data.status || '').toLowerCase();
+        if (status && status !== 'draft') {
+          clearComposeSessions(uid);
+          resumeDoneRef.current = true;
+          setLoadingDraft(false);
+          return;
         }
+
+        applyIdeaRowToForm(data);
+        const sessionMeta = readComposeSession(uid, COMPOSE_FLOW);
+        const maxIdx = Math.max(0, steps.length - 1);
+        if (
+          typeof sessionMeta?.stepIndex === 'number' &&
+          sessionMeta.stepIndex >= 0
+        ) {
+          setStepIndex(Math.min(maxIdx, sessionMeta.stepIndex));
+        }
+        writeComposeSession(uid, COMPOSE_FLOW, {
+          draftId: data.id,
+          stepIndex: sessionMeta?.stepIndex ?? 0,
+        });
+        if (!draftFromQuery) {
+          const next = new URLSearchParams(searchParams);
+          next.set('draft', String(data.id));
+          setSearchParams(next, { replace: true });
+        }
+        setMessage(
+          draftFromQuery
+            ? 'Draft loaded. Continue when ready.'
+            : 'Restored your in-progress draft. Continue where you left off.'
+        );
+        setMessageTone('info');
+        resumeDoneRef.current = true;
       } catch (err) {
         console.error('[IdeaWizard] load draft', err);
         if (mounted) {
           setMessage('Could not load draft.');
           setMessageTone('error');
+          resumeDoneRef.current = true;
         }
       } finally {
         if (mounted) setLoadingDraft(false);
       }
     })();
+
     return () => {
       mounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftFromQuery, linkedFromQuery]);
 
-  // Local auto-save
+  // Mark dirty after restore when user edits
   useEffect(() => {
-    if (!user) return;
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(() => {
-      try {
-        const key = localDraftStorageKey(user.id, 'wizard');
-        localStorage.setItem(
-          key,
-          JSON.stringify({
-            form: formRef.current,
-            draftId: draftIdRef.current,
-            stepIndex,
-            savedAt: Date.now(),
-          })
-        );
-      } catch {
-        /* ignore */
-      }
-    }, 1500);
-    return () => {
-      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    };
-  }, [form, stepIndex, user, draftId]);
-
-  useEffect(() => {
-    if (!user || draftFromQuery) return;
-    try {
-      const key = localDraftStorageKey(user.id, 'wizard');
-      const raw = localStorage.getItem(key);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (!parsed?.form) return;
-      const f = parsed.form;
-      const hasContent =
-        (f.title || '').trim() ||
-        (f.summary || '').trim() ||
-        (f.description || '').trim();
-      if (!hasContent) return;
-      setForm((current) => {
-        const empty =
-          !(current.title || '').trim() &&
-          !(current.summary || '').trim() &&
-          !(current.description || '').trim();
-        if (!empty) return current;
-        return {
-          ...emptyForm,
-          ...f,
-          projectId: f.projectId || linkedFromQuery || '',
-        };
-      });
-      if (parsed.draftId) setDraftId(parsed.draftId);
-      if (typeof parsed.stepIndex === 'number') {
-        setStepIndex(
-          Math.min(steps.length - 1, Math.max(0, parsed.stepIndex))
-        );
-      }
-    } catch {
-      /* ignore */
+    if (loadingDraft || !resumeDoneRef.current) return;
+    if (skipDirtyRef.current) {
+      skipDirtyRef.current = false;
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+    dirtyRef.current = true;
+  }, [form, stepIndex, loadingDraft]);
 
   const step = steps[stepIndex] || steps[0];
   const progress = ((stepIndex + 1) / steps.length) * 100;
@@ -501,6 +529,144 @@ const IdeaWizard = () => {
     return null;
   }, [step, form]);
 
+  const buildIdeaPayloadFrom = useCallback((f, status, id) => {
+    const projectId = (f.projectId || '').trim() || null;
+    const tagList = [
+      ...new Set(
+        (f.tags || '')
+          .split(/[,;#]+/)
+          .map((t) => t.trim().replace(/^#/, ''))
+          .filter(Boolean)
+      ),
+    ];
+    const guided_data = {
+      ...buildGuidedData(guidedFieldsFromForm(f)),
+      wizard_mode: 'guided_v1',
+    };
+    return {
+      ...(id ? { id } : {}),
+      title: (f.title || '').trim(),
+      summary: (f.summary || '').trim(),
+      category: f.category || 'Idea',
+      description: (f.description || '').trim(),
+      tags: tagList.join(', '),
+      ...guidedFieldsFromForm(f),
+      guided_data,
+      status,
+      votes: 0,
+      ...(projectId ? { project_id: projectId } : {}),
+    };
+  }, []);
+
+  const flashAutosave = useCallback(() => {
+    setDraftSavedAt(new Date());
+    setAutosaveFlash(true);
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = setTimeout(() => {
+      setAutosaveFlash(false);
+    }, AUTOSAVE_FLASH_MS);
+  }, []);
+
+  const performSaveDraft = useCallback(
+    async ({ silent = false, force = false } = {}) => {
+      if (publishedRef.current) return null;
+      if (!user) {
+        if (!silent) {
+          setMessage('Sign in to save a draft.');
+          setMessageTone('error');
+        }
+        return null;
+      }
+      const f = formRef.current;
+      const id = draftIdRef.current;
+      if (!force && !id && !formHasMeaningfulContent(f)) return null;
+      if (savingDraftRef.current) return null;
+
+      savingDraftRef.current = true;
+      if (!silent) setSavingDraft(true);
+      try {
+        const data = await ideasService.saveDraft({
+          ...buildIdeaPayloadFrom(f, 'Draft', id),
+          user_id: user.id,
+        });
+        if (!data?.id) throw new Error('Draft saved but no id returned.');
+
+        setDraftId(data.id);
+        draftIdRef.current = data.id;
+        dirtyRef.current = false;
+        writeComposeSession(user.id, COMPOSE_FLOW, {
+          draftId: data.id,
+          stepIndex: stepIndexRef.current,
+          formSnapshot: f,
+        });
+
+        const next = new URLSearchParams(searchParams);
+        if (String(next.get('draft') || '') !== String(data.id)) {
+          next.set('draft', String(data.id));
+          setSearchParams(next, { replace: true });
+        }
+
+        if (silent) {
+          flashAutosave();
+        } else {
+          setDraftSavedAt(new Date());
+          setMessage(
+            'Draft saved. Find it under My Drafts on your Dashboard.'
+          );
+          setMessageTone('success');
+        }
+        return data;
+      } catch (err) {
+        console.error('[IdeaWizard] save draft', err);
+        if (!silent) {
+          setMessage(
+            'Could not save draft: ' + (err?.message || 'Unknown error')
+          );
+          setMessageTone('error');
+        }
+        return null;
+      } finally {
+        savingDraftRef.current = false;
+        if (!silent) setSavingDraft(false);
+      }
+    },
+    [user, buildIdeaPayloadFrom, searchParams, setSearchParams, flashAutosave]
+  );
+
+  // Interval autosave
+  useEffect(() => {
+    if (!user || loadingDraft || publishedRef.current) return undefined;
+    const tick = setInterval(() => {
+      if (publishedRef.current) return;
+      if (!dirtyRef.current) return;
+      performSaveDraft({ silent: true });
+    }, AUTOSAVE_INTERVAL_MS);
+    return () => clearInterval(tick);
+  }, [user, loadingDraft, performSaveDraft]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+    const onLeave = () => {
+      if (publishedRef.current) return;
+      const f = formRef.current;
+      if (!formHasMeaningfulContent(f) && !draftIdRef.current) return;
+      writeComposeSession(user.id, COMPOSE_FLOW, {
+        draftId: draftIdRef.current,
+        stepIndex: stepIndexRef.current,
+        formSnapshot: f,
+      });
+    };
+    window.addEventListener('beforeunload', onLeave);
+    return () => window.removeEventListener('beforeunload', onLeave);
+  }, [user]);
+
+  useEffect(
+    () => () => {
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    },
+    []
+  );
+
   const goNext = () => {
     setMessage('');
     const err = validateCurrent();
@@ -509,16 +675,59 @@ const IdeaWizard = () => {
       setMessageTone('error');
       return;
     }
+    if (user && !publishedRef.current) {
+      dirtyRef.current = true;
+      performSaveDraft({ silent: true });
+    }
     setStepIndex((i) => Math.min(steps.length - 1, i + 1));
   };
 
   const goBack = () => {
     setMessage('');
+    if (user && !publishedRef.current && dirtyRef.current) {
+      performSaveDraft({ silent: true });
+    }
     setStepIndex((i) => Math.max(0, i - 1));
   };
 
+  /**
+   * Optional steps with any entered content cannot be skipped until cleared.
+   * Skip means "leave this empty" — not "keep what I typed but skip past it".
+   */
+  const currentStepHasContent = useMemo(() => {
+    if (!step || step.required || step.kind === 'review') return false;
+
+    if (step.kind === 'text' || step.kind === 'textarea') {
+      return Boolean((form[step.field] || '').trim());
+    }
+    if (step.kind === 'tags') {
+      return tags.length > 0 || Boolean(tagDraft.trim());
+    }
+    if (step.kind === 'project') {
+      return Boolean((form.projectId || '').trim());
+    }
+    if (step.kind === 'features') {
+      return (form.features || []).some(
+        (f) => (f?.name || '').trim() || (f?.description || '').trim()
+      );
+    }
+    if (step.kind === 'notes') {
+      return (form.additionalNotes || []).some((n) =>
+        String(n || '').trim()
+      );
+    }
+    return false;
+  }, [step, form, tags, tagDraft]);
+
   const skip = () => {
     if (step?.required) return;
+    if (currentStepHasContent) {
+      setMessage(
+        'Clear this field to skip it, or use Continue to keep what you entered.'
+      );
+      setMessageTone('info');
+      return;
+    }
     setMessage('');
     setStepIndex((i) => Math.min(steps.length - 1, i + 1));
   };
@@ -560,55 +769,26 @@ const IdeaWizard = () => {
     });
   };
 
-  const buildIdeaPayload = (status) => {
-    const projectId = (form.projectId || '').trim() || null;
-    const guided_data = {
-      ...buildGuidedData(guidedFieldsFromForm(form)),
-      wizard_mode: 'guided_v1',
-    };
-    return {
-      ...(draftId ? { id: draftId } : {}),
-      title: (form.title || '').trim(),
-      summary: (form.summary || '').trim(),
-      category: form.category || 'Idea',
-      description: (form.description || '').trim(),
-      tags: tags.join(', '),
-      ...guidedFieldsFromForm(form),
-      guided_data,
-      status,
-      votes: 0,
-      ...(projectId ? { project_id: projectId } : {}),
-    };
+  const removeFeature = (idx) => {
+    setForm((f) => ({
+      ...f,
+      features: (f.features || []).filter((_, i) => i !== idx),
+    }));
   };
+
+  const removeNote = (idx) => {
+    setForm((f) => ({
+      ...f,
+      additionalNotes: (f.additionalNotes || []).filter((_, i) => i !== idx),
+    }));
+  };
+
+  const buildIdeaPayload = (status) =>
+    buildIdeaPayloadFrom(form, status, draftId);
 
   const handleSaveDraft = async () => {
     setMessage('');
-    if (!user) {
-      setMessage('Sign in to save a draft.');
-      setMessageTone('error');
-      return;
-    }
-    setSavingDraft(true);
-    try {
-      const data = await ideasService.saveDraft({
-        ...buildIdeaPayload('Draft'),
-        user_id: user.id,
-      });
-      if (!data?.id) throw new Error('Draft saved but no id returned.');
-      setDraftId(data.id);
-      setDraftSavedAt(new Date());
-      const next = new URLSearchParams(searchParams);
-      next.set('draft', String(data.id));
-      setSearchParams(next, { replace: true });
-      setMessage('Draft saved. Find it under My Drafts on your Dashboard.');
-      setMessageTone('success');
-    } catch (err) {
-      console.error('[IdeaWizard] save draft', err);
-      setMessage('Could not save draft: ' + (err?.message || 'Unknown error'));
-      setMessageTone('error');
-    } finally {
-      setSavingDraft(false);
-    }
+    await performSaveDraft({ silent: false, force: true });
   };
 
   const handleSubmit = async () => {
@@ -645,11 +825,9 @@ const IdeaWizard = () => {
     try {
       const data = await ideasService.publishIdea(newIdea);
       if (!data?.id) throw new Error('Idea was created but no id was returned.');
-      try {
-        localStorage.removeItem(localDraftStorageKey(session.user.id, 'wizard'));
-      } catch {
-        /* ignore */
-      }
+      publishedRef.current = true;
+      dirtyRef.current = false;
+      clearComposeSessions(session.user.id);
       if (projectId) {
         navigate(`/projects/${projectId}#project-ideas`, {
           replace: true,
@@ -942,27 +1120,39 @@ const IdeaWizard = () => {
 
             {step?.kind === 'project' && (
               <div>
-                <select
+                <RelatedToSelect
+                  id="wizard-related-to"
                   className={fieldClass}
                   value={form.projectId || ''}
-                  onChange={(e) => setField('projectId', e.target.value)}
-                >
-                  <option value="">No project (global ideas board)</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => setField('projectId', v)}
+                  phases={relatedPhases}
+                  projects={relatedProjects}
+                />
               </div>
             )}
 
             {step?.kind === 'features' && (
               <div className="space-y-4">
+                {(form.features || []).length === 0 && (
+                  <p className="text-sm text-text-muted italic">
+                    No features yet. Add one below, or skip this step.
+                  </p>
+                )}
                 {(form.features || []).map((f, idx) => (
                   <Card key={idx} className="bg-cyber-card/80 space-y-3">
-                    <div className="text-xs font-mono text-text-muted tracking-widest uppercase">
-                      Feature {idx + 1}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-xs font-mono text-text-muted tracking-widest uppercase">
+                        Feature {idx + 1}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeFeature(idx)}
+                        className="inline-flex items-center gap-1.5 text-xs font-mono text-red-400 hover:text-red-300 p-1 transition-colors"
+                        aria-label={`Remove feature ${idx + 1}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Remove
+                      </button>
                     </div>
                     <input
                       className={fieldClass}
@@ -987,7 +1177,9 @@ const IdeaWizard = () => {
                 ))}
                 {(form.features || []).length < MAX_MULTI && (
                   <Button type="button" variant="secondary" onClick={addFeature}>
-                    Add another feature
+                    {(form.features || []).length === 0
+                      ? 'Add feature'
+                      : 'Add another feature'}
                   </Button>
                 )}
               </div>
@@ -995,23 +1187,48 @@ const IdeaWizard = () => {
 
             {step?.kind === 'notes' && (
               <div className="space-y-3">
+                {(form.additionalNotes || []).length === 0 && (
+                  <p className="text-sm text-text-muted italic">
+                    No notes yet. Add one below, or skip this step.
+                  </p>
+                )}
                 {(form.additionalNotes || []).map((n, idx) => (
-                  <textarea
+                  <div
                     key={idx}
-                    className={fieldClass}
-                    rows={4}
-                    maxLength={1500}
-                    placeholder="Extra context, references, constraints..."
-                    value={n}
-                    onChange={(e) => {
-                      setForm((f) => {
-                        const additionalNotes = [...(f.additionalNotes || [])];
-                        additionalNotes[idx] = e.target.value;
-                        return { ...f, additionalNotes };
-                      });
-                    }}
-                    autoFocus={idx === 0}
-                  />
+                    className="flex gap-2 items-start border border-cyber-border rounded-xl p-3 bg-cyber-card/60"
+                  >
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="text-xs font-mono text-text-muted tracking-widest uppercase">
+                        Note {idx + 1}
+                      </div>
+                      <textarea
+                        className={fieldClass}
+                        rows={4}
+                        maxLength={1500}
+                        placeholder="Extra context, references, constraints..."
+                        value={n}
+                        onChange={(e) => {
+                          setForm((f) => {
+                            const additionalNotes = [
+                              ...(f.additionalNotes || []),
+                            ];
+                            additionalNotes[idx] = e.target.value;
+                            return { ...f, additionalNotes };
+                          });
+                        }}
+                        autoFocus={idx === 0}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeNote(idx)}
+                      className="shrink-0 inline-flex items-center gap-1.5 text-xs font-mono text-red-400 hover:text-red-300 p-1.5 transition-colors"
+                      aria-label={`Remove note ${idx + 1}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span className="hidden sm:inline">Remove</span>
+                    </button>
+                  </div>
                 ))}
                 {(form.additionalNotes || []).length < MAX_MULTI && (
                   <Button
@@ -1024,7 +1241,9 @@ const IdeaWizard = () => {
                       }))
                     }
                   >
-                    Add another note
+                    {(form.additionalNotes || []).length === 0
+                      ? 'Add note'
+                      : 'Add another note'}
                   </Button>
                 )}
               </div>
@@ -1082,8 +1301,11 @@ const IdeaWizard = () => {
                   )}
                   {form.projectId && (
                     <p className="text-xs font-mono text-text-muted">
-                      Project:{' '}
-                      <span className="text-neon-cyan">{form.projectId}</span>
+                      Related:{' '}
+                      <span className="text-neon-cyan">
+                        {resolveLinkDisplayName(form.projectId) ||
+                          form.projectId}
+                      </span>
                     </p>
                   )}
                 </Card>
@@ -1141,7 +1363,23 @@ const IdeaWizard = () => {
               Back
             </Button>
 
-            <div className="flex flex-wrap gap-2 ml-auto">
+            <div className="flex flex-wrap gap-2 ml-auto items-center">
+              {user && (
+                <span
+                  className={`text-[11px] font-mono mr-1 transition-opacity duration-500 ${
+                    autosaveFlash
+                      ? 'opacity-100 text-neon-cyan'
+                      : draftSavedAt
+                        ? 'opacity-60 text-text-muted'
+                        : 'opacity-0'
+                  }`}
+                  aria-live="polite"
+                >
+                  {draftSavedAt
+                    ? `Draft saved ${draftSavedAt.toLocaleTimeString()}`
+                    : 'Draft saved'}
+                </span>
+              )}
               {user && (
                 <Button
                   type="button"
@@ -1163,6 +1401,12 @@ const IdeaWizard = () => {
                   type="button"
                   variant="secondary"
                   className="gap-2"
+                  disabled={currentStepHasContent}
+                  title={
+                    currentStepHasContent
+                      ? 'Clear this field to skip, or use Continue to keep it'
+                      : 'Skip this optional step'
+                  }
                   onClick={skip}
                 >
                   <SkipForward className="w-4 h-4" />

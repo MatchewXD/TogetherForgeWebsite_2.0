@@ -6,7 +6,6 @@
 
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   ArrowRight,
   Users,
   Hammer,
@@ -159,14 +158,6 @@ const GetInvolved = () => {
         </div>
 
         <div className="container-custom relative z-10 py-8 sm:py-10 md:py-12 min-h-[16rem] sm:min-h-[18rem] md:min-h-[20rem] flex flex-col justify-center">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-sm font-mono tracking-widest text-neon-cyan hover:text-white mb-6 sm:mb-8 group transition-colors w-fit"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition" />
-            BACK TO HOME
-          </Link>
-
           <div className="max-w-2xl">
             <div className="section-header">Volunteer hub</div>
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-3 sm:mb-4 drop-shadow-sm">

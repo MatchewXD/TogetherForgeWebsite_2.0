@@ -148,6 +148,69 @@ export function getIdeaProjectKey(idea) {
 }
 
 /**
+ * Friendly display names for known project / pipeline ids stored on ideas.project_id.
+ * User-facing: stages are "Early Game" / "Mid Game" / "Late Game" (not "Phase").
+ */
+const PROJECT_DISPLAY_NAMES = {
+  'prototype-systems': 'Tether',
+  early: 'Early Game',
+  'early-phase': 'Early Game',
+  mid: 'Mid Game',
+  'mid-phase': 'Mid Game',
+  late: 'Late Game',
+  'late-phase': 'Late Game',
+  'core-features': 'Core Features Sprint',
+  'polish-playtests': 'Stability and Polish',
+};
+
+const STUDIO_STAGE_KEYS = new Set([
+  'early',
+  'early-phase',
+  'mid',
+  'mid-phase',
+  'late',
+  'late-phase',
+]);
+
+/** True when project_id points at a studio stage (Early/Mid/Late Game), not a project. */
+export function isStudioStageKey(key) {
+  if (key == null) return false;
+  return STUDIO_STAGE_KEYS.has(String(key).trim().toLowerCase());
+}
+
+/**
+ * @param {string|null|undefined} key - slug / project_id
+ * @returns {string|null}
+ */
+export function getProjectDisplayName(key) {
+  if (key == null || String(key).trim() === '') return null;
+  const raw = String(key).trim();
+  const lower = raw.toLowerCase();
+  if (PROJECT_DISPLAY_NAMES[lower]) return PROJECT_DISPLAY_NAMES[lower];
+  // Humanize slug-ish keys: some-slug → Some Slug
+  if (raw.includes('-') || raw.includes('_')) {
+    return raw
+      .replace(/[_-]+/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  return raw;
+}
+
+/**
+ * Resolve a user-facing label for what an idea is linked to.
+ * Stages → "Early Game" etc.; projects → title or mapped name (e.g. Tether).
+ * @param {string|null|undefined} key
+ * @param {string|null|undefined} [optionalTitle] - DB/catalog title if known
+ */
+export function resolveLinkDisplayName(key, optionalTitle = null) {
+  if (key == null || String(key).trim() === '') return null;
+  if (isStudioStageKey(key)) return getProjectDisplayName(key);
+  const title = optionalTitle && String(optionalTitle).trim();
+  if (title && !/^prototype\s*systems$/i.test(title)) return title;
+  return getProjectDisplayName(key) || title || String(key).trim();
+}
+
+/**
  * Parse guided_data JSON from DB (object or string).
  */
 export function parseGuidedData(raw) {
