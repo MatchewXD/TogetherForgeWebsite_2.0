@@ -18,6 +18,9 @@ import {
   FolderKanban,
   HandHelping,
   AlertCircle,
+  FolderOpen,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 
 import { supabase } from '../lib/supabase';
@@ -26,6 +29,7 @@ import tasksService, {
   MAX_ACTIVE_CLAIMS,
   CLAIM_LIMIT_UNLOCK_COMPLETIONS,
 } from '../services/tasksService';
+import { ideasService } from '../services/ideasService';
 import UserAvatar from '../components/ui/UserAvatar';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
@@ -40,6 +44,8 @@ const Dashboard = () => {
   const [claims, setClaims] = useState([]);
   const [joinRequests, setJoinRequests] = useState([]);
   const [ideaCount, setIdeaCount] = useState(0);
+  const [myDrafts, setMyDrafts] = useState([]);
+  const [deletingDraftId, setDeletingDraftId] = useState(null);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -58,11 +64,12 @@ const Dashboard = () => {
         setClaims([]);
         setJoinRequests([]);
         setIdeaCount(0);
+        setMyDrafts([]);
         setLoading(false);
         return;
       }
 
-      const [profileRes, quotaRes, claimsRes, joinsRes, ideasRes] =
+      const [profileRes, quotaRes, claimsRes, joinsRes, ideasRes, draftsRes] =
         await Promise.all([
           supabase
             .from('profiles')
@@ -76,6 +83,10 @@ const Dashboard = () => {
             .from('ideas')
             .select('id', { count: 'exact', head: true })
             .eq('user_id', current.id),
+          ideasService.getMyDrafts(current.id).catch((err) => {
+            console.warn('[Dashboard] getMyDrafts', err);
+            return [];
+          }),
         ]);
 
       setProfile(profileRes.data || null);
@@ -83,6 +94,7 @@ const Dashboard = () => {
       setClaims(claimsRes || []);
       setJoinRequests(joinsRes || []);
       setIdeaCount(ideasRes.count ?? 0);
+      setMyDrafts(draftsRes || []);
     } catch (err) {
       console.error('[Dashboard]', err);
       setError(err.message || 'Failed to load dashboard');
@@ -98,6 +110,31 @@ const Dashboard = () => {
     });
     return () => listener.subscription.unsubscribe();
   }, [load]);
+
+  // Deep-link: /dashboard#my-drafts
+  useEffect(() => {
+    if (loading) return;
+    if (window.location.hash !== '#my-drafts') return;
+    const el = document.getElementById('my-drafts');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [loading, myDrafts.length]);
+
+  const handleDeleteDraft = async (draftId) => {
+    if (!user?.id || !draftId) return;
+    if (!window.confirm('Delete this draft permanently?')) return;
+    setDeletingDraftId(draftId);
+    try {
+      await ideasService.deleteDraft(draftId, user.id);
+      setMyDrafts((list) => list.filter((d) => d.id !== draftId));
+    } catch (err) {
+      console.error('[Dashboard] delete draft', err);
+      setError(err?.message || 'Could not delete draft.');
+    } finally {
+      setDeletingDraftId(null);
+    }
+  };
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -424,6 +461,93 @@ const Dashboard = () => {
                   )}
                 </Card>
 
+                {/* Private idea drafts */}
+                <Card
+                  id="my-drafts"
+                  className="bg-cyber-card/80 scroll-mt-24"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <div className="text-sm font-mono tracking-widest text-neon-cyan flex items-center gap-2">
+                      <FolderOpen className="w-4 h-4" />
+                      MY DRAFTS
+                      {myDrafts.length > 0 && (
+                        <Badge variant="default">{myDrafts.length}</Badge>
+                      )}
+                    </div>
+                    <Link
+                      to="/ideas/submit"
+                      className="text-xs text-neon-cyan hover:underline font-mono tracking-widest"
+                    >
+                      + New idea
+                    </Link>
+                  </div>
+
+                  {myDrafts.length === 0 ? (
+                    <p className="text-sm text-text-secondary">
+                      No idea drafts yet. While creating an idea, choose{' '}
+                      <span className="text-neon-cyan font-mono text-xs">
+                        Save as Draft
+                      </span>{' '}
+                      to continue later from here.
+                    </p>
+                  ) : (
+                    <ul className="space-y-3">
+                      {myDrafts.map((d) => (
+                        <li
+                          key={d.id}
+                          className="rounded-lg border border-white/10 bg-cyber-surface/50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="font-semibold text-white truncate">
+                              {d.title || 'Untitled draft'}
+                            </div>
+                            <div className="text-xs text-text-muted mt-1 flex flex-wrap gap-x-2 gap-y-1">
+                              {d.category && <span>{d.category}</span>}
+                              {(d.updated_at || d.created_at) && (
+                                <span>
+                                  Saved{' '}
+                                  {new Date(
+                                    d.updated_at || d.created_at
+                                  ).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                            {d.summary && (
+                              <p className="text-xs text-text-secondary mt-1 line-clamp-2">
+                                {d.summary}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-2 shrink-0">
+                            <Link
+                              to={`/ideas/submit?draft=${d.id}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neon-cyan/40 text-neon-cyan text-xs font-mono tracking-widest uppercase hover:bg-neon-cyan/10 transition-colors"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              Continue
+                            </Link>
+                            <Link
+                              to={`/ideas/wizard?draft=${d.id}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyber-border text-text-muted text-xs font-mono tracking-widest uppercase hover:border-neon-purple hover:text-neon-purple transition-colors"
+                            >
+                              Wizard
+                            </Link>
+                            <button
+                              type="button"
+                              disabled={deletingDraftId === d.id}
+                              onClick={() => handleDeleteDraft(d.id)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-400/30 text-red-300 text-xs font-mono tracking-widest uppercase hover:bg-red-400/10 transition-colors disabled:opacity-50"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              {deletingDraftId === d.id ? '…' : 'Delete'}
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </Card>
+
                 {/* Lightweight activity / notices placeholder */}
                 <Card className="bg-cyber-card/80">
                   <div className="text-sm font-mono tracking-widest text-neon-cyan mb-3">
@@ -472,6 +596,18 @@ const Dashboard = () => {
                       <Lightbulb className="w-4 h-4 text-neon-magenta shrink-0" />
                       Idea wizard
                     </Link>
+                    <a
+                      href="#my-drafts"
+                      className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-cyan hover:text-white transition-colors"
+                    >
+                      <FolderOpen className="w-4 h-4 text-neon-cyan shrink-0" />
+                      <span className="flex-1">My idea drafts</span>
+                      {myDrafts.length > 0 && (
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-neon-cyan/40 text-neon-cyan">
+                          {myDrafts.length}
+                        </span>
+                      )}
+                    </a>
                     <Link
                       to="/profile"
                       className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-cyan hover:text-white transition-colors"

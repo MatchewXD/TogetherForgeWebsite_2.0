@@ -2,13 +2,14 @@
  * Shared idea status helpers for listing cards, filters, and detail pages.
  *
  * Workflow statuses (stored on ideas.status):
- *   Proposed | UnderReview | Adopted | Archived
+ *   Draft | Proposed | UnderReview | Adopted | Archived
  *
  * Heat / listing chips (derived when not terminal/linked):
  *   Open | Promising | Hot | Linked
  */
 
 export const WORKFLOW_STATUSES = [
+  'Draft',
   'Proposed',
   'UnderReview',
   'Adopted',
@@ -17,6 +18,7 @@ export const WORKFLOW_STATUSES = [
 
 /** Display labels for workflow + heat chips */
 export const STATUS_LABELS = {
+  Draft: 'Draft',
   Proposed: 'Proposed',
   UnderReview: 'Under Review',
   Adopted: 'Adopted',
@@ -35,6 +37,7 @@ export function normalizeWorkflowStatus(raw) {
   if (raw == null) return null;
   const s = String(raw).trim().toLowerCase().replace(/[\s_-]+/g, '');
   if (!s) return null;
+  if (s === 'draft') return 'Draft';
   if (s === 'proposed' || s === 'open' || s === 'new') return 'Proposed';
   if (
     s === 'underreview' ||
@@ -46,7 +49,11 @@ export function normalizeWorkflowStatus(raw) {
   if (s === 'adopted' || s === 'accepted' || s === 'approved') return 'Adopted';
   if (s === 'archived' || s === 'closed' || s === 'rejected') return 'Archived';
   // Exact workflow keys already correct
-  if (['Proposed', 'UnderReview', 'Adopted', 'Archived'].includes(String(raw).trim())) {
+  if (
+    ['Draft', 'Proposed', 'UnderReview', 'Adopted', 'Archived'].includes(
+      String(raw).trim()
+    )
+  ) {
     return String(raw).trim();
   }
   return null;
@@ -66,6 +73,7 @@ export function getWorkflowStatus(idea) {
 export function deriveIdeaStatus(idea) {
   const workflow = getWorkflowStatus(idea);
 
+  if (workflow === 'Draft') return 'Draft';
   if (workflow === 'Archived') return 'Archived';
   if (workflow === 'Adopted') return 'Adopted';
 
@@ -114,6 +122,8 @@ export function statusChipClasses(status) {
       return 'border-emerald-400/50 bg-emerald-400/10 text-emerald-300';
     case 'Archived':
       return 'border-white/15 bg-white/5 text-text-muted';
+    case 'Draft':
+      return 'border-white/20 bg-white/5 text-text-muted';
     case 'Linked':
       return 'border-sky-400/50 bg-sky-400/10 text-sky-300 hover:bg-sky-400/20 hover:border-sky-300/70';
     case 'Proposed':
@@ -255,6 +265,53 @@ export function extractIdeaTextSections(idea) {
 
   const sections = [
     {
+      key: 'art',
+      label: 'Art Style',
+      value: pick(
+        guided.art_style,
+        guided.artStyle,
+        guided.visual_style,
+        idea?.visual_style
+      ),
+    },
+    {
+      key: 'platforms',
+      label: 'Target Platforms',
+      value: pick(
+        guided.target_platforms,
+        guided.targetPlatforms,
+        idea?.target_platforms
+      ),
+    },
+    {
+      key: 'loop',
+      label: 'Core Loop Length',
+      value: pick(
+        guided.core_loop_length,
+        guided.coreLoopLength,
+        idea?.core_loop_length
+      ),
+    },
+    {
+      key: 'inspiration',
+      label: 'Primary Inspiration / Comparable Games',
+      value: pick(
+        guided.primary_inspiration,
+        guided.primaryInspiration,
+        guided.inspiration,
+        idea?.inspiration
+      ),
+    },
+    {
+      key: 'scope',
+      label: 'Estimated Scope',
+      value: pick(
+        guided.estimated_scope,
+        guided.estimatedScope,
+        idea?.estimated_scope
+      ),
+    },
+    {
       key: 'twitch',
       label: 'Twitch and Community Integration',
       value: pick(
@@ -291,14 +348,14 @@ export function extractIdeaTextSections(idea) {
       ),
     },
     {
-      key: 'inspiration',
-      label: 'Inspiration',
-      value: pick(guided.inspiration, idea?.inspiration),
-    },
-    {
       key: 'visual',
       label: 'Visual Style',
-      value: pick(guided.visual_style, idea?.visual_style),
+      value: pick(
+        // Only when distinct from art_style already shown
+        !pick(guided.art_style, guided.artStyle)
+          ? pick(guided.visual_style, idea?.visual_style)
+          : null
+      ),
     },
     {
       key: 'multiplayer',

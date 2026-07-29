@@ -8,7 +8,13 @@ import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { buildGuidedData } from '../services/ideasService';
-import { parseGuidedData } from '../utils/ideaStatus';
+import {
+  MAX_MULTI,
+  SINGLE_OPTIONAL_SECTIONS,
+  emptyOptionalForm,
+  guidedFieldsFromForm,
+  optionalFormFromIdea,
+} from '../utils/ideaOptionalSections';
 import Button from '../components/ui/Buttons';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
@@ -28,8 +34,6 @@ const CATEGORIES = [
   'Other',
 ];
 
-const MAX_MULTI = 8;
-
 const fieldClass =
   'w-full bg-cyber-surface border border-cyber-border rounded-lg px-4 py-3 text-text-primary placeholder:text-text-muted focus:border-neon-cyan focus:outline-none transition-colors';
 
@@ -39,104 +43,22 @@ const labelClass =
 const REMOVE_MESSAGE =
   'Are you sure you want to delete this field and its contents?';
 
-const SINGLE_SECTIONS = [
-  {
-    key: 'twitchIntegration',
-    label: 'Twitch and Community Integration',
-    placeholder: 'How streamers and viewers engage with this idea...',
-    rows: 4,
-    maxLength: 2000,
-  },
-  {
-    key: 'environmentalStorytelling',
-    label: 'Environmental Storytelling',
-    placeholder: 'How the world and environment convey narrative...',
-    rows: 4,
-    maxLength: 2000,
-  },
-  {
-    key: 'economySystem',
-    label: 'Economy System',
-    placeholder: 'Resources, crafting, trading, or economy loop...',
-    rows: 4,
-    maxLength: 2000,
-  },
-  {
-    key: 'storyNarrative',
-    label: 'Story and Narrative',
-    placeholder: 'Main story beats, tone, and narrative goals...',
-    rows: 4,
-    maxLength: 2000,
-  },
-];
+const SINGLE_SECTIONS = SINGLE_OPTIONAL_SECTIONS.map((s) => ({
+  key: s.key,
+  label: s.label,
+  placeholder: s.placeholder,
+  rows: s.rows,
+  maxLength: s.maxLength,
+}));
 
 const emptyOptional = {
+  ...emptyOptionalForm(),
   features: [],
   additionalNotes: [],
-  twitchIntegration: null,
-  environmentalStorytelling: null,
-  economySystem: null,
-  storyNarrative: null,
 };
 
 function formFromIdeaRow(data) {
-  const guided = parseGuidedData(data.guided_data);
-
-  let features = [];
-  if (Array.isArray(guided.features) && guided.features.length) {
-    features = guided.features.map((f) =>
-      typeof f === 'string'
-        ? { name: '', description: f }
-        : { name: f.name || '', description: f.description || '' }
-    );
-  } else if (data.features) {
-    try {
-      const f =
-        typeof data.features === 'string'
-          ? JSON.parse(data.features)
-          : data.features;
-      if (Array.isArray(f)) {
-        features = f.map((item) =>
-          typeof item === 'string'
-            ? { name: '', description: item }
-            : {
-                name: item.name || '',
-                description: item.description || '',
-              }
-        );
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-
-  let additionalNotes = [];
-  if (Array.isArray(guided.additional_notes) && guided.additional_notes.length) {
-    additionalNotes = guided.additional_notes.map(String);
-  } else if (data.additional_notes) {
-    if (typeof data.additional_notes === 'string') {
-      try {
-        const parsed = JSON.parse(data.additional_notes);
-        if (Array.isArray(parsed)) additionalNotes = parsed.map(String);
-        else if (data.additional_notes.trim())
-          additionalNotes = [data.additional_notes.trim()];
-      } catch {
-        if (data.additional_notes.trim())
-          additionalNotes = [data.additional_notes.trim()];
-      }
-    } else if (Array.isArray(data.additional_notes)) {
-      additionalNotes = data.additional_notes.map(String);
-    }
-  }
-
-  const singleOrNull = (guidedVal, legacyVal) => {
-    const g = guidedVal && String(guidedVal).trim();
-    if (g) return g;
-    const l = legacyVal && String(legacyVal).trim();
-    if (l) return l;
-    return null;
-  };
-
+  const optional = optionalFormFromIdea(data);
   return {
     title: data.title || '',
     category: data.category || '',
@@ -144,24 +66,17 @@ function formFromIdeaRow(data) {
     description: data.description || '',
     tags: data.tags || '',
     projectId: data.project_id || data.projectId || '',
-    features,
-    additionalNotes,
-    twitchIntegration: singleOrNull(
-      guided.twitch_community,
-      data.twitch_integration
-    ),
-    environmentalStorytelling: singleOrNull(
-      guided.environmental_storytelling,
-      data.environmental_storytelling
-    ),
-    economySystem: singleOrNull(
-      guided.economy_system,
-      data.economy_description
-    ),
-    storyNarrative: singleOrNull(
-      guided.story_narrative,
-      data.story_overview
-    ),
+    features: optional.features || [],
+    additionalNotes: optional.additionalNotes || [],
+    artStyle: optional.artStyle,
+    targetPlatforms: optional.targetPlatforms,
+    coreLoopLength: optional.coreLoopLength,
+    primaryInspiration: optional.primaryInspiration,
+    estimatedScope: optional.estimatedScope,
+    twitchIntegration: optional.twitchIntegration,
+    environmentalStorytelling: optional.environmentalStorytelling,
+    economySystem: optional.economySystem,
+    storyNarrative: optional.storyNarrative,
   };
 }
 
@@ -341,14 +256,7 @@ const IdeaEdit = () => {
       ),
     ].join(', ');
 
-    const guided_data = buildGuidedData({
-      features: formData.features,
-      additionalNotes: formData.additionalNotes,
-      twitchIntegration: formData.twitchIntegration,
-      environmentalStorytelling: formData.environmentalStorytelling,
-      economySystem: formData.economySystem,
-      storyNarrative: formData.storyNarrative,
-    });
+    const guided_data = buildGuidedData(guidedFieldsFromForm(formData));
 
     const ideaIdNum = Number(id);
     const patch = {

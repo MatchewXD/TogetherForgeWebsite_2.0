@@ -78,7 +78,7 @@ const REINVESTMENT_REPORTS = [
 const ROADMAP = [
   {
     id: 'prototype-systems',
-    title: 'Prototype Systems',
+    title: 'Tether',
     phase: 'Early',
     status: 'In Development',
     open: true,
@@ -87,7 +87,7 @@ const ROADMAP = [
     href: '/projects/prototype-systems',
     ctaLabel: 'Open workspace',
     summary:
-      'Active focus: core loop, networking, and claim/credit prototypes. Open volunteer tasks on the board.',
+      'Active Early project: a tethered crew crosses dangerous semi-procedural levels to recover an antimatter generator for a stranded colony. Open volunteer tasks on the board.',
   },
   {
     id: 'core-features',
@@ -170,7 +170,7 @@ const STATE_UPDATES = [
     date: '2026-06-01',
     title: 'June: Workspaces and claim flows',
     highlight: false,
-    body: 'Prototype Systems board opened. Claim and credit flows moved from concept to site features so effort can be tracked publicly.',
+    body: 'Tether board opened. Claim and credit flows moved from concept to site features so effort can be tracked publicly.',
     links: [
       { label: 'Get involved', to: '/get-involved' },
       { label: 'How it works', to: '/how-it-works' },

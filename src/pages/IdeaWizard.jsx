@@ -2,9 +2,10 @@
  * Idea Wizard: full-screen multi-step guided idea creation.
  * One question per step with tips. Builds guided_data on submit.
  * Entry: /ideas/wizard (from "Use Idea Wizard" on /ideas/submit).
+ * Supports Save as Draft + resume via ?draft=id.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -16,6 +17,8 @@ import {
   Send,
   SkipForward,
   Pencil,
+  Save,
+  FolderOpen,
 } from 'lucide-react';
 
 import { supabase } from '../lib/supabase';
@@ -24,6 +27,14 @@ import {
   buildGuidedDisplayItems,
   GUIDED_GRID_CLASS,
 } from '../utils/guidedLayout';
+import {
+  MAX_MULTI,
+  SINGLE_OPTIONAL_SECTIONS,
+  guidedFieldsFromForm,
+  optionalFormFromIdea,
+  buildPreviewTextSections,
+  localDraftStorageKey,
+} from '../utils/ideaOptionalSections';
 import Button from '../components/ui/Buttons';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
@@ -85,6 +96,11 @@ const emptyForm = {
   projectId: '',
   features: [{ name: '', description: '' }],
   additionalNotes: [''],
+  artStyle: '',
+  targetPlatforms: '',
+  coreLoopLength: '',
+  primaryInspiration: '',
+  estimatedScope: '',
   twitchIntegration: '',
   environmentalStorytelling: '',
   economySystem: '',
@@ -95,10 +111,32 @@ const fieldClass =
   'w-full bg-cyber-surface border border-cyber-border rounded-xl px-4 py-3.5 text-text-primary placeholder:text-text-muted focus:border-neon-cyan focus:outline-none transition-colors text-base';
 
 /**
- * Full step list: core fields, then every optional guided section (all skippable), then review.
- * Order matches IdeaSubmit optional details and guided_data keys.
+ * Full step list: core fields, then optional guided sections (all skippable), then review.
  */
 function buildStepDefs() {
+  const singleSteps = SINGLE_OPTIONAL_SECTIONS.map((sec) => ({
+    id: sec.key,
+    title: `${sec.label} (optional)`,
+    tip: sec.tip,
+    required: false,
+    kind: 'textarea',
+    field: sec.key,
+    maxLength: sec.maxLength || 2000,
+    rows: sec.rows || 5,
+    placeholder: sec.placeholder,
+  }));
+
+  // Place new design fields after description; keep legacy guided fields after tags/project
+  const earlyDesignKeys = new Set([
+    'artStyle',
+    'targetPlatforms',
+    'coreLoopLength',
+    'primaryInspiration',
+    'estimatedScope',
+  ]);
+  const designSteps = singleSteps.filter((s) => earlyDesignKeys.has(s.id));
+  const laterSingleSteps = singleSteps.filter((s) => !earlyDesignKeys.has(s.id));
+
   return [
     {
       id: 'category',
@@ -140,6 +178,8 @@ function buildStepDefs() {
       placeholder:
         'Expand on the fantasy, the loop, and why it belongs at Together Forge...',
     },
+    // New optional design / scope fields right after core description
+    ...designSteps,
     {
       id: 'tags',
       title: 'Tags (optional)',
@@ -154,7 +194,6 @@ function buildStepDefs() {
       required: false,
       kind: 'project',
     },
-    // --- All optional guided sections (always offered; Skip allowed) ---
     {
       id: 'features',
       title: 'Key Features (optional)',
@@ -162,50 +201,7 @@ function buildStepDefs() {
       required: false,
       kind: 'features',
     },
-    {
-      id: 'twitchIntegration',
-      title: 'Twitch and Community Integration (optional)',
-      tip: 'How chat, viewers, or streamers interact with the idea. Skip if offline-only.',
-      required: false,
-      kind: 'textarea',
-      field: 'twitchIntegration',
-      maxLength: 2000,
-      rows: 6,
-      placeholder: 'How streamers and viewers engage...',
-    },
-    {
-      id: 'environmentalStorytelling',
-      title: 'Environmental Storytelling (optional)',
-      tip: 'How the world and spaces teach story without a cutscene. Skip if not relevant.',
-      required: false,
-      kind: 'textarea',
-      field: 'environmentalStorytelling',
-      maxLength: 2000,
-      rows: 6,
-      placeholder: 'How the world and spaces convey story...',
-    },
-    {
-      id: 'economySystem',
-      title: 'Economy System (optional)',
-      tip: 'Resources, crafting, sinks, trading, or meta progression. Skip if pure combat or narrative.',
-      required: false,
-      kind: 'textarea',
-      field: 'economySystem',
-      maxLength: 2000,
-      rows: 6,
-      placeholder: 'Resources, crafting, trading, or economy loop...',
-    },
-    {
-      id: 'storyNarrative',
-      title: 'Story and Narrative (optional)',
-      tip: 'Tone, stakes, and what players remember. Skip if pure systems.',
-      required: false,
-      kind: 'textarea',
-      field: 'storyNarrative',
-      maxLength: 2000,
-      rows: 6,
-      placeholder: 'Main story beats, tone, and narrative goals...',
-    },
+    ...laterSingleSteps,
     {
       id: 'additionalNotes',
       title: 'Additional Notes (optional)',
@@ -225,22 +221,45 @@ function buildStepDefs() {
 
 const IdeaWizard = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const linkedFromQuery = useMemo(() => {
     const raw = searchParams.get('project');
     return raw ? String(raw).trim() : null;
+  }, [searchParams]);
+
+  const draftFromQuery = useMemo(() => {
+    const raw = searchParams.get('draft');
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
   }, [searchParams]);
 
   const [form, setForm] = useState(() => ({
     ...emptyForm,
     projectId: linkedFromQuery || '',
   }));
+  const [draftId, setDraftId] = useState(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [tagDraft, setTagDraft] = useState('');
   const [message, setMessage] = useState('');
+  const [messageTone, setMessageTone] = useState('error');
   const [submitting, setSubmitting] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState(null);
   const [projects, setProjects] = useState([]);
   const [user, setUser] = useState(null);
+  const [loadingDraft, setLoadingDraft] = useState(!!draftFromQuery);
+
+  const formRef = useRef(form);
+  const draftIdRef = useRef(draftId);
+  const autoSaveTimer = useRef(null);
+
+  useEffect(() => {
+    formRef.current = form;
+  }, [form]);
+  useEffect(() => {
+    draftIdRef.current = draftId;
+  }, [draftId]);
 
   const steps = useMemo(() => buildStepDefs(), []);
 
@@ -252,6 +271,10 @@ const IdeaWizard = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user || null);
     });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user || null);
+    });
+    return () => sub?.subscription?.unsubscribe?.();
   }, []);
 
   useEffect(() => {
@@ -273,7 +296,7 @@ const IdeaWizard = () => {
         }
         if (list.length === 0) {
           list.push(
-            { id: 'prototype-systems', title: 'Prototype Systems' },
+            { id: 'prototype-systems', title: 'Tether' },
             { id: 'core-features', title: 'Core Features Sprint' },
             { id: 'polish-playtests', title: 'Stability and Polish' }
           );
@@ -282,7 +305,7 @@ const IdeaWizard = () => {
       } catch {
         if (mounted) {
           setProjects([
-            { id: 'prototype-systems', title: 'Prototype Systems' },
+            { id: 'prototype-systems', title: 'Tether' },
             { id: 'core-features', title: 'Core Features Sprint' },
             { id: 'polish-playtests', title: 'Stability and Polish' },
           ]);
@@ -299,6 +322,152 @@ const IdeaWizard = () => {
       setForm((f) => (f.projectId ? f : { ...f, projectId: linkedFromQuery }));
     }
   }, [linkedFromQuery]);
+
+  // Load draft
+  useEffect(() => {
+    if (!draftFromQuery) {
+      setLoadingDraft(false);
+      return;
+    }
+    let mounted = true;
+    (async () => {
+      setLoadingDraft(true);
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session?.user) {
+          if (mounted) {
+            setMessage('Sign in to continue a draft.');
+            setMessageTone('error');
+            setLoadingDraft(false);
+          }
+          return;
+        }
+        const { data, error } = await supabase
+          .from('ideas')
+          .select('*')
+          .eq('id', draftFromQuery)
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        if (error || !data) {
+          if (mounted) {
+            setMessage('Draft not found or you do not own it.');
+            setMessageTone('error');
+            setLoadingDraft(false);
+          }
+          return;
+        }
+        if (mounted) {
+          const optional = optionalFormFromIdea(data);
+          setForm({
+            ...emptyForm,
+            title: data.title === 'Untitled draft' ? '' : data.title || '',
+            category: data.category || '',
+            summary: data.summary || '',
+            description: data.description || '',
+            tags: data.tags || '',
+            projectId: data.project_id || linkedFromQuery || '',
+            features:
+              Array.isArray(optional.features) && optional.features.length
+                ? optional.features
+                : [{ name: '', description: '' }],
+            additionalNotes:
+              Array.isArray(optional.additionalNotes) &&
+              optional.additionalNotes.length
+                ? optional.additionalNotes
+                : [''],
+            artStyle: optional.artStyle || '',
+            targetPlatforms: optional.targetPlatforms || '',
+            coreLoopLength: optional.coreLoopLength || '',
+            primaryInspiration: optional.primaryInspiration || '',
+            estimatedScope: optional.estimatedScope || '',
+            twitchIntegration: optional.twitchIntegration || '',
+            environmentalStorytelling: optional.environmentalStorytelling || '',
+            economySystem: optional.economySystem || '',
+            storyNarrative: optional.storyNarrative || '',
+          });
+          setDraftId(data.id);
+          setMessage('Draft loaded. Continue when ready.');
+          setMessageTone('info');
+        }
+      } catch (err) {
+        console.error('[IdeaWizard] load draft', err);
+        if (mounted) {
+          setMessage('Could not load draft.');
+          setMessageTone('error');
+        }
+      } finally {
+        if (mounted) setLoadingDraft(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [draftFromQuery, linkedFromQuery]);
+
+  // Local auto-save
+  useEffect(() => {
+    if (!user) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      try {
+        const key = localDraftStorageKey(user.id, 'wizard');
+        localStorage.setItem(
+          key,
+          JSON.stringify({
+            form: formRef.current,
+            draftId: draftIdRef.current,
+            stepIndex,
+            savedAt: Date.now(),
+          })
+        );
+      } catch {
+        /* ignore */
+      }
+    }, 1500);
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [form, stepIndex, user, draftId]);
+
+  useEffect(() => {
+    if (!user || draftFromQuery) return;
+    try {
+      const key = localDraftStorageKey(user.id, 'wizard');
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed?.form) return;
+      const f = parsed.form;
+      const hasContent =
+        (f.title || '').trim() ||
+        (f.summary || '').trim() ||
+        (f.description || '').trim();
+      if (!hasContent) return;
+      setForm((current) => {
+        const empty =
+          !(current.title || '').trim() &&
+          !(current.summary || '').trim() &&
+          !(current.description || '').trim();
+        if (!empty) return current;
+        return {
+          ...emptyForm,
+          ...f,
+          projectId: f.projectId || linkedFromQuery || '',
+        };
+      });
+      if (parsed.draftId) setDraftId(parsed.draftId);
+      if (typeof parsed.stepIndex === 'number') {
+        setStepIndex(
+          Math.min(steps.length - 1, Math.max(0, parsed.stepIndex))
+        );
+      }
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const step = steps[stepIndex] || steps[0];
   const progress = ((stepIndex + 1) / steps.length) * 100;
@@ -337,6 +506,7 @@ const IdeaWizard = () => {
     const err = validateCurrent();
     if (err) {
       setMessage(err);
+      setMessageTone('error');
       return;
     }
     setStepIndex((i) => Math.min(steps.length - 1, i + 1));
@@ -382,7 +552,7 @@ const IdeaWizard = () => {
 
   const addFeature = () => {
     setForm((f) => {
-      if ((f.features || []).length >= 8) return f;
+      if ((f.features || []).length >= MAX_MULTI) return f;
       return {
         ...f,
         features: [...(f.features || []), { name: '', description: '' }],
@@ -390,15 +560,68 @@ const IdeaWizard = () => {
     });
   };
 
+  const buildIdeaPayload = (status) => {
+    const projectId = (form.projectId || '').trim() || null;
+    const guided_data = {
+      ...buildGuidedData(guidedFieldsFromForm(form)),
+      wizard_mode: 'guided_v1',
+    };
+    return {
+      ...(draftId ? { id: draftId } : {}),
+      title: (form.title || '').trim(),
+      summary: (form.summary || '').trim(),
+      category: form.category || 'Idea',
+      description: (form.description || '').trim(),
+      tags: tags.join(', '),
+      ...guidedFieldsFromForm(form),
+      guided_data,
+      status,
+      votes: 0,
+      ...(projectId ? { project_id: projectId } : {}),
+    };
+  };
+
+  const handleSaveDraft = async () => {
+    setMessage('');
+    if (!user) {
+      setMessage('Sign in to save a draft.');
+      setMessageTone('error');
+      return;
+    }
+    setSavingDraft(true);
+    try {
+      const data = await ideasService.saveDraft({
+        ...buildIdeaPayload('Draft'),
+        user_id: user.id,
+      });
+      if (!data?.id) throw new Error('Draft saved but no id returned.');
+      setDraftId(data.id);
+      setDraftSavedAt(new Date());
+      const next = new URLSearchParams(searchParams);
+      next.set('draft', String(data.id));
+      setSearchParams(next, { replace: true });
+      setMessage('Draft saved. Find it under My Drafts on your Dashboard.');
+      setMessageTone('success');
+    } catch (err) {
+      console.error('[IdeaWizard] save draft', err);
+      setMessage('Could not save draft: ' + (err?.message || 'Unknown error'));
+      setMessageTone('error');
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
   const handleSubmit = async () => {
     setMessage('');
     if (!(form.title || '').trim() || !(form.category || '').trim()) {
       setMessage('Title and category are required.');
+      setMessageTone('error');
       jumpToStepId(!(form.category || '').trim() ? 'category' : 'title');
       return;
     }
     if (!(form.summary || '').trim() || !(form.description || '').trim()) {
       setMessage('Summary and description are required.');
+      setMessageTone('error');
       jumpToStepId(!(form.summary || '').trim() ? 'summary' : 'description');
       return;
     }
@@ -408,49 +631,25 @@ const IdeaWizard = () => {
     } = await supabase.auth.getSession();
     if (!session?.user) {
       setMessage('You must be signed in to submit. Open Profile to sign in.');
+      setMessageTone('error');
       return;
     }
 
     const projectId = (form.projectId || '').trim() || null;
-
-    // Map form fields into guided_data (features, twitch_community, environmental_storytelling,
-    // economy_system, story_narrative, additional_notes). Empty optionals are omitted.
-    const guided_data = {
-      ...buildGuidedData({
-        features: form.features,
-        additionalNotes: form.additionalNotes,
-        twitchIntegration: form.twitchIntegration,
-        environmentalStorytelling: form.environmentalStorytelling,
-        economySystem: form.economySystem,
-        storyNarrative: form.storyNarrative,
-      }),
-      wizard_mode: 'guided_v1',
-    };
-
     const newIdea = {
-      title: form.title.trim(),
-      summary: form.summary.trim(),
-      category: form.category || 'Idea',
-      description: form.description.trim(),
-      tags: tags.join(', '),
-      // Flat fields for createIdea / legacy columns (mirrors guided_data)
-      features: form.features,
-      additionalNotes: form.additionalNotes,
-      twitchIntegration: form.twitchIntegration,
-      environmentalStorytelling: form.environmentalStorytelling,
-      economySystem: form.economySystem,
-      storyNarrative: form.storyNarrative,
-      guided_data,
-      status: 'Proposed',
-      votes: 0,
+      ...buildIdeaPayload('Proposed'),
       user_id: session.user.id,
-      ...(projectId ? { project_id: projectId } : {}),
     };
 
     setSubmitting(true);
     try {
-      const data = await ideasService.createIdea(newIdea);
+      const data = await ideasService.publishIdea(newIdea);
       if (!data?.id) throw new Error('Idea was created but no id was returned.');
+      try {
+        localStorage.removeItem(localDraftStorageKey(session.user.id, 'wizard'));
+      } catch {
+        /* ignore */
+      }
       if (projectId) {
         navigate(`/projects/${projectId}#project-ideas`, {
           replace: true,
@@ -464,14 +663,17 @@ const IdeaWizard = () => {
       setMessage(
         'Error submitting idea: ' + (err?.message || 'Unknown error')
       );
+      setMessageTone('error');
     } finally {
       setSubmitting(false);
     }
   };
 
   const exitHref = linkedFromQuery
-    ? `/ideas/submit?project=${encodeURIComponent(linkedFromQuery)}`
-    : '/ideas/submit';
+    ? `/ideas/submit?project=${encodeURIComponent(linkedFromQuery)}${draftId ? `&draft=${draftId}` : ''}`
+    : draftId
+      ? `/ideas/submit?draft=${draftId}`
+      : '/ideas/submit';
 
   const filledFeatures = (form.features || []).filter(
     (f) => f.name || f.description
@@ -480,43 +682,14 @@ const IdeaWizard = () => {
     String(n || '').trim()
   );
   const previewGuided = useMemo(
-    () =>
-      buildGuidedData({
-        features: form.features,
-        additionalNotes: form.additionalNotes,
-        twitchIntegration: form.twitchIntegration,
-        environmentalStorytelling: form.environmentalStorytelling,
-        economySystem: form.economySystem,
-        storyNarrative: form.storyNarrative,
-      }),
+    () => buildGuidedData(guidedFieldsFromForm(form)),
     [form]
   );
   const previewGroups = useMemo(
     () =>
       buildGuidedDisplayItems({
         features: filledFeatures,
-        textSections: [
-          {
-            key: 'twitch',
-            label: 'Twitch and Community',
-            value: previewGuided.twitch_community,
-          },
-          {
-            key: 'env',
-            label: 'Environmental Storytelling',
-            value: previewGuided.environmental_storytelling,
-          },
-          {
-            key: 'economy',
-            label: 'Economy System',
-            value: previewGuided.economy_system,
-          },
-          {
-            key: 'story',
-            label: 'Story and Narrative',
-            value: previewGuided.story_narrative,
-          },
-        ],
+        textSections: buildPreviewTextSections(previewGuided),
         notes: filledNotes,
       }),
     [filledFeatures, filledNotes, previewGuided]
@@ -530,6 +703,42 @@ const IdeaWizard = () => {
         : isReview
           ? 'Almost there. Review and ship it.'
           : 'Optional steps are gifts, not homework. Skip anytime.';
+
+  const messageClass =
+    messageTone === 'success'
+      ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-100'
+      : messageTone === 'info'
+        ? 'border-neon-cyan/40 bg-neon-cyan/10 text-text-secondary'
+        : 'border-red-400/40 bg-red-400/10 text-red-100';
+
+  const reviewEditIds = [
+    'category',
+    'title',
+    'summary',
+    'description',
+    'artStyle',
+    'targetPlatforms',
+    'coreLoopLength',
+    'primaryInspiration',
+    'estimatedScope',
+    'tags',
+    'features',
+    'twitchIntegration',
+    'environmentalStorytelling',
+    'economySystem',
+    'storyNarrative',
+    'additionalNotes',
+  ];
+
+  if (loadingDraft) {
+    return (
+      <div className="min-h-screen bg-cyber-bg text-text-primary flex items-center justify-center">
+        <p className="text-text-secondary font-mono text-sm tracking-widest">
+          Loading draft…
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-cyber-bg text-text-primary flex flex-col">
@@ -546,19 +755,31 @@ const IdeaWizard = () => {
             <div className="min-w-0">
               <div className="font-mono text-xs tracking-widest text-neon-cyan uppercase">
                 Idea Wizard
+                {draftId ? ` · Draft #${draftId}` : ''}
               </div>
               <div className="text-xs text-text-muted truncate">
                 Step {stepIndex + 1} of {steps.length}
               </div>
             </div>
           </div>
-          <Link
-            to={exitHref}
-            className="inline-flex items-center gap-1.5 text-xs font-mono tracking-widest text-text-muted hover:text-white transition-colors"
-          >
-            <X className="w-4 h-4" />
-            Exit
-          </Link>
+          <div className="flex items-center gap-3 shrink-0">
+            {user && (
+              <Link
+                to="/dashboard#my-drafts"
+                className="hidden sm:inline-flex items-center gap-1.5 text-xs font-mono tracking-widest text-text-muted hover:text-neon-cyan transition-colors"
+              >
+                <FolderOpen className="w-3.5 h-3.5" />
+                Drafts
+              </Link>
+            )}
+            <Link
+              to={exitHref}
+              className="inline-flex items-center gap-1.5 text-xs font-mono tracking-widest text-text-muted hover:text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+              Exit
+            </Link>
+          </div>
         </div>
         <div className="h-1 bg-cyber-border/60">
           <div
@@ -569,7 +790,6 @@ const IdeaWizard = () => {
       </header>
 
       <main className="relative z-10 flex-1 flex flex-col container-custom py-8 md:py-12 max-w-2xl w-full">
-        {/* Encouragement */}
         <p className="text-center text-xs font-mono tracking-widest text-text-muted uppercase mb-6">
           <Sparkles className="w-3.5 h-3.5 inline mr-1.5 text-neon-purple align-middle" />
           {encourage}
@@ -594,10 +814,10 @@ const IdeaWizard = () => {
           {message && (
             <div
               role="alert"
-              className="mb-6 rounded-lg border border-red-400/40 bg-red-400/10 px-4 py-3 text-sm text-red-100 flex flex-wrap items-center justify-between gap-2"
+              className={`mb-6 rounded-lg border px-4 py-3 text-sm flex flex-wrap items-center justify-between gap-2 ${messageClass}`}
             >
               <span>{message}</span>
-              {!user && (
+              {!user && messageTone === 'error' && (
                 <Link
                   to="/profile"
                   className="text-neon-cyan font-mono text-xs shrink-0"
@@ -765,7 +985,7 @@ const IdeaWizard = () => {
                     />
                   </Card>
                 ))}
-                {(form.features || []).length < 8 && (
+                {(form.features || []).length < MAX_MULTI && (
                   <Button type="button" variant="secondary" onClick={addFeature}>
                     Add another feature
                   </Button>
@@ -793,6 +1013,20 @@ const IdeaWizard = () => {
                     autoFocus={idx === 0}
                   />
                 ))}
+                {(form.additionalNotes || []).length < MAX_MULTI && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() =>
+                      setForm((f) => ({
+                        ...f,
+                        additionalNotes: [...(f.additionalNotes || []), ''],
+                      }))
+                    }
+                  >
+                    Add another note
+                  </Button>
+                )}
               </div>
             )}
 
@@ -879,19 +1113,7 @@ const IdeaWizard = () => {
                 )}
 
                 <div className="flex flex-wrap gap-2 pt-2">
-                  {[
-                    'category',
-                    'title',
-                    'summary',
-                    'description',
-                    'tags',
-                    'features',
-                    'twitchIntegration',
-                    'environmentalStorytelling',
-                    'economySystem',
-                    'storyNarrative',
-                    'additionalNotes',
-                  ].map((id) => (
+                  {reviewEditIds.map((id) => (
                     <button
                       key={id}
                       type="button"
@@ -920,6 +1142,22 @@ const IdeaWizard = () => {
             </Button>
 
             <div className="flex flex-wrap gap-2 ml-auto">
+              {user && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="gap-2"
+                  disabled={savingDraft || submitting}
+                  onClick={handleSaveDraft}
+                >
+                  <Save className="w-4 h-4" />
+                  {savingDraft
+                    ? 'Saving…'
+                    : draftId
+                      ? 'Update Draft'
+                      : 'Save Draft'}
+                </Button>
+              )}
               {!step?.required && !isReview && (
                 <Button
                   type="button"
@@ -950,6 +1188,11 @@ const IdeaWizard = () => {
               )}
             </div>
           </div>
+          {user && draftSavedAt && (
+            <p className="text-[11px] font-mono text-text-muted text-right mt-2">
+              Draft saved {draftSavedAt.toLocaleTimeString()}
+            </p>
+          )}
         </div>
       </main>
     </div>

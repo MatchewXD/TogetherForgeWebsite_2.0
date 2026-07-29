@@ -62,7 +62,7 @@ const CONTRIBUTION_WAYS = [
   {
     icon: HandHeart,
     title: 'Support the Studio',
-    desc: 'Support funds development tools and living-wage work. Not tax-deductible; full transparency on how funds are used.',
+    desc: 'Support funds the tools, hosting, and operations that keep the Forge running. Every contribution is tracked and reported with full transparency.',
     accent: 'text-neon-magenta',
   },
 ];
@@ -79,11 +79,11 @@ const TASK_BOARDS = [
   },
   {
     id: 'prototype-systems',
-    title: 'Prototype Systems',
+    title: 'Tether',
     subtitle: 'Early phase · open',
     href: '/projects/prototype-systems',
     badge: 'Early',
-    desc: 'Core loop, networking, and claim/credit prototypes. Good first tasks for new volunteers.',
+    desc: 'A tethered crew crosses dangerous semi-procedural levels to reach a destroyed orbital station and recover an antimatter generator for their stranded colony.',
   },
   {
     id: 'core-features',

@@ -78,11 +78,11 @@ const VALUES = [
 const FEATURED_PROJECTS = [
   {
     id: 'prototype-systems',
-    title: 'Prototype Systems',
+    title: 'Tether',
     phase: 'Early',
     status: 'active',
     description:
-      'Our active focus: core loop prototyping and networking tests. Volunteers needed for design, code, and art as we validate the multiplayer foundation.',
+      'A tethered crew crosses dangerous semi-procedural levels to reach a destroyed orbital station. Linked by a shared energy tether, players coordinate movement, collect resources for their stranded colony, and recover an antimatter generator so the colony can survive on its own.',
     // Live stats only when real data is wired; omit or set numbers from the board
     tasksCompleted: 12,
     activeVolunteers: 8,
@@ -144,7 +144,7 @@ const RECENT_ACTIVITY = [
     user: 'Jordan K.',
     userInitials: 'JK',
     action: 'claimed a task on',
-    target: 'Prototype Systems',
+    target: 'Tether',
     time: '5h ago',
   },
   {

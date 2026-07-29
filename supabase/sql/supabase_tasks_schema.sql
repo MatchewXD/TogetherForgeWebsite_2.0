@@ -193,7 +193,7 @@ insert into projects (slug, title, description, phase, status)
 values
   (
     'prototype-systems',
-    'Prototype Systems',
+    'Tether',
     'Core loop prototyping and networking tests. We are validating multiplayer foundations, claim/credit flows, and the volunteer task board itself - with design, code, and art volunteers welcome.',
     'Early',
     'In Development'

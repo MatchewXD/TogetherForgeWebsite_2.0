@@ -67,11 +67,11 @@ import { phaseImageSrc, phaseImageAlt } from '../utils/phaseImages';
 const FALLBACK_PROJECTS = {
   'prototype-systems': {
     slug: 'prototype-systems',
-    title: 'Prototype Systems',
+    title: 'Tether',
     phase: 'Early',
     status: 'In Development',
     description:
-      'Small cooperative games built with the community. Early exists to prove the Together Forge model works: learn how we collaborate, ship focused playable experiences, and show that community-driven development can create real, fun games. Design, code, art, and testing volunteers are welcome.',
+      'A tethered crew crosses dangerous semi-procedural levels to reach a destroyed orbital station. Linked by a shared energy tether, players must coordinate movement, manage tension and momentum, collect critical resources for their stranded colony, and ultimately recover an antimatter generator that will let the colony survive on its own. Teamwork tools grow stronger when used together, while simple enemies try to break the tether. The tone is serious and the stakes are real: the people waiting below are counting on the crew.',
   },
   'core-features': {
     slug: 'core-features',

@@ -2,7 +2,8 @@
 -- Run this in the Supabase SQL Editor (idempotent).
 -- Do NOT auto-run from the app.
 
--- Workflow status: Proposed | UnderReview | Adopted | Archived
+-- Workflow status: Draft | Proposed | UnderReview | Adopted | Archived
+-- Draft = private work-in-progress (filtered from public listings in the app)
 alter table if exists ideas
   add column if not exists status text default 'Proposed';
 
@@ -56,5 +57,5 @@ create policy "Owners can update own ideas"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
-comment on column ideas.status is 'Workflow: Proposed | UnderReview | Adopted | Archived';
-comment on column ideas.guided_data is 'JSON from Guided Idea Creation wizard (step 2 structured fields)';
+comment on column ideas.status is 'Workflow: Draft | Proposed | UnderReview | Adopted | Archived';
+comment on column ideas.guided_data is 'JSON from Guided Idea Creation / wizard (optional structured fields incl. art_style, platforms, scope, etc.)';

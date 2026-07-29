@@ -89,7 +89,8 @@ export function ideaMatchesProject(idea, keys = []) {
  * Build guided_data JSONB from the guided wizard / edit form.
  *
  * Multi-entry: features (array of {name, description}), additional_notes (string[])
- * Single optional: twitch_community, environmental_storytelling, economy_system, story_narrative
+ * Single optional: art_style, target_platforms, core_loop_length, primary_inspiration,
+ * estimated_scope, twitch_community, environmental_storytelling, economy_system, story_narrative
  */
 export function buildGuidedData(raw = {}) {
   const existing =
@@ -164,6 +165,24 @@ export function buildGuidedData(raw = {}) {
 
   const guided = {
     features: features.length ? features : null,
+    art_style: single('artStyle', 'art_style', ['visual_style', 'visualStyle']),
+    target_platforms: single('targetPlatforms', 'target_platforms', [
+      'platforms',
+      'targetPlatform',
+    ]),
+    core_loop_length: single('coreLoopLength', 'core_loop_length', [
+      'loop_length',
+      'sessionLength',
+    ]),
+    primary_inspiration: single('primaryInspiration', 'primary_inspiration', [
+      'inspiration',
+      'comparable_games',
+      'comparableGames',
+    ]),
+    estimated_scope: single('estimatedScope', 'estimated_scope', [
+      'scope',
+      'team_size',
+    ]),
     twitch_community: single('twitchIntegration', 'twitch_community', [
       'twitch_integration',
       'twitchIntegration',
@@ -182,7 +201,7 @@ export function buildGuidedData(raw = {}) {
       'storyOverview',
     ]),
     additional_notes: notes.length ? notes : null,
-    wizard_version: 2,
+    wizard_version: 3,
   };
 
   Object.keys(guided).forEach((k) => {
@@ -192,6 +211,18 @@ export function buildGuidedData(raw = {}) {
   });
 
   return guided;
+}
+
+/** True when an idea is an unpublished draft (hidden from public listings). */
+export function isDraftIdea(idea) {
+  if (!idea) return false;
+  const s = String(idea.status || '').trim().toLowerCase();
+  return s === 'draft';
+}
+
+/** Drop draft rows from public listing arrays. */
+export function filterPublicIdeas(ideas = []) {
+  return (ideas || []).filter((idea) => !isDraftIdea(idea));
 }
 
 /**
@@ -333,7 +364,7 @@ export const ideasService = {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data;
+    return filterPublicIdeas(data || []);
   },
 
   /**
@@ -345,7 +376,7 @@ export const ideasService = {
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return this._withCreators(data || []);
+    return this._withCreators(filterPublicIdeas(data || []));
   },
 
   /**
@@ -479,7 +510,7 @@ export const ideasService = {
       data = fallback.data;
     }
 
-    return this._withCreators(data || []);
+    return this._withCreators(filterPublicIdeas(data || []));
   },
 
   /**
@@ -510,7 +541,7 @@ export const ideasService = {
       if (error) throw error;
 
       if ((data || []).length > 0) {
-        return this._withCreators(data);
+        return this._withCreators(filterPublicIdeas(data));
       }
 
       // Empty from server: verify with a full scan in case of key mismatch
@@ -528,8 +559,8 @@ export const ideasService = {
         return [];
       }
 
-      const filtered = (all || []).filter((idea) =>
-        ideaMatchesProject(idea, keys)
+      const filtered = filterPublicIdeas(
+        (all || []).filter((idea) => ideaMatchesProject(idea, keys))
       );
       return this._withCreators(filtered);
     } catch (err) {
@@ -546,11 +577,196 @@ export const ideasService = {
 
       if (allErr) throw allErr;
 
-      const filtered = (all || []).filter((idea) =>
-        ideaMatchesProject(idea, keys)
+      const filtered = filterPublicIdeas(
+        (all || []).filter((idea) => ideaMatchesProject(idea, keys))
       );
       return this._withCreators(filtered);
     }
+  },
+
+  /**
+   * Current user's draft ideas (status = Draft).
+   */
+  async getMyDrafts(userId) {
+    if (!userId) return [];
+    const { data, error } = await supabase
+      .from('ideas')
+      .select('*')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false });
+
+    // updated_at may be missing; fall back to created_at sort client-side
+    if (error) {
+      const fallback = await supabase
+        .from('ideas')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (fallback.error) throw fallback.error;
+      return (fallback.data || []).filter((i) => isDraftIdea(i));
+    }
+
+    return (data || [])
+      .filter((i) => isDraftIdea(i))
+      .sort((a, b) => {
+        const ta = new Date(a.updated_at || a.created_at || 0).getTime();
+        const tb = new Date(b.updated_at || b.created_at || 0).getTime();
+        return tb - ta;
+      });
+  },
+
+  /**
+   * Save or update a draft. Requires auth user_id.
+   * Title may be empty → stored as "Untitled draft".
+   * @returns {Promise<object>} saved idea row
+   */
+  async saveDraft(idea = {}) {
+    const userId = idea.user_id;
+    if (!userId) throw new Error('You must be signed in to save a draft.');
+
+    const title =
+      (idea.title || '').trim() || 'Untitled draft';
+
+    const payload = buildSafeIdeaPayload({
+      ...idea,
+      title,
+      status: 'Draft',
+      user_id: userId,
+      votes: typeof idea.votes === 'number' ? idea.votes : 0,
+    });
+
+    const draftId = idea.id != null ? Number(idea.id) : null;
+
+    if (draftId && Number.isFinite(draftId)) {
+      // Update existing draft (owner only via RLS)
+      let body = { ...payload };
+      delete body.user_id; // do not reassign ownership
+      delete body.votes;
+
+      const { data, error } = await supabase
+        .from('ideas')
+        .update(body)
+        .eq('id', draftId)
+        .eq('user_id', userId)
+        .select()
+        .maybeSingle();
+
+      if (error) {
+        // Strip optional columns and retry
+        let retryBody = { ...body };
+        const optional = [
+          'features',
+          'guided_data',
+          'status',
+          'project_id',
+          'twitch_integration',
+          'environmental_storytelling',
+          'economy_description',
+          'story_overview',
+          'additional_notes',
+        ];
+        let lastErr = error;
+        for (const col of optional) {
+          if (
+            lastErr &&
+            retryBody[col] !== undefined &&
+            isMissingColumnError(lastErr, col)
+          ) {
+            delete retryBody[col];
+            const retry = await supabase
+              .from('ideas')
+              .update(retryBody)
+              .eq('id', draftId)
+              .eq('user_id', userId)
+              .select()
+              .maybeSingle();
+            if (!retry.error) return retry.data;
+            lastErr = retry.error;
+          }
+        }
+        throw new Error(lastErr.message || 'Failed to update draft');
+      }
+      if (!data) {
+        throw new Error(
+          'Draft not found or you do not have permission to update it.'
+        );
+      }
+      return data;
+    }
+
+    // Insert new draft
+    return this.createIdea({
+      ...idea,
+      title,
+      status: 'Draft',
+      user_id: userId,
+      votes: 0,
+    });
+  },
+
+  /**
+   * Publish a draft (or create new) as Proposed.
+   * If idea.id is a draft, updates it; otherwise inserts.
+   */
+  async publishIdea(idea = {}) {
+    const userId = idea.user_id;
+    if (!userId) throw new Error('You must be signed in to publish an idea.');
+    if (!(idea.title || '').trim()) throw new Error('Title is required.');
+
+    const payload = buildSafeIdeaPayload({
+      ...idea,
+      status: 'Proposed',
+      user_id: userId,
+    });
+
+    const draftId = idea.id != null ? Number(idea.id) : null;
+    if (draftId && Number.isFinite(draftId)) {
+      let body = { ...payload };
+      delete body.user_id;
+      // Keep existing votes if any
+      delete body.votes;
+
+      const { data, error } = await supabase
+        .from('ideas')
+        .update(body)
+        .eq('id', draftId)
+        .eq('user_id', userId)
+        .select()
+        .maybeSingle();
+
+      if (error) throw new Error(error.message || 'Failed to publish draft');
+      if (!data) {
+        throw new Error(
+          'Draft not found or you do not have permission to publish it.'
+        );
+      }
+      return data;
+    }
+
+    return this.createIdea({
+      ...idea,
+      status: 'Proposed',
+      user_id: userId,
+      votes: 0,
+    });
+  },
+
+  /**
+   * Delete a draft owned by the user.
+   */
+  async deleteDraft(draftId, userId) {
+    if (!userId) throw new Error('You must be signed in to delete a draft.');
+    const id = Number(draftId);
+    if (!Number.isFinite(id)) throw new Error('Invalid draft id.');
+
+    const { error } = await supabase
+      .from('ideas')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
+
+    if (error) throw new Error(error.message || 'Failed to delete draft');
+    return true;
   },
 
   /**

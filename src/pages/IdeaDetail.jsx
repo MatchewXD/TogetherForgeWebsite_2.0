@@ -14,7 +14,7 @@ import {
   Hammer,
   Pencil,
 } from 'lucide-react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import UserAvatar from '../components/ui/UserAvatar';
@@ -23,7 +23,7 @@ import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
 import Card from '../components/ui/Card';
 import LoadingScreen from '../components/ui/LoadingScreen';
-import { ideasService } from '../services/ideasService';
+import { ideasService, isDraftIdea } from '../services/ideasService';
 import { tasksService } from '../services/tasksService';
 import {
   deriveIdeaStatus,
@@ -43,6 +43,7 @@ import {
 
 const IdeaDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [comment, setComment] = useState('');
   const [comments, setComments] = useState([]);
   const [idea, setIdea] = useState(null);
@@ -138,6 +139,28 @@ const IdeaDetail = () => {
         const data = await ideasService.getIdeaWithCreator(ideaId);
         if (!mounted) return;
         if (data) {
+          // Drafts are private: owner continues in the editor; others see not found
+          if (isDraftIdea(data)) {
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+            const uid = session?.user?.id;
+            if (uid && data.user_id === uid) {
+              navigate(`/ideas/submit?draft=${data.id}`, { replace: true });
+              return;
+            }
+            setIdea({
+              id: ideaId,
+              title: 'Idea not found',
+              summary: 'This idea does not exist or could not be loaded.',
+              category: 'Unknown',
+              votes: 0,
+              status: 'Proposed',
+              creator: null,
+            });
+            if (mounted) setLoading(false);
+            return;
+          }
           let votes = Math.max(0, Number(data.votes) || 0);
           try {
             const live = await ideasService.getIdeaVoteCount(data.id ?? ideaId);

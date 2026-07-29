@@ -107,6 +107,11 @@ describe('ideasService helpers', () => {
       additionalNotes: ['Playtest note'],
       economySystem: 'Shared scrap economy',
       twitchIntegration: 'Chat votes on events',
+      artStyle: 'Stylized pixel',
+      targetPlatforms: 'PC first',
+      coreLoopLength: '20 minute runs',
+      primaryInspiration: 'Hades + DRG',
+      estimatedScope: 'Small team',
     });
     expect(payload.project_id).toBe('prototype-systems');
     expect(payload.title).toBe('Hello');
@@ -118,6 +123,11 @@ describe('ideasService helpers', () => {
     expect(payload.guided_data.additional_notes).toContain('Playtest note');
     expect(payload.guided_data.economy_system).toBe('Shared scrap economy');
     expect(payload.guided_data.twitch_community).toBe('Chat votes on events');
+    expect(payload.guided_data.art_style).toBe('Stylized pixel');
+    expect(payload.guided_data.target_platforms).toBe('PC first');
+    expect(payload.guided_data.core_loop_length).toBe('20 minute runs');
+    expect(payload.guided_data.primary_inspiration).toBe('Hades + DRG');
+    expect(payload.guided_data.estimated_scope).toBe('Small team');
     expect(payload.economy_description).toBe('Shared scrap economy');
     expect(payload.twitch_integration).toBe('Chat votes on events');
   });
