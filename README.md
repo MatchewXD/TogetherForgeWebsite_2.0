@@ -4,8 +4,7 @@
 
 An independent game studio where players, creators, and volunteers build cooperative games *together*—and keep the work transparent every step of the way.
 
-> **Private development:** The live site is not publicly deployed yet. The screenshots below are (or will be) current previews of the website as it exists today. Drop real captures into [`readme-images/`](./readme-images/) using the exact filenames listed there so this README stays up to date for family and visitors on GitHub.
-
+> **Private development:** The live site is not publicly deployed yet. The screenshots below are current previews of the website as it exists today.
 ---
 
 ## What is Together Forge?
@@ -48,19 +47,6 @@ Volunteers can open the live project workspace, claim tasks, submit ideas, and f
 ---
 
 ## Website Preview
-
-These images show the current website experience. Until screenshots are added, GitHub may show a broken-image icon—that is expected.
-
-**How to fill them in:** run the site locally, capture each screen, and save the files into [`readme-images/`](./readme-images/) using the **exact names** below. Do not rename the files unless you also update this README.
-
-| File | What to capture |
-|------|-----------------|
-| `home.png` | Home page hero and main sections |
-| `projects-landing.png` | Projects landing (vision + Early / Mid / Late cards) |
-| `early-phase.png` | Early Game hub (goals, active project, ideas) |
-| `tether-project.png` | Tether project workspace / task board |
-| `ideas-page.png` | Community Ideas board |
-| `get-involved.png` | Get Involved page |
 
 ### Home
 
@@ -132,7 +118,7 @@ This repository is the home of the Together Forge **website**—the front door f
 
 ## Tech / Repo notes
 
-*This section is for developers. Family and visitors can skip it.*
+*This section is for developers.*
 
 - **Stack:** React 19, Vite, React Router, Tailwind CSS, Supabase  
 - **App:** SPA under `src/` (pages, components, services)  
@@ -145,8 +131,6 @@ npm run dev      # local development
 npm run build    # production build
 npm test         # unit tests
 ```
-
-- **Screenshots:** see [`readme-images/README.md`](./readme-images/README.md)
 
 ---
 
