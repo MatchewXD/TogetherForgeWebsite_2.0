@@ -136,7 +136,6 @@ const GameIdeas = () => {
     try {
       const ids = await ideasService.getUserVotedIdeaIds(userId);
       const voted = new Set(ids.map((id) => voteKey(id)).filter(Boolean));
-      console.log('[GameIdeas] loaded user votes', { userId, count: voted.size });
       userVotesRef.current = voted;
       setUserVotes(voted);
       return voted;
@@ -196,7 +195,8 @@ const GameIdeas = () => {
         setUserVotes(empty);
         return;
       }
-      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+      // loadListing already hydrates votes on mount; only re-fetch on true sign-in
+      if (event === 'SIGNED_IN') {
         await loadUserVotes(uid);
       }
     });
@@ -580,7 +580,7 @@ const GameIdeas = () => {
   return (
     <div className="min-h-screen bg-cyber-bg text-text-primary">
       {/* Page header banner */}
-      <header className="relative pt-20 overflow-hidden border-b border-cyber-border">
+      <header className="relative pt-20 overflow-hidden">
         <div className="absolute inset-0" aria-hidden="true">
           <img
             src={IDEAS_BANNER_SRC}
@@ -589,20 +589,27 @@ const GameIdeas = () => {
             decoding="async"
             fetchPriority="high"
           />
-          {/* Readability scrim - keeps title + controls legible */}
-          <div className="absolute inset-0 bg-gradient-to-b from-cyber-bg/75 via-cyber-bg/70 to-cyber-bg" />
+          {/* Readability: base dim + center-weighted for centered title */}
+          <div className="absolute inset-0 bg-cyber-bg/55" />
+          <div className="absolute inset-0 bg-gradient-to-b from-cyber-bg/80 via-cyber-bg/60 to-transparent" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgb(var(--tf-cyber-bg)/0.45)_0%,transparent_70%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgb(var(--tf-neon-cyan)/0.08)_0%,transparent_55%)]" />
         </div>
+        {/* Soft fade into page background (matches home hero) */}
+        <div
+          className="absolute bottom-0 inset-x-0 h-28 sm:h-32 pointer-events-none z-[5] bg-gradient-to-b from-transparent via-cyber-bg/50 to-cyber-bg"
+          aria-hidden="true"
+        />
 
         <div className="container-custom relative z-10 py-10 md:py-14">
-          <div className="text-center max-w-3xl mx-auto">
+          <div className="text-center max-w-3xl mx-auto [text-shadow:0_1px_2px_rgb(0_0_0_/_0.9),0_2px_16px_rgb(0_0_0_/_0.55)]">
             <div className="section-header justify-center">Game Ideas</div>
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mt-2 drop-shadow-sm">
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mt-2">
               {feedMode === 'community'
                 ? 'Community idea forge'
                 : 'Project-linked ideas'}
             </h1>
-            <p className="text-text-secondary mt-4 text-base sm:text-lg leading-relaxed">
+            <p className="text-white/85 mt-4 text-base sm:text-lg leading-relaxed">
               {feedMode === 'community'
                 ? 'Browse every community pitch. Vote, discuss, and spark the next build. Project leads can adopt ideas into workspaces.'
                 : 'Ideas tied to Together Forge projects. Pick a project or browse everything already linked.'}

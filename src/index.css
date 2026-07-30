@@ -443,6 +443,17 @@ a.cyber-card:focus-visible,
     );
 }
 
+/* Purple-outlined tech panels (e.g. Mid Game vision) */
+.cyber-card.cyber-card-purple::before {
+    background: linear-gradient(
+        135deg,
+        rgb(var(--tf-neon-purple) / 0.75) 0%,
+        rgb(var(--tf-neon-purple) / 0.4) 22%,
+        rgb(var(--tf-cyber-border) / 0.92) 50%,
+        rgb(var(--tf-neon-purple) / 0.55) 100%
+    );
+}
+
 .cyber-card.cyber-card-panel.home-project-featured::after,
 .cyber-card.home-project-featured.cyber-card-panel::after {
     background:

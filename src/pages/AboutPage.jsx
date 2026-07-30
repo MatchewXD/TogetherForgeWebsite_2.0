@@ -7,7 +7,7 @@ const AboutPage = () => {
     return (
         <div className="min-h-screen bg-cyber-bg text-text-primary">
             {/* Page header banner */}
-            <header className="relative pt-20 overflow-hidden border-b border-cyber-border">
+            <header className="relative pt-20 overflow-hidden">
                 <div className="absolute inset-0" aria-hidden="true">
                     <img
                         src={ABOUT_BANNER_SRC}
@@ -16,20 +16,27 @@ const AboutPage = () => {
                         decoding="async"
                         fetchPriority="high"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-r from-cyber-bg/92 via-cyber-bg/78 to-cyber-bg/50" />
-                    <div className="absolute inset-0 bg-gradient-to-b from-cyber-bg/55 via-transparent to-cyber-bg" />
+                    {/* Readability: base dim + left-weighted panel + top shade */}
+                    <div className="absolute inset-0 bg-cyber-bg/55" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyber-bg/96 via-cyber-bg/85 to-cyber-bg/35" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-cyber-bg/70 via-cyber-bg/25 to-transparent" />
                     <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgb(var(--tf-forge-gold)/0.08)_0%,transparent_50%)]" />
                 </div>
+                {/* Soft fade into page background (matches home hero) */}
+                <div
+                    className="absolute bottom-0 inset-x-0 h-28 sm:h-32 pointer-events-none z-[5] bg-gradient-to-b from-transparent via-cyber-bg/50 to-cyber-bg"
+                    aria-hidden="true"
+                />
 
                 <div className="container-custom relative z-10 py-10 sm:py-12 md:py-14 min-h-[16rem] sm:min-h-[18rem] md:min-h-[20rem] flex flex-col justify-center">
-                    <div className="max-w-3xl">
+                    <div className="max-w-3xl [text-shadow:0_1px_2px_rgb(0_0_0_/_0.9),0_2px_16px_rgb(0_0_0_/_0.55)]">
                         <div className="section-header">
                             BY THE COMMUNITY, FOR THE COMMUNITY
                         </div>
-                        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white mb-4 sm:mb-6 drop-shadow-sm">
+                        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white mb-4 sm:mb-6">
                             A community-first independent game studio.
                         </h1>
-                        <p className="max-w-2xl text-lg sm:text-xl md:text-2xl text-text-secondary leading-relaxed">
+                        <p className="max-w-2xl text-lg sm:text-xl md:text-2xl text-white/85 leading-relaxed">
                             We are tired of AAA companies putting profits and
                             ideology over good games. Together Forge puts gamers
                             and quality mechanics first.

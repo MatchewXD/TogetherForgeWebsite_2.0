@@ -120,8 +120,13 @@ const BugTracker = () => {
               </h1>
               <p className="text-text-secondary mt-3 text-sm sm:text-base leading-relaxed">
                 Known issues and community reports. Workflow:{' '}
-                <span className="text-white">Reported</span> → Confirmed → In
-                Progress → Fixed. Anyone can report; staff updates status.
+                <span className="text-white">Reported</span>
+                {' → '}
+                Confirmed
+                {' → '}
+                In Progress
+                {' → '}
+                Fixed. Anyone can report; staff updates status.
               </p>
             </div>
             <div className="flex flex-wrap gap-2 shrink-0">

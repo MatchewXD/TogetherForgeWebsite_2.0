@@ -35,6 +35,8 @@ import {
   getPublicRecentDonations,
 } from '../services/donationsService';
 
+const TRANSPARENCY_BANNER_SRC = '/images/Transparency_Page.webp';
+
 const SECTIONS = [
   { id: 'governance', label: 'Governance' },
   { id: 'financials', label: 'Financials' },
@@ -324,16 +326,36 @@ const TransparencyHub = () => {
   };
 
   return (
-    <div className="pt-20 min-h-screen bg-cyber-bg text-text-primary">
+    <div className="min-h-screen bg-cyber-bg text-text-primary">
       <div
         className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,249,255,0.05)_0%,transparent_55%)]"
         aria-hidden="true"
       />
 
-      {/* Header */}
-      <div className="relative z-10 border-b border-cyber-border bg-cyber-surface/80">
-        <div className="container-custom py-12 md:py-16">
-          <div className="max-w-3xl">
+      {/* Page header banner */}
+      <header className="relative pt-20 overflow-hidden">
+        <div className="absolute inset-0" aria-hidden="true">
+          <img
+            src={TRANSPARENCY_BANNER_SRC}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover object-[center_40%] sm:object-center"
+            decoding="async"
+            fetchPriority="high"
+          />
+          {/* Readability: base dim + left-weighted panel + top shade */}
+          <div className="absolute inset-0 bg-cyber-bg/55" />
+          <div className="absolute inset-0 bg-gradient-to-r from-cyber-bg/96 via-cyber-bg/85 to-cyber-bg/35" />
+          <div className="absolute inset-0 bg-gradient-to-b from-cyber-bg/70 via-cyber-bg/25 to-transparent" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgb(var(--tf-neon-cyan)/0.08)_0%,transparent_50%)]" />
+        </div>
+        {/* Soft fade into page background (matches home hero) */}
+        <div
+          className="absolute bottom-0 inset-x-0 h-28 sm:h-32 pointer-events-none z-[5] bg-gradient-to-b from-transparent via-cyber-bg/50 to-cyber-bg"
+          aria-hidden="true"
+        />
+
+        <div className="container-custom relative z-10 py-10 sm:py-12 md:py-14 min-h-[16rem] sm:min-h-[18rem] md:min-h-[20rem] flex flex-col justify-center">
+          <div className="max-w-3xl [text-shadow:0_1px_2px_rgb(0_0_0_/_0.9),0_2px_16px_rgb(0_0_0_/_0.55)]">
             <div className="flex flex-wrap items-center gap-3 mb-4">
               <div className="section-header mb-0">Transparency Hub</div>
               <Badge variant="neon">Open by design</Badge>
@@ -341,7 +363,7 @@ const TransparencyHub = () => {
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-4">
               Trust you can verify
             </h1>
-            <p className="text-lg sm:text-xl text-text-secondary leading-relaxed">
+            <p className="text-lg sm:text-xl text-white/85 leading-relaxed">
               Legal structure, public finances, roadmaps, credits, decisions, and
               founder notes. Incomplete ledgers beat marketing copy that hides the
               truth.
@@ -386,14 +408,14 @@ const TransparencyHub = () => {
                 key={s.id}
                 type="button"
                 onClick={() => scrollTo(s.id)}
-                className="px-3 py-1.5 rounded-full text-xs font-mono tracking-widest uppercase border border-cyber-border text-text-muted hover:border-neon-cyan/50 hover:text-neon-cyan transition-colors bg-cyber-card/40"
+                className="px-3 py-1.5 rounded-full text-xs font-mono tracking-widest uppercase border border-cyber-border text-text-muted hover:border-neon-cyan/50 hover:text-neon-cyan transition-colors bg-cyber-card/50 backdrop-blur-sm"
               >
                 {s.label}
               </button>
             ))}
           </nav>
         </div>
-      </div>
+      </header>
 
       <div className="container-custom relative z-10 py-12 md:py-16 space-y-16 md:space-y-20">
         {/* Legal & governance */}
