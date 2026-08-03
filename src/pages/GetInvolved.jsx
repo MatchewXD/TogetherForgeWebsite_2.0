@@ -86,11 +86,11 @@ const TASK_BOARDS = [
   },
   {
     id: 'core-features',
-    title: 'Core Features Sprint',
+    title: 'Mid Game Ambitions',
     subtitle: 'Mid phase · planned',
     href: '/projects/mid',
     badge: 'Mid',
-    desc: 'Opens after Early is completed. View plans - not open for claims yet.',
+    desc: 'Next up after Early is completed: cooperative games at the scale of Halo, Horizon Zero Dawn, and Skyrim, with deeper systems, dynamic worlds, and stronger teamwork. Not open for claims yet.',
   },
   {
     id: 'polish-playtests',

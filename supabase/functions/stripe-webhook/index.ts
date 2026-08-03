@@ -79,6 +79,97 @@ function fundTypeFromMeta(meta: Record<string, string> | null | undefined) {
   return meta?.fundType === 'runway' ? 'runway' : 'studio';
 }
 
+/**
+ * Studio donations attach to the currently active In Development project.
+ * Completed / planned projects receive nothing new.
+ * Runway fund never attaches to a game project.
+ */
+async function resolveActiveProjectId(
+  fundType: string
+): Promise<string | null> {
+  if (fundType === 'runway') return null;
+  const sb = admin();
+  try {
+    const { data, error } = await sb.rpc('get_active_project_id_for_donations');
+    if (!error && data) return String(data);
+  } catch (e) {
+    console.warn(
+      '[stripe-webhook] get_active_project_id_for_donations',
+      e?.message
+    );
+  }
+  // Fallback if RPC not deployed yet: pick first Early + In Development row
+  try {
+    const { data: rows } = await sb
+      .from('projects')
+      .select('id, phase, status, completed_at, sort_order, created_at')
+      .is('completed_at', null)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true });
+    const list = rows || [];
+    const active = list.filter((p) => {
+      if (p.completed_at) return false;
+      const s = String(p.status || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[_-]+/g, ' ');
+      if (
+        [
+          'completed',
+          'complete',
+          'shipped',
+          'released',
+          'done',
+          'planning',
+          'planned',
+          'on hold',
+          'hold',
+          'queued',
+          'upcoming',
+          'concept',
+          'vision',
+        ].includes(s)
+      ) {
+        return false;
+      }
+      return !s || ['in development', 'development', 'active', 'live'].includes(s);
+    });
+    const early = active.filter((p) =>
+      String(p.phase || '')
+        .toLowerCase()
+        .startsWith('early')
+    );
+    const pick = (early.length ? early : active)[0];
+    return pick?.id ? String(pick.id) : null;
+  } catch (e) {
+    console.warn('[stripe-webhook] active project fallback', e?.message);
+    return null;
+  }
+}
+
+/** Mirror attributed studio gift into public credits table (best-effort). */
+async function mirrorDonationContribution(row: Record<string, unknown>) {
+  if (!row.project_id || row.fund_type === 'runway') return;
+  try {
+    await admin().from('project_contributions').insert({
+      project_id: row.project_id,
+      user_id: row.user_id || null,
+      display_name: row.is_anonymous
+        ? null
+        : row.display_name || null,
+      category: 'donations',
+      is_anonymous: row.is_anonymous !== false,
+      amount_cents: row.amount_cents || 0,
+      sort_order: 0,
+    });
+  } catch (e) {
+    console.warn(
+      '[stripe-webhook] project_contributions mirror',
+      e?.message || e
+    );
+  }
+}
+
 /** Idempotent: skip if this Stripe event was already processed */
 async function alreadyProcessed(eventId: string): Promise<boolean> {
   if (!eventId) return false;
@@ -230,6 +321,16 @@ async function handleCheckoutCompleted(
       ? 'month'
       : 'once';
 
+  const meta = (session.metadata || {}) as Record<string, string>;
+  const isAnonymous =
+    meta.isAnonymous === 'false' || meta.anonymous === 'false'
+      ? false
+      : true;
+  const userId = meta.userId || meta.user_id || null;
+  const displayName = meta.displayName || meta.display_name || null;
+  // Attribute only while a project is In Development; released projects get nothing new
+  const projectId = await resolveActiveProjectId(fundType);
+
   const row = {
     amount_cents: amountCents,
     amount: Math.round(amountCents / 100),
@@ -239,16 +340,21 @@ async function handleCheckoutCompleted(
     tier_id: session.metadata?.tierId || null,
     tier_label: session.metadata?.tierId || session.metadata?.label || null,
     status: 'completed',
-    is_anonymous: true,
+    is_anonymous: isAnonymous,
     stripe_session_id: session.id,
     stripe_payment_intent: idOf(session.payment_intent),
     stripe_subscription_id: idOf(session.subscription),
     stripe_customer_id: idOf(session.customer),
     raw_event_id: eventId,
-    user_id: null,
+    user_id: userId,
+    display_name: isAnonymous ? null : displayName,
+    project_id: projectId,
   };
 
   const result = await upsertDonation(row);
+  if (result?.inserted || result?.updated) {
+    await mirrorDonationContribution(row);
+  }
 
   // If subscription checkout, sync subscription row when expanded/id present
   const subId = idOf(session.subscription);
@@ -291,6 +397,8 @@ async function handleInvoicePaid(invoice: Stripe.Invoice, eventId: string) {
   }
   if (invoice.metadata?.fundType === 'runway') fundType = 'runway';
 
+  const projectId = await resolveActiveProjectId(fundType);
+
   const row = {
     amount_cents: amountCents,
     amount: Math.round(amountCents / 100),
@@ -307,9 +415,15 @@ async function handleInvoicePaid(invoice: Stripe.Invoice, eventId: string) {
     stripe_customer_id: idOf(invoice.customer),
     raw_event_id: eventId,
     user_id: null,
+    display_name: null,
+    project_id: projectId,
   };
 
-  return upsertDonation(row);
+  const result = await upsertDonation(row);
+  if (result?.inserted || result?.updated) {
+    await mirrorDonationContribution(row);
+  }
+  return result;
 }
 
 Deno.serve(async (req) => {

@@ -1,78 +1,172 @@
-import { CheckCircle, Users, Hammer } from 'lucide-react';
-import { Link } from 'react-router-dom';
+/**
+ * How It Works: plain-language path from idea/skill to shipped work at Together Forge.
+ */
+
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  Lightbulb,
+  MessageSquare,
+  Layers,
+  Hammer,
+  Award,
+  ArrowRight,
+  Users,
+} from 'lucide-react';
+
+import Button from '../components/ui/Buttons';
+import Badge from '../components/ui/Badge';
+
+const STEPS = [
+  {
+    number: '01',
+    title: 'Share an idea or offer a skill',
+    desc: 'Pitch a game concept, mechanic, or improvement on the Ideas board, or jump in with a skill. Code, art, audio, testing, writing, moderation, content creation, and feedback all count. You do not need a finished pitch to help.',
+    icon: Lightbulb,
+  },
+  {
+    number: '02',
+    title: 'Discuss and refine in public',
+    desc: 'The community votes, comments, and pressure-tests ideas. Strong concepts get clearer. Weak ones get honest notes. Everything happens in the open so anyone can follow the conversation.',
+    icon: MessageSquare,
+  },
+  {
+    number: '03',
+    title: 'Promising work lands in active projects',
+    desc: 'Project leads and moderators move solid ideas into live workspaces. Right now that means Early: smaller cooperative games we can actually ship. Mid and Late, bigger titles and the long-term MMO vision, open after Early proves the model.',
+    icon: Layers,
+  },
+  {
+    number: '04',
+    title: 'Claim tasks and build together',
+    desc: 'Open boards list real work: features, art, bugs, docs, playtests. Claim a task, leave progress notes, and coordinate with other volunteers. One game at a time in Early so the community can focus and finish.',
+    icon: Hammer,
+  },
+  {
+    number: '05',
+    title: 'Get credit, then ship',
+    desc: 'Contributors are named in public credits and shoutouts. Finances and major decisions stay transparent. When a build is ready, we release it for the community that made it.',
+    icon: Award,
+  },
+];
 
 const HowItWorks = () => {
-    const steps = [
-        {
-            number: "01",
-            title: "Submit Your Idea",
-            desc: "Share game concepts, mechanics, or improvements through the Game Ideas page.",
-            icon: Hammer
-        },
-        {
-            number: "02",
-            title: "Community Feedback",
-            desc: "The community discusses, votes, and refines ideas together.",
-            icon: Users
-        },
-        {
-            number: "03",
-            title: "Selection & Planning",
-            desc: "Promising ideas move to Projects. Volunteers can claim tasks.",
-            icon: CheckCircle
-        },
-        {
-            number: "04",
-            title: "Build Together",
-            desc: "Community members contribute code, art, testing, content, and more.",
-            icon: Hammer
-        },
-        {
-            number: "05",
-            title: "Credit & Launch",
-            desc: "Contributors get recognized. The game is released for everyone to enjoy.",
-            icon: CheckCircle
-        }
-    ];
+  const navigate = useNavigate();
 
-    return (
-        <div className="pt-20 min-h-screen">
-            {/* Header Wrapper */}
-            <div className="border-b border-white/10 bg-cyber-surface py-16">
-                <div className="container-custom">
-                    <div>
-                        <div className="section-header">HOW IT WORKS</div>
-                        <h1 className="text-5xl font-bold tracking-tight text-white">From Idea to Game, Together</h1>
-                    </div>
-                </div>
+  return (
+    <div className="min-h-screen bg-cyber-bg text-text-primary">
+      {/* Header */}
+      <header className="relative pt-20 border-b border-cyber-border bg-cyber-surface/80">
+        <div className="container-custom py-10 sm:py-12 md:py-14">
+          <div className="max-w-3xl">
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <div className="section-header mb-0">How it works</div>
+              <Badge variant="gold">Early open now</Badge>
             </div>
-
-            <div className="container-custom py-12">
-                <div className="space-y-16">
-                    {steps.map((step, index) => (
-                        <div key={index} className="flex gap-10 items-start">
-                            <div className="w-16 h-16 rounded-2xl bg-neon-cyan/10 flex items-center justify-center flex-shrink-0">
-                                <span className="text-3xl font-mono text-neon-cyan font-bold">{step.number}</span>
-                            </div>
-                            <div>
-                                <div className="flex items-center gap-4 mb-4">
-                                    <step.icon className="w-8 h-8 text-neon-cyan" />
-                                    <h3 className="text-3xl font-bold text-white">{step.title}</h3>
-                                </div>
-                                <p className="text-xl text-text-secondary">{step.desc}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
-                <div className="mt-20 text-center">
-                    <Link to="/ideas" className="btn-primary btn-neon inline-block px-12 py-5 text-lg">
-                        SUBMIT YOUR FIRST IDEA
-                    </Link>
-                </div>
-            </div>
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-4">
+              From idea to game, with the community
+            </h1>
+            <p className="text-base sm:text-lg text-text-secondary leading-relaxed max-w-2xl">
+              Together Forge is a community-first studio. Here is the day-to-day
+              process, so you can see where you fit and how work actually ships.
+            </p>
+          </div>
         </div>
-    );
+      </header>
+
+      <div className="container-custom py-12 md:py-16 max-w-4xl">
+        {/* Quick orientation */}
+        <p className="text-sm sm:text-base text-text-muted leading-relaxed mb-10 md:mb-12 max-w-2xl border-l-2 border-neon-cyan/40 pl-4">
+          Early is live today: smaller cooperative games built in public. Mid and
+          Late come later. Start with an idea, a task, or a conversation. Every
+          skill has a door in.
+        </p>
+
+        {/* Steps */}
+        <ol className="space-y-8 md:space-y-10 list-none p-0 m-0">
+          {STEPS.map((step) => {
+            const Icon = step.icon;
+            return (
+              <li
+                key={step.number}
+                className="flex gap-4 sm:gap-6 items-start"
+              >
+                <div className="shrink-0 flex flex-col items-center gap-2">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-neon-cyan/10 border border-neon-cyan/25 flex items-center justify-center">
+                    <span className="text-lg sm:text-xl font-mono text-neon-cyan font-bold">
+                      {step.number}
+                    </span>
+                  </div>
+                </div>
+                <div className="min-w-0 pt-0.5 sm:pt-1">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                    <Icon
+                      className="w-5 h-5 text-neon-cyan shrink-0"
+                      aria-hidden
+                    />
+                    <h2 className="text-xl sm:text-2xl font-bold text-white">
+                      {step.title}
+                    </h2>
+                  </div>
+                  <p className="text-sm sm:text-base text-text-secondary leading-relaxed">
+                    {step.desc}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+
+        {/* CTA */}
+        <div className="mt-14 md:mt-16 rounded-2xl border border-cyber-border bg-cyber-card/60 p-6 sm:p-8 text-center">
+          <div className="section-header justify-center mx-auto mb-3">
+            Ready?
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
+            Pick a door and walk in
+          </h2>
+          <p className="text-text-secondary text-sm sm:text-base max-w-lg mx-auto mb-6 leading-relaxed">
+            Submit a pitch, claim a task, or explore how to help. The forge grows
+            when people show up. Credit and progress stay public.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button
+              size="lg"
+              className="gap-2 w-full sm:w-auto"
+              onClick={() => navigate('/ideas/submit')}
+            >
+              <Lightbulb className="w-4 h-4" />
+              Submit an idea
+            </Button>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="gap-2 w-full sm:w-auto"
+              onClick={() => navigate('/get-involved')}
+            >
+              <Users className="w-4 h-4" />
+              Get involved
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </div>
+          <p className="mt-5 text-xs font-mono tracking-widest text-text-muted">
+            <Link
+              to="/projects/early"
+              className="hover:text-neon-cyan transition-colors"
+            >
+              Early workspace
+            </Link>
+            {' · '}
+            <Link
+              to="/transparency"
+              className="hover:text-neon-cyan transition-colors"
+            >
+              Transparency
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default HowItWorks;

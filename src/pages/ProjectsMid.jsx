@@ -1,83 +1,459 @@
+/**
+ * Mid Game Project Hub — mirrors Early phase structure and patterns.
+ * Static copy from MID_PHASE_DEFAULTS (+ optional page_content).
+ * Projects from Supabase; ideas via PhaseIdeasSection (mid filter + submit).
+ */
+
+import { useEffect, useState } from 'react';
+import { ArrowRight, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import Badge from '../components/ui/Badge';
+import Card from '../components/ui/Card';
+import PhaseIdeasSection from '../components/phase/PhaseIdeasSection';
+import PhaseAboutCard from '../components/phase/PhaseAboutCard';
+import { phasePageService } from '../services/phasePageService';
+import {
+  listProjectsByPhase,
+  isProjectCompleted,
+  isProjectInDevelopment,
+} from '../services/projectsService';
+import { MID_PHASE_DEFAULTS } from '../utils/phasePageContent';
+
+function projectHref(p) {
+  return `/projects/${p.slug || p.id}`;
+}
+
+function projectBlurb(p) {
+  return p.summary || p.description || '';
+}
+
+function formatCompletedDate(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
 
 const ProjectsMid = () => {
-    const [games, setGames] = useState([]);
-    const [loading, setLoading] = useState(true);
+  const [content, setContent] = useState(MID_PHASE_DEFAULTS);
+  const [activeProjects, setActiveProjects] = useState([]);
+  const [plannedProjects, setPlannedProjects] = useState([]);
+  const [completedProjects, setCompletedProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-    const SAMPLE_GAMES = [
-        { id: 'm1', title: 'Mid: Expanded Zones', desc: 'Multiple connected zones and travel systems.', status: 'todo' },
-        { id: 'm2', title: 'Mid: Progression Systems', desc: 'Deeper mechanics for persistent progression.', status: 'todo' }
-    ];
-
-    useEffect(() => {
-        let mounted = true;
-        const load = async () => {
-            setLoading(true);
-            try {
-                const { data, error } = await supabase.from('phase_games').select('*').eq('phase', 'mid');
-                if (!mounted) return;
-                if (error) setGames(SAMPLE_GAMES);
-                else setGames((data && data.length) ? data : SAMPLE_GAMES);
-            } catch (e) {
-                if (mounted) setGames(SAMPLE_GAMES);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const [pageData, allMid] = await Promise.all([
+          phasePageService.getPageContent('mid'),
+          listProjectsByPhase('Mid', { includeCompleted: true }).catch(
+            (err) => {
+              console.warn('[ProjectsMid] load projects', err);
+              return [];
             }
-            setLoading(false);
-        };
-        load();
-        return () => { mounted = false; };
-    }, []);
+          ),
+        ]);
+        if (!mounted) return;
+        if (pageData) setContent({ ...MID_PHASE_DEFAULTS, ...pageData });
 
-    return (
-        <div className="pt-20 min-h-screen">
-            <div className="container-custom py-12">
-                <div className="mb-8">
-                    <div className="section-header">MID GAME</div>
-                    <h1 className="text-4xl font-bold tracking-tight text-white">Mid Game - Phase Overview</h1>
-                    <p className="text-text-secondary mt-4 max-w-3xl">The Mid Game phase contains projects that expand the core systems validated during Early Game. This includes polishing mechanics, expanding content, and scaling volunteer workflows.</p>
+        // Exclude temporary catalog placeholders (not real Mid hubs yet)
+        const PLACEHOLDER = new Set(['core-features', 'polish-playtests']);
+        const rows = (Array.isArray(allMid) ? allMid : []).filter(
+          (p) => !PLACEHOLDER.has(String(p.slug || '').toLowerCase())
+        );
+        const inDev = rows.filter((p) => isProjectInDevelopment(p));
+        const planned = rows.filter(
+          (p) => !isProjectCompleted(p) && !isProjectInDevelopment(p)
+        );
+        setActiveProjects(inDev);
+        setPlannedProjects(planned);
+        setCompletedProjects(rows.filter((p) => isProjectCompleted(p)));
+      } catch (err) {
+        console.warn('[ProjectsMid] load', err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const c = content || MID_PHASE_DEFAULTS;
+
+  // Mid: no hard-coded fallback project — empty state until capacity opens
+  const displayActive = activeProjects;
+  const displayProjectsList = [...activeProjects, ...plannedProjects];
+
+  const activeHeading =
+    displayActive.length > 1 ? 'Active Projects' : 'Active Project';
+
+  return (
+    <div className="pt-20 min-h-screen bg-cyber-bg text-text-primary">
+      <div
+        className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(168,85,247,0.06)_0%,transparent_50%)]"
+        aria-hidden="true"
+      />
+
+      <div className="container-custom relative z-10 py-12 md:py-14">
+        {/* Header */}
+        <header className="mb-12 md:mb-14 max-w-3xl">
+          <h1 className="relative w-fit max-w-full text-4xl sm:text-5xl font-bold tracking-tight text-neon-cyan pb-2 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-[60px] after:h-0.5 after:bg-gradient-to-r after:from-neon-cyan after:to-neon-magenta">
+            {c.heroTitle || 'Mid Game Project Hub'}
+          </h1>
+          <div className="mt-6 space-y-3 text-text-secondary text-base sm:text-lg leading-relaxed">
+            {c.heroSeriesLabel && (
+              <p className="font-semibold text-white">{c.heroSeriesLabel}</p>
+            )}
+            {c.heroBody && <p>{c.heroBody}</p>}
+          </div>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <Link
+              to="/contributors"
+              className="text-xs font-mono tracking-widest px-3 py-1.5 rounded-full border border-cyber-border text-text-secondary hover:border-neon-cyan hover:text-neon-cyan transition-colors"
+            >
+              Contributors
+            </Link>
+            <Link
+              to="/projects/early"
+              className="text-xs font-mono tracking-widest px-3 py-1.5 rounded-full border border-cyber-border text-text-secondary hover:border-neon-cyan hover:text-neon-cyan transition-colors"
+            >
+              Early hub
+            </Link>
+          </div>
+        </header>
+
+        {loading ? (
+          <p className="text-sm font-mono tracking-widest text-text-muted mb-10">
+            Loading…
+          </p>
+        ) : null}
+
+        <div className="grid lg:grid-cols-12 gap-8 lg:gap-10">
+          {/* Main column */}
+          <div className="lg:col-span-8 space-y-10">
+            {/* Mid Game Goals */}
+            <section aria-labelledby="mid-goals-heading">
+              <h2 id="mid-goals-heading" className="section-header mb-4">
+                Mid Game Goals
+              </h2>
+              <Card className="bg-cyber-card/80 border-cyber-border p-5 sm:p-6">
+                {c.goalsIntro && (
+                  <p className="font-semibold text-white mb-4">{c.goalsIntro}</p>
+                )}
+                <ul className="list-disc pl-5 space-y-2 text-text-secondary text-sm sm:text-base leading-relaxed">
+                  {(c.goals || []).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+                {c.successMetric && (
+                  <p className="mt-5 pt-4 border-t border-cyber-border text-sm text-text-muted leading-relaxed">
+                    <span className="text-neon-cyan font-mono text-xs tracking-widest uppercase mr-2">
+                      Success metric
+                    </span>
+                    {c.successMetric}
+                  </p>
+                )}
+              </Card>
+            </section>
+
+            {/* Active Project */}
+            <section aria-labelledby="active-project-heading">
+              <h2 id="active-project-heading" className="section-header mb-4">
+                {activeHeading}
+              </h2>
+              {displayActive.length === 0 ? (
+                <Card className="p-5 sm:p-6 text-text-secondary text-sm leading-relaxed border-dashed">
+                  {c.activeEmptyMessage ||
+                    'No Mid Game projects are in active development yet. The first Mid projects will appear here once Early Game has proven the systems and capacity has grown.'}
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {displayActive.map((p, idx) => (
+                    <Link
+                      key={p.id || p.slug}
+                      to={projectHref(p)}
+                      className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-cyber-bg"
+                    >
+                      <Card
+                        interactive
+                        variant="panel"
+                        className={`${idx === 0 ? 'cyber-card-purple ' : ''}p-5 sm:p-6`}
+                      >
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                          {idx === 0 && (
+                            <Badge
+                              variant="purple"
+                              className="!shadow-none"
+                            >
+                              Featured
+                            </Badge>
+                          )}
+                          <Badge variant="default">
+                            {p.status || 'In Development'}
+                          </Badge>
+                        </div>
+                        <h3 className="text-xl sm:text-2xl font-bold text-white group-hover:text-neon-cyan transition-colors">
+                          {p.title}
+                        </h3>
+                        <p className="mt-3 text-sm sm:text-base text-text-secondary leading-relaxed">
+                          {projectBlurb(p)}
+                        </p>
+                        <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-neon-cyan tracking-wide">
+                          Open workspace
+                          <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition" />
+                        </span>
+                      </Card>
+                    </Link>
+                  ))}
+                  {displayActive.length === 1 && displayActive[0]?.slug && (
+                    <p className="text-sm">
+                      <Link
+                        to={`/projects/${displayActive[0].slug}/contributors`}
+                        className="text-neon-cyan hover:text-white font-mono text-xs tracking-widest"
+                      >
+                        View contributors for {displayActive[0].title}
+                      </Link>
+                    </p>
+                  )}
                 </div>
+              )}
+            </section>
 
-                <div className="grid md:grid-cols-3 gap-6">
-                    <div className="md:col-span-2">
-                        <div className="section-header">Phase Goals</div>
-                        <div className="cyber-card p-4 mb-6">
-                            <ul className="text-text-secondary list-disc pl-5 space-y-2">
-                                <li>Polish core systems and iterate on feedback.</li>
-                                <li>Scale content and tooling for volunteer workflows.</li>
-                                <li>Build secondary mechanics and larger maps.</li>
-                            </ul>
+            {/* Projects — In Development + Planning / On Hold */}
+            <section aria-labelledby="mid-projects-heading">
+              <h2 id="mid-projects-heading" className="section-header mb-4">
+                Projects
+              </h2>
+              {displayProjectsList.length === 0 ? (
+                <Card className="p-5 text-sm text-text-secondary leading-relaxed border-dashed">
+                  {c.projectsEmptyMessage ||
+                    'No In Development, Planning, or On Hold Mid projects yet.'}
+                </Card>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-4 mb-4">
+                  {displayProjectsList.map((p) => {
+                    const inDev = isProjectInDevelopment(p);
+                    const slug = p.slug || p.id;
+                    return (
+                      <Card
+                        key={`proj-${p.id || p.slug}`}
+                        className={`p-5 h-full flex flex-col ${inDev ? 'cyber-card-purple' : ''}`}
+                      >
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <Badge
+                            variant={inDev ? 'neon' : 'default'}
+                            className={
+                              inDev
+                                ? '!bg-neon-cyan/15 !text-neon-cyan !border-neon-cyan/50 !shadow-none'
+                                : ''
+                            }
+                          >
+                            {p.status || (inDev ? 'In Development' : 'Planning')}
+                          </Badge>
                         </div>
-
-                        <div className="section-header mb-4">Planned Games</div>
-                        <div className="grid md:grid-cols-2 gap-4">
-                            {(loading ? SAMPLE_GAMES : games).map(g => (
-                                <div key={g.id} className="cyber-card p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <div className="font-bold text-white">{g.title}</div>
-                                            <div className="text-text-secondary text-sm mt-1">{g.desc}</div>
-                                        </div>
-                                        <div className={`font-mono text-xs px-2 py-1 rounded ${g.status === 'completed' ? 'bg-green-600/20 text-green-400' : g.status === 'in_progress' ? 'bg-neon-magenta/10 text-neon-magenta' : 'bg-white/5 text-text-muted'}`}>{g.status.replace('_',' ').toUpperCase()}</div>
-                                    </div>
-                                </div>
-                            ))}
+                        <h3 className="font-bold text-white text-lg">
+                          {p.title}
+                        </h3>
+                        {(p.summary || p.description) && (
+                          <p className="text-text-secondary mt-2 text-sm leading-relaxed line-clamp-3 flex-1">
+                            {p.summary || p.description}
+                          </p>
+                        )}
+                        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+                          <Link
+                            to={projectHref(p)}
+                            className="inline-flex items-center gap-1 text-sm text-neon-cyan hover:text-white font-semibold"
+                          >
+                            {inDev ? 'Open workspace' : 'View project'}
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </Link>
+                          <Link
+                            to={`/projects/${slug}/contributors`}
+                            className="inline-flex text-xs font-mono tracking-widest text-text-muted hover:text-neon-cyan"
+                          >
+                            Contributors
+                          </Link>
                         </div>
-                    </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+              {c.gameOverviewsNote && (
+                <p className="text-sm text-text-muted leading-relaxed mt-3">
+                  {c.gameOverviewsNote}
+                </p>
+              )}
+            </section>
 
-                    <div className="md:col-span-1">
-                        <div className="section-header mb-4">Get involved</div>
-                        <div className="cyber-card p-4">
-                            <p className="text-text-secondary">Join the volunteer pool, subscribe to updates, and help prepare for Mid Game sprints by contributing design documents or tooling.</p>
-                            <div className="mt-4">
-                                <Link to="/get-involved" className="btn-primary">Get Involved</Link>
+            {/* Completed in this phase — always visible */}
+            <section aria-labelledby="completed-mid-heading">
+              <h2 id="completed-mid-heading" className="section-header mb-4">
+                Completed in this phase
+              </h2>
+              {completedProjects.length === 0 ? (
+                <Card className="bg-cyber-card/60 border-cyber-border border-dashed p-5 sm:p-6 space-y-3">
+                  <p className="text-sm text-text-muted leading-relaxed">
+                    {c.completedEmptyMessage ||
+                      'Finished Mid work will be listed here with release links and full credits. The Released Games pages will expand this further.'}
+                  </p>
+                  <Link
+                    to="/released"
+                    className="inline-flex text-xs font-mono tracking-widest text-neon-cyan hover:text-white"
+                  >
+                    View Released Games →
+                  </Link>
+                </Card>
+              ) : (
+                <Card className="bg-cyber-card/60 border-cyber-border p-5 sm:p-6 space-y-4">
+                  <p className="text-sm text-text-muted leading-relaxed">
+                    Finished Mid work listed here. Full catalog on{' '}
+                    <Link
+                      to="/released"
+                      className="text-neon-cyan hover:text-white"
+                    >
+                      Released Games
+                    </Link>
+                    .
+                  </p>
+                  <ul className="space-y-4">
+                    {completedProjects.map((p) => {
+                      const when = formatCompletedDate(p.completed_at);
+                      const links = p.completion_links || [];
+                      return (
+                        <li
+                          key={p.id}
+                          className="border-t border-cyber-border pt-4 first:border-t-0 first:pt-0"
+                        >
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <Link
+                              to={`/released/${p.slug || p.id}`}
+                              className="font-semibold text-white hover:text-neon-cyan transition-colors"
+                            >
+                              {p.title}
+                            </Link>
+                            <span className="text-xs font-mono tracking-widest text-text-muted uppercase">
+                              {when || 'Completed'}
+                            </span>
+                          </div>
+                          {p.completion_notes && (
+                            <p className="mt-1 text-sm text-text-secondary">
+                              {p.completion_notes}
+                            </p>
+                          )}
+                          {links.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {links.map((link) => (
+                                <a
+                                  key={`${p.id}-${link.url}`}
+                                  href={link.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs font-mono tracking-wide text-neon-cyan hover:text-white border border-neon-cyan/30 rounded-full px-2.5 py-1 transition-colors"
+                                >
+                                  {link.label}
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              ))}
                             </div>
-                        </div>
-                    </div>
+                          )}
+                          <Link
+                            to={`/projects/${p.slug}/contributors`}
+                            className="mt-2 inline-flex text-xs font-mono tracking-widest text-text-muted hover:text-neon-cyan"
+                          >
+                            Contributors
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </Card>
+              )}
+            </section>
+
+            {/* Target Style */}
+            <section aria-labelledby="target-style-heading">
+              <h2 id="target-style-heading" className="section-header mb-4">
+                Target Style for Mid Game Projects
+              </h2>
+              <Card className="bg-cyber-card/80 border-cyber-border p-5 sm:p-6">
+                {c.targetIntro && (
+                  <p className="text-text-secondary text-sm sm:text-base leading-relaxed mb-4">
+                    {c.targetIntro}
+                  </p>
+                )}
+                {c.targetExamplesHeading && (
+                  <p className="text-white font-semibold text-sm mb-2">
+                    {c.targetExamplesHeading}
+                  </p>
+                )}
+                <ul className="list-disc pl-5 space-y-2 text-text-secondary text-sm sm:text-base leading-relaxed">
+                  {(c.targetExamples || []).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+                {c.targetClosing && (
+                  <p className="mt-5 pt-4 border-t border-cyber-border text-sm sm:text-base text-text-secondary leading-relaxed">
+                    {c.targetClosing}
+                  </p>
+                )}
+              </Card>
+            </section>
+          </div>
+
+          {/* Sidebar — About (featured) + How to Help */}
+          <aside className="lg:col-span-4 space-y-8">
+            <PhaseAboutCard
+              phase="mid"
+              title="About Mid Game"
+              headingId="about-mid-heading"
+              paragraphs={c.aboutParagraphs || []}
+            />
+
+            <section aria-labelledby="how-to-help-heading">
+              <h2 id="how-to-help-heading" className="section-header mb-4">
+                How to Help
+              </h2>
+              <Card className="bg-cyber-card/80 border-cyber-border p-5">
+                <ul className="list-disc pl-5 space-y-2 text-text-secondary text-sm leading-relaxed">
+                  {(c.howToHelp || []).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+                {c.howToHelpNote && (
+                  <p className="mt-4 text-sm text-text-muted leading-relaxed">
+                    {c.howToHelpNote}
+                  </p>
+                )}
+                <div className="mt-5">
+                  <Link to="/get-involved" className="btn-primary inline-flex">
+                    Get Involved
+                  </Link>
                 </div>
-            </div>
+              </Card>
+            </section>
+          </aside>
         </div>
-    );
+
+        {/* Mid-phase ideas: browse + vote; related/add-ons work on idea detail & submit */}
+        <PhaseIdeasSection
+          phase="mid"
+          title="Mid Game Ideas"
+          descriptionCentered
+          description={
+            c.ideasIntro ||
+            'Mid Game is where the most ambitious community ideas belong. If you have concepts that need real scale, deep systems, dynamic worlds, or rich cooperative play, this is the place for them. You can browse existing Mid-phase ideas, attach related ideas or add-ons, and help refine the concepts that could become the next major projects. The best ideas will be ready when the Forge has the capacity to build them.'
+          }
+        />
+      </div>
+    </div>
+  );
 };
 
 export default ProjectsMid;

@@ -35,6 +35,7 @@ import {
   getPublicSupportSummary,
   getPublicRecentDonations,
 } from '../services/donationsService';
+import { supabase } from '../lib/supabase';
 
 /** One-time tiers */
 const SUPPORT_BANNER_SRC = '/images/Support_Page.webp';
@@ -158,9 +159,39 @@ const SupportPage = () => {
   });
   const [recentDonations, setRecentDonations] = useState([]);
   const [recentSource, setRecentSource] = useState('empty');
+  /** When signed in, credit public project pages unless they opt out */
+  const [listMyName, setListMyName] = useState(true);
+  const [authUser, setAuthUser] = useState(null);
+  const [authUsername, setAuthUsername] = useState(null);
 
   const stripeReady = useMemo(() => isStripeConfigured(), []);
   const tiers = interval === 'month' ? MONTH_TIERS : ONCE_TIERS;
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!mounted) return;
+        setAuthUser(user || null);
+        if (user?.id) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', user.id)
+            .maybeSingle();
+          if (mounted) setAuthUsername(profile?.username || null);
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const loadSocialProof = async ({ quiet = false } = {}) => {
     if (!quiet) setSocialLoading(true);
@@ -264,6 +295,10 @@ const SupportPage = () => {
         tierId,
         label,
         fundType: 'studio',
+        // Named credit on active project Contributors page when signed in
+        userId: authUser?.id || null,
+        displayName: authUsername || null,
+        isAnonymous: !(authUser?.id && listMyName),
       });
     } catch (err) {
       console.error('[Support] checkout', err);
@@ -370,7 +405,21 @@ const SupportPage = () => {
             </h2>
 
             {/* Billing interval toggle - high-contrast so it is hard to miss */}
-            <div className="self-start sm:self-auto">
+            <div className="self-start sm:self-auto space-y-3">
+              {authUser && (
+                <label className="flex items-start gap-2 text-xs text-text-secondary max-w-xs cursor-pointer sm:ml-auto">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 rounded border-cyber-border"
+                    checked={listMyName}
+                    onChange={(e) => setListMyName(e.target.checked)}
+                  />
+                  <span>
+                    List my username on the active project&apos;s Contributors
+                    page (amount stays private)
+                  </span>
+                </label>
+              )}
               <p className="text-[10px] font-mono tracking-widest uppercase text-neon-cyan mb-1.5 text-left sm:text-right">
                 Billing type
               </p>

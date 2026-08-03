@@ -6,6 +6,10 @@ Run these in the **Supabase SQL Editor** (or via CLI migrations) as needed.
 |------|---------|
 | `supabase_schema.sql` | Base schema (ideas, profiles, donations shell, RLS starters) |
 | `supabase_tasks_schema.sql` | Projects, tasks, claims, activity |
+| `supabase_projects_completion.sql` | Project summary, completed_at, completion_links (Early + Released Games) |
+| `supabase_projects_release_meta.sql` | Optional release_meta JSON for Released Game Detail (media, platforms, ratings) |
+| `supabase_project_contributions.sql` | Public credits per project (Contributors pages + future Released Games) |
+| `supabase_donation_project_attribution.sql` | Attach studio donations to active In Development project; public credit RPC |
 | `supabase_task_hierarchy.sql` | `parent_task_id`, max 3 nesting levels, parent progress rollup |
 | `supabase_task_claim_hierarchy_rules.sql` | Claim only Medium/Small leaves; progress requires active claim |
 | `supabase_helpers_join_dedupe.sql` | Approve join → append helper to claim (deduped) |

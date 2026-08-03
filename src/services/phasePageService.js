@@ -8,6 +8,8 @@ import {
   PHASE_IDEA_KEYS,
   EARLY_PHASE_DEFAULTS,
   EARLY_CONTENT_VERSION,
+  MID_PHASE_DEFAULTS,
+  LATE_PHASE_DEFAULTS,
   mergePhaseContent,
   isLegacyEarlyContent,
   sanitizePhaseContent,
@@ -17,9 +19,8 @@ import { parseTags } from '../utils/ideaStatus';
 
 const DEFAULTS_BY_PHASE = {
   early: EARLY_PHASE_DEFAULTS,
-  // Mid/Late can plug defaults in later
-  mid: {},
-  late: {},
+  mid: MID_PHASE_DEFAULTS,
+  late: LATE_PHASE_DEFAULTS,
 };
 
 export const phasePageService = {

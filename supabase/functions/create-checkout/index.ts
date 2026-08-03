@@ -134,6 +134,13 @@ Deno.serve(async (req) => {
     ).trim();
     const successUrl = body.successUrl;
     const cancelUrl = body.cancelUrl;
+    const userId = body.userId ? String(body.userId).slice(0, 64) : '';
+    const displayName = body.displayName
+      ? String(body.displayName).slice(0, 64)
+      : '';
+    // Default anonymous unless client opts into public credit
+    const isAnonymous =
+      body.isAnonymous === false || body.isAnonymous === 'false' ? false : true;
 
     if (!Number.isFinite(amountCents) || amountCents < MIN_CENTS) {
       return json({ error: 'Minimum amount is $1.00' }, 400);
@@ -187,6 +194,9 @@ Deno.serve(async (req) => {
         source: 'together-forge-web',
         amountCents: String(amountCents),
         interval,
+        isAnonymous: isAnonymous ? 'true' : 'false',
+        ...(userId ? { userId } : {}),
+        ...(displayName ? { displayName } : {}),
       },
       ...(mode === 'subscription'
         ? {
@@ -195,6 +205,8 @@ Deno.serve(async (req) => {
                 tierId,
                 fundType,
                 source: 'together-forge-web',
+                isAnonymous: isAnonymous ? 'true' : 'false',
+                ...(userId ? { userId } : {}),
               },
             },
           }

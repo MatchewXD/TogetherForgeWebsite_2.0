@@ -20,7 +20,6 @@ import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Users,
   CheckCircle2,
-  Trophy,
   MessageCircleQuestion,
   Sparkles,
   Megaphone,
@@ -58,6 +57,7 @@ import {
 import { ideasService } from '../services/ideasService';
 import { supabase } from '../lib/supabase';
 import { phaseImageSrc, phaseImageAlt } from '../utils/phaseImages';
+import { displayProjectTitle } from '../utils/ideaStatus';
 
 // ---------------------------------------------------------------------------
 // Fallback copy when projects table has no matching slug yet
@@ -74,11 +74,11 @@ const FALLBACK_PROJECTS = {
   },
   'core-features': {
     slug: 'core-features',
-    title: 'Core Features Sprint',
+    title: 'Mid Game Ambitions',
     phase: 'Mid',
     status: 'Planning',
     description:
-      'Design work and early integrations for systems that make cooperative play feel great. Focused sprints, clear ownership, and public progress.',
+      'Next up after Early is completed: cooperative games at the scale of Halo, Horizon Zero Dawn, and Skyrim, with deeper systems, dynamic worlds, and stronger teamwork. Not open for claims yet.',
   },
   'polish-playtests': {
     slug: 'polish-playtests',
@@ -302,11 +302,10 @@ const ProjectWorkspace = () => {
   const [activity, setActivity] = useState([]);
   const [shoutouts, setShoutouts] = useState([]);
   const [pulse, setPulse] = useState({
-    activePeople: 0,
+    contributors: 0,
+    tasksCompleted: 0,
+    openTasks: 0,
     activeWorkers: [],
-    tasksThisWeek: 0,
-    tasksThisMonth: 0,
-    recentWins: 0,
   });
 
   const [user, setUser] = useState(null);
@@ -498,7 +497,10 @@ const ProjectWorkspace = () => {
           setProject({
             id: dbProject.slug,
             slug: dbProject.slug,
-            title: catalog?.title || dbProject.title,
+            title: displayProjectTitle({
+              slug: dbProject.slug,
+              title: catalog?.title || dbProject.title,
+            }),
             description:
               catalog?.description ||
               dbProject.description ||
@@ -1414,6 +1416,18 @@ const ProjectWorkspace = () => {
                 <Sparkles className="w-4 h-4" />
                 Submit Idea
               </Button>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() =>
+                  navigate(
+                    `/projects/${displayProject.slug || displayProject.id || projectSlug}/contributors`
+                  )
+                }
+              >
+                <Users className="w-4 h-4" />
+                Contributors
+              </Button>
             </div>
           </div>
         </header>
@@ -1422,20 +1436,20 @@ const ProjectWorkspace = () => {
         <section aria-label="Project activity stats">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <StatWidget
-              label="Active People"
-              value={pulse.activePeople}
+              label="Contributors"
+              value={pulse.contributors ?? pulse.activePeople ?? 0}
               icon={<Users className="w-7 h-7 text-neon-cyan mx-auto" />}
             />
             <StatWidget
-              label="Tasks This Week"
-              value={pulse.tasksThisWeek}
+              label="Tasks Completed"
+              value={pulse.tasksCompleted ?? 0}
               icon={<CheckCircle2 className="w-7 h-7 text-neon-cyan mx-auto" />}
             />
             <StatWidget
-              label="Recent Wins"
-              value={pulse.recentWins}
+              label="Open Tasks"
+              value={pulse.openTasks ?? 0}
               icon={
-                <Trophy className="w-7 h-7 text-semantic-achievement mx-auto" />
+                <Hammer className="w-7 h-7 text-semantic-achievement mx-auto" />
               }
             />
           </div>
@@ -1468,11 +1482,6 @@ const ProjectWorkspace = () => {
                   </div>
                 ))}
               </div>
-              {pulse.tasksThisMonth > 0 && (
-                <span className="text-xs font-mono text-text-muted ml-auto">
-                  {pulse.tasksThisMonth} completed this month
-                </span>
-              )}
             </div>
           )}
         </section>

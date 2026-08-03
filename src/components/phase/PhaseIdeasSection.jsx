@@ -24,13 +24,17 @@ const PhaseIdeasSection = ({
   title,
   description,
   className = '',
+  /** Center title + description (e.g. Mid hub) */
+  descriptionCentered = false,
+  /** Extra classes for the intro paragraph */
+  descriptionClassName = '',
 }) => {
   const navigate = useNavigate();
   const meta = PHASE_IDEA_KEYS[phase] || PHASE_IDEA_KEYS.early;
   const sectionTitle = title || `${meta.label} Ideas`;
   const sectionDesc =
     description ||
-    `Community ideas linked or tagged to ${meta.label} — full games, mechanics, systems, and more. These also appear on the main Ideas board.`;
+    `Community ideas linked or tagged to ${meta.label}: full games, mechanics, systems, and more. These also appear on the main Ideas board. Open an idea to discuss, vote, or attach related ideas and add-ons.`;
 
   const [ideas, setIdeas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -114,24 +118,45 @@ const PhaseIdeasSection = ({
       className={`mt-14 md:mt-16 pt-10 border-t border-cyber-border ${className}`}
       aria-labelledby={`${phase}-phase-ideas-heading`}
     >
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 mb-2">
+      <div
+        className={
+          descriptionCentered
+            ? 'flex flex-col items-center text-center gap-4 mb-8'
+            : 'flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6'
+        }
+      >
+        <div className={descriptionCentered ? 'min-w-0 w-full max-w-3xl mx-auto' : 'min-w-0'}>
+          <div
+            className={
+              descriptionCentered
+                ? 'flex items-center justify-center gap-2 mb-3'
+                : 'flex items-center gap-2 mb-2'
+            }
+          >
             <Lightbulb className="w-4 h-4 text-neon-cyan" />
             <h2
               id={`${phase}-phase-ideas-heading`}
-              className="section-header mb-0"
+              className={`section-header mb-0 ${descriptionCentered ? 'text-center' : ''}`}
             >
               {sectionTitle}
             </h2>
           </div>
-          <p className="text-sm text-text-secondary max-w-2xl leading-relaxed">
+          <p
+            className={
+              descriptionClassName ||
+              (descriptionCentered
+                ? 'text-base sm:text-lg font-semibold text-white leading-relaxed max-w-3xl mx-auto'
+                : 'text-sm text-text-secondary max-w-2xl leading-relaxed')
+            }
+          >
             {sectionDesc}
           </p>
         </div>
         <Link
           to={submitHref}
-          className="btn-neon inline-flex items-center gap-2 shrink-0 self-start sm:self-auto"
+          className={`btn-neon inline-flex items-center gap-2 shrink-0 ${
+            descriptionCentered ? '' : 'self-start sm:self-auto'
+          }`}
         >
           <Plus className="w-4 h-4" />
           Submit a {meta.label} Idea
@@ -172,6 +197,13 @@ const PhaseIdeasSection = ({
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <Link
+          to={`/ideas?project=${encodeURIComponent(meta.submitProjectId)}`}
+          className="inline-flex items-center gap-1.5 text-xs font-mono tracking-widest text-text-muted hover:text-neon-cyan transition-colors uppercase"
+        >
+          Browse {meta.label} on Ideas board
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+        <Link
           to="/ideas"
           className="inline-flex items-center gap-1.5 text-xs font-mono tracking-widest text-text-muted hover:text-neon-cyan transition-colors uppercase"
         >
@@ -188,6 +220,17 @@ const PhaseIdeasSection = ({
           Submit a {meta.label} Idea
         </Button>
       </div>
+      {(phase === 'mid' || phase === 'late') && (
+        <p
+          className={`mt-4 text-xs text-text-muted leading-relaxed max-w-2xl ${
+            descriptionCentered ? 'mx-auto text-center' : ''
+          }`}
+        >
+          Tip: On any {meta.label} idea, open the detail page to discuss, vote,
+          and attach related ideas or add-ons so concepts can grow before they
+          become active projects.
+        </p>
+      )}
     </section>
   );
 };

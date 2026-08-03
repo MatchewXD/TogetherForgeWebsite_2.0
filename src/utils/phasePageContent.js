@@ -41,16 +41,16 @@ export const PHASE_IDEA_KEYS = {
  * Bump when finalized public copy changes so legacy page_content rows
  * (old markdown/HTML or outdated wording) stop overriding defaults.
  */
-export const EARLY_CONTENT_VERSION = 3;
+export const EARLY_CONTENT_VERSION = 4;
 
 export const EARLY_PHASE_DEFAULTS = {
   /** Schema version for staff-saved content */
   contentVersion: EARLY_CONTENT_VERSION,
   heroTitle: 'Early Game Project Hub',
-  heroSeriesLabel: 'Early Game (Proof of Concept Series)',
+  heroSeriesLabel: '',
   heroBody:
     'A series of small, focused multiplayer games that promote teamwork and cooperation. The primary goal is to test and refine our community development systems (task management, volunteering, crediting, feedback loops). Each game should be relatively quick to make while still being genuinely fun and multiplayer.',
-  goalsIntro: 'Early Game (Proof of Concept Series)',
+  goalsIntro: '',
   goals: [
     'Test and prove our community-driven development model works.',
     'Build and refine core cooperation and teamwork mechanics.',
@@ -90,6 +90,135 @@ export const EARLY_PHASE_DEFAULTS = {
   activeProjectStatus: 'In Development',
   gameOverviewsNote:
     'Future Early Game projects will appear here as they are selected. Right now Together Forge is focused on one game at a time.',
+};
+
+export const MID_CONTENT_VERSION = 2;
+
+export const MID_PHASE_DEFAULTS = {
+  contentVersion: MID_CONTENT_VERSION,
+  heroTitle: 'Mid Game Project Hub',
+  heroSeriesLabel: '',
+  heroBody:
+    'This is where Together Forge aims higher. Mid Game is for cooperative games on the scale of Halo, Horizon Zero Dawn, and Skyrim, but with more: deeper progression systems, more dynamic NPCs and worlds, and stronger cooperative play. We are not interested in making safer, smaller versions of existing games. We are building the capacity to push what is possible.',
+  goalsIntro: '',
+  goals: [
+    'Create cooperative games at a scale most independent studios never reach and most large studios no longer attempt.',
+    'Push systemic depth, player agency, dynamic worlds, and meaningful teamwork further than current mainstream titles.',
+    'Prove that a lean core team plus massive community contribution can outperform traditional layered management and political overhead.',
+    'Use the foundation and funding built in Early Game to take real swings at ambitious projects.',
+    'Establish Together Forge as a place where experimentation and scale can coexist.',
+  ],
+  successMetric:
+    'Shipping Mid-scale cooperative games that players and contributors feel are meaningfully different and better than the current industry standard, built through transparent community power.',
+  targetIntro:
+    'We are aiming for games with the scope and presence of titles like Halo, Horizon Zero Dawn, and Skyrim, but designed from the ground up around cooperation and systemic depth.',
+  targetExamplesHeading: 'We want:',
+  targetExamples: [
+    'Large, reactive worlds and progression systems that respond to how players actually play',
+    'Dynamic NPCs and systems that create memorable, unscripted moments',
+    'Strong cooperative play that makes teamwork feel essential and rewarding rather than optional',
+    'The kind of ambition that used to define the best big-studio experiments, freed from the layers of management and risk-aversion that now limit them',
+  ],
+  targetClosing:
+    'These will not be small prototypes. They will be substantial games made possible by community scale.',
+  aboutParagraphs: [
+    'Most large game companies have stopped experimenting. They reduce risk, simplify systems, and ship safer versions of what already worked. The result is a wave of games that feel smaller in spirit even when the budgets are huge.',
+    'Together Forge exists to go the other direction.',
+    'We are building a different kind of studio: a real core team of developers with minimal management overhead, supported by a growing community of volunteers, creators, and players who contribute ideas, labor, and funding. Early Game is where we prove the model and generate the resources. Mid Game is where we use that foundation to reach for games that actually push the medium.',
+    'The long-term goal is not to become another mid-sized studio. The goal is to become the largest and most capable game-making force in the world, not through investors or political agendas, but through the combined power of people who want better games and are willing to help build them.',
+    'Mid Game is the first major step in that direction.',
+  ],
+  howToHelp: [
+    'Submit ambitious Mid-scale ideas, systems, and full pitches.',
+    'Attach related ideas and add-ons to help strong concepts grow.',
+    'Volunteer skills that matter at this scale: systems design, technical art, tools, long-term testing, writing, coordination, and more.',
+    'Help evaluate and strengthen Mid ideas so the best ones are ready.',
+    'Share the vision and the work with other creators and communities.',
+    'Support the Forge so Early Game success can fund and unlock Mid Game projects.',
+  ],
+  howToHelpNote:
+    'Every contribution is credited. This only works if people show up.',
+  activeProjectTitle: '',
+  activeProjectSummary: '',
+  activeProjectHref: '',
+  activeProjectStatus: '',
+  gameOverviewsNote:
+    'Future Mid Game projects will appear here as they are selected and prepared. Right now the Forge is focused on building the foundation in Early Game so that when we step up to this scale, we do it with real strength instead of empty promises.',
+  activeEmptyMessage:
+    'No Mid Game projects are in active development yet. The first Mid projects will begin once Early Game has proven the systems, generated real support, and given us the capacity to take on larger work. When they appear, they will sit here with full project hubs, task boards, and contributor tracking.',
+  completedEmptyMessage:
+    'Finished Mid work will be listed here with release links and full credits. The Released Games pages will expand this further.',
+  projectsEmptyMessage:
+    'No In Development, Planning, or On Hold Mid projects yet.',
+  ideasSubmitCta: 'Submit a Mid Game Idea',
+  ideasIntro:
+    'Mid Game is where the most ambitious community ideas belong. If you have concepts that need real scale, deep systems, dynamic worlds, or rich cooperative play, this is the place for them. You can browse existing Mid-phase ideas, attach related ideas or add-ons, and help refine the concepts that could become the next major projects. The best ideas will be ready when the Forge has the capacity to build them.',
+};
+
+export const LATE_CONTENT_VERSION = 1;
+
+export const LATE_PHASE_DEFAULTS = {
+  contentVersion: LATE_CONTENT_VERSION,
+  heroTitle: 'Late Game Project Hub',
+  heroSeriesLabel: 'This is the magnum opus.',
+  heroBody:
+    'Late Game is where Together Forge aims to create the best MMORPG in the world. A persistent cooperative world that pushes past the safe, cloned systems of current games and builds something genuinely new.',
+  goalsIntro: '',
+  goals: [
+    'Create a large-scale cooperative MMORPG that sets a new standard for years to come.',
+    'Build systems that strongly incentivize player cooperation against evolving, large-scale threats.',
+    'Support both casual players who want to build and create, and dedicated players who want to defend, expand, and push the frontier.',
+    'Design a living world story that changes based on what players actually accomplish.',
+    'Establish Together Forge as the most capable game-making force in the world through community scale.',
+  ],
+  successMetric:
+    'Shipping an MMORPG that players experience as meaningfully different and superior to existing options, built and sustained through transparent community power.',
+  targetIntro:
+    'We are building toward a cooperative MMORPG with systems that current games largely avoid.',
+  targetExamplesHeading: 'Core directions include:',
+  targetExamples: [
+    'Cooperative combat and large-scale group content that feels essential rather than optional',
+    'Overarching enemies that actively attack player colonies and evolve over time',
+    'A shared world story that progresses as players achieve major goals and defeat major threats',
+    'Dynamic NPCs that can assist with large objectives',
+    'Content that requires armies to stop armies',
+    'Strong support for both city-building / creation focused players and high-intensity defense and expansion players',
+    'Player-created vehicles, blueprints, and technologies that other players can build and use',
+    'Clear incentives that push players to cooperate against a greater evolving threat',
+  ],
+  targetClosing:
+    'This is not a safer version of existing MMOs. It is an attempt to push the boundaries of what a persistent cooperative world can be.',
+  aboutParagraphs: [
+    'Late Game is the highest ambition of Together Forge.',
+    'After Early Game proves the model and Mid Game proves we can deliver substantial cooperative titles, Late Game is where we attempt to make the best MMORPG in the world. Not a clone of systems that already feel safe and familiar, but a new foundation: cooperative combat, evolving world-level threats, a story that the entire player base shapes together, and deep support for both creators and fighters.',
+    'The long-term intent is clear. Once this scale of game is established and successful, Together Forge will be positioned as the leading game-making force in the world, with the ability to expand far beyond a single title. That growth will come from community power, not from investors or political agendas.',
+    'This stage only opens when the Forge has earned it through earlier success.',
+  ],
+  howToHelp: [
+    'Submit large-scale systemic ideas, world designs, and full pitches for Late Game.',
+    'Attach related ideas and add-ons to help the strongest concepts grow.',
+    'Contribute skills that matter at MMO scale: systems design, tools, technical art, economy design, large-scale testing, writing, coordination, and more.',
+    'Help evaluate and strengthen Late ideas so the best ones are ready.',
+    'Share the vision with other creators and communities.',
+    'Support the earlier phases so the path to Late Game stays real.',
+  ],
+  howToHelpNote:
+    'Every contribution is credited. This only works if people show up for the long term.',
+  activeProjectTitle: '',
+  activeProjectSummary: '',
+  activeProjectHref: '',
+  activeProjectStatus: '',
+  gameOverviewsNote:
+    'Future Late Game projects will appear here once the Forge has the capacity and foundation to take them on. Right now the focus remains on Early and then Mid so that when we reach this stage, we do it with real strength.',
+  activeEmptyMessage:
+    'No Late Game projects are in active development yet. Late Game begins only after Mid Game has proven we can deliver ambitious cooperative titles at scale. When the first Late project starts, it will appear here with full project infrastructure, task tracking, and contributor systems.',
+  completedEmptyMessage:
+    'Finished Late work will be listed here with release links and full credits. The Released Games pages will expand this further.',
+  projectsEmptyMessage:
+    'No In Development, Planning, or On Hold Late projects yet.',
+  ideasSubmitCta: 'Submit a Late Game Idea',
+  ideasIntro:
+    'Late Game is where the largest and most systemic ideas belong. If you have concepts for living worlds, evolving threats, large-scale cooperation, player-driven creation systems, or new approaches to MMO design, this is the place for them. You can browse existing Late-phase ideas, attach related ideas or add-ons, and help develop the concepts that could shape the future of the Forge. The strongest ideas will be ready when we have the capacity to build at this scale.',
 };
 
 /**
@@ -443,6 +572,19 @@ export function sanitizePhaseContent(content, defaults = EARLY_PHASE_DEFAULTS) {
     gameOverviewsNote: stripMarkup(
       c.gameOverviewsNote || d.gameOverviewsNote
     ),
+    // Mid/Late optional copy fields
+    targetClosing: stripMarkup(c.targetClosing || d.targetClosing || ''),
+    activeEmptyMessage: stripMarkup(
+      c.activeEmptyMessage || d.activeEmptyMessage || ''
+    ),
+    completedEmptyMessage: stripMarkup(
+      c.completedEmptyMessage || d.completedEmptyMessage || ''
+    ),
+    projectsEmptyMessage: stripMarkup(
+      c.projectsEmptyMessage || d.projectsEmptyMessage || ''
+    ),
+    ideasSubmitCta: stripMarkup(c.ideasSubmitCta || d.ideasSubmitCta || ''),
+    ideasIntro: stripMarkup(c.ideasIntro || d.ideasIntro || ''),
   };
 }
 

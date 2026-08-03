@@ -37,14 +37,16 @@ import { getHomeCommunityStats } from '../services/communityStatsService';
 const TF_LOGO_SRC = '/images/TF_Logo_Ideas_V2.png';
 const HERO_BG_SRC = '/images/Hero_Background.webp';
 
-const MISSION_BLURB =
-  'Together Forge is a community-first independent game studio. We organize and support games built collaboratively by gamers, streamers, and volunteers. Transparent development, fair progression, and real connection.';
+const MISSION_BLURBS = [
+  'Together Forge is a community-first independent game studio. We organize and support games built collaboratively by gamers, streamers, and volunteers. Transparent development, fair progression, and real connection.',
+  'Most large game companies have stopped experimenting. They reduce risk, simplify systems, and ship safer versions of what already worked. We exist to go the other direction.',
+];
 
 const VALUES = [
   {
     icon: Users,
     title: 'By the Community',
-    desc: 'Games designed and built collaboratively. No corporate agendas. Just real teamwork, shared ownership, and fun.',
+    desc: 'Games designed and built collaboratively. No corporate agendas. Just real teamwork and shared ownership. Our goal is to become the most capable game-making force in the world through people, not investors.',
     accent: 'text-neon-cyan',
     iconBorder: 'border-neon-cyan/30',
     featured: false,
@@ -52,7 +54,7 @@ const VALUES = [
   {
     icon: Heart,
     title: 'For the Community',
-    desc: 'Experiences that bring people together: streamers with audiences, friends uniting for challenges, massive collabs.',
+    desc: 'Experiences that bring people together: streamers with audiences, friends uniting for challenges, and large-scale collaboration that creates real connection.',
     accent: 'text-neon-purple',
     iconBorder: 'border-neon-purple/30',
     featured: false,
@@ -60,7 +62,7 @@ const VALUES = [
   {
     icon: Shield,
     title: 'Transparent & Fair',
-    desc: 'Open development, public progress, and a living-wage-only model. Net proceeds reinvest into games and community tools.',
+    desc: 'Open development and public progress. Money that comes in goes back into making better games and supporting the community, never into shareholders or excessive executive pay.',
     accent: 'text-semantic-success',
     iconBorder: 'border-semantic-success/30',
     featured: false,
@@ -68,7 +70,7 @@ const VALUES = [
   {
     icon: Sparkles,
     title: 'Early Game Focus',
-    desc: 'Start simple with fun multiplayer prototypes that prove systems. Then scale into bigger community-driven projects.',
+    desc: 'Start with focused multiplayer prototypes that prove the systems and generate real support. Then scale into bigger, more ambitious community-driven projects.',
     accent: 'text-semantic-achievement',
     iconBorder: 'border-semantic-achievement/35',
     featured: true,
@@ -91,11 +93,11 @@ const FEATURED_PROJECTS = [
   },
   {
     id: 'core-features',
-    title: 'Core Features Sprint',
+    title: 'Mid Game Ambitions',
     phase: 'Mid',
     status: 'planned',
     description:
-      'Next up after Early is completed: design work and integrations for systems that make cooperative play feel great. Not open for claims yet.',
+      'Next up after Early is completed: cooperative games at the scale of Halo, Horizon Zero Dawn, and Skyrim, with deeper systems, dynamic worlds, and stronger teamwork. Not open for claims yet.',
     href: '/projects/mid',
     ctaLabel: 'View Plans',
     statusNote: 'after Early is completed',
@@ -151,7 +153,7 @@ const RECENT_ACTIVITY = [
     user: 'Sam T.',
     userInitials: 'ST',
     action: 'completed art for',
-    target: 'Core Features Sprint',
+    target: 'Mid Game Ambitions',
     time: '1d ago',
   },
   {
@@ -277,9 +279,11 @@ const HomePage = () => {
                 By the Community, For the Community
               </p>
 
-              <p className="max-w-md mx-auto text-sm text-text-muted mb-10 sm:mb-12 leading-relaxed">
-                {MISSION_BLURB}
-              </p>
+              <div className="max-w-xl mx-auto text-sm text-text-muted mb-10 sm:mb-12 leading-relaxed space-y-3">
+                {MISSION_BLURBS.map((para) => (
+                  <p key={para.slice(0, 40)}>{para}</p>
+                ))}
+              </div>
 
               {/* One clear primary; supporting actions quieter */}
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-8">

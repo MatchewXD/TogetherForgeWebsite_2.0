@@ -34,8 +34,14 @@ import ProjectsEarlyDetail from './pages/ProjectsEarlyDetail';
 import ProjectsEdit from './pages/ProjectsEdit';
 import ProjectsEarlyEdit from './pages/ProjectsEarlyEdit';
 import ProjectWorkspace from './pages/ProjectWorkspace';
+import Contributors from './pages/Contributors';
+import ProjectContributors from './pages/ProjectContributors';
 import ModeratorDashboard from './pages/ModeratorDashboard';
 import MechanicLab from './pages/MechanicLab';
+import Media from './pages/Media';
+import CommunityShowcase from './pages/CommunityShowcase';
+import ReleasedGames from './pages/ReleasedGames';
+import ReleasedGameDetail from './pages/ReleasedGameDetail';
 import NotFound from './pages/NotFound';
 import Footer from './components/layout/Footer';
 
@@ -69,12 +75,23 @@ function App() {
                         <Route path="/projects/early/edit" element={<ProjectsEarlyEdit />} />
                         <Route path="/projects/mid" element={<ProjectsMid />} />
                         <Route path="/projects/late" element={<ProjectsLate />} />
+                        {/* Contributors before generic :id workspace */}
+                        <Route
+                          path="/projects/:id/contributors"
+                          element={<ProjectContributors />}
+                        />
                         {/* Generic workspace - after static phase routes so early/mid/late are not captured */}
                         <Route path="/projects/:id" element={<ProjectWorkspace />} />
+                        <Route path="/contributors" element={<Contributors />} />
                         <Route path="/get-involved" element={<GetInvolved />} />
                         <Route path="/demos" element={<MechanicLab />} />
                         <Route path="/mechanic-lab" element={<MechanicLab />} />
                         <Route path="/how-it-works" element={<HowItWorks />} />
+                        <Route path="/media" element={<Media />} />
+                        <Route path="/videos" element={<Media />} />
+                        <Route path="/showcase" element={<CommunityShowcase />} />
+                        <Route path="/released" element={<ReleasedGames />} />
+                        <Route path="/released/:slug" element={<ReleasedGameDetail />} />
                         <Route path="/education" element={<EducationApprenticeship />} />
                         <Route path="/apprenticeships" element={<EducationApprenticeship />} />
                         <Route path="/faq" element={<FAQ />} />

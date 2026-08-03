@@ -194,7 +194,7 @@ values
   (
     'prototype-systems',
     'Tether',
-    'Core loop prototyping and networking tests. We are validating multiplayer foundations, claim/credit flows, and the volunteer task board itself - with design, code, and art volunteers welcome.',
+    'A tethered crew crosses dangerous semi-procedural levels to reach a destroyed orbital station. Linked by a shared energy tether, players must coordinate movement, manage tension and momentum, collect critical resources for their stranded colony, and ultimately recover an antimatter generator that will let the colony survive on its own.',
     'Early',
     'In Development'
   ),
@@ -213,6 +213,12 @@ values
     'Vision'
   )
 on conflict (slug) do nothing;
+
+-- Keep public title as Tether if an older seed used "Prototype Systems"
+update projects
+set title = 'Tether'
+where slug = 'prototype-systems'
+  and (title is null or title ilike 'prototype systems' or title ilike 'prototype-systems');
 
 -- Seed tasks only when project has none yet
 do $$

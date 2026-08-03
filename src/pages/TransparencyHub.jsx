@@ -92,7 +92,7 @@ const ROADMAP = [
   },
   {
     id: 'core-features',
-    title: 'Core Features Sprint',
+    title: 'Mid Game Ambitions',
     phase: 'Mid',
     status: 'Planning',
     open: false,
@@ -101,7 +101,7 @@ const ROADMAP = [
     href: '/projects/mid',
     ctaLabel: 'View plans',
     summary:
-      'Opens after Early is completed: cooperative systems design and integrations. Not open for claims yet.',
+      'Next up after Early is completed: cooperative games at the scale of Halo, Horizon Zero Dawn, and Skyrim, with deeper systems, dynamic worlds, and stronger teamwork. Not open for claims yet.',
   },
   {
     id: 'polish-playtests',

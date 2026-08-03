@@ -95,9 +95,8 @@ describe('phasePageContent sanitization', () => {
   });
 
   it('finalized defaults match intended public Goals and Target Style', () => {
-    expect(EARLY_PHASE_DEFAULTS.heroSeriesLabel).toBe(
-      'Early Game (Proof of Concept Series)'
-    );
+    expect(EARLY_PHASE_DEFAULTS.heroSeriesLabel).toBe('');
+    expect(EARLY_PHASE_DEFAULTS.goalsIntro).toBe('');
     expect(EARLY_PHASE_DEFAULTS.goals).toHaveLength(5);
     expect(EARLY_PHASE_DEFAULTS.goals[2]).toMatch(/genuinely fun multiplayer/i);
     expect(EARLY_PHASE_DEFAULTS.targetExamples[0]).toMatch(/Peak/);

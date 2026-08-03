@@ -2,6 +2,14 @@ import { ArrowRight, GraduationCap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const ABOUT_BANNER_SRC = '/images/About_Page_Background.webp';
+/**
+ * Spot under “Built differently.”
+ * From updated Dragon_Forge.png → keyed/cropped strip (520×240).
+ */
+const BUILT_DIFFERENT_SPOT_SRC =
+    '/images/spot_illustrations/Dragon_Forge_Strip.png';
+/** Spot under “Grow capability from within.” (from Education_2.png). */
+const EDUCATION_SPOT_SRC = '/images/spot_illustrations/Education_Strip.png';
 
 const AboutPage = () => {
     return (
@@ -48,13 +56,34 @@ const AboutPage = () => {
             <div className="container-custom relative z-10 py-16 md:py-20 space-y-16 md:space-y-20">
                 <section>
                     <div className="grid md:grid-cols-12 gap-x-12 gap-y-8 items-start">
+                        {/* Left title + dragon forge strip (keeps height near body copy) */}
                         <div className="md:col-span-5">
-                            <div className="sticky top-24">
-                                <div className="section-header">WHO WE ARE</div>
-                                <h2 className="text-4xl font-bold tracking-tight text-white">Built differently.</h2>
+                            <div className="section-header">WHO WE ARE</div>
+                            <h2 className="text-4xl font-bold tracking-tight text-white">
+                                Built differently.
+                            </h2>
+                            <div
+                                className="relative mt-4 w-full max-w-[520px] aspect-[520/240]"
+                                aria-hidden="true"
+                            >
+                                <img
+                                    src={BUILT_DIFFERENT_SPOT_SRC}
+                                    alt=""
+                                    className="absolute inset-0 w-full h-full object-contain object-center block"
+                                    decoding="async"
+                                    loading="lazy"
+                                />
+                                {/* Soft top/bottom dissolve into page bg */}
+                                <div
+                                    className="absolute inset-0 pointer-events-none"
+                                    style={{
+                                        background:
+                                            'linear-gradient(to bottom, rgb(var(--tf-cyber-bg)) 0%, rgb(var(--tf-cyber-bg) / 0.35) 5%, transparent 18%, transparent 82%, rgb(var(--tf-cyber-bg) / 0.4) 94%, rgb(var(--tf-cyber-bg)) 100%)',
+                                    }}
+                                />
                             </div>
                         </div>
-                        <div className="md:col-span-7 text-lg text-text-secondary space-y-6 leading-relaxed">
+                        <div className="md:col-span-7 text-lg text-text-secondary space-y-6 leading-relaxed md:pt-1">
                             <p>
                                 Together Forge is a community-driven game studio. We make cooperative games with the community, for gamers. Not for investors, not for outside agendas, and not for disposable slop designed to extract money.
                             </p>
@@ -70,7 +99,7 @@ const AboutPage = () => {
                     <div className="cyber-card cyber-card-gold p-10 space-y-4">
                         <div className="section-header mb-0">MISSION</div>
                         <h3 className="text-2xl font-bold text-white">
-                            By the community, for the community!
+                            By the community, for the community.
                         </h3>
                         <p className="text-text-secondary leading-relaxed">
                             Together Forge makes cooperative games with gamers,
@@ -79,19 +108,34 @@ const AboutPage = () => {
                             first.
                         </p>
                         <p className="text-text-secondary leading-relaxed">
-                            We empower creativity, foster teamwork, and keep the work
-                            independent and free from investor pressure or outside
-                            agendas.
+                            Most large game companies have stopped experimenting.
+                            They reduce risk, simplify systems, and ship safer
+                            versions of what already worked. The result is a wave of
+                            games that feel smaller in spirit even when the budgets
+                            are huge.
+                        </p>
+                        <p className="text-text-secondary leading-relaxed">
+                            We exist to go the other direction. We empower creativity,
+                            foster teamwork, and keep the work independent and free
+                            from investor pressure or outside agendas.
                         </p>
                     </div>
 
-                    <div className="cyber-card cyber-card-gold p-10">
-                        <div className="section-header mb-4">VISION</div>
-                        <h3 className="text-2xl font-bold mb-6 text-white">
+                    <div className="cyber-card cyber-card-gold p-10 space-y-4">
+                        <div className="section-header mb-0">VISION</div>
+                        <h3 className="text-2xl font-bold text-white">
                             Redefine gaming through community power.
                         </h3>
                         <p className="text-text-secondary leading-relaxed">
-                            A future where players and creators work together to craft extraordinary games that connect people across the world.
+                            A future where players and creators work together to craft
+                            extraordinary games that connect people across the world.
+                        </p>
+                        <p className="text-text-secondary leading-relaxed">
+                            The long-term goal is not to become another mid-sized
+                            studio. The goal is to become the largest and most capable
+                            game-making force in the world, not through investors or
+                            political agendas, but through the combined power of people
+                            who want better games and are willing to help build them.
                         </p>
                     </div>
                 </section>
@@ -111,14 +155,32 @@ const AboutPage = () => {
                 <section>
                     <div className="grid md:grid-cols-12 gap-x-12 gap-y-8 items-start">
                         <div className="md:col-span-5">
-                            <div className="sticky top-24">
-                                <div className="section-header">LONG-TERM VISION</div>
-                                <h2 className="text-4xl font-bold tracking-tight text-white">
-                                    Grow capability from within.
-                                </h2>
+                            <div className="section-header">LONG-TERM VISION</div>
+                            <h2 className="text-4xl font-bold tracking-tight text-white">
+                                Grow capability from within.
+                            </h2>
+                            <div
+                                className="relative mt-4 w-full max-w-[520px]"
+                                aria-hidden="true"
+                            >
+                                <img
+                                    src={EDUCATION_SPOT_SRC}
+                                    alt=""
+                                    className="w-full h-auto block object-contain object-left"
+                                    decoding="async"
+                                    loading="lazy"
+                                />
+                                {/* Soft top/bottom dissolve into page bg */}
+                                <div
+                                    className="absolute inset-0 pointer-events-none"
+                                    style={{
+                                        background:
+                                            'linear-gradient(to bottom, rgb(var(--tf-cyber-bg)) 0%, rgb(var(--tf-cyber-bg) / 0.35) 5%, transparent 16%, transparent 84%, rgb(var(--tf-cyber-bg) / 0.4) 94%, rgb(var(--tf-cyber-bg)) 100%)',
+                                    }}
+                                />
                             </div>
                         </div>
-                        <div className="md:col-span-7 text-lg text-text-secondary space-y-6 leading-relaxed">
+                        <div className="md:col-span-7 text-lg text-text-secondary space-y-6 leading-relaxed md:pt-1">
                             <p>
                                 Volunteering and open collaboration are how we start. Over time, once the studio has sustainable revenue,
                                 a full core team, and surplus resources, we plan a formal{' '}

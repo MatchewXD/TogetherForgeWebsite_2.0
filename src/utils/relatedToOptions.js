@@ -55,7 +55,7 @@ export async function loadRelatedProjectOptions() {
       if (seen.has(key)) continue;
       seen.add(key);
 
-      // Prefer user-facing names (e.g. Tether over Prototype Systems)
+      // Always Tether for the early project slug (never "Prototype Systems")
       const label = resolveLinkDisplayName(id, p.title) || p.title || id;
       projects.push({ id, label });
     }

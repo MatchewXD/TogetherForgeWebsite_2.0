@@ -26,7 +26,7 @@ const PHASES = [
     status: 'Open now',
     open: true,
     summary:
-      'Smaller cooperative games built with the community. Prove the model, ship playable experiences, learn how we create together.',
+      'A series of smaller cooperative games built with the community. The goal is to learn how we create together, ship real playable experiences, and prove the Together Forge model works.',
     href: '/projects/early',
     cta: 'Open workspace',
     icon: Hammer,
@@ -41,7 +41,7 @@ const PHASES = [
     status: 'Coming Soon',
     open: false,
     summary:
-      'Larger cooperative games on the scale of Halo, Horizon Zero Dawn, and Palworld. Opens after Early is complete.',
+      'Next up after Early is completed: cooperative games at the scale of Halo, Horizon Zero Dawn, and Skyrim, with deeper systems, dynamic worlds, and stronger teamwork. Not open for claims yet.',
     href: '/projects/mid',
     cta: 'View plans',
     icon: Rocket,
@@ -56,7 +56,7 @@ const PHASES = [
     status: 'Coming Soon',
     open: false,
     summary:
-      'The long-term goal: a completely new kind of MMORPG built and evolved with the community. Opens after Mid.',
+      'The magnum opus. After Early and Mid prove the model, we build the best cooperative MMORPG in the world. Not a clone of existing systems, but a living world with evolving threats, player colonies, large-scale cooperation, and systems that push past what current games offer. The game will keep growing for years with dedicated support.',
     href: '/projects/late',
     cta: 'View plans',
     icon: Globe2,
@@ -190,10 +190,9 @@ const Projects = () => {
                 Mid
               </h3>
               <p className="text-sm sm:text-base text-text-secondary leading-relaxed">
-                Once the model is proven, we scale up. These will be competing
-                games on the level of Halo, Horizon Zero Dawn, and Palworld.
-                They will still be fully cooperative and still built by the
-                community, just much larger in scope and systems.
+                Next up after Early is completed: cooperative games at the scale
+                of Halo, Horizon Zero Dawn, and Skyrim, with deeper systems,
+                dynamic worlds, and stronger teamwork. Not open for claims yet.
               </p>
             </Card>
 
@@ -203,14 +202,12 @@ const Projects = () => {
                 Late
               </h3>
               <p className="text-sm sm:text-base text-text-secondary leading-relaxed">
-                After shipping multiple strong games with the community, we go
-                all the way. The goal is the number one MMORPG in the world. Not
-                another clone, but a completely new experience. We will use the
-                mechanics and cooperative loops discovered in Early and Mid,
-                plus new technology developed along the way, to create something
-                more advanced than anything that has come before. With ongoing
-                community participation the game will keep evolving for years,
-                scaling with both the players and the developers.
+                The magnum opus. After Early and Mid prove the model, we build
+                the best cooperative MMORPG in the world. Not a clone of
+                existing systems, but a living world with evolving threats,
+                player colonies, large-scale cooperation, and systems that push
+                past what current games offer. The game will keep growing for
+                years with dedicated support.
               </p>
             </Card>
           </div>
@@ -398,10 +395,19 @@ const Projects = () => {
           </Link>
         </section>
 
-        {/* 5. Closing line */}
-        <p className="mt-8 mb-4 text-center text-xs font-mono tracking-widest text-text-muted">
-          More projects will appear here as the forge grows.
-        </p>
+        {/* 5. Released catalog + closing */}
+        <div className="mt-10 mb-4 text-center space-y-3">
+          <Link
+            to="/released"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-neon-cyan hover:text-white"
+          >
+            Released Games
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+          <p className="text-xs font-mono tracking-widest text-text-muted">
+            More projects will appear here as the forge grows.
+          </p>
+        </div>
       </div>
     </div>
   );

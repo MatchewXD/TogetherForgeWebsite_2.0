@@ -82,6 +82,9 @@ function checkoutHeaders() {
  * @param {string} [opts.successUrl]
  * @param {string} [opts.cancelUrl]
  * @param {string} [opts.productId] - optional Stripe product id override
+ * @param {string|null} [opts.userId] - signed-in profile/user id for public credit
+ * @param {string|null} [opts.displayName] - username for credits when not anonymous
+ * @param {boolean} [opts.isAnonymous=true] - false = show on project Contributors page
  */
 export async function startStripeCheckout({
   amountCents,
@@ -92,6 +95,9 @@ export async function startStripeCheckout({
   successUrl,
   cancelUrl,
   productId,
+  userId = null,
+  displayName = null,
+  isAnonymous = true,
 } = {}) {
   const validated = validateAmountCents(amountCents);
   if (!validated.ok) {
@@ -139,6 +145,10 @@ export async function startStripeCheckout({
           successUrl: success,
           cancelUrl: cancel,
           ...(productId ? { productId } : {}),
+          // Public project credit while a game is In Development
+          userId: userId || null,
+          displayName: displayName || null,
+          isAnonymous: isAnonymous !== false,
         }),
       });
     } catch (networkErr) {

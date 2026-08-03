@@ -357,16 +357,10 @@ const IdeaDetail = () => {
       key={item.key}
       className={`bg-cyber-card/80 min-w-0 flex flex-col h-full ${item.gridClass || item.spanClass || ''}`}
     >
+      {/* Cyan label only — do not repeat feature name as a white title */}
       <div className="font-mono text-xs sm:text-sm tracking-widest text-neon-cyan mb-3 uppercase break-words">
         {item.label}
       </div>
-      {item.kind === 'feature' &&
-        item.title &&
-        item.body !== item.title && (
-          <h4 className="font-semibold text-white mb-2 break-words">
-            {item.title}
-          </h4>
-        )}
       <p className="text-sm sm:text-base text-text-secondary whitespace-pre-wrap break-words leading-relaxed flex-1">
         {item.body}
       </p>

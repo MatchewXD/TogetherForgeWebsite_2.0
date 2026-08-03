@@ -493,29 +493,44 @@ export const tasksService = {
     const key = String(slugOrId).trim();
     if (!key) return null;
 
-    const select = 'id, slug, title, description, phase, status, created_at';
+    const selectFull =
+      'id, slug, title, description, summary, phase, status, sort_order, created_at, completed_at, completion_links, completion_notes, updated_at';
+    const selectBasic = 'id, slug, title, description, phase, status, created_at';
     const isUuid =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
         key
       );
 
-    if (isUuid) {
-      const { data, error } = await supabase
+    const fetchOne = async (column, value) => {
+      let { data, error } = await supabase
         .from('projects')
-        .select(select)
-        .eq('id', key)
+        .select(selectFull)
+        .eq(column, value)
         .maybeSingle();
+      if (
+        error &&
+        /column .* does not exist|completion_|summary|sort_order|updated_at/i.test(
+          error.message || ''
+        )
+      ) {
+        const retry = await supabase
+          .from('projects')
+          .select(selectBasic)
+          .eq(column, value)
+          .maybeSingle();
+        data = retry.data;
+        error = retry.error;
+      }
       if (error) throw error;
-      if (data) return data;
+      return data;
+    };
+
+    if (isUuid) {
+      const byId = await fetchOne('id', key);
+      if (byId) return byId;
     }
 
-    const { data, error } = await supabase
-      .from('projects')
-      .select(select)
-      .eq('slug', key)
-      .maybeSingle();
-    if (error) throw error;
-    return data;
+    return fetchOne('slug', key);
   },
 
   async getTasksForProject(projectId) {
@@ -572,29 +587,46 @@ export const tasksService = {
   },
 
   /**
-   * Project Pulse: active workers, completions this week/month, recent wins.
+   * Project Pulse metrics for workspace header:
+   * - contributors: unique people from Contributors data (tasks, donations, credits)
+   * - tasksCompleted: total Completed tasks on this project
+   * - openTasks: tasks available to claim (ToDo)
+   * Also returns activeWorkers for the optional “On the forge now” strip.
    */
   async getProjectPulse(projectId) {
     const empty = {
-      activePeople: 0,
+      contributors: 0,
+      tasksCompleted: 0,
+      openTasks: 0,
       activeWorkers: [],
+      // legacy keys kept so older UI does not crash
+      activePeople: 0,
       tasksThisWeek: 0,
       tasksThisMonth: 0,
       recentWins: 0,
     };
     if (!projectId) return empty;
 
-    const now = new Date();
-    const weekAgo = new Date(now);
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    const monthAgo = new Date(now);
-    monthAgo.setDate(monthAgo.getDate() - 30);
+    try {
+      const {
+        isDemoReleaseEnabled,
+        isDemoReleaseKey,
+        getDemoReleasePulse,
+      } = await import('../data/demoReleasedGame');
+      if (isDemoReleaseEnabled() && isDemoReleaseKey(projectId)) {
+        return getDemoReleasePulse();
+      }
+    } catch {
+      /* ignore */
+    }
 
-    const { data: inProgressTasks, error: taskErr } = await supabase
+    // --- Task counts + active claimers ---
+    const { data: taskRows, error: taskErr } = await supabase
       .from('tasks')
       .select(
         `
         id,
+        status,
         task_claims (
           id,
           user_id,
@@ -603,20 +635,28 @@ export const tasksService = {
         )
       `
       )
-      .eq('project_id', projectId)
-      .in('status', ['InProgress', 'InReview']);
+      .eq('project_id', projectId);
 
     if (taskErr) throw taskErr;
 
+    let tasksCompleted = 0;
+    let openTasks = 0;
     const workerMap = new Map();
-    for (const t of inProgressTasks || []) {
+    const claimerIds = new Set();
+
+    for (const t of taskRows || []) {
+      const st = String(t.status || '');
+      if (st === 'Completed') tasksCompleted += 1;
+      if (st === 'ToDo') openTasks += 1;
+
       for (const c of t.task_claims || []) {
-        if (
-          (c.status !== 'Active' && c.status !== 'PendingReview') ||
-          !c.user_id
-        )
-          continue;
-        if (!workerMap.has(c.user_id)) {
+        if (!c.user_id) continue;
+        claimerIds.add(c.user_id);
+        const claimActive =
+          c.status === 'Active' || c.status === 'PendingReview';
+        const taskHot =
+          st === 'InProgress' || st === 'InReview' || st === 'PendingReview';
+        if (claimActive && taskHot && !workerMap.has(c.user_id)) {
           const profile = pickProfile(c);
           const username = profile?.username || 'Volunteer';
           const avatarUrl = profileAvatarUrl(profile);
@@ -631,39 +671,70 @@ export const tasksService = {
       }
     }
 
-    const { data: completed, error: doneErr } = await supabase
-      .from('tasks')
-      .select('id, completed_at')
-      .eq('project_id', projectId)
-      .eq('status', 'Completed')
-      .not('completed_at', 'is', null)
-      .gte('completed_at', monthAgo.toISOString());
-
-    if (doneErr) throw doneErr;
-
-    let tasksThisWeek = 0;
-    let tasksThisMonth = 0;
-    for (const t of completed || []) {
-      const at = new Date(t.completed_at).getTime();
-      if (at >= monthAgo.getTime()) tasksThisMonth += 1;
-      if (at >= weekAgo.getTime()) tasksThisWeek += 1;
+    // --- Unique contributors (same sources as Contributors page) ---
+    const people = new Set();
+    for (const uid of claimerIds) {
+      people.add(`u:${uid}`);
     }
 
-    const { count: recentWins, error: winErr } = await supabase
-      .from('activity_log')
-      .select('id', { count: 'exact', head: true })
-      .eq('project_id', projectId)
-      .eq('action', 'completed')
-      .gte('created_at', weekAgo.toISOString());
+    try {
+      // Lazy require avoids circular import at module load if bundler reorders
+      const { getProjectCredits } = await import('./contributorsService');
+      const credits = await getProjectCredits(projectId);
+      for (const d of credits?.donations?.namedDonors || []) {
+        if (d.userId) people.add(`u:${d.userId}`);
+        else if (d.displayName || d.username) {
+          people.add(
+            `n:${String(d.displayName || d.username)
+              .trim()
+              .toLowerCase()}`
+          );
+        }
+      }
+      for (const cat of ['development', 'marketing', 'community']) {
+        for (const row of credits?.[cat] || []) {
+          if (row.userId) people.add(`u:${row.userId}`);
+          else if (row.displayName || row.username) {
+            people.add(
+              `n:${String(row.displayName || row.username)
+                .trim()
+                .toLowerCase()}`
+            );
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[tasksService.getProjectPulse] contributors', err);
+    }
 
-    if (winErr) throw winErr;
+    // Manual credits table (covers rows not yet in getProjectCredits edge cases)
+    try {
+      const { data: contribRows } = await supabase
+        .from('project_contributions')
+        .select('user_id, display_name, is_anonymous, category')
+        .eq('project_id', projectId);
+      for (const r of contribRows || []) {
+        if (r.is_anonymous) continue;
+        if (r.user_id) people.add(`u:${r.user_id}`);
+        else if (r.display_name) {
+          people.add(`n:${String(r.display_name).trim().toLowerCase()}`);
+        }
+      }
+    } catch {
+      /* table may not exist */
+    }
+
+    const contributors = people.size;
 
     return {
-      activePeople: workerMap.size,
+      contributors,
+      tasksCompleted,
+      openTasks,
       activeWorkers: [...workerMap.values()],
-      tasksThisWeek,
-      tasksThisMonth,
-      recentWins: recentWins ?? 0,
+      activePeople: contributors,
+      tasksThisWeek: tasksCompleted,
+      tasksThisMonth: tasksCompleted,
+      recentWins: openTasks,
     };
   },
 

@@ -19,6 +19,9 @@ const Footer = () => {
                         <Link to="/" className="hover:text-neon-cyan transition-colors">HOME</Link>
                         <Link to="/about" className="hover:text-neon-cyan transition-colors">ABOUT</Link>
                         <Link to="/projects" className="hover:text-neon-cyan transition-colors">PROJECTS</Link>
+                        <Link to="/released" className="hover:text-neon-cyan transition-colors">RELEASED</Link>
+                        <Link to="/contributors" className="hover:text-neon-cyan transition-colors">CONTRIBUTORS</Link>
+                        <Link to="/media" className="hover:text-neon-cyan transition-colors">MEDIA</Link>
                         <Link to="/ideas" className="hover:text-neon-cyan transition-colors">GAME IDEAS</Link>
                         <Link to="/demos" className="hover:text-neon-cyan transition-colors">MECHANIC LAB</Link>
                         <Link to="/get-involved" className="hover:text-neon-cyan transition-colors">GET INVOLVED</Link>

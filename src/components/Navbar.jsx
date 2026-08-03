@@ -171,6 +171,18 @@ const Navbar = () => {
                 <Link to="/about" className="block hover:text-neon-cyan">
                   About
                 </Link>
+                <Link to="/contributors" className="block hover:text-neon-cyan">
+                  Contributors
+                </Link>
+                <Link to="/media" className="block hover:text-neon-cyan">
+                  Media
+                </Link>
+                <Link to="/released" className="block hover:text-neon-cyan">
+                  Released Games
+                </Link>
+                <Link to="/showcase" className="block hover:text-neon-cyan">
+                  Showcase
+                </Link>
                 <Link to="/how-it-works" className="block hover:text-neon-cyan">
                   How It Works
                 </Link>
@@ -281,6 +293,34 @@ const Navbar = () => {
               className="py-1 text-text-secondary hover:text-neon-cyan"
             >
               About
+            </Link>
+            <Link
+              to="/contributors"
+              onClick={() => setIsOpen(false)}
+              className="py-1 text-text-secondary hover:text-neon-cyan"
+            >
+              Contributors
+            </Link>
+            <Link
+              to="/media"
+              onClick={() => setIsOpen(false)}
+              className="py-1 text-text-secondary hover:text-neon-cyan"
+            >
+              Media
+            </Link>
+            <Link
+              to="/released"
+              onClick={() => setIsOpen(false)}
+              className="py-1 text-text-secondary hover:text-neon-cyan"
+            >
+              Released Games
+            </Link>
+            <Link
+              to="/showcase"
+              onClick={() => setIsOpen(false)}
+              className="py-1 text-text-secondary hover:text-neon-cyan"
+            >
+              Showcase
             </Link>
             <Link
               to="/how-it-works"

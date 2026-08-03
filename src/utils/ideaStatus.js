@@ -153,15 +153,19 @@ export function getIdeaProjectKey(idea) {
  */
 const PROJECT_DISPLAY_NAMES = {
   'prototype-systems': 'Tether',
+  tether: 'Tether',
   early: 'Early Game',
   'early-phase': 'Early Game',
   mid: 'Mid Game',
   'mid-phase': 'Mid Game',
   late: 'Late Game',
   'late-phase': 'Late Game',
-  'core-features': 'Core Features Sprint',
+  'core-features': 'Mid Game Ambitions',
   'polish-playtests': 'Stability and Polish',
 };
+
+/** Old product name; never show this to users. */
+const LEGACY_PROTOTYPE_SYSTEMS = /^prototype\s*systems$/i;
 
 const STUDIO_STAGE_KEYS = new Set([
   'early',
@@ -187,6 +191,10 @@ export function getProjectDisplayName(key) {
   const raw = String(key).trim();
   const lower = raw.toLowerCase();
   if (PROJECT_DISPLAY_NAMES[lower]) return PROJECT_DISPLAY_NAMES[lower];
+  // Never surface the retired product name (slug or free text)
+  if (LEGACY_PROTOTYPE_SYSTEMS.test(raw.replace(/[_-]+/g, ' '))) {
+    return 'Tether';
+  }
   // Humanize slug-ish keys: some-slug → Some Slug
   if (raw.includes('-') || raw.includes('_')) {
     return raw
@@ -194,6 +202,24 @@ export function getProjectDisplayName(key) {
       .replace(/\b\w/g, (c) => c.toUpperCase());
   }
   return raw;
+}
+
+/**
+ * User-facing project title. Prefer mapped names for known slugs;
+ * rewrite legacy "Prototype Systems" titles to Tether.
+ * @param {{ slug?: string, title?: string, id?: string }|null|undefined} project
+ * @returns {string}
+ */
+export function displayProjectTitle(project) {
+  if (!project) return 'Project';
+  const slug = String(project.slug || project.id || '')
+    .trim()
+    .toLowerCase();
+  if (slug && PROJECT_DISPLAY_NAMES[slug]) return PROJECT_DISPLAY_NAMES[slug];
+  const title = String(project.title || '').trim();
+  if (title && LEGACY_PROTOTYPE_SYSTEMS.test(title)) return 'Tether';
+  if (title) return title;
+  return getProjectDisplayName(project.slug || project.id) || 'Project';
 }
 
 /**
@@ -205,9 +231,11 @@ export function getProjectDisplayName(key) {
 export function resolveLinkDisplayName(key, optionalTitle = null) {
   if (key == null || String(key).trim() === '') return null;
   if (isStudioStageKey(key)) return getProjectDisplayName(key);
+  const mapped = getProjectDisplayName(key);
+  if (mapped && mapped === 'Tether') return 'Tether';
   const title = optionalTitle && String(optionalTitle).trim();
-  if (title && !/^prototype\s*systems$/i.test(title)) return title;
-  return getProjectDisplayName(key) || title || String(key).trim();
+  if (title && !LEGACY_PROTOTYPE_SYSTEMS.test(title)) return title;
+  return mapped || title || String(key).trim();
 }
 
 /**
