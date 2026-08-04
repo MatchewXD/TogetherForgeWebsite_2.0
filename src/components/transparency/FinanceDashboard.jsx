@@ -407,7 +407,7 @@ class FinanceDashboard extends Component {
           <p className="text-sm text-text-secondary">
             Financial totals could not be displayed right now. Please refresh
             the page, or visit{' '}
-            <Link to="/support" className="text-neon-cyan hover:underline">
+            <Link to="/donate" className="text-neon-cyan hover:underline">
               Support
             </Link>{' '}
             for ways to contribute.

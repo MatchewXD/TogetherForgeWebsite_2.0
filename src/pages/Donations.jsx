@@ -1,5 +1,5 @@
 /**
- * Support page (route: /support and /donations).
+ * Donate page (primary route: /donate; aliases: /support, /donations).
  * Tiered one-time + monthly options, custom amount, disclaimers, impact, FAQ,
  * Stripe Checkout via Payment Links or server API (see supportService.js).
  */
@@ -13,7 +13,6 @@ import {
   Users,
   Hammer,
   CheckCircle2,
-  ExternalLink,
   Loader2,
 } from 'lucide-react';
 
@@ -28,9 +27,11 @@ import {
   validateAmountCents,
   getCheckoutApiUrl,
 } from '../services/supportService';
-import StripeCheckoutButton from '../components/support/StripeCheckoutButton';
 import SupportTotals from '../components/support/SupportTotals';
 import RecentDonationsList from '../components/support/RecentDonationsList';
+import DonationCreditChoice, {
+  resolveDonationCredit,
+} from '../components/support/DonationCreditChoice';
 import {
   getPublicSupportSummary,
   getPublicRecentDonations,
@@ -106,18 +107,52 @@ const IMPACT_POINTS = [
     icon: Hammer,
     title: 'Real development time',
     desc: 'Tools, hosting, assets, and the work that ships projects. Support funds development and operations.',
+    accent: 'text-neon-cyan',
+    border: 'border-neon-cyan/25',
+    iconBg: 'bg-neon-cyan/10 border-neon-cyan/30',
   },
   {
     icon: Users,
     title: 'Community systems',
     desc: 'Task boards, idea reviews, and credit tracking that keep volunteers unblocked.',
+    accent: 'text-neon-magenta',
+    border: 'border-neon-magenta/25',
+    iconBg: 'bg-neon-magenta/10 border-neon-magenta/30',
   },
   {
     icon: Sparkles,
     title: 'Transparent growth',
     desc: 'Funds stay in the forge. Impact reports live on the Transparency Hub.',
+    accent: 'text-forge-gold',
+    border: 'border-forge-gold/30',
+    iconBg: 'bg-forge-gold/10 border-forge-gold/35',
   },
 ];
+
+/** Per-tier accent palette so the grid is not all cyan */
+const TIER_THEME = {
+  supporter: {
+    amount: 'text-neon-cyan',
+    check: 'text-neon-cyan',
+    card: 'border-neon-cyan/30 hover:border-neon-cyan/50',
+    badge: 'neon',
+    buttonVariant: 'primary',
+  },
+  member: {
+    amount: 'text-neon-magenta',
+    check: 'text-neon-magenta',
+    card: 'border-neon-magenta/40 shadow-[0_0_24px_rgba(233,64,245,0.12)] hover:border-neon-magenta/55',
+    badge: 'purple',
+    buttonVariant: 'outline',
+  },
+  builder: {
+    amount: 'text-forge-gold',
+    check: 'text-forge-gold',
+    card: 'border-forge-gold/40 cyber-card-gold hover:border-forge-gold/55',
+    badge: 'gold',
+    buttonVariant: 'gold',
+  },
+};
 
 const FAQ_ITEMS = [
   {
@@ -159,10 +194,11 @@ const SupportPage = () => {
   });
   const [recentDonations, setRecentDonations] = useState([]);
   const [recentSource, setRecentSource] = useState('empty');
-  /** When signed in, credit public project pages unless they opt out */
-  const [listMyName, setListMyName] = useState(true);
+  /** Public credit vs anonymous — chosen before Stripe Checkout */
+  const [wantPublicCredit, setWantPublicCredit] = useState(true);
   const [authUser, setAuthUser] = useState(null);
   const [authUsername, setAuthUsername] = useState(null);
+  const [authAvatarUrl, setAuthAvatarUrl] = useState(null);
 
   const stripeReady = useMemo(() => isStripeConfigured(), []);
   const tiers = interval === 'month' ? MONTH_TIERS : ONCE_TIERS;
@@ -179,10 +215,16 @@ const SupportPage = () => {
         if (user?.id) {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('username')
+            .select('username, avatar_url')
             .eq('id', user.id)
             .maybeSingle();
-          if (mounted) setAuthUsername(profile?.username || null);
+          if (mounted) {
+            setAuthUsername(profile?.username || null);
+            setAuthAvatarUrl(profile?.avatar_url || null);
+          }
+        } else if (mounted) {
+          setAuthUsername(null);
+          setAuthAvatarUrl(null);
         }
       } catch {
         /* ignore */
@@ -273,6 +315,16 @@ const SupportPage = () => {
       return;
     }
 
+    const credit = resolveDonationCredit({
+      wantPublicCredit,
+      authUser,
+      username: authUsername,
+    });
+    if (credit.error) {
+      setError(credit.error);
+      return;
+    }
+
     const key = `${tierId}_${interval}_${amountCents}`;
     setBusyKey(key);
     try {
@@ -284,6 +336,7 @@ const SupportPage = () => {
             label,
             interval,
             tierId,
+            isAnonymous: credit.isAnonymous,
           })
         );
       } catch {
@@ -295,10 +348,10 @@ const SupportPage = () => {
         tierId,
         label,
         fundType: 'studio',
-        // Named credit on active project Contributors page when signed in
-        userId: authUser?.id || null,
-        displayName: authUsername || null,
-        isAnonymous: !(authUser?.id && listMyName),
+        // Visibility decided on-site; Stripe Checkout metadata + webhook record it
+        userId: credit.userId,
+        displayName: credit.displayName,
+        isAnonymous: credit.isAnonymous,
       });
     } catch (err) {
       console.error('[Support] checkout', err);
@@ -356,7 +409,7 @@ const SupportPage = () => {
 
         <div className="container-custom relative z-10 py-10 sm:py-12 md:py-14 min-h-[16rem] sm:min-h-[18rem] md:min-h-[20rem] flex flex-col justify-center">
           <div className="max-w-3xl [text-shadow:0_1px_2px_rgb(0_0_0_/_0.9),0_2px_16px_rgb(0_0_0_/_0.55)]">
-            <div className="section-header">Support</div>
+            <div className="section-header">Donate</div>
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-4">
               Help fuel the forge
             </h1>
@@ -404,27 +457,13 @@ const SupportPage = () => {
               Choose a level
             </h2>
 
-            {/* Billing interval toggle - high-contrast so it is hard to miss */}
-            <div className="self-start sm:self-auto space-y-3">
-              {authUser && (
-                <label className="flex items-start gap-2 text-xs text-text-secondary max-w-xs cursor-pointer sm:ml-auto">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 rounded border-cyber-border"
-                    checked={listMyName}
-                    onChange={(e) => setListMyName(e.target.checked)}
-                  />
-                  <span>
-                    List my username on the active project&apos;s Contributors
-                    page (amount stays private)
-                  </span>
-                </label>
-              )}
-              <p className="text-[10px] font-mono tracking-widest uppercase text-neon-cyan mb-1.5 text-left sm:text-right">
+            {/* Billing interval toggle */}
+            <div className="self-start sm:self-auto">
+              <p className="text-[10px] font-mono tracking-widest uppercase text-forge-gold mb-1.5 text-left sm:text-right">
                 Billing type
               </p>
               <div
-                className="inline-flex items-center rounded-xl border-2 border-neon-cyan/50 bg-cyber-surface p-1 shadow-[0_0_20px_rgba(0,249,255,0.12)]"
+                className="inline-flex items-center rounded-xl border-2 border-forge-gold/40 bg-cyber-surface p-1 shadow-[0_0_20px_rgba(245,197,66,0.1)]"
                 role="group"
                 aria-label="One-time or monthly billing"
               >
@@ -446,7 +485,7 @@ const SupportPage = () => {
                   aria-pressed={interval === 'month'}
                   className={`px-5 py-2.5 text-sm font-mono tracking-wide rounded-lg transition-all ${
                     interval === 'month'
-                      ? 'bg-neon-cyan text-cyber-bg font-semibold shadow-neon-cyan'
+                      ? 'bg-neon-magenta text-white font-semibold shadow-[0_0_16px_rgba(233,64,245,0.35)]'
                       : 'text-text-secondary hover:text-white'
                   }`}
                 >
@@ -455,6 +494,17 @@ const SupportPage = () => {
               </div>
             </div>
           </div>
+
+          {/* Credit choice — must happen before any donate button */}
+          <DonationCreditChoice
+            className="mb-6"
+            wantPublicCredit={wantPublicCredit}
+            onChange={setWantPublicCredit}
+            isSignedIn={Boolean(authUser)}
+            username={authUsername}
+            avatarUrl={authAvatarUrl}
+            displayName={authUsername}
+          />
 
           {!stripeReady && (
             <p className="text-xs font-mono text-text-muted mb-4 tracking-wide">
@@ -476,16 +526,17 @@ const SupportPage = () => {
             {tiers.map((tier) => {
               const key = `${tier.id}_${interval}_${tier.amount * 100}`;
               const busy = busyKey === key;
+              const theme = TIER_THEME[tier.id] || TIER_THEME.supporter;
               return (
                 <Card
                   key={`${tier.id}-${interval}`}
-                  className={`bg-cyber-card/80 flex flex-col h-full ${
-                    tier.featured ? 'border-neon-cyan/40 shadow-neon-cyan/20' : ''
-                  }`}
+                  className={`bg-cyber-card/80 flex flex-col h-full border ${theme.card}`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-4">
                     <div>
-                      <div className="text-3xl sm:text-4xl font-bold text-neon-cyan tabular-nums">
+                      <div
+                        className={`text-3xl sm:text-4xl font-bold tabular-nums ${theme.amount}`}
+                      >
                         ${tier.amount}
                         {interval === 'month' && (
                           <span className="text-sm font-mono text-text-muted">
@@ -497,7 +548,9 @@ const SupportPage = () => {
                         {tier.label}
                       </h3>
                     </div>
-                    {tier.featured && <Badge variant="neon">Popular</Badge>}
+                    {tier.featured && (
+                      <Badge variant={theme.badge || 'purple'}>Popular</Badge>
+                    )}
                   </div>
 
                   <div className="mb-5 flex-1">
@@ -510,15 +563,24 @@ const SupportPage = () => {
                           key={p}
                           className="flex items-start gap-2 text-sm text-text-secondary"
                         >
-                          <CheckCircle2 className="w-3.5 h-3.5 text-neon-cyan shrink-0 mt-0.5" />
+                          <CheckCircle2
+                            className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${theme.check}`}
+                          />
                           {p}
                         </li>
                       ))}
                     </ul>
                   </div>
 
+                  <p className="mb-2 text-[11px] font-mono tracking-wide text-text-muted text-center">
+                    {wantPublicCredit
+                      ? 'Credit: show my name'
+                      : 'Credit: anonymous'}
+                  </p>
                   <Button
-                    className="w-full gap-2"
+                    size="lg"
+                    variant={theme.buttonVariant || 'primary'}
+                    className="w-full gap-2 py-3.5 text-lg sm:text-xl font-bold tracking-wide"
                     disabled={!!busyKey}
                     onClick={() =>
                       runCheckout({
@@ -530,13 +592,13 @@ const SupportPage = () => {
                   >
                     {busy ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-5 h-5 animate-spin" />
                         Redirecting...
                       </>
                     ) : (
                       <>
-                        <Heart className="w-4 h-4" />
-                        {interval === 'month' ? 'Subscribe' : 'Support once'}
+                        <Heart className="w-5 h-5" />
+                        {interval === 'month' ? 'Subscribe' : 'Donate'}
                       </>
                     )}
                   </Button>
@@ -547,14 +609,13 @@ const SupportPage = () => {
         </section>
 
         <section aria-labelledby="custom-heading">
-          <Card className="bg-cyber-card/80">
+          <Card className="bg-cyber-card/80 border-neon-purple/30">
             <h2 id="custom-heading" className="section-header mb-2">
               Custom amount
             </h2>
             <p className="text-sm text-text-secondary mb-5">
-              Any amount from $1 up. Uses the same{' '}
-              {interval === 'month' ? 'monthly' : 'one-time'} checkout mode
-              selected above.
+              Any amount from $1 up. Uses the same billing type and public
+              credit choice selected above.
             </p>
             <form
               onSubmit={handleCustom}
@@ -571,25 +632,42 @@ const SupportPage = () => {
                   placeholder="25"
                   value={customAmount}
                   onChange={(e) => setCustomAmount(e.target.value)}
-                  className="w-full bg-cyber-surface border border-cyber-border rounded-xl pl-10 pr-4 py-4 text-xl sm:text-2xl font-mono text-text-primary tabular-nums focus:border-neon-cyan outline-none"
-                  aria-label="Custom amount in dollars"
+                  className={`w-full bg-cyber-surface border rounded-xl pl-10 py-4 text-xl sm:text-2xl font-mono text-text-primary tabular-nums outline-none ${
+                    interval === 'month'
+                      ? 'border-neon-magenta/40 focus:border-neon-magenta pr-16'
+                      : 'border-forge-gold/35 focus:border-forge-gold pr-4'
+                  }`}
+                  aria-label={
+                    interval === 'month'
+                      ? 'Custom amount in dollars per month'
+                      : 'Custom amount in dollars'
+                  }
                 />
+                {interval === 'month' && (
+                  <span
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-mono text-text-muted pointer-events-none"
+                    aria-hidden
+                  >
+                    /mo
+                  </span>
+                )}
               </div>
               <Button
                 type="submit"
                 size="lg"
-                className="gap-2 w-full sm:w-auto sm:shrink-0 px-8"
+                variant={interval === 'month' ? 'outline' : 'gold'}
+                className="gap-2 w-full sm:w-auto sm:shrink-0 px-8 py-3.5 text-lg sm:text-xl font-bold tracking-wide"
                 disabled={!!busyKey}
               >
                 {busyKey?.startsWith('custom_') ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-5 h-5 animate-spin" />
                     Redirecting...
                   </>
                 ) : (
                   <>
-                    Continue to Stripe
-                    <ExternalLink className="w-4 h-4" />
+                    <Heart className="w-5 h-5" />
+                    {interval === 'month' ? 'Subscribe' : 'Donate'}
                   </>
                 )}
               </Button>
@@ -604,7 +682,7 @@ const SupportPage = () => {
           source={recentSource}
         />
 
-        {/* Dev-friendly single test button (uses Edge Function + product id) */}
+        {/* Dev-friendly single test button (same credit path as real tiers) */}
         {import.meta.env.DEV && (
           <Card className="bg-cyber-card/80 border-neon-purple/30">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -613,33 +691,48 @@ const SupportPage = () => {
                   Local Stripe test
                 </div>
                 <p className="text-sm text-text-secondary">
-                  One-click $5 Checkout via Supabase Edge Function. Secret key stays on
-                  the server. API:{' '}
+                  One-click $5 Checkout via Supabase Edge Function. Uses the same
+                  public credit choice as the buttons above. API:{' '}
                   <code className="text-xs text-neon-cyan font-mono break-all">
                     {getCheckoutApiUrl() || '(not set)'}
                   </code>
                 </p>
               </div>
-              <StripeCheckoutButton
-                amountDollars={5}
-                interval="once"
-                tierId="test"
-                label="Together Forge Support (test)"
-                fundType="studio"
-                className="shrink-0"
-              />
+              <Button
+                className="shrink-0 gap-2"
+                disabled={!!busyKey}
+                onClick={() =>
+                  runCheckout({
+                    amount: 5,
+                    tierId: 'test',
+                    label: 'Together Forge Support (test)',
+                  })
+                }
+              >
+                {busyKey?.startsWith('test_') ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Redirecting...
+                  </>
+                ) : (
+                  <>
+                    <Heart className="w-4 h-4" />
+                    Pay $5 test
+                  </>
+                )}
+              </Button>
             </div>
           </Card>
         )}
 
         {/* Funds use + important notes (single card) */}
-        <Card className="bg-cyber-card/80 border-cyber-border">
+        <Card className="bg-cyber-card/80 border-l-4 border-l-forge-gold border-cyber-border">
           <p className="text-base sm:text-lg text-text-secondary leading-relaxed mb-5">
             All contributions support general development, tools, assets,
             playtesting, community growth, and advancing active projects. Funds
             are used where most needed.
           </p>
-          <p className="font-semibold text-white text-sm sm:text-base mb-2">
+          <p className="font-semibold text-forge-gold text-sm sm:text-base mb-2">
             Important notes:
           </p>
           <ul className="list-disc pl-5 space-y-1.5 text-sm text-text-secondary leading-relaxed">
@@ -677,8 +770,15 @@ const SupportPage = () => {
             {IMPACT_POINTS.map((item) => {
               const Icon = item.icon;
               return (
-                <Card key={item.title} className="bg-cyber-card/80">
-                  <Icon className="w-6 h-6 text-neon-cyan mb-3" />
+                <Card
+                  key={item.title}
+                  className={`bg-cyber-card/80 border ${item.border}`}
+                >
+                  <div
+                    className={`inline-flex items-center justify-center w-11 h-11 rounded-xl border mb-3 ${item.iconBg}`}
+                  >
+                    <Icon className={`w-5 h-5 ${item.accent}`} />
+                  </div>
                   <h3 className="font-semibold text-white mb-2">{item.title}</h3>
                   <p className="text-sm text-text-secondary leading-relaxed">
                     {item.desc}
@@ -687,15 +787,15 @@ const SupportPage = () => {
               );
             })}
           </div>
-          <div className="mt-6 flex flex-wrap items-center gap-3 text-sm">
-            <Shield className="w-4 h-4 text-neon-purple" />
-            <span className="text-text-secondary">
+          <div className="mt-6 flex flex-wrap items-center gap-3 text-sm rounded-xl border border-neon-purple/25 bg-neon-purple/5 px-4 py-3">
+            <Shield className="w-4 h-4 text-neon-purple shrink-0" />
+            <span className="text-text-secondary flex-1 min-w-[12rem]">
               No stealth investor capture. Community-supported by design. Funds
               go where most needed, with reporting in the Transparency Hub.
             </span>
             <Link
               to="/transparency"
-              className="text-neon-cyan hover:underline font-mono text-xs tracking-widest"
+              className="text-neon-magenta hover:text-neon-cyan hover:underline font-mono text-xs tracking-widest"
             >
               VIEW TRANSPARENCY HUB
             </Link>

@@ -9,7 +9,7 @@ const FAQ = () => {
     },
     {
       q: 'How can I contribute?',
-      a: 'Submit ideas, volunteer your skills (development, content creation, moderation, etc.), or support the studio on the Support page.',
+      a: 'Submit ideas, volunteer your skills (development, content creation, moderation, etc.), or donate on the Donate page.',
     },
     {
       q: 'Will contributors get credit?',

@@ -16,6 +16,10 @@ import {
   isDemoReleaseKey,
   getDemoReleaseCredits,
 } from '../data/demoReleasedGame';
+import {
+  isDemoContributorsEnabled,
+  injectDemoAllContributors,
+} from '../data/demoAllContributors';
 
 // re-export helpers for pages
 export { isProjectInDevelopment, isProjectCompleted };
@@ -396,12 +400,212 @@ export function formatUsdFromCents(cents) {
   }).format(n / 100);
 }
 
+function personDedupeKey(person) {
+  if (person?.userId) return `u:${person.userId}`;
+  const name = String(person?.username || person?.displayName || '')
+    .trim()
+    .toLowerCase();
+  return name ? `n:${name}` : null;
+}
+
+function upsertPerson(map, person, context = null) {
+  const key = personDedupeKey(person);
+  if (!key) return;
+  const existing = map.get(key);
+  if (existing) {
+    if (context && !existing.contexts.includes(context)) {
+      existing.contexts.push(context);
+    }
+    // Prefer richer profile fields
+    if (!existing.avatarUrl && person.avatarUrl) {
+      existing.avatarUrl = person.avatarUrl;
+    }
+    if (!existing.username && person.username) {
+      existing.username = person.username;
+    }
+    if (
+      person.displayName &&
+      (!existing.displayName || existing.displayName === 'Contributor')
+    ) {
+      existing.displayName = person.displayName;
+    }
+    if (person.roleLabel && !existing.roleLabel) {
+      existing.roleLabel = person.roleLabel;
+    }
+    return;
+  }
+  map.set(key, {
+    userId: person.userId || null,
+    username: person.username || null,
+    avatarUrl: person.avatarUrl || null,
+    displayName:
+      person.displayName || person.username || 'Contributor',
+    roleLabel: person.roleLabel || null,
+    contexts: context ? [context] : [],
+  });
+}
+
+function mapToSortedList(map) {
+  return [...map.values()].sort((a, b) =>
+    String(a.displayName || a.username || '').localeCompare(
+      String(b.displayName || b.username || '')
+    )
+  );
+}
+
+/**
+ * Site-wide All Contributors directory.
+ * Groups people from every In Development + Completed project + public idea authors.
+ * Sections only returned when non-empty.
+ *
+ * @returns {Promise<{
+ *   projectContributors: Array,
+ *   donors: Array,
+ *   communityModeration: Array,
+ *   ideasFeedback: Array,
+ *   contentShowcase: Array,
+ *   otherSkills: Array,
+ *   totalPeople: number,
+ * }>}
+ */
+export async function listAllContributorsGrouped() {
+  const projects = await listContributorProjects();
+  const projectContributors = new Map();
+  const donors = new Map();
+  const communityModeration = new Map();
+  const ideasFeedback = new Map();
+  const contentShowcase = new Map();
+  const otherSkills = new Map();
+
+  // Sequential to avoid hammering Supabase; projects list is usually small
+  for (const project of projects) {
+    if (!project?.id) continue;
+    // Skip pure client demo release id
+    if (isDemoReleaseEnabled() && isDemoReleaseKey(project.id)) continue;
+
+    let credits;
+    try {
+      credits = await getProjectCredits(project.id);
+    } catch (err) {
+      console.warn('[contributors] all credits', project.slug, err);
+      continue;
+    }
+
+    const projectTitle = displayProjectTitle(project);
+
+    for (const row of credits.development || []) {
+      const ctx = [projectTitle, row.subcategory || row.roleLabel]
+        .filter(Boolean)
+        .join(' · ');
+      upsertPerson(projectContributors, row, ctx || projectTitle);
+    }
+
+    for (const d of credits.donations?.namedDonors || []) {
+      upsertPerson(donors, d, projectTitle);
+    }
+
+    for (const row of credits.marketing || []) {
+      const ctx = [projectTitle, row.subcategory || row.roleLabel]
+        .filter(Boolean)
+        .join(' · ');
+      upsertPerson(contentShowcase, row, ctx || projectTitle);
+    }
+
+    for (const row of credits.community || []) {
+      const sub = String(row.subcategory || '').toLowerCase();
+      const ctx = [projectTitle, row.subcategory || row.roleLabel]
+        .filter(Boolean)
+        .join(' · ');
+      if (sub === 'feedback') {
+        upsertPerson(ideasFeedback, row, ctx || projectTitle);
+      } else if (
+        sub === 'moderation' ||
+        sub === 'playtesting' ||
+        sub === 'playtest'
+      ) {
+        upsertPerson(communityModeration, row, ctx || projectTitle);
+      } else if (sub === 'other' || !sub) {
+        upsertPerson(otherSkills, row, ctx || projectTitle);
+      } else {
+        upsertPerson(communityModeration, row, ctx || projectTitle);
+      }
+    }
+  }
+
+  // Public idea authors → Ideas & Feedback
+  try {
+    const { ideasService } = await import('./ideasService');
+    const listing = await ideasService.getIdeasListing();
+    const ideas = Array.isArray(listing)
+      ? listing
+      : listing?.ideas || [];
+    for (const idea of ideas) {
+      const creator = idea.creator || idea.profiles || null;
+      const userId = idea.user_id || idea.userId || creator?.id || null;
+      const username = creator?.username || idea.username || null;
+      const avatarUrl =
+        creator?.avatar_url || creator?.avatarUrl || idea.avatar_url || null;
+      if (!userId && !username) continue;
+      upsertPerson(
+        ideasFeedback,
+        {
+          userId,
+          username,
+          avatarUrl,
+          displayName: username || 'Idea author',
+        },
+        idea.title ? `Idea: ${idea.title}` : 'Idea'
+      );
+    }
+  } catch (err) {
+    console.warn('[contributors] ideas for all list', err);
+  }
+
+  // Layout preview people (merged with real credits; default on)
+  if (isDemoContributorsEnabled()) {
+    injectDemoAllContributors(
+      {
+        projectContributors,
+        donors,
+        communityModeration,
+        ideasFeedback,
+        contentShowcase,
+        otherSkills,
+      },
+      upsertPerson
+    );
+  }
+
+  const sections = {
+    projectContributors: mapToSortedList(projectContributors),
+    donors: mapToSortedList(donors),
+    communityModeration: mapToSortedList(communityModeration),
+    ideasFeedback: mapToSortedList(ideasFeedback),
+    contentShowcase: mapToSortedList(contentShowcase),
+    otherSkills: mapToSortedList(otherSkills),
+  };
+
+  const allKeys = new Set();
+  for (const list of Object.values(sections)) {
+    for (const p of list) {
+      const k = personDedupeKey(p);
+      if (k) allKeys.add(k);
+    }
+  }
+
+  return {
+    ...sections,
+    totalPeople: allKeys.size,
+  };
+}
+
 export const contributorsService = {
   listContributorProjects,
   listProjectContributions,
   listDevelopmentFromTasks,
   getProjectDonationCredits,
   getProjectCredits,
+  listAllContributorsGrouped,
   formatUsdFromCents,
 };
 

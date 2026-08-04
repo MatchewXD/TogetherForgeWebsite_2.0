@@ -1,6 +1,8 @@
 /**
  * Contributors landing — why public credit matters + project cards.
  * Route: /contributors
+ * All people directory: /contributors/all
+ * Per-project: /projects/:slug/contributors
  */
 
 import { useEffect, useState } from 'react';
@@ -54,7 +56,8 @@ const Contributors = () => {
               Together Forge is built in public. Every idea, task, playtest note,
               stream, and dollar of support deserves a name next to the work.
               Public credit is not a perk. It is how we show respect for the
-              people who make the games possible.
+              people who make the games possible. Browse by project below, or
+              see everyone on All Contributors.
             </p>
           </div>
         </div>
@@ -83,8 +86,8 @@ const Contributors = () => {
             <Heart className="w-5 h-5 text-neon-magenta mb-3" />
             <h2 className="font-semibold text-white mb-2">Support counts too</h2>
             <p className="text-sm text-text-secondary leading-relaxed">
-              Named donors appear without dollar amounts. Anonymous support is
-              rolled into a single total so privacy stays optional.
+              Named donors appear on project Contributors and All Contributors
+              without dollar amounts. Anonymous support is rolled into totals.
             </p>
           </Card>
         </section>
@@ -97,8 +100,8 @@ const Contributors = () => {
             Projects
           </h2>
           <p className="text-sm text-text-muted mb-6 max-w-2xl">
-            Active and completed projects. Open a card to see who helped on that
-            build.
+            Active and completed projects. Open a card for that project&apos;s
+            Contributors page to see who helped on that build.
           </p>
 
           {loading ? (
@@ -154,7 +157,54 @@ const Contributors = () => {
           )}
         </section>
 
+        {/* Prominent CTA to All Contributors directory */}
+        <section aria-labelledby="all-contributors-cta">
+          <Link
+            to="/contributors/all"
+            className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-cyber-bg rounded-2xl"
+          >
+            <Card
+              interactive
+              className="p-6 sm:p-8 md:p-10 border-forge-gold/40 cyber-card-gold relative overflow-hidden"
+            >
+              <div
+                className="pointer-events-none absolute -right-8 -top-8 w-40 h-40 rounded-full bg-forge-gold/10 blur-2xl"
+                aria-hidden
+              />
+              <div className="relative flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-8">
+                <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border border-forge-gold/40 bg-forge-gold/10 text-forge-gold shrink-0">
+                  <Users className="w-7 h-7 sm:w-8 sm:h-8" aria-hidden />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-mono tracking-widest uppercase text-forge-gold mb-2">
+                    Recognition
+                  </p>
+                  <h2
+                    id="all-contributors-cta"
+                    className="text-2xl sm:text-3xl font-bold text-white group-hover:text-neon-cyan transition-colors"
+                  >
+                    All Contributors
+                  </h2>
+                  <p className="mt-2 text-sm sm:text-base text-text-secondary leading-relaxed max-w-xl">
+                    See everyone who has helped build Together Forge — project
+                    work, named donors, community roles, ideas, and more. Public
+                    credit in one place.
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-2 text-base sm:text-lg font-semibold text-neon-cyan shrink-0">
+                  See everyone
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition" />
+                </span>
+              </div>
+            </Card>
+          </Link>
+        </section>
+
         <p className="text-center text-xs font-mono tracking-widest text-text-muted">
+          <Link to="/contributors/all" className="hover:text-neon-cyan">
+            All Contributors
+          </Link>
+          {' · '}
           <Link to="/get-involved" className="hover:text-neon-cyan">
             Get involved
           </Link>

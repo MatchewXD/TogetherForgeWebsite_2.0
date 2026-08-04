@@ -36,9 +36,11 @@ import ProjectsEarlyEdit from './pages/ProjectsEarlyEdit';
 import ProjectWorkspace from './pages/ProjectWorkspace';
 import Contributors from './pages/Contributors';
 import ProjectContributors from './pages/ProjectContributors';
+import AllContributors from './pages/AllContributors';
 import ModeratorDashboard from './pages/ModeratorDashboard';
 import MechanicLab from './pages/MechanicLab';
 import Media from './pages/Media';
+import MediaEdit from './pages/MediaEdit';
 import CommunityShowcase from './pages/CommunityShowcase';
 import ReleasedGames from './pages/ReleasedGames';
 import ReleasedGameDetail from './pages/ReleasedGameDetail';
@@ -83,11 +85,16 @@ function App() {
                         {/* Generic workspace - after static phase routes so early/mid/late are not captured */}
                         <Route path="/projects/:id" element={<ProjectWorkspace />} />
                         <Route path="/contributors" element={<Contributors />} />
+                        <Route
+                          path="/contributors/all"
+                          element={<AllContributors />}
+                        />
                         <Route path="/get-involved" element={<GetInvolved />} />
                         <Route path="/demos" element={<MechanicLab />} />
                         <Route path="/mechanic-lab" element={<MechanicLab />} />
                         <Route path="/how-it-works" element={<HowItWorks />} />
                         <Route path="/media" element={<Media />} />
+                        <Route path="/media/edit" element={<MediaEdit />} />
                         <Route path="/videos" element={<Media />} />
                         <Route path="/showcase" element={<CommunityShowcase />} />
                         <Route path="/released" element={<ReleasedGames />} />
@@ -98,6 +105,8 @@ function App() {
                         <Route path="/bugs" element={<BugTracker />} />
                         <Route path="/bugs/report" element={<ReportBug />} />
                         <Route path="/report-bug" element={<ReportBug />} />
+                        <Route path="/donate" element={<Donations />} />
+                        {/* Legacy aliases → Donate */}
                         <Route path="/support" element={<Donations />} />
                         <Route path="/donations" element={<Donations />} />
                         <Route path="/contact" element={<Contact />} />

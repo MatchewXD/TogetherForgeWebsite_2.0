@@ -1,0 +1,5 @@
+We are working with Grok Build which is a coding AI that is very good at making websites and coding in general. We will call Grok Build "Vera" for continuity. 
+Vera has full access to the full code base and can edit files freely.
+Vera is very good at building solid, general systems. You don’t need to spell out every technical detail or implementation choice.
+Only include the things that are specific to Together Forge — decisions and context Vera wouldn’t already know. Everything else (architecture, patterns, admin UI approach, etc.) can be left to Vera’s judgment.
+Example of the principle: if I asked Vera to build a messaging system, she would produce a working one that fits the existing codebase and styling. It just wouldn’t contain the unique Together Forge rules or product decisions unless I told her about them. Same approach here.

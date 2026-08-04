@@ -490,10 +490,10 @@ const FoundersThoughts = () => {
             <Button
               variant="outline"
               className="gap-2"
-              onClick={() => navigate('/support')}
+              onClick={() => navigate('/donate')}
             >
               <Heart className="w-4 h-4" />
-              Studio Support
+              Donate
             </Button>
           </div>
         </Card>

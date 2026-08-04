@@ -1,72 +1,23 @@
 /**
- * Official Together Forge videos for the Media page (/media).
+ * Official Media helpers (YouTube URLs, channel links).
  *
- * HOW TO ADD A VIDEO
- * 1. Copy a block below and fill in the fields.
- * 2. youtubeId = the 11-character id from the URL:
- *      https://www.youtube.com/watch?v=XXXXXXXXXXX  →  youtubeId: 'XXXXXXXXXXX'
- *      https://youtu.be/XXXXXXXXXXX                 →  same
- * 3. publishedAt uses ISO date (YYYY-MM-DD). List is sorted newest first.
- * 4. Optional: thumbnailUrl (defaults to YouTube hqdefault).
- * 5. Optional: relatedProjectId / relatedPage for notes only (not required).
+ * SOURCE OF TRUTH: Supabase table `official_videos`
+ * (see supabase/sql/supabase_official_videos.sql + officialMediaService.js).
  *
- * Community / fan videos stay on Showcase — do not add them here.
+ * This file no longer holds the video catalog. Staff manage videos at /media/edit.
+ * Community / fan content stays on /showcase — never here.
  */
 
-/** Official channel (Watch more / subscribe) */
+/** Official channel (header / empty-state links) */
 export const YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/@MXDGameGuides';
 
-/** Community-made videos and posts (separate from official media) */
+/** Fan and community content lives here — never on /media */
 export const COMMUNITY_SHOWCASE_PATH = '/showcase';
 
-/**
- * @typedef {Object} OfficialVideo
- * @property {string} id - Stable local id (any unique string)
- * @property {string} title
- * @property {string} description - 1–2 lines for the card
- * @property {string} youtubeId - YouTube video id
- * @property {string} [thumbnailUrl] - Override thumbnail
- * @property {string} [category] - e.g. Overview | Progress | How to Help | Studio
- * @property {string} publishedAt - ISO date YYYY-MM-DD
- * @property {string} [relatedProjectId]
- * @property {string} [relatedPage]
- */
-
-/**
- * Add real videos here. Example:
- *
- * {
- *   id: 'what-is-tf',
- *   title: 'What is Together Forge?',
- *   description: 'A short overview of the community-first studio.',
- *   youtubeId: 'XXXXXXXXXXX',
- *   category: 'Overview',
- *   publishedAt: '2026-03-01',
- * },
- *
- * @type {OfficialVideo[]}
- */
+/** @deprecated Catalog lives in Supabase. Kept empty so old imports do not break. */
 export const OFFICIAL_VIDEOS = [];
 
-/**
- * Sort newest first. Only lists entries with a title and a valid youtubeId.
- */
-export function getOfficialVideosSorted() {
-  return [...OFFICIAL_VIDEOS]
-    .filter(
-      (v) =>
-        v &&
-        String(v.title || '').trim() &&
-        parseYoutubeId(v.youtubeId || v.youtubeUrl)
-    )
-    .sort((a, b) => {
-      const da = Date.parse(a.publishedAt || 0) || 0;
-      const db = Date.parse(b.publishedAt || 0) || 0;
-      return db - da;
-    });
-}
-
-/** Extract 11-char id from common YouTube URL shapes */
+/** Extract 11-char id from common YouTube URL shapes or bare id */
 export function parseYoutubeId(urlOrId) {
   if (!urlOrId) return '';
   const s = String(urlOrId).trim();
@@ -78,7 +29,7 @@ export function parseYoutubeId(urlOrId) {
     }
     const v = u.searchParams.get('v');
     if (v) return v.slice(0, 11);
-    const m = u.pathname.match(/\/embed\/([\w-]{11})/);
+    const m = u.pathname.match(/\/(?:embed|shorts)\/([\w-]{11})/);
     if (m) return m[1];
   } catch {
     /* not a URL */
@@ -96,9 +47,33 @@ export function youtubeEmbedUrl(youtubeId) {
   return id ? `https://www.youtube.com/embed/${id}?autoplay=1&rel=0` : '';
 }
 
+/**
+ * @param {{ thumbnailUrl?: string, thumbnail_url?: string, youtubeId?: string, youtube_id?: string }} video
+ */
 export function youtubeThumbnailUrl(video) {
-  if (video?.thumbnailUrl) return video.thumbnailUrl;
-  const id = parseYoutubeId(video?.youtubeId);
+  const override = video?.thumbnailUrl || video?.thumbnail_url;
+  if (override) return String(override).trim();
+  const id = parseYoutubeId(video?.youtubeId || video?.youtube_id);
   if (!id) return null;
   return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+}
+
+/**
+ * @deprecated Use officialMediaService.listPublishedOfficialVideos()
+ */
+export function getOfficialVideosSorted() {
+  console.warn(
+    '[officialVideos] getOfficialVideosSorted is deprecated — use officialMediaService'
+  );
+  return [];
+}
+
+/**
+ * @deprecated Use officialMediaService.listPublishedOfficialVideos()
+ */
+export async function fetchOfficialVideos() {
+  const { listPublishedOfficialVideos } = await import(
+    '../services/officialMediaService'
+  );
+  return listPublishedOfficialVideos();
 }

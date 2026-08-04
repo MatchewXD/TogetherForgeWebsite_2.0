@@ -117,7 +117,7 @@ const ProjectsMid = () => {
               to="/contributors"
               className="text-xs font-mono tracking-widest px-3 py-1.5 rounded-full border border-cyber-border text-text-secondary hover:border-neon-cyan hover:text-neon-cyan transition-colors"
             >
-              Contributors
+              All Contributors
             </Link>
             <Link
               to="/projects/early"

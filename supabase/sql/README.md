@@ -8,6 +8,7 @@ Run these in the **Supabase SQL Editor** (or via CLI migrations) as needed.
 | `supabase_tasks_schema.sql` | Projects, tasks, claims, activity |
 | `supabase_projects_completion.sql` | Project summary, completed_at, completion_links (Early + Released Games) |
 | `supabase_projects_release_meta.sql` | Optional release_meta JSON for Released Game Detail (media, platforms, ratings) |
+| `supabase_official_videos.sql` | Official Media library (`official_videos`) + RLS + demo seed for /media |
 | `supabase_project_contributions.sql` | Public credits per project (Contributors pages + future Released Games) |
 | `supabase_donation_project_attribution.sql` | Attach studio donations to active In Development project; public credit RPC |
 | `supabase_task_hierarchy.sql` | `parent_task_id`, max 3 nesting levels, parent progress rollup |

@@ -60,7 +60,7 @@ const SupportTotals = ({
                   Monthly recurring
                 </span>
               </div>
-              <div className="text-2xl sm:text-3xl font-mono font-bold text-white tabular-nums">
+              <div className="text-2xl sm:text-3xl font-mono font-bold text-neon-purple tabular-nums">
                 {loading ? '…' : formatUsdFromCents(mrrCents)}
                 <span className="text-sm font-normal text-text-muted ml-1">
                   /mo

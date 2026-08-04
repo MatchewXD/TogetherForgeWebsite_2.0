@@ -159,10 +159,10 @@ const STATE_UPDATES = [
     date: '2026-07-15',
     title: 'July: Transparency Hub, Founders Thoughts, and Support paths',
     highlight: true,
-    body: 'Public governance, financial summaries, project roadmaps, and Founders Thoughts are live. Studio Support and personal runway Support stay clearly separated so money trails stay clear.',
+    body: 'Public governance, financial summaries, project roadmaps, and Founders Thoughts are live. Studio donations and personal runway support stay clearly separated so money trails stay clear.',
     links: [
       { label: 'Founders Thoughts', to: '/founders-thoughts' },
-      { label: 'Studio Support', to: '/support' },
+      { label: 'Donate', to: '/donate' },
       { label: 'Projects', to: '/projects' },
     ],
   },
@@ -481,7 +481,7 @@ const TransparencyHub = () => {
               variant="secondary"
               size="sm"
               className="gap-2"
-              onClick={() => navigate('/support')}
+              onClick={() => navigate('/donate')}
             >
               <Heart className="w-3.5 h-3.5" />
               Support
@@ -954,10 +954,10 @@ const TransparencyHub = () => {
                 size="lg"
                 variant="secondary"
                 className="gap-2"
-                onClick={() => navigate('/support')}
+                onClick={() => navigate('/donate')}
               >
                 <Heart className="w-4 h-4" />
-                Studio Support
+                Donate
               </Button>
               <Button
                 size="lg"

@@ -196,6 +196,14 @@ const ModeratorDashboard = () => {
                 Basic user, idea, and report tools. Keep it light. Prefer archive
                 over hard delete when possible.
               </p>
+              <p className="mt-3 text-sm">
+                <Link
+                  to="/media/edit"
+                  className="text-neon-cyan hover:text-white font-semibold"
+                >
+                  Manage Official Media →
+                </Link>
+              </p>
             </div>
             <Button
               variant="secondary"

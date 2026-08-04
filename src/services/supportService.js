@@ -84,7 +84,7 @@ function checkoutHeaders() {
  * @param {string} [opts.productId] - optional Stripe product id override
  * @param {string|null} [opts.userId] - signed-in profile/user id for public credit
  * @param {string|null} [opts.displayName] - username for credits when not anonymous
- * @param {boolean} [opts.isAnonymous=true] - false = show on project Contributors page
+ * @param {boolean} [opts.isAnonymous=true] - false = public credit (project + All Contributors)
  */
 export async function startStripeCheckout({
   amountCents,
@@ -115,9 +115,9 @@ export async function startStripeCheckout({
   // Local Vite default: http://localhost:5173
   const success =
     successUrl ||
-    `${origin}/support?checkout=success&tier=${encodeURIComponent(safeTier)}&fund=${safeFund}`;
+    `${origin}/donate?checkout=success&tier=${encodeURIComponent(safeTier)}&fund=${safeFund}`;
   const cancel =
-    cancelUrl || `${origin}/support?checkout=cancel&fund=${safeFund}`;
+    cancelUrl || `${origin}/donate?checkout=cancel&fund=${safeFund}`;
 
   const apiUrl = getCheckoutApiUrl();
 

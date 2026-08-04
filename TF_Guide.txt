@@ -1,0 +1,391 @@
+Media / Videos page: Create a dedicated /media (or /videos) page for official Together Forge videos that are not tied to a single page. Show a clean grid of videos (thumbnail, title, short description, Watch action), newest first. Include links to the YouTube channel and to the Community Showcase. Related videos remain on their corresponding pages.
+
+
+Media data source: Provide a simple way to manage the list of official videos (data file or small table) so new videos can be added without a full CMS.
+
+
+Test donations recording on active projects: Verify that donations made while a project is active are correctly recorded and appear on that project’s Contributors page (named donors + project total + anonymous total). Confirm the data flows correctly from the donation system into the Contributors view.
+
+
+Official Media page polish: Review layout, spacing, typography, and mobile behavior. Ensure video cards are consistent, thumbnails load cleanly, and the “Watch” action works well on both desktop and mobile.
+
+
+Official Media empty and loading states: Add clear empty state when no videos exist yet and a simple loading state while videos are fetched.
+
+
+Official Media accessibility and performance: Check keyboard navigation, alt text on thumbnails, and avoid loading too many heavy embeds at once.
+
+
+Official Media content and links: Confirm the intro text is accurate, the YouTube channel link is correct, and the link to Community Showcase is prominent and clear.
+
+
+Community Showcase polish: Review overall layout, card design, spacing, and mobile experience so submitted content looks clean and consistent with the rest of the site.
+
+
+Community Showcase submission feedback: Ensure the submission form gives clear success and error messages and that the review/moderation flow is understandable for moderators.
+
+
+Community Showcase empty, loading, and filtered states: Add helpful empty states (no posts yet, no results for a filter) and smooth loading indicators.
+
+
+Community Showcase credit and discovery: Verify that every accepted post shows clear credit, that project tags work, and that visitors can easily browse by newest or by project.
+
+
+Community Showcase moderation tools: Confirm moderators can easily approve, reject, or feature submissions and that the process feels lightweight.
+
+
+Task Board clarity and hierarchy: Make status columns (To Do, In Progress, Ready for Review, Completed), task cards, and progress indicators immediately clear at a glance. Improve visual weight so the most important information (title, category, claim status, progress) stands out.
+
+
+Claim flow polish: Make claiming a task feel fast, obvious, and reliable. Clear feedback when a task is claimed, when a claim limit is reached, and when an idle claim is auto-released.
+
+
+Task detail view: Ensure the individual task view shows everything a contributor needs (full description, sub-tasks, category, difficulty, current claimant, progress notes, and clear actions) without clutter.
+
+
+Task Board empty states: Add helpful, encouraging empty states for every column and for the whole board when no tasks exist yet or when filters return nothing.
+
+
+Progress and credit visibility: Make completed work and who did it highly visible (on the board, in Recent Activity, and in Shoutouts) so contribution feels rewarding in real time.
+
+
+Mobile task board experience: Ensure the board remains usable and readable on phones. Cards, claim buttons, and status changes must work well on small screens.
+
+
+Task Board filtering and sorting: Improve or confirm that Top-level / All tasks, category filters, and any sorting options are clear and useful.
+
+
+Task Board loading, error, and success feedback: Add clear loading states, error messages, and success confirmations for claiming, updating progress, completing, and creating tasks.
+
+
+Auto-release and claim limits: Confirm the 14-day idle auto-release and the active claim limit (currently 5) are clearly communicated to users and behave reliably.
+
+
+Add / Edit Task experience: Polish the “Add New Task” flow (and edit flow) so Project Leads and Admins can create clear, well-structured tasks quickly. Ensure required fields and sub-tasks are easy to manage.
+
+
+Task Board permissions and safety: Double-check that only authorized roles can create or edit tasks, and that the experience fails gracefully for unauthorized users.
+
+
+Task Board bulk and quality-of-life tools (lightweight): Consider simple moderator helpers such as quickly moving multiple tasks or marking several as ready for review if they do not add significant complexity.
+
+
+Task Board visual and interaction polish: Consistent spacing, hover/focus states, button feedback, and alignment with the rest of the site’s design language.
+
+
+Task Board performance: Board should feel responsive even as the number of tasks grows.
+
+
+Task Board final review pass: Walk through the full contributor journey (discover task → claim → update progress → complete → see credit) and fix any friction points.
+
+
+Task Board Testing – Visibility: Status columns are immediately clear (To Do, In Progress, Ready for Review, Completed)
+
+
+Task Board Testing – Visibility: Task cards show the most important info at a glance (title, category, claim status, progress)
+
+
+Task Board Testing – Visibility: Empty columns show helpful empty states instead of looking broken
+
+
+Task Board Testing – Claiming: Claim button is obvious and works
+
+
+Task Board Testing – Claiming: Clear feedback appears when a task is successfully claimed
+
+
+Task Board Testing – Claiming: Claim limit (5 active) is communicated and enforced
+
+
+Task Board Testing – Claiming: Idle claims auto-release after 14 days and the user is informed
+
+
+Task Board Testing – Claiming: User can see their current claims easily
+
+
+Task Board Testing – Detail: Opening a task shows full description, sub-tasks, category, difficulty, current claimant, and progress notes
+
+
+Task Board Testing – Detail: Actions (update progress, mark complete, etc.) are clear and work reliably
+
+
+Task Board Testing – Progress & Credit: Completing a task immediately shows up in Recent Activity and Shoutouts
+
+
+Task Board Testing – Progress & Credit: Contributor receives visible credit
+
+
+Task Board Testing – Progress & Credit: Completed column updates correctly
+
+
+Task Board Testing – Creation: “Add New Task” is only visible to authorized users (Project Lead / Admin)
+
+
+Task Board Testing – Creation: Creating a task works and the new task appears in To Do
+
+
+Task Board Testing – Creation: Editing a task works cleanly
+
+
+Task Board Testing – Creation: Unauthorized users cannot create or edit tasks
+
+
+Task Board Testing – Usability: Board is usable on mobile
+
+
+Task Board Testing – Usability: Filters (Top-level / All tasks, categories) work as expected
+
+
+Task Board Testing – Usability: Loading states and error messages are clear
+
+
+Task Board Testing – Usability: Success feedback appears for claim, progress update, and completion
+
+
+Task Board Testing – Overall: Full journey (find task → claim → update → complete → see credit) feels smooth and motivating
+
+
+Task Board Testing – Overall: Nothing feels broken, confusing, or hidden
+
+
+Ship Mechanic Demos / Lab informational version
+
+
+Add consistent images and icons across all pages (Home, Projects, Ideas, Get Involved, Support, Lab, etc.), optimized
+
+
+Build user-generated marketing submission system + public Community Showcase / Creator Spotlights page with clear credit
+
+
+Implement activity feeds and site liveness signals
+
+
+Add Google and Discord SSO + account linking
+
+
+Ideas Tags: Switch from pure free-form auto-creation to a hybrid tags model
+
+
+Ideas Tags: Maintain a curated core set of high-quality tags
+
+
+Ideas Tags: Allow users to type or suggest new tags, but only make them publicly selectable after light moderation or after they reach a small usage threshold
+
+
+Ideas Tags: Replace the simple dropdown with a large, scrollable modal or panel that shows all available tags sorted by usage count (most-used at the top)
+
+
+Ideas Tags: Display tags in a multi-column grid (for example 3–4 per row) so many are visible at once and easy to scan
+
+
+Ideas Tags: Add admin tools — merge similar tags, rename, hide, or delete low-quality tags, and view usage stats
+
+
+Ideas Tags: Ensure the Ideas search/filter page uses the same clean tag selection experience
+
+
+Related Ideas / Add-ons: Allow any idea (not just Mid or Late project ideas) to have related ideas or add-ons linked to it
+
+
+Related Ideas / Add-ons: One level deep for v1 — people can attach an add-on or related idea that points back to a parent idea
+
+
+Related Ideas / Add-ons: Show clear credit on both the parent idea and the add-on
+
+
+Related Ideas / Add-ons: Provide an easy way to see “Ideas that build on this one”
+
+
+Related Ideas / Add-ons: Keep the interface simple and readable
+
+
+Related Ideas / Add-ons: Design so deeper nesting can be added later if needed
+
+14 of 81 items complete
+Mark phase complete
+
+P2
+Payments, Security, Testing, Polish
+0/12 items
+
+Not started
+
+Complete Stripe integration for Support flows
+
+
+Final Stripe end-to-end testing (test mode then live)
+
+
+Full security pass (auth, validation, rate limits, headers, secrets, staging isolation)
+
+
+Implement automated tests for critical paths + manual test checklist
+
+
+Overall polish: mobile, performance, visual consistency, accessibility, empty/error states
+
+
+Final security and testing pass after polish
+
+
+Legal & Policies: Write and publish a Terms of Service page covering accounts, acceptable use, content ownership, moderation rights, bans, and liability limits
+
+
+Legal & Policies: Write and publish a Privacy Policy explaining what data is collected and how it is used
+
+
+Legal & Policies: Write and publish Community Guidelines / Code of Conduct (the practical list of prohibited behavior)
+
+
+Legal & Policies: Require acknowledgment of the Terms of Service (and ideally the Community Guidelines) during signup or first login, using a clear checkbox or “I agree” step
+
+
+Legal & Policies: Link the documents from the footer, signup flow, and any relevant Get Involved or account pages
+
+
+Legal & Policies: Reference the guidelines when enforcing rules so moderation decisions are clearly based on published policy
+
+0 of 12 items complete
+Mark phase complete
+
+P3
+Community Infrastructure
+0/17 items
+
+Not started
+
+Set up TF Discord (channels, rules, welcome, links from site)
+
+
+Define and launch Content Creators Team / Volunteers roles, onboarding, and credit loop
+
+
+Community & Moderation: Define clear roles — Welcome/onboarding helper, Idea reviewer, Discussion moderator, Volunteer coordinator
+
+
+Community & Moderation: Create a simple application or self-nomination form on the Get Involved page (or linked Discord form)
+
+
+Community & Moderation: Write short role descriptions and a lightweight code-of-conduct reminder
+
+
+Community & Moderation: Set up private Discord channels or a shared tracker for active moderators and helpers
+
+
+Community & Moderation: Give moderators/helpers access to the tools they need (idea review queue, report flags, welcome scripts)
+
+
+Community & Moderation: Credit active moderators on the site (profile badges or a “Community Team” section)
+
+
+Community & Moderation: Start with a small trusted group, then open applications once the process is stable
+
+
+Other Skills: Expand Get Involved with a flexible “Offer a skill” section or form (skill area, short description, preferred time commitment, contact preference)
+
+
+Other Skills: Route skill submissions into a private review queue (Discord channel or simple admin view)
+
+
+Other Skills: Match people to actual current needs (documentation, translations, marketing assets, tooling, testing/bug reports)
+
+
+Other Skills: Keep a public or semi-public “Open skill needs” list so people can see where help is wanted
+
+
+Other Skills: Credit every contribution in the same system used for marketing/showcase posts
+
+
+Content Creation: Link the Content Creation card directly to the Community Showcase submission flow
+
+
+Content Creation: Clarify that paid opportunities open later once income is stable; for now it is volunteer with public credit
+
+
+Content Creation: Ensure the submission form and Showcase page are live before promoting this card heavily
+
+0 of 17 items complete
+Mark phase complete
+
+P4
+Deployment
+0/6 items
+
+Not started
+
+Confirm hosting, production env vars, secrets, database, live Stripe keys
+
+
+Domain, SSL, DNS
+
+
+CI/CD pipeline
+
+
+Monitoring, error tracking, analytics, backups
+
+
+Staging environment
+
+
+Soft launch then public go-live + post-deploy smoke tests
+
+0 of 6 items complete
+Mark phase complete
+
+P5
+YouTube Channel
+0/8 items
+
+Not started
+
+Create channel with matching branding and strong About section
+
+
+Set up playlists
+
+
+Record and publish: 1. What is Together Forge?
+
+
+Record and publish: 2. Full site tour / how to submit an idea and get involved
+
+
+Record and publish: 3. Mechanic Demos / Lab overview
+
+
+Record and publish: 4. Flagship project (Forge Unity) status
+
+
+Record and publish: 5. How volunteers and creators can contribute and get credited
+
+
+Record and publish: 6. Short call to creators and streamers
+
+0 of 8 items complete
+Mark phase complete
+
+P6
+Marketing Strategies
+0/6 items
+
+Not started
+
+List favorite aligned game streamers
+
+
+Create respectful, value-adding content that naturally references or features them
+
+
+Invite collaboration / early looks where it fits
+
+
+Amplify community-made marketing via the Showcase system
+
+
+Cross-promote site ↔ YouTube ↔ Discord
+
+
+Track what drives traffic and Discord joins; iterate
+
+0 of 6 items complete

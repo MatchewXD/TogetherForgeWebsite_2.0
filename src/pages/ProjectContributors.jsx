@@ -144,7 +144,7 @@ const ProjectContributors = () => {
             className="inline-flex items-center gap-1.5 text-xs font-mono tracking-widest text-neon-cyan hover:text-white mb-4"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            All contributors
+            Contributors by project
           </Link>
           <div className="flex flex-wrap items-center gap-2 mb-3">
             <div className="section-header mb-0">Contributors</div>
@@ -172,10 +172,16 @@ const ProjectContributors = () => {
               Open workspace
             </Link>
             <Link
+              to="/contributors/all"
+              className="text-sm text-text-muted hover:text-neon-cyan"
+            >
+              All Contributors
+            </Link>
+            <Link
               to="/contributors"
               className="text-sm text-text-muted hover:text-neon-cyan"
             >
-              Browse all projects
+              By project
             </Link>
           </div>
         </div>

@@ -7,8 +7,8 @@
  *  3. Redirect browser to session.url (Stripe-hosted Checkout)
  *
  * Local success/cancel URLs default to current origin, e.g.
- *   http://localhost:5173/support?checkout=success
- *   http://localhost:5173/support?checkout=cancel
+ *   http://localhost:5173/donate?checkout=success
+ *   http://localhost:5173/donate?checkout=cancel
  */
 
 import { useState } from 'react';
@@ -28,8 +28,11 @@ import {
  * @param {string} [props.label='Together Forge Support']
  * @param {'studio'|'runway'} [props.fundType='studio']
  * @param {string} [props.productId] - optional Stripe product (e.g. prod_UvB5nILGYFdPln)
- * @param {string} [props.successPath='/support?checkout=success']
- * @param {string} [props.cancelPath='/support?checkout=cancel']
+ * @param {string} [props.successPath='/donate?checkout=success']
+ * @param {string} [props.cancelPath='/donate?checkout=cancel']
+ * @param {string|null} [props.userId] - signed-in user for project credits
+ * @param {string|null} [props.displayName] - public username when not anonymous
+ * @param {boolean} [props.isAnonymous=true] - false = show name on Contributors
  * @param {string} [props.children]
  * @param {string} [props.className]
  * @param {string} [props.variant]
@@ -42,8 +45,11 @@ const StripeCheckoutButton = ({
   label = 'Together Forge Support',
   fundType = 'studio',
   productId,
-  successPath = '/support?checkout=success',
-  cancelPath = '/support?checkout=cancel',
+  successPath = '/donate?checkout=success',
+  cancelPath = '/donate?checkout=cancel',
+  userId = null,
+  displayName = null,
+  isAnonymous = true,
   children,
   className = '',
   variant = 'primary',
@@ -86,6 +92,10 @@ const StripeCheckoutButton = ({
           productId || import.meta.env.VITE_STRIPE_PRODUCT_ID || undefined,
         successUrl: `${origin}${successPath.startsWith('/') ? successPath : `/${successPath}`}`,
         cancelUrl: `${origin}${cancelPath.startsWith('/') ? cancelPath : `/${cancelPath}`}`,
+        userId: userId || null,
+        displayName: displayName || null,
+        // Default true (anonymous) unless caller opts into public credit
+        isAnonymous: isAnonymous !== false,
       });
       // Redirect happens inside startStripeCheckout
     } catch (err) {

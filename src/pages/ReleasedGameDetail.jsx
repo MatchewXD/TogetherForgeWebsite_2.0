@@ -771,7 +771,7 @@ const ReleasedGameDetail = () => {
                   <Link to={`/projects/${projectSlug}/contributors`}>
                     <Button variant="secondary" className="gap-2">
                       <Users className="w-4 h-4" />
-                      Open Contributors page
+                      Project Contributors
                     </Button>
                   </Link>
                 </Card>
@@ -898,13 +898,13 @@ const ReleasedGameDetail = () => {
 
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">
                     <p className="text-sm text-text-muted max-w-md">
-                      See every category, subcategory, and supporter on the full
-                      credits page for this project.
+                      See every category, subcategory, and supporter on this
+                      project&apos;s Contributors page.
                     </p>
                     <Link to={`/projects/${projectSlug}/contributors`}>
                       <Button className="gap-2 w-full sm:w-auto">
                         <Users className="w-4 h-4" />
-                        Full Contributors page
+                        Project Contributors
                         <ArrowRight className="w-4 h-4" />
                       </Button>
                     </Link>
@@ -940,11 +940,11 @@ const ReleasedGameDetail = () => {
                     </span>
                   </Card>
                 </Link>
-                <Link to="/support" className="block h-full">
+                <Link to="/donate" className="block h-full">
                   <Card interactive className="p-5 h-full flex flex-col">
                     <HandHeart className="w-5 h-5 text-neon-magenta mb-3" />
                     <h3 className="font-semibold text-white mb-1">
-                      Support Together Forge
+                      Donate to Together Forge
                     </h3>
                     <p className="text-sm text-text-muted flex-1">
                       Help fund the next ship. Donations keep independent work

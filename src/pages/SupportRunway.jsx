@@ -1,6 +1,6 @@
 /**
  * Support founder personal runway (living expenses).
- * Separate from studio Support at /support.
+ * Separate from studio Donate page at /donate.
  * One-time or monthly via Stripe helpers; tierId: runway.
  */
 
@@ -146,7 +146,7 @@ const SupportRunway = () => {
             </p>
             <p className="mt-3 text-sm text-text-muted leading-relaxed">
               Separate from{' '}
-              <Link to="/support" className="text-neon-cyan hover:underline">
+              <Link to="/donate" className="text-neon-cyan hover:underline">
                 studio Support
               </Link>
               . Not tax-deductible.

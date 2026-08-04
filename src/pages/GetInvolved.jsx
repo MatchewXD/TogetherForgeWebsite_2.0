@@ -196,10 +196,10 @@ const GetInvolved = () => {
                 size="lg"
                 variant="outline"
                 className="gap-2 w-full sm:w-auto"
-                onClick={() => navigate('/support')}
+                onClick={() => navigate('/donate')}
               >
                 <Heart className="w-4 h-4" />
-                Support
+                Donate
               </Button>
             </div>
           </div>
@@ -481,10 +481,10 @@ const GetInvolved = () => {
                 size="lg"
                 variant="outline"
                 className="gap-2 w-full sm:w-auto"
-                onClick={() => navigate('/support')}
+                onClick={() => navigate('/donate')}
               >
                 <Heart className="w-4 h-4" />
-                Support
+                Donate
               </Button>
             </div>
             <p className="mt-6 text-xs font-mono tracking-widest text-text-muted">

@@ -1,22 +1,54 @@
-import { useEffect, useId } from 'react';
+import { useEffect, useId, useRef } from 'react';
 
 /**
- * Centered dialog. Sits above scanline/navbar (z-50) so actions remain clickable.
+ * Centered dialog. Sits above scanline/navbar so actions remain clickable.
+ * Escape closes; initial focus moves to the close control for keyboard users.
  */
 const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
   const titleId = useId();
+  const closeRef = useRef(null);
+  const panelRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen) return undefined;
 
     document.body.style.overflow = 'hidden';
 
+    // Focus close button when dialog opens (avoids trapping in page behind)
+    const t = window.setTimeout(() => {
+      closeRef.current?.focus?.();
+    }, 0);
+
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.();
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose?.();
+        return;
+      }
+      // Simple focus trap within the dialog panel
+      if (e.key !== 'Tab' || !panelRef.current) return;
+      const focusable = panelRef.current.querySelectorAll(
+        'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+      );
+      const list = [...focusable].filter(
+        (el) => !el.hasAttribute('disabled') && el.offsetParent !== null
+      );
+      if (list.length === 0) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener('keydown', onKey);
 
     return () => {
+      window.clearTimeout(t);
       document.body.style.overflow = 'unset';
       document.removeEventListener('keydown', onKey);
     };
@@ -41,6 +73,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
       }}
     >
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -55,13 +88,14 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
             {title}
           </h2>
           <button
+            ref={closeRef}
             type="button"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               onClose?.();
             }}
-            className="text-text-muted hover:text-text-primary transition-colors p-1 shrink-0"
+            className="text-text-muted hover:text-text-primary transition-colors p-1 shrink-0 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan"
             aria-label="Close dialog"
           >
             ✕

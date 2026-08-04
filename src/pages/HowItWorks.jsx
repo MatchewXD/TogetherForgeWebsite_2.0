@@ -20,31 +20,43 @@ const STEPS = [
   {
     number: '01',
     title: 'Share an idea or offer a skill',
-    desc: 'Pitch a game concept, mechanic, or improvement on the Ideas board, or jump in with a skill. Code, art, audio, testing, writing, moderation, content creation, and feedback all count. You do not need a finished pitch to help.',
+    paragraphs: [
+      'Pitch a game concept, mechanic, system, or improvement on the Ideas board, or jump in with a skill. Code, art, audio, testing, writing, moderation, content creation, and feedback all count. You do not need a finished pitch to help.',
+    ],
     icon: Lightbulb,
   },
   {
     number: '02',
     title: 'Discuss and refine in public',
-    desc: 'The community votes, comments, and pressure-tests ideas. Strong concepts get clearer. Weak ones get honest notes. Everything happens in the open so anyone can follow the conversation.',
+    paragraphs: [
+      'The community votes, comments, and pressure-tests ideas. Strong concepts get clearer. Weak ones get honest notes. Everything happens in the open so anyone can follow the conversation.',
+    ],
     icon: MessageSquare,
   },
   {
     number: '03',
-    title: 'Promising work lands in active projects',
-    desc: 'Project leads and moderators move solid ideas into live workspaces. Right now that means Early: smaller cooperative games we can actually ship. Mid and Late, bigger titles and the long-term MMO vision, open after Early proves the model.',
+    title: 'Official projects select from the best ideas',
+    paragraphs: [
+      'During Early, Mid, and Late Game, Together Forge focuses on a limited number of official games so the community can actually finish and ship them. These game phases are the launch sequence that proves the model.',
+      'Project leads and moderators pull the strongest ideas into those live workspaces. Mechanics, systems, art direction, and other ideas also feed into the official games.',
+      'After the phases, Together Forge continues making games. The Ideas board itself stays open the whole time. Any developer can take ideas from the board, work with the community the same way we do, and build their own games.',
+    ],
     icon: Layers,
   },
   {
     number: '04',
     title: 'Claim tasks and build together',
-    desc: 'Open boards list real work: features, art, bugs, docs, playtests. Claim a task, leave progress notes, and coordinate with other volunteers. One game at a time in Early so the community can focus and finish.',
+    paragraphs: [
+      'Open boards list real work: features, art, bugs, docs, playtests. Claim a task, leave progress notes, and coordinate with other volunteers. In Early we focus on one game at a time so the community can finish what it starts.',
+    ],
     icon: Hammer,
   },
   {
     number: '05',
     title: 'Get credit, then ship',
-    desc: 'Contributors are named in public credits and shoutouts. Finances and major decisions stay transparent. When a build is ready, we release it for the community that made it.',
+    paragraphs: [
+      'Contributors are named in public credits and shoutouts. Finances and major decisions stay transparent. When a build is ready, we release it for the community that made it.',
+    ],
     icon: Award,
   },
 ];
@@ -66,8 +78,8 @@ const HowItWorks = () => {
               From idea to game, with the community
             </h1>
             <p className="text-base sm:text-lg text-text-secondary leading-relaxed max-w-2xl">
-              Together Forge is a community-first studio. Here is the day-to-day
-              process, so you can see where you fit and how work actually ships.
+              Together Forge is a community-first studio. Here is how work
+              actually moves, so you can see where you fit.
             </p>
           </div>
         </div>
@@ -76,9 +88,9 @@ const HowItWorks = () => {
       <div className="container-custom py-12 md:py-16 max-w-4xl">
         {/* Quick orientation */}
         <p className="text-sm sm:text-base text-text-muted leading-relaxed mb-10 md:mb-12 max-w-2xl border-l-2 border-neon-cyan/40 pl-4">
-          Early is live today: smaller cooperative games built in public. Mid and
-          Late come later. Start with an idea, a task, or a conversation. Every
-          skill has a door in.
+          Early is live today: a small number of cooperative games built in
+          public. Mid and Late come later. You can share an idea, claim a task,
+          or simply follow along. Every skill has a door in.
         </p>
 
         {/* Steps */}
@@ -107,16 +119,23 @@ const HowItWorks = () => {
                       {step.title}
                     </h2>
                   </div>
-                  <p className="text-sm sm:text-base text-text-secondary leading-relaxed">
-                    {step.desc}
-                  </p>
+                  <div className="space-y-3">
+                    {step.paragraphs.map((text) => (
+                      <p
+                        key={text.slice(0, 48)}
+                        className="text-sm sm:text-base text-text-secondary leading-relaxed"
+                      >
+                        {text}
+                      </p>
+                    ))}
+                  </div>
                 </div>
               </li>
             );
           })}
         </ol>
 
-        {/* CTA */}
+        {/* CTA — kept as existing Ready? block */}
         <div className="mt-14 md:mt-16 rounded-2xl border border-cyber-border bg-cyber-card/60 p-6 sm:p-8 text-center">
           <div className="section-header justify-center mx-auto mb-3">
             Ready?
