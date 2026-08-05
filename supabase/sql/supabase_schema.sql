@@ -78,6 +78,8 @@ alter table if exists profiles add column if not exists bio text;
 alter table if exists profiles add column if not exists interests text;
 alter table if exists profiles add column if not exists favorite_games text;
 alter table if exists profiles add column if not exists favorite_game_types text;
+alter table if exists profiles add column if not exists banner_url text;
+alter table if exists profiles add column if not exists banner_position text default '50% 50%';
 alter table if exists profiles add column if not exists discord text;
 alter table if exists profiles add column if not exists youtube text;
 alter table if exists profiles add column if not exists twitch text;

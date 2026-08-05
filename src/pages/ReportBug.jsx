@@ -74,6 +74,10 @@ const ReportBug = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (!user) {
+      setError('Sign in to report a bug.');
+      return;
+    }
     setBusy(true);
     try {
       const bug = await bugReportsService.submitBug(
@@ -106,29 +110,34 @@ const ReportBug = () => {
             Report a Bug
           </h1>
           <p className="text-text-secondary mt-3 max-w-2xl text-sm sm:text-base">
-            Help us keep the forge stable. Anyone can report - signing in links
-            the report to your account.
+            Help us keep the forge stable. You need a free account to file a
+            report so we can follow up if needed.
           </p>
         </div>
       </div>
 
       <div className="container-custom py-10 max-w-2xl space-y-6">
         {!user && (
-          <Card className="bg-cyber-card/80 border-neon-cyan/20 py-4 px-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <p className="text-sm text-text-secondary">
-              Optional but helpful:{' '}
-              <span className="text-white">sign in</span> so we can follow up.
+          <Card className="bg-cyber-card/80 border-neon-cyan/30 p-6 sm:p-8 text-center space-y-4">
+            <h2 className="text-xl font-bold text-white">Sign in required</h2>
+            <p className="text-sm text-text-secondary max-w-md mx-auto leading-relaxed">
+              Only signed-in members can report bugs. Log in or create an
+              account, then return here to submit.
             </p>
-            <Link
-              to="/profile"
-              className="text-xs font-mono tracking-widest text-neon-cyan hover:underline shrink-0"
-            >
-              LOG IN / JOIN
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-1">
+              <Link to="/profile">
+                <Button className="w-full sm:w-auto">Log in / Join</Button>
+              </Link>
+              <Link to="/bugs">
+                <Button variant="secondary" className="w-full sm:w-auto">
+                  View bug tracker
+                </Button>
+              </Link>
+            </div>
           </Card>
         )}
 
-        {submittedId ? (
+        {user && submittedId ? (
           <Card className="bg-cyber-card/80 text-center py-12 space-y-4">
             <CheckCircle2 className="w-12 h-12 text-semantic-success mx-auto" />
             <h2 className="text-xl font-bold text-white">Report received</h2>
@@ -156,7 +165,7 @@ const ReportBug = () => {
               </Button>
             </div>
           </Card>
-        ) : (
+        ) : user ? (
           <Card className="bg-cyber-card/80">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="flex items-center gap-2 text-neon-cyan mb-2">
@@ -297,34 +306,6 @@ const ReportBug = () => {
                 </div>
               </div>
 
-              {!user && (
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className={fieldLabel} htmlFor="bug-name">
-                      YOUR NAME (optional)
-                    </label>
-                    <input
-                      id="bug-name"
-                      className={fieldControl}
-                      value={reporterName}
-                      onChange={(e) => setReporterName(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className={fieldLabel} htmlFor="bug-email">
-                      EMAIL (optional)
-                    </label>
-                    <input
-                      id="bug-email"
-                      type="email"
-                      className={fieldControl}
-                      value={reporterEmail}
-                      onChange={(e) => setReporterEmail(e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-
               {error && (
                 <div
                   role="alert"
@@ -350,7 +331,7 @@ const ReportBug = () => {
               </Button>
             </form>
           </Card>
-        )}
+        ) : null}
       </div>
     </div>
   );

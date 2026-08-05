@@ -1,5 +1,15 @@
 import { supabase } from '../lib/supabase';
 
+/** Optional supporting image on ideas */
+export const IDEA_IMAGE_BUCKET = 'idea-images';
+export const IDEA_IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5MB
+export const IDEA_IMAGE_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+];
+
 /**
  * Normalize a profiles row into a stable creator/commenter shape.
  * Always includes both avatar_url and avatarUrl for UI flexibility.
@@ -226,6 +236,40 @@ export function filterPublicIdeas(ideas = []) {
 }
 
 /**
+ * Resolve the public URL for an idea's optional supporting image.
+ * Prefers image_url column; falls back to guided_data.supporting_image_url
+ * when the dedicated column was never migrated.
+ */
+export function getIdeaImageUrl(idea) {
+  if (!idea) return null;
+  const trim = (v) => {
+    if (v == null) return null;
+    const s = String(v).trim();
+    return s || null;
+  };
+  const direct = trim(idea.image_url ?? idea.imageUrl);
+  if (direct) return direct;
+
+  let guided = idea.guided_data;
+  if (typeof guided === 'string') {
+    try {
+      guided = JSON.parse(guided);
+    } catch {
+      guided = null;
+    }
+  }
+  if (guided && typeof guided === 'object' && !Array.isArray(guided)) {
+    return trim(
+      guided.supporting_image_url ??
+        guided.supportingImageUrl ??
+        guided.image_url ??
+        guided.imageUrl
+    );
+  }
+  return null;
+}
+
+/**
  * Map a rich form payload into columns that exist on the base ideas table
  * (see supabase/sql/supabase_schema.sql) plus optional project_id, status, guided_data.
  */
@@ -298,6 +342,24 @@ export function buildSafeIdeaPayload(raw = {}) {
     guided_data: guided,
     user_id: raw.user_id || null,
   };
+
+  // Optional primary supporting image (public Storage URL).
+  // Dual-write into guided_data so the image still shows if image_url
+  // column is missing but guided_data exists.
+  const imageUrl = asText(raw.image_url ?? raw.imageUrl);
+  if (imageUrl) {
+    payload.image_url = imageUrl;
+    const baseGuided =
+      payload.guided_data &&
+      typeof payload.guided_data === 'object' &&
+      !Array.isArray(payload.guided_data)
+        ? payload.guided_data
+        : {};
+    payload.guided_data = {
+      ...baseGuided,
+      supporting_image_url: imageUrl,
+    };
+  }
 
   if (Array.isArray(guided.features) && guided.features.length) {
     payload.features = guided.features;
@@ -737,6 +799,7 @@ export const ideasService = {
           'guided_data',
           'status',
           'project_id',
+          'image_url',
           'twitch_integration',
           'environmental_storytelling',
           'economy_description',
@@ -791,6 +854,11 @@ export const ideasService = {
     if (!userId) throw new Error('You must be signed in to publish an idea.');
     if (!(idea.title || '').trim()) throw new Error('Title is required.');
 
+    const intendedImage =
+      (typeof idea.image_url === 'string' && idea.image_url.trim()) ||
+      (typeof idea.imageUrl === 'string' && idea.imageUrl.trim()) ||
+      null;
+
     const payload = buildSafeIdeaPayload({
       ...idea,
       status: 'Proposed',
@@ -804,21 +872,53 @@ export const ideasService = {
       // Keep existing votes if any
       delete body.votes;
 
-      const { data, error } = await supabase
+      let data = null;
+      let error = null;
+      ({ data, error } = await supabase
         .from('ideas')
         .update(body)
         .eq('id', draftId)
         .eq('user_id', userId)
         .select()
-        .maybeSingle();
+        .maybeSingle());
 
-      if (error) throw new Error(error.message || 'Failed to publish draft');
+      // Strip optional missing columns and retry (same as create/saveDraft)
+      if (error) {
+        let retryBody = { ...body };
+        let lastErr = error;
+        for (let i = 0; i < 6; i++) {
+          const { payload: next, stripped } = this._stripOptionalColumns(
+            retryBody,
+            lastErr
+          );
+          if (!stripped) break;
+          retryBody = next;
+          const retry = await supabase
+            .from('ideas')
+            .update(retryBody)
+            .eq('id', draftId)
+            .eq('user_id', userId)
+            .select()
+            .maybeSingle();
+          data = retry.data;
+          lastErr = retry.error;
+          if (!lastErr) {
+            error = null;
+            break;
+          }
+        }
+        if (lastErr) {
+          throw new Error(lastErr.message || 'Failed to publish draft');
+        }
+      }
+
       if (!data) {
         throw new Error(
           'Draft not found or you do not have permission to publish it.'
         );
       }
-      return data;
+
+      return this._ensureIdeaImagePersisted(data, intendedImage, userId);
     }
 
     return this.createIdea({
@@ -853,7 +953,13 @@ export const ideasService = {
    */
   _stripOptionalColumns(payload, error) {
     if (!error || !payload) return { payload, stripped: null };
-    const optional = ['features', 'guided_data', 'status', 'project_id'];
+    const optional = [
+      'features',
+      'guided_data',
+      'status',
+      'project_id',
+      'image_url',
+    ];
     for (const col of optional) {
       if (payload[col] !== undefined && isMissingColumnError(error, col)) {
         const next = { ...payload };
@@ -865,8 +971,216 @@ export const ideasService = {
   },
 
   /**
+   * Persist image_url on an existing idea row (owner update).
+   * Also merges supporting_image_url into guided_data when possible.
+   * @returns {Promise<object|null>} updated row, or null if column/update failed
+   */
+  async setIdeaImageUrl(ideaId, imageUrl, userId) {
+    const id = Number(ideaId);
+    if (!Number.isFinite(id) || !imageUrl || !userId) return null;
+
+    const url = String(imageUrl).trim();
+    if (!url) return null;
+
+    // Primary: dedicated column
+    let { data, error } = await supabase
+      .from('ideas')
+      .update({ image_url: url })
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select()
+      .maybeSingle();
+
+    if (!error && data) {
+      // Best-effort dual-write into guided_data
+      try {
+        let guided = data.guided_data;
+        if (typeof guided === 'string') {
+          try {
+            guided = JSON.parse(guided);
+          } catch {
+            guided = {};
+          }
+        }
+        if (!guided || typeof guided !== 'object' || Array.isArray(guided)) {
+          guided = {};
+        }
+        if (guided.supporting_image_url !== url) {
+          const merged = { ...guided, supporting_image_url: url };
+          const gUp = await supabase
+            .from('ideas')
+            .update({ guided_data: merged })
+            .eq('id', id)
+            .eq('user_id', userId)
+            .select()
+            .maybeSingle();
+          if (!gUp.error && gUp.data) data = gUp.data;
+          else data = { ...data, image_url: url, guided_data: merged };
+        }
+      } catch {
+        /* optional */
+      }
+      return { ...data, image_url: data.image_url || url };
+    }
+
+    // Column missing: store URL inside guided_data only
+    if (error && isMissingColumnError(error, 'image_url')) {
+      const { data: existing } = await supabase
+        .from('ideas')
+        .select('id, guided_data')
+        .eq('id', id)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (!existing) return null;
+
+      let guided = existing.guided_data;
+      if (typeof guided === 'string') {
+        try {
+          guided = JSON.parse(guided);
+        } catch {
+          guided = {};
+        }
+      }
+      if (!guided || typeof guided !== 'object' || Array.isArray(guided)) {
+        guided = {};
+      }
+      const merged = { ...guided, supporting_image_url: url };
+      const gUp = await supabase
+        .from('ideas')
+        .update({ guided_data: merged })
+        .eq('id', id)
+        .eq('user_id', userId)
+        .select()
+        .maybeSingle();
+      if (gUp.error || !gUp.data) {
+        console.warn(
+          '[ideasService.setIdeaImageUrl] guided_data fallback failed',
+          gUp.error || error
+        );
+        return null;
+      }
+      return {
+        ...gUp.data,
+        image_url: url,
+        _image_url_in_guided_only: true,
+      };
+    }
+
+    if (error) {
+      console.warn('[ideasService.setIdeaImageUrl]', error);
+    }
+    return null;
+  },
+
+  /**
+   * After create/publish: if an image URL was intended but not on the row, attach it.
+   */
+  async _ensureIdeaImagePersisted(row, intendedUrl, userId) {
+    if (!row?.id || !intendedUrl) return row;
+    if (getIdeaImageUrl(row) === String(intendedUrl).trim()) {
+      return { ...row, image_url: row.image_url || intendedUrl };
+    }
+    // Already has a different URL stored (unlikely on create)
+    if (getIdeaImageUrl(row)) {
+      return row;
+    }
+
+    const attached = await this.setIdeaImageUrl(row.id, intendedUrl, userId);
+    if (attached) {
+      return {
+        ...row,
+        ...attached,
+        image_url: attached.image_url || intendedUrl,
+      };
+    }
+
+    return {
+      ...row,
+      _image_url_not_persisted: true,
+      _intended_image_url: intendedUrl,
+    };
+  },
+
+  /**
+   * Upload optional idea image to Supabase Storage.
+   * Path: {userId}/{timestamp}-{rand}.ext
+   * @param {File} file
+   * @param {string} userId
+   * @returns {Promise<string>} public URL
+   */
+  async uploadIdeaImage(file, userId) {
+    if (!file) return null;
+    if (!userId) throw new Error('Sign in to upload an image.');
+    if (!IDEA_IMAGE_TYPES.includes(file.type)) {
+      throw new Error('Image must be JPEG, PNG, WebP, or GIF.');
+    }
+    if (file.size > IDEA_IMAGE_MAX_BYTES) {
+      throw new Error('Image must be under 5MB.');
+    }
+
+    const ext =
+      (file.name && file.name.split('.').pop()?.toLowerCase()) ||
+      (file.type === 'image/png' ? 'png' : 'jpg');
+    const safeExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)
+      ? ext
+      : 'jpg';
+    const path = `${userId}/${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}.${safeExt}`;
+
+    const { error: upErr } = await supabase.storage
+      .from(IDEA_IMAGE_BUCKET)
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type,
+      });
+
+    if (upErr) {
+      if (/bucket|not found|does not exist/i.test(upErr.message || '')) {
+        throw new Error(
+          'Image storage is not set up. Create a public "idea-images" bucket or run supabase/sql/supabase_ideas_image.sql.'
+        );
+      }
+      throw upErr;
+    }
+
+    const { data } = supabase.storage
+      .from(IDEA_IMAGE_BUCKET)
+      .getPublicUrl(path);
+    return data?.publicUrl || null;
+  },
+
+  /**
+   * Best-effort remove a stored idea image by public URL (owner folder only).
+   */
+  async deleteIdeaImageByUrl(publicUrl, userId) {
+    if (!publicUrl || !userId) return false;
+    try {
+      const marker = `/${IDEA_IMAGE_BUCKET}/`;
+      const idx = String(publicUrl).indexOf(marker);
+      if (idx === -1) return false;
+      const path = decodeURIComponent(
+        String(publicUrl).slice(idx + marker.length).split('?')[0]
+      );
+      if (!path.startsWith(`${userId}/`)) return false;
+      const { error } = await supabase.storage
+        .from(IDEA_IMAGE_BUCKET)
+        .remove([path]);
+      if (error) {
+        console.warn('[ideasService] deleteIdeaImage', error);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.warn('[ideasService] deleteIdeaImage', err);
+      return false;
+    }
+  },
+
+  /**
    * Insert a new idea. Uses a schema-safe payload and retries without
-   * optional columns (guided_data, status, project_id, features) if missing.
+   * optional columns (guided_data, status, project_id, features, image_url) if missing.
    */
   async createIdea(idea) {
     let payload = buildSafeIdeaPayload(idea);
@@ -874,6 +1188,12 @@ export const ideasService = {
     if (!payload.title) {
       throw new Error('Title is required.');
     }
+
+    const intendedImage =
+      (typeof idea.image_url === 'string' && idea.image_url.trim()) ||
+      (typeof idea.imageUrl === 'string' && idea.imageUrl.trim()) ||
+      (typeof payload.image_url === 'string' && payload.image_url.trim()) ||
+      null;
 
     const attempt = async (body) => {
       const { data, error } = await supabase
@@ -890,10 +1210,11 @@ export const ideasService = {
       _project_id_not_persisted: false,
       _guided_data_not_persisted: false,
       _status_not_persisted: false,
+      _image_url_stripped: false,
     };
 
     // Up to a few strip-and-retry cycles for missing columns
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 6; i++) {
       ({ data, error } = await attempt(payload));
       if (!error) break;
 
@@ -901,11 +1222,12 @@ export const ideasService = {
       if (!stripped) break;
 
       console.warn(
-        `[ideasService.createIdea] column "${stripped}" missing - retrying without it. Run supabase/sql/supabase_ideas_guided.sql`
+        `[ideasService.createIdea] column "${stripped}" missing - retrying without it. Run supabase/sql/supabase_ideas_image.sql or supabase_ideas_guided.sql as needed.`
       );
       if (stripped === 'project_id') meta._project_id_not_persisted = true;
       if (stripped === 'guided_data') meta._guided_data_not_persisted = true;
       if (stripped === 'status') meta._status_not_persisted = true;
+      if (stripped === 'image_url') meta._image_url_stripped = true;
       payload = next;
     }
 
@@ -922,9 +1244,11 @@ export const ideasService = {
       };
       if (payload.project_id) minimal.project_id = payload.project_id;
       if (payload.status) minimal.status = payload.status;
+      if (payload.image_url) minimal.image_url = payload.image_url;
+      if (payload.guided_data) minimal.guided_data = payload.guided_data;
 
       let body = minimal;
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 6; i++) {
         const retry = await attempt(body);
         data = retry.data;
         error = retry.error;
@@ -932,6 +1256,9 @@ export const ideasService = {
         const { payload: next, stripped } = this._stripOptionalColumns(body, error);
         if (!stripped) break;
         if (stripped === 'project_id') meta._project_id_not_persisted = true;
+        if (stripped === 'guided_data') meta._guided_data_not_persisted = true;
+        if (stripped === 'status') meta._status_not_persisted = true;
+        if (stripped === 'image_url') meta._image_url_stripped = true;
         body = next;
       }
     }
@@ -954,6 +1281,15 @@ export const ideasService = {
     }
     if (meta._status_not_persisted) {
       data = { ...data, status: 'Proposed', _status_not_persisted: true };
+    }
+
+    // Always try to attach the image after insert (handles strip + race cases)
+    if (intendedImage) {
+      data = await this._ensureIdeaImagePersisted(
+        data,
+        intendedImage,
+        idea.user_id || payload.user_id
+      );
     }
 
     return data;

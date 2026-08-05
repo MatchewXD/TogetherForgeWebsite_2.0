@@ -22,6 +22,7 @@ import {
   Trash2,
   MessageCircle,
   Sparkles,
+  Film,
 } from 'lucide-react';
 
 import { supabase } from '../lib/supabase';
@@ -31,6 +32,7 @@ import tasksService, {
   CLAIM_LIMIT_UNLOCK_COMPLETIONS,
 } from '../services/tasksService';
 import { ideasService } from '../services/ideasService';
+import { listMyShowcaseSubmissions } from '../services/showcaseService';
 import UserAvatar from '../components/ui/UserAvatar';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
@@ -46,8 +48,22 @@ import {
   ideaHasNewActivity,
   formatIdeaActivityHint,
 } from '../utils/ideaActivity';
+import useIsModerator from '../hooks/useIsModerator';
+
+function showcaseStatusVariant(status) {
+  if (status === 'approved') return 'neon';
+  if (status === 'rejected') return 'danger';
+  return 'warning';
+}
+
+function showcaseStatusLabel(status) {
+  if (status === 'approved') return 'Approved';
+  if (status === 'rejected') return 'Rejected';
+  return 'Pending review';
+}
 
 const Dashboard = () => {
+  const { isModerator } = useIsModerator();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -57,6 +73,7 @@ const Dashboard = () => {
   const [ideaCount, setIdeaCount] = useState(0);
   const [myIdeas, setMyIdeas] = useState([]);
   const [myDrafts, setMyDrafts] = useState([]);
+  const [showcaseSubs, setShowcaseSubs] = useState([]);
   const [deletingDraftId, setDeletingDraftId] = useState(null);
   const [error, setError] = useState('');
 
@@ -78,12 +95,20 @@ const Dashboard = () => {
         setIdeaCount(0);
         setMyIdeas([]);
         setMyDrafts([]);
+        setShowcaseSubs([]);
         setLoading(false);
         return;
       }
 
-      const [profileRes, quotaRes, claimsRes, joinsRes, ideasRes, draftsRes] =
-        await Promise.all([
+      const [
+        profileRes,
+        quotaRes,
+        claimsRes,
+        joinsRes,
+        ideasRes,
+        draftsRes,
+        showcaseRes,
+      ] = await Promise.all([
           supabase
             .from('profiles')
             .select('id, username, avatar_url, bio, email')
@@ -98,6 +123,10 @@ const Dashboard = () => {
           }),
           ideasService.getMyDrafts(current.id).catch((err) => {
             console.warn('[Dashboard] getMyDrafts', err);
+            return [];
+          }),
+          listMyShowcaseSubmissions().catch((err) => {
+            console.warn('[Dashboard] listMyShowcaseSubmissions', err);
             return [];
           }),
         ]);
@@ -138,6 +167,7 @@ const Dashboard = () => {
       setQuota(quotaRes?.signedIn ? quotaRes : null);
       setClaims(claimsRes || []);
       setJoinRequests(joinsRes || []);
+      setShowcaseSubs(showcaseRes || []);
       setMyIdeas(withActivity);
       setIdeaCount(withActivity.length);
       setMyDrafts(draftsRes || []);
@@ -157,16 +187,22 @@ const Dashboard = () => {
     return () => listener.subscription.unsubscribe();
   }, [load]);
 
-  // Deep-link: /dashboard#my-drafts | #my-ideas
+  // Deep-link: /dashboard#my-drafts | #my-ideas | #showcase-submissions
   useEffect(() => {
     if (loading) return;
     const hash = window.location.hash;
-    if (hash !== '#my-drafts' && hash !== '#my-ideas') return;
+    if (
+      hash !== '#my-drafts' &&
+      hash !== '#my-ideas' &&
+      hash !== '#showcase-submissions'
+    ) {
+      return;
+    }
     const el = document.getElementById(hash.slice(1));
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-  }, [loading, myDrafts.length, myIdeas.length]);
+  }, [loading, myDrafts.length, myIdeas.length, showcaseSubs.length]);
 
   const handleDeleteDraft = async (draftId) => {
     if (!user?.id || !draftId) return;
@@ -225,6 +261,8 @@ const Dashboard = () => {
   const claimLimit = quota?.claimLimit ?? NEW_USER_CLAIM_LIMIT;
   const slotsLeft = Math.max(0, claimLimit - activeCount);
   const displayName = profile?.username || user?.email || 'Volunteer';
+  const pendingShowcase = showcaseSubs.filter((s) => s.status === 'pending');
+  const showcasePendingCount = pendingShowcase.length;
 
   return (
     <div className="pt-20 min-h-screen bg-cyber-bg">
@@ -492,6 +530,127 @@ const Dashboard = () => {
                               className="text-xs text-neon-cyan hover:underline mt-2 inline-block"
                             >
                               View project →
+                            </Link>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </Card>
+
+                {/* Showcase submissions status */}
+                <Card
+                  id="showcase-submissions"
+                  className="bg-cyber-card/80 scroll-mt-24"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <div className="text-sm font-mono tracking-widest text-neon-cyan flex items-center gap-2">
+                      <Film className="w-4 h-4" />
+                      SHOWCASE SUBMISSIONS
+                      {showcasePendingCount > 0 && (
+                        <Badge variant="warning">
+                          {showcasePendingCount} pending
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-3 text-xs">
+                      <Link
+                        to="/showcase/submit"
+                        className="text-neon-cyan hover:underline"
+                      >
+                        Submit content
+                      </Link>
+                      <Link
+                        to="/showcase"
+                        className="text-text-muted hover:text-neon-cyan"
+                      >
+                        View Showcase
+                      </Link>
+                      {isModerator && (
+                        <Link
+                          to="/showcase/moderate"
+                          className="text-forge-gold hover:underline"
+                        >
+                          Moderate queue
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+
+                  {showcaseSubs.length === 0 ? (
+                    <div className="text-sm text-text-secondary py-4 text-center border border-dashed border-white/10 rounded-lg">
+                      <p className="mb-2">
+                        No Showcase submissions yet. Share a clip, stream, or
+                        art for community review.
+                      </p>
+                      <p className="text-xs text-text-muted mb-3">
+                        Sign in when you submit so status shows up here.
+                      </p>
+                      <Link
+                        to="/showcase/submit"
+                        className="btn-neon text-xs px-4 py-2 inline-flex"
+                      >
+                        SUBMIT CONTENT
+                      </Link>
+                    </div>
+                  ) : (
+                    <ul className="space-y-3">
+                      {showcaseSubs.map((s) => (
+                        <li
+                          key={s.id}
+                          className="rounded-lg border border-white/10 bg-cyber-surface/50 p-4"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="font-medium text-white truncate">
+                                {s.title}
+                              </div>
+                              <div className="text-xs text-text-muted mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <span className="capitalize">{s.type}</span>
+                                {s.createdAt && (
+                                  <>
+                                    <span>·</span>
+                                    <span>
+                                      Submitted{' '}
+                                      {new Date(
+                                        s.createdAt
+                                      ).toLocaleDateString()}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                              {s.status === 'pending' && (
+                                <p className="text-xs text-text-secondary mt-2">
+                                  In the moderation queue. This usually takes a
+                                  few days.
+                                </p>
+                              )}
+                              {s.status === 'approved' && (
+                                <p className="text-xs text-neon-cyan mt-2">
+                                  Live on the Showcase
+                                  {s.isFeatured ? ' · Featured' : ''}.
+                                </p>
+                              )}
+                              {s.status === 'rejected' && (
+                                <p className="text-xs text-text-secondary mt-2">
+                                  Not approved
+                                  {s.moderatorNote
+                                    ? `: ${s.moderatorNote}`
+                                    : '.'}{' '}
+                                  You can submit a revised version anytime.
+                                </p>
+                              )}
+                            </div>
+                            <Badge variant={showcaseStatusVariant(s.status)}>
+                              {showcaseStatusLabel(s.status)}
+                            </Badge>
+                          </div>
+                          {s.status === 'approved' && (
+                            <Link
+                              to="/showcase"
+                              className="text-xs text-neon-cyan hover:underline mt-2 inline-block"
+                            >
+                              Open Showcase →
                             </Link>
                           )}
                         </li>

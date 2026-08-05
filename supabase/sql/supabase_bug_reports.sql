@@ -80,7 +80,8 @@ create trigger trg_bug_reports_updated_at
 -- Grants (required for anon/authenticated API access)
 -- ---------------------------------------------------------------------------
 grant usage on schema public to anon, authenticated;
-grant select, insert on table public.bug_reports to anon, authenticated;
+grant select on table public.bug_reports to anon, authenticated;
+grant insert on table public.bug_reports to authenticated;
 grant update, delete on table public.bug_reports to authenticated;
 
 -- ---------------------------------------------------------------------------
@@ -95,11 +96,12 @@ create policy "Public can read bug reports"
   using (true);
 
 drop policy if exists "Anyone can submit bug reports" on public.bug_reports;
-create policy "Anyone can submit bug reports"
+drop policy if exists "Authenticated users can submit bug reports" on public.bug_reports;
+create policy "Authenticated users can submit bug reports"
   on public.bug_reports for insert
-  to anon, authenticated
+  to authenticated
   with check (
-    (reporter_id is null or reporter_id = auth.uid())
+    reporter_id = auth.uid()
     and length(trim(title)) >= 3
     and length(trim(description)) >= 10
   );
@@ -141,8 +143,10 @@ begin
     using (bucket_id = 'bug-screenshots');
 
   drop policy if exists "Anyone can upload bug screenshots" on storage.objects;
-  create policy "Anyone can upload bug screenshots"
+  drop policy if exists "Authenticated can upload bug screenshots" on storage.objects;
+  create policy "Authenticated can upload bug screenshots"
     on storage.objects for insert
+    to authenticated
     with check (
       bucket_id = 'bug-screenshots'
       and (storage.extension(name) in ('jpg', 'jpeg', 'png', 'webp', 'gif'))

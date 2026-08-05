@@ -4,7 +4,7 @@
  * Access: useIsModerator (moderator | admin | project_lead).
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Shield,
@@ -18,24 +18,36 @@ import {
   Ban,
   PauseCircle,
   CheckCircle2,
+  Film,
+  LayoutGrid,
+  Search,
 } from 'lucide-react';
 
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
+import Modal from '../components/ui/Modal';
 import UserAvatar from '../components/ui/UserAvatar';
 import LoadingScreen from '../components/ui/LoadingScreen';
 import useIsModerator from '../hooks/useIsModerator';
 import moderationService, {
   WORKFLOW_STATUSES,
+  MODERATION_STATUSES,
 } from '../services/moderationService';
 import { STATUS_LABELS } from '../utils/ideaStatus';
+import { listShowcaseForModeration } from '../services/showcaseService';
 
 const TABS = [
   { id: 'users', label: 'Users', icon: Users },
   { id: 'ideas', label: 'Ideas', icon: Lightbulb },
   { id: 'reports', label: 'Reports', icon: Flag },
 ];
+
+const filterControl =
+  'w-full min-w-0 bg-cyber-surface border border-cyber-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-neon-cyan';
+
+const filterLabel =
+  'block text-[10px] font-mono tracking-widest uppercase text-text-muted mb-1';
 
 const formatDate = (iso) => {
   if (!iso) return 'n/a';
@@ -50,6 +62,16 @@ const formatDate = (iso) => {
   }
 };
 
+function joinTime(u) {
+  const t = Date.parse(u?.joined_at || u?.created_at || '');
+  return Number.isFinite(t) ? t : 0;
+}
+
+function ideaTime(idea) {
+  const t = Date.parse(idea?.created_at || '');
+  return Number.isFinite(t) ? t : 0;
+}
+
 const ModeratorDashboard = () => {
   const navigate = useNavigate();
   const { isModerator, loading: roleLoading } = useIsModerator();
@@ -63,6 +85,24 @@ const ModeratorDashboard = () => {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [busyKey, setBusyKey] = useState(null);
+  const [showcasePendingCount, setShowcasePendingCount] = useState(0);
+  /**
+   * In-app confirm dialog (replaces window.confirm).
+   * @type {null | { title: string, message: string, confirmLabel?: string, onConfirm: () => void }}
+   */
+  const [confirmDialog, setConfirmDialog] = useState(null);
+
+  // Users filters / sort
+  const [userSearch, setUserSearch] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState('all');
+  const [userStatusFilter, setUserStatusFilter] = useState('all');
+  const [userSort, setUserSort] = useState('newest');
+
+  // Ideas filters / sort
+  const [ideaSearch, setIdeaSearch] = useState('');
+  const [ideaStatusFilter, setIdeaStatusFilter] = useState('all');
+  const [ideaCategoryFilter, setIdeaCategoryFilter] = useState('all');
+  const [ideaSort, setIdeaSort] = useState('newest');
 
   const showToast = (msg) => {
     setToast(msg);
@@ -75,9 +115,10 @@ const ModeratorDashboard = () => {
     setError('');
     // Load independently so a missing reports table does not break users/ideas
     const results = await Promise.allSettled([
-      moderationService.listUsers({ limit: 60 }),
-      moderationService.listIdeas({ limit: 50 }),
+      moderationService.listUsers({ limit: 200 }),
+      moderationService.listIdeas({ limit: 200 }),
       moderationService.listReports({ status: 'all', limit: 50 }),
+      listShowcaseForModeration({ status: 'pending', limit: 100 }),
     ]);
 
     const errs = [];
@@ -109,6 +150,12 @@ const ModeratorDashboard = () => {
       // Do not treat missing reports table as a hard page error
     }
 
+    if (results[3].status === 'fulfilled') {
+      setShowcasePendingCount((results[3].value || []).length);
+    } else {
+      setShowcasePendingCount(0);
+    }
+
     if (errs.length) setError(errs.join(' · '));
     setLoading(false);
   }, [isModerator]);
@@ -116,6 +163,105 @@ const ModeratorDashboard = () => {
   useEffect(() => {
     if (!roleLoading && isModerator) load();
   }, [roleLoading, isModerator, load]);
+
+  const userRoles = useMemo(() => {
+    const set = new Set();
+    for (const u of users) {
+      const r = String(u.role || 'user').trim();
+      if (r) set.add(r);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [users]);
+
+  const ideaCategories = useMemo(() => {
+    const set = new Set();
+    for (const idea of ideas) {
+      const c = String(idea.category || '').trim();
+      if (c) set.add(c);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [ideas]);
+
+  const filteredUsers = useMemo(() => {
+    const q = userSearch.trim().toLowerCase();
+    let list = users.filter((u) => {
+      const status = u.moderation_status || 'active';
+      const role = String(u.role || 'user');
+      if (userRoleFilter !== 'all' && role !== userRoleFilter) return false;
+      if (userStatusFilter !== 'all' && status !== userStatusFilter) return false;
+      if (q) {
+        const hay = `${u.username || ''} ${u.email || ''} ${u.id || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    list = [...list];
+    list.sort((a, b) => {
+      switch (userSort) {
+        case 'oldest':
+          return joinTime(a) - joinTime(b);
+        case 'name_az':
+          return String(a.username || '').localeCompare(
+            String(b.username || ''),
+            undefined,
+            { sensitivity: 'base' }
+          );
+        case 'name_za':
+          return String(b.username || '').localeCompare(
+            String(a.username || ''),
+            undefined,
+            { sensitivity: 'base' }
+          );
+        case 'role':
+          return String(a.role || '').localeCompare(String(b.role || ''));
+        case 'newest':
+        default:
+          return joinTime(b) - joinTime(a);
+      }
+    });
+    return list;
+  }, [users, userSearch, userRoleFilter, userStatusFilter, userSort]);
+
+  const filteredIdeas = useMemo(() => {
+    const q = ideaSearch.trim().toLowerCase();
+    let list = ideas.filter((idea) => {
+      const status = idea.status || 'Proposed';
+      const category = String(idea.category || '').trim();
+      if (ideaStatusFilter !== 'all' && status !== ideaStatusFilter) return false;
+      if (ideaCategoryFilter !== 'all' && category !== ideaCategoryFilter) {
+        return false;
+      }
+      if (q) {
+        const hay =
+          `${idea.title || ''} ${idea.summary || ''} ${idea.category || ''} ${idea.id || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    list = [...list];
+    list.sort((a, b) => {
+      switch (ideaSort) {
+        case 'oldest':
+          return ideaTime(a) - ideaTime(b);
+        case 'votes_high':
+          return (Number(b.votes) || 0) - (Number(a.votes) || 0);
+        case 'votes_low':
+          return (Number(a.votes) || 0) - (Number(b.votes) || 0);
+        case 'title_az':
+          return String(a.title || '').localeCompare(
+            String(b.title || ''),
+            undefined,
+            { sensitivity: 'base' }
+          );
+        case 'newest':
+        default:
+          return ideaTime(b) - ideaTime(a);
+      }
+    });
+    return list;
+  }, [ideas, ideaSearch, ideaStatusFilter, ideaCategoryFilter, ideaSort]);
 
   const runAction = async (key, fn, successMsg) => {
     setBusyKey(key);
@@ -196,14 +342,6 @@ const ModeratorDashboard = () => {
                 Basic user, idea, and report tools. Keep it light. Prefer archive
                 over hard delete when possible.
               </p>
-              <p className="mt-3 text-sm">
-                <Link
-                  to="/media/edit"
-                  className="text-neon-cyan hover:text-white font-semibold"
-                >
-                  Manage Official Media →
-                </Link>
-              </p>
             </div>
             <Button
               variant="secondary"
@@ -220,7 +358,44 @@ const ModeratorDashboard = () => {
             </Button>
           </div>
 
-          <div className="mt-8 flex flex-wrap gap-2" role="tablist">
+          {/* Content queues */}
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link to="/media/edit" className="inline-flex">
+              <Button
+                type="button"
+                variant="secondary"
+                className="gap-2 min-h-[2.75rem]"
+              >
+                <Film className="w-4 h-4 text-neon-cyan" aria-hidden />
+                Official Media
+                <span className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
+                  Queue
+                </span>
+                <ExternalLink className="w-3.5 h-3.5 opacity-60" aria-hidden />
+              </Button>
+            </Link>
+            <Link to="/showcase/moderate" className="inline-flex">
+              <Button
+                type="button"
+                variant="secondary"
+                className="gap-2 min-h-[2.75rem]"
+              >
+                <LayoutGrid className="w-4 h-4 text-neon-purple" aria-hidden />
+                Showcase Moderation
+                <span className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
+                  Queue
+                </span>
+                {showcasePendingCount > 0 && (
+                  <span className="text-xs font-mono tabular-nums bg-neon-magenta/20 text-neon-magenta px-1.5 py-0.5 rounded">
+                    {showcasePendingCount}
+                  </span>
+                )}
+                <ExternalLink className="w-3.5 h-3.5 opacity-60" aria-hidden />
+              </Button>
+            </Link>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-2" role="tablist">
             {TABS.map((t) => {
               const Icon = t.icon;
               const active = tab === t.id;
@@ -267,16 +442,130 @@ const ModeratorDashboard = () => {
         {/* ---------- Users ---------- */}
         {tab === 'users' && (
           <section aria-labelledby="users-heading">
-            <h2 id="users-heading" className="sr-only">
-              Users
-            </h2>
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-4">
+              <div>
+                <h2
+                  id="users-heading"
+                  className="text-xl sm:text-2xl font-bold text-white tracking-tight"
+                >
+                  All Users
+                </h2>
+                <p className="text-xs font-mono text-text-muted mt-1">
+                  Showing {filteredUsers.length}
+                  {filteredUsers.length !== users.length
+                    ? ` of ${users.length}`
+                    : ''}
+                </p>
+              </div>
+              {(userSearch ||
+                userRoleFilter !== 'all' ||
+                userStatusFilter !== 'all' ||
+                userSort !== 'newest') && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setUserSearch('');
+                    setUserRoleFilter('all');
+                    setUserStatusFilter('all');
+                    setUserSort('newest');
+                  }}
+                >
+                  Clear filters
+                </Button>
+              )}
+            </div>
+
+            <Card className="bg-cyber-card/80 mb-4 p-4 sm:p-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="sm:col-span-2 lg:col-span-1">
+                  <label className={filterLabel} htmlFor="mod-user-search">
+                    Search
+                  </label>
+                  <div className="relative">
+                    <Search
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none"
+                      aria-hidden
+                    />
+                    <input
+                      id="mod-user-search"
+                      type="search"
+                      className={`${filterControl} pl-9`}
+                      placeholder="Username, email, id…"
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className={filterLabel} htmlFor="mod-user-role">
+                    Role
+                  </label>
+                  <select
+                    id="mod-user-role"
+                    className={filterControl}
+                    value={userRoleFilter}
+                    onChange={(e) => setUserRoleFilter(e.target.value)}
+                  >
+                    <option value="all">All roles</option>
+                    {userRoles.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={filterLabel} htmlFor="mod-user-status">
+                    Status
+                  </label>
+                  <select
+                    id="mod-user-status"
+                    className={filterControl}
+                    value={userStatusFilter}
+                    onChange={(e) => setUserStatusFilter(e.target.value)}
+                  >
+                    <option value="all">All statuses</option>
+                    {MODERATION_STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={filterLabel} htmlFor="mod-user-sort">
+                    Sort
+                  </label>
+                  <select
+                    id="mod-user-sort"
+                    className={filterControl}
+                    value={userSort}
+                    onChange={(e) => setUserSort(e.target.value)}
+                  >
+                    <option value="newest">Newest joined</option>
+                    <option value="oldest">Oldest joined</option>
+                    <option value="name_az">Name A–Z</option>
+                    <option value="name_za">Name Z–A</option>
+                    <option value="role">Role</option>
+                  </select>
+                </div>
+              </div>
+            </Card>
+
             <div className="space-y-3">
               {users.length === 0 && !loading && (
                 <Card className="bg-cyber-card/80 text-sm text-text-muted">
                   No profiles found (or staff read policy not applied yet).
                 </Card>
               )}
-              {users.map((u) => {
+              {users.length > 0 && filteredUsers.length === 0 && !loading && (
+                <Card className="bg-cyber-card/80 text-sm text-text-muted">
+                  No users match these filters.
+                </Card>
+              )}
+              {filteredUsers.map((u) => {
                 const status = u.moderation_status || 'active';
                 const busy = busyKey === `user-${u.id}`;
                 return (
@@ -374,23 +663,22 @@ const ModeratorDashboard = () => {
                         disabled={busy || status === 'banned'}
                         className="gap-1 text-red-300 hover:text-red-200"
                         onClick={() => {
-                          if (
-                            !window.confirm(
-                              `Ban ${u.username || 'this user'}? They should not participate while banned.`
-                            )
-                          ) {
-                            return;
-                          }
-                          runAction(
-                            `user-${u.id}`,
-                            () =>
-                              moderationService.setUserModerationStatus(
-                                u.id,
-                                'banned',
-                                'Banned by staff'
+                          setConfirmDialog({
+                            title: 'Ban user',
+                            message: `Ban ${u.username || 'this user'}? They will not be able to participate while banned.`,
+                            confirmLabel: 'Ban user',
+                            onConfirm: () =>
+                              runAction(
+                                `user-${u.id}`,
+                                () =>
+                                  moderationService.setUserModerationStatus(
+                                    u.id,
+                                    'banned',
+                                    'Banned by staff'
+                                  ),
+                                'User banned'
                               ),
-                            'User banned'
-                          );
+                          });
                         }}
                       >
                         <Ban className="w-3.5 h-3.5" />
@@ -407,16 +695,130 @@ const ModeratorDashboard = () => {
         {/* ---------- Ideas ---------- */}
         {tab === 'ideas' && (
           <section aria-labelledby="ideas-heading">
-            <h2 id="ideas-heading" className="sr-only">
-              Ideas
-            </h2>
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-4">
+              <div>
+                <h2
+                  id="ideas-heading"
+                  className="text-xl sm:text-2xl font-bold text-white tracking-tight"
+                >
+                  All Ideas
+                </h2>
+                <p className="text-xs font-mono text-text-muted mt-1">
+                  Showing {filteredIdeas.length}
+                  {filteredIdeas.length !== ideas.length
+                    ? ` of ${ideas.length}`
+                    : ''}
+                </p>
+              </div>
+              {(ideaSearch ||
+                ideaStatusFilter !== 'all' ||
+                ideaCategoryFilter !== 'all' ||
+                ideaSort !== 'newest') && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setIdeaSearch('');
+                    setIdeaStatusFilter('all');
+                    setIdeaCategoryFilter('all');
+                    setIdeaSort('newest');
+                  }}
+                >
+                  Clear filters
+                </Button>
+              )}
+            </div>
+
+            <Card className="bg-cyber-card/80 mb-4 p-4 sm:p-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="sm:col-span-2 lg:col-span-1">
+                  <label className={filterLabel} htmlFor="mod-idea-search">
+                    Search
+                  </label>
+                  <div className="relative">
+                    <Search
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none"
+                      aria-hidden
+                    />
+                    <input
+                      id="mod-idea-search"
+                      type="search"
+                      className={`${filterControl} pl-9`}
+                      placeholder="Title, summary, id…"
+                      value={ideaSearch}
+                      onChange={(e) => setIdeaSearch(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className={filterLabel} htmlFor="mod-idea-status">
+                    Status
+                  </label>
+                  <select
+                    id="mod-idea-status"
+                    className={filterControl}
+                    value={ideaStatusFilter}
+                    onChange={(e) => setIdeaStatusFilter(e.target.value)}
+                  >
+                    <option value="all">All statuses</option>
+                    {WORKFLOW_STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {STATUS_LABELS[s] || s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={filterLabel} htmlFor="mod-idea-category">
+                    Category
+                  </label>
+                  <select
+                    id="mod-idea-category"
+                    className={filterControl}
+                    value={ideaCategoryFilter}
+                    onChange={(e) => setIdeaCategoryFilter(e.target.value)}
+                  >
+                    <option value="all">All categories</option>
+                    {ideaCategories.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={filterLabel} htmlFor="mod-idea-sort">
+                    Sort
+                  </label>
+                  <select
+                    id="mod-idea-sort"
+                    className={filterControl}
+                    value={ideaSort}
+                    onChange={(e) => setIdeaSort(e.target.value)}
+                  >
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                    <option value="votes_high">Most votes</option>
+                    <option value="votes_low">Fewest votes</option>
+                    <option value="title_az">Title A–Z</option>
+                  </select>
+                </div>
+              </div>
+            </Card>
+
             <div className="space-y-3">
               {ideas.length === 0 && !loading && (
                 <Card className="bg-cyber-card/80 text-sm text-text-muted">
                   No ideas found.
                 </Card>
               )}
-              {ideas.map((idea) => {
+              {ideas.length > 0 && filteredIdeas.length === 0 && !loading && (
+                <Card className="bg-cyber-card/80 text-sm text-text-muted">
+                  No ideas match these filters.
+                </Card>
+              )}
+              {filteredIdeas.map((idea) => {
                 const busy = busyKey === `idea-${idea.id}`;
                 const status = idea.status || 'Proposed';
                 return (
@@ -488,18 +890,17 @@ const ModeratorDashboard = () => {
                           className="gap-1 text-red-300"
                           disabled={busy}
                           onClick={() => {
-                            if (
-                              !window.confirm(
-                                `Delete idea "${idea.title}"? This cannot be undone.`
-                              )
-                            ) {
-                              return;
-                            }
-                            runAction(
-                              `idea-${idea.id}`,
-                              () => moderationService.deleteIdea(idea.id),
-                              'Idea deleted'
-                            );
+                            setConfirmDialog({
+                              title: 'Delete idea',
+                              message: `Delete idea “${idea.title || 'Untitled'}”? This cannot be undone.`,
+                              confirmLabel: 'Delete idea',
+                              onConfirm: () =>
+                                runAction(
+                                  `idea-${idea.id}`,
+                                  () => moderationService.deleteIdea(idea.id),
+                                  'Idea deleted'
+                                ),
+                            });
                           }}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -652,6 +1053,37 @@ const ModeratorDashboard = () => {
           ban/suspend columns, report queue, and staff RLS.
         </Card>
       </div>
+
+      <Modal
+        isOpen={!!confirmDialog}
+        onClose={() => setConfirmDialog(null)}
+        title={confirmDialog?.title || 'Confirm'}
+        size="sm"
+      >
+        <p className="text-sm text-text-secondary leading-relaxed mb-6">
+          {confirmDialog?.message}
+        </p>
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setConfirmDialog(null)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            onClick={() => {
+              const action = confirmDialog?.onConfirm;
+              setConfirmDialog(null);
+              action?.();
+            }}
+          >
+            {confirmDialog?.confirmLabel || 'Confirm'}
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 };

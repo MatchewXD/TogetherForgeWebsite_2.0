@@ -5,11 +5,16 @@ Run these in the **Supabase SQL Editor** (or via CLI migrations) as needed.
 | File | Purpose |
 |------|---------|
 | `supabase_schema.sql` | Base schema (ideas, profiles, donations shell, RLS starters) |
+| `supabase_profiles_banner.sql` | profiles.banner_url + avatars storage policies for banner uploads |
 | `supabase_tasks_schema.sql` | Projects, tasks, claims, activity |
 | `supabase_projects_completion.sql` | Project summary, completed_at, completion_links (Early + Released Games) |
 | `supabase_projects_release_meta.sql` | Optional release_meta JSON for Released Game Detail (media, platforms, ratings) |
 | `supabase_official_videos.sql` | Official Media library (`official_videos`) + RLS + demo seed for /media |
+| `supabase_community_showcase.sql` | Community Showcase posts + pending queue + staff moderation RLS |
+| `supabase_require_auth_to_post.sql` | Block guest inserts for showcase + bugs (signed-in only) |
+| `supabase_community_showcase_likes.sql` | Showcase post likes (per-user) + denormalized likes count |
 | `supabase_project_contributions.sql` | Public credits per project (Contributors pages + future Released Games) |
+| `supabase_contributions_memorial.sql` | Permanent credits ledger (creates table if needed) + auto-record task/showcase |
 | `supabase_donation_project_attribution.sql` | Attach studio donations to active In Development project; public credit RPC |
 | `supabase_task_hierarchy.sql` | `parent_task_id`, max 3 nesting levels, parent progress rollup |
 | `supabase_task_claim_hierarchy_rules.sql` | Claim only Medium/Small leaves; progress requires active claim |
@@ -18,6 +23,7 @@ Run these in the **Supabase SQL Editor** (or via CLI migrations) as needed.
 | `supabase_bug_reports.sql` | Public bug tracker + screenshots bucket RLS |
 | `supabase_ideas_guided.sql` | Guided idea fields + workflow status |
 | `supabase_ideas_project_id.sql` | Link ideas to projects |
+| `supabase_ideas_image.sql` | Optional idea image_url + idea-images storage bucket |
 | `supabase_votes_rls.sql` | Idea votes RLS + unique index |
 | `supabase_claim_limit.sql` | Active task claim cap (superseded by anti-hoarding) |
 | `supabase_claim_anti_hoarding.sql` | Claim limits, cooldown, auto-release, join requests |

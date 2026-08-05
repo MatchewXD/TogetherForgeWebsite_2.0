@@ -25,7 +25,12 @@ import {
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { supabase } from '../lib/supabase';
-import { ideasService, buildGuidedData } from '../services/ideasService';
+import {
+  ideasService,
+  buildGuidedData,
+  getIdeaImageUrl,
+} from '../services/ideasService';
+import IdeaImageField from '../components/ideas/IdeaImageField';
 import {
   buildGuidedDisplayItems,
   GUIDED_GRID_CLASS,
@@ -135,6 +140,8 @@ const IdeaSubmit = () => {
   const [message, setMessage] = useState('');
   const [messageTone, setMessageTone] = useState('error'); // error | success | info
   const [submitting, setSubmitting] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState(null);
   const [autosaveFlash, setAutosaveFlash] = useState(false);
@@ -364,6 +371,20 @@ const IdeaSubmit = () => {
 
   const setField = (key, value) =>
     setFormData((f) => ({ ...f, [key]: value }));
+
+  const onImageFile = useCallback((file) => {
+    setImageFile(file);
+    setImagePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return file ? URL.createObjectURL(file) : null;
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+    };
+  }, [imagePreview]);
 
   const addTag = () => {
     const cleaned = tagDraft.trim().replace(/^#/, '');
@@ -684,17 +705,46 @@ const IdeaSubmit = () => {
     }
 
     const projectId = (formData.projectId || '').trim() || null;
-    const newIdea = {
-      ...buildIdeaPayload('Proposed'),
-      user_id: session.user.id,
-    };
-
     setSubmitting(true);
     try {
+      let imageUrl = null;
+      if (imageFile) {
+        imageUrl = await ideasService.uploadIdeaImage(
+          imageFile,
+          session.user.id
+        );
+        if (!imageUrl) {
+          throw new Error(
+            'Image upload did not return a public URL. Check the idea-images storage bucket.'
+          );
+        }
+      }
+      const newIdea = {
+        ...buildIdeaPayload('Proposed'),
+        user_id: session.user.id,
+        ...(imageUrl ? { image_url: imageUrl } : {}),
+      };
       const data = await ideasService.publishIdea(newIdea);
       if (!data?.id) {
         throw new Error('Idea was created but no id was returned.');
       }
+
+      // Image uploaded but not stored on the idea row (missing column / RLS)
+      if (imageUrl && !getIdeaImageUrl(data) && data._image_url_not_persisted) {
+        publishedRef.current = true;
+        dirtyRef.current = false;
+        clearComposeSessions(session.user.id);
+        navigate(`/ideas/${data.id}/edit`, {
+          replace: true,
+          state: {
+            imagePersistFailed: true,
+            message:
+              'Your idea was published, but the image could not be saved. In Supabase SQL Editor run supabase/sql/supabase_ideas_image.sql, then re-attach the image here.',
+          },
+        });
+        return;
+      }
+
       publishedRef.current = true;
       dirtyRef.current = false;
       clearComposeSessions(session.user.id);
@@ -1028,6 +1078,14 @@ const IdeaSubmit = () => {
                 />
                 <CharCount value={formData.description} max={4000} />
               </div>
+
+              <IdeaImageField
+                id="idea-image-submit"
+                file={imageFile}
+                existingUrl={null}
+                previewUrl={imagePreview}
+                onFileChange={onImageFile}
+              />
 
               <div>
                 <label className={labelClass}>Tags (optional)</label>
@@ -1428,46 +1486,82 @@ const IdeaSubmit = () => {
                   </div>
                 )}
 
-                <div className="pt-4 border-t border-cyber-border space-y-4 text-sm">
-                  <div className="rounded-xl border border-cyber-border bg-cyber-bg/40 p-4 min-w-0">
-                    <div className="font-mono text-xs text-neon-cyan tracking-widest mb-2 uppercase">
-                      Description
-                    </div>
-                    <p className="text-text-secondary whitespace-pre-wrap break-words leading-relaxed">
-                      {formData.description}
-                    </p>
-                  </div>
+                {/*
+                  Match Idea Detail: description primary, image secondary.
+                  Desktop: side-by-side. Mobile: description first, image after.
+                */}
+                {(formData.description || imagePreview) && (
+                  <div
+                    className={`pt-4 border-t border-cyber-border grid gap-5 items-start ${
+                      imagePreview && formData.description
+                        ? 'lg:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)]'
+                        : ''
+                    }`}
+                  >
+                    {formData.description ? (
+                      <div className="rounded-xl border border-cyber-border bg-cyber-bg/40 p-4 min-w-0 order-1">
+                        <div className="font-mono text-xs text-neon-cyan tracking-widest mb-2 uppercase">
+                          Description
+                        </div>
+                        <p className="text-text-secondary whitespace-pre-wrap break-words leading-relaxed text-sm sm:text-base">
+                          {formData.description}
+                        </p>
+                      </div>
+                    ) : null}
 
-                  {hasPreviewExtras && (
-                    <div className="space-y-6">
-                      {previewGroups.features.length > 0 && (
-                        <div>
-                          <div className="font-mono text-xs text-neon-cyan tracking-widest mb-3 uppercase">
-                            Key Features
-                          </div>
-                          <div className={GUIDED_GRID_CLASS}>
-                            {previewGroups.features.map(renderPreviewCard)}
-                          </div>
+                    {imagePreview && (
+                      <figure
+                        className={`w-full min-w-0 ${
+                          formData.description
+                            ? 'order-2'
+                            : 'order-1 max-w-md'
+                        }`}
+                      >
+                        <div className="rounded-xl overflow-hidden border border-cyber-border bg-cyber-surface/80 shadow-md">
+                          <img
+                            src={imagePreview}
+                            alt="Supporting image preview"
+                            className="w-full max-h-48 sm:max-h-56 lg:max-h-64 object-contain bg-cyber-bg/40"
+                          />
                         </div>
-                      )}
-                      {previewGroups.texts.length > 0 && (
+                        <figcaption className="mt-2 text-center lg:text-left text-[11px] font-mono tracking-widest uppercase text-text-muted">
+                          Supporting image
+                          {imageFile?.name ? ` · ${imageFile.name}` : ''}
+                        </figcaption>
+                      </figure>
+                    )}
+                  </div>
+                )}
+
+                {hasPreviewExtras && (
+                  <div className="pt-4 border-t border-cyber-border space-y-6 text-sm">
+                    {previewGroups.features.length > 0 && (
+                      <div>
+                        <div className="font-mono text-xs text-neon-cyan tracking-widest mb-3 uppercase">
+                          Key Features
+                        </div>
                         <div className={GUIDED_GRID_CLASS}>
-                          {previewGroups.texts.map(renderPreviewCard)}
+                          {previewGroups.features.map(renderPreviewCard)}
                         </div>
-                      )}
-                      {previewGroups.notes.length > 0 && (
-                        <div>
-                          <div className="font-mono text-xs text-neon-cyan tracking-widest mb-3 uppercase">
-                            Additional Notes
-                          </div>
-                          <div className={GUIDED_GRID_CLASS}>
-                            {previewGroups.notes.map(renderPreviewCard)}
-                          </div>
+                      </div>
+                    )}
+                    {previewGroups.texts.length > 0 && (
+                      <div className={GUIDED_GRID_CLASS}>
+                        {previewGroups.texts.map(renderPreviewCard)}
+                      </div>
+                    )}
+                    {previewGroups.notes.length > 0 && (
+                      <div>
+                        <div className="font-mono text-xs text-neon-cyan tracking-widest mb-3 uppercase">
+                          Additional Notes
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                        <div className={GUIDED_GRID_CLASS}>
+                          {previewGroups.notes.map(renderPreviewCard)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {!user && (

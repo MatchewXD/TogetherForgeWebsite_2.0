@@ -42,6 +42,8 @@ import MechanicLab from './pages/MechanicLab';
 import Media from './pages/Media';
 import MediaEdit from './pages/MediaEdit';
 import CommunityShowcase from './pages/CommunityShowcase';
+import ShowcaseSubmit from './pages/ShowcaseSubmit';
+import ShowcaseModerate from './pages/ShowcaseModerate';
 import ReleasedGames from './pages/ReleasedGames';
 import ReleasedGameDetail from './pages/ReleasedGameDetail';
 import NotFound from './pages/NotFound';
@@ -97,6 +99,14 @@ function App() {
                         <Route path="/media/edit" element={<MediaEdit />} />
                         <Route path="/videos" element={<Media />} />
                         <Route path="/showcase" element={<CommunityShowcase />} />
+                        <Route
+                          path="/showcase/submit"
+                          element={<ShowcaseSubmit />}
+                        />
+                        <Route
+                          path="/showcase/moderate"
+                          element={<ShowcaseModerate />}
+                        />
                         <Route path="/released" element={<ReleasedGames />} />
                         <Route path="/released/:slug" element={<ReleasedGameDetail />} />
                         <Route path="/education" element={<EducationApprenticeship />} />

@@ -222,7 +222,7 @@ export const bugReportsService = {
   },
 
   /**
-   * Submit a bug (anon or signed-in).
+   * Submit a bug (signed-in users only).
    * @param {object} payload
    * @param {File|null} [screenshotFile]
    */
@@ -230,6 +230,9 @@ export const bugReportsService = {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    if (!user?.id) {
+      throw new Error('Sign in to report a bug.');
+    }
 
     let screenshotUrl = null;
     if (screenshotFile) {
@@ -256,9 +259,9 @@ export const bugReportsService = {
       screenshot_url: screenshotUrl,
       browser_info: String(payload.browserInfo || '').trim() || null,
       device_info: String(payload.deviceInfo || '').trim() || null,
-      reporter_id: user?.id || null,
+      reporter_id: user.id,
       reporter_email:
-        String(payload.reporterEmail || user?.email || '').trim() || null,
+        String(payload.reporterEmail || user.email || '').trim() || null,
       reporter_name: String(payload.reporterName || '').trim() || null,
     };
 

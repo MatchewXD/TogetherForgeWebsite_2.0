@@ -55,7 +55,8 @@ const SECTIONS = [
   {
     id: 'contentShowcase',
     title: 'Content & Showcase',
-    description: 'Marketing, video, social, and community outreach.',
+    description:
+      'Marketing and video credits, plus creators with approved Community Showcase posts.',
     icon: Film,
     accent: 'text-neon-cyan',
   },
@@ -150,8 +151,10 @@ const AllContributors = () => {
               All Contributors
             </h1>
             <p className="text-base sm:text-lg text-text-secondary leading-relaxed max-w-2xl">
-              Everyone who has helped build Together Forge. Public credit is
-              part of how we work.
+              A lasting memorial of everyone who has helped build Together
+              Forge. Credits are kept permanently — finishing a project does
+              not remove anyone from this list. Public credit is part of how we
+              work.
             </p>
             {!loading && data && (
               <p className="mt-3 text-xs font-mono tracking-widest text-text-muted uppercase">

@@ -19,6 +19,7 @@ import UserAvatar from '../components/ui/UserAvatar';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import LoadingScreen from '../components/ui/LoadingScreen';
+import { bannerObjectPosition } from '../utils/bannerPosition';
 
 /** Columns safe to show publicly (no email). moderation_status is checked then stripped. */
 const PUBLIC_PROFILE_SELECT = [
@@ -26,6 +27,7 @@ const PUBLIC_PROFILE_SELECT = [
   'username',
   'avatar_url',
   'banner_url',
+  'banner_position',
   'bio',
   'interests',
   'favorite_games',
@@ -207,15 +209,23 @@ const PublicProfile = () => {
       <div className="container-custom relative z-10 py-12 max-w-5xl">
         {/* Banner + identity */}
         <div className="relative mb-8">
-          <div className="h-40 sm:h-48 w-full rounded-xl overflow-hidden bg-cyber-surface border border-cyber-border">
+          <div className="h-40 sm:h-48 md:h-52 w-full rounded-xl overflow-hidden bg-cyber-surface border border-cyber-border">
             {profile.banner_url ? (
               <img
                 src={profile.banner_url}
                 alt=""
                 className="w-full h-full object-cover"
+                style={{
+                  objectPosition: bannerObjectPosition(profile.banner_position),
+                }}
+                loading="eager"
+                decoding="async"
               />
             ) : (
-              <div className="w-full h-full bg-[radial-gradient(circle_at_center,rgba(0,249,255,0.08)_0%,transparent_70%)]" />
+              <div
+                className="w-full h-full bg-[radial-gradient(circle_at_center,rgba(0,249,255,0.08)_0%,transparent_70%)]"
+                aria-hidden
+              />
             )}
           </div>
           <div className="-mt-14 sm:-mt-16 ml-4 sm:ml-6 relative z-10 flex flex-col sm:flex-row sm:items-end gap-4">

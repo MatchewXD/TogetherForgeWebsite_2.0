@@ -5,9 +5,13 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Save, Plus, Trash2 } from 'lucide-react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { buildGuidedData } from '../services/ideasService';
+import {
+  buildGuidedData,
+  ideasService,
+  getIdeaImageUrl,
+} from '../services/ideasService';
 import {
   MAX_MULTI,
   SINGLE_OPTIONAL_SECTIONS,
@@ -19,6 +23,7 @@ import Button from '../components/ui/Buttons';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
 import CharCount from '../components/ui/CharCount';
+import IdeaImageField from '../components/ideas/IdeaImageField';
 
 const CATEGORIES = [
   'Full Game Idea',
@@ -66,6 +71,7 @@ function formFromIdeaRow(data) {
     description: data.description || '',
     tags: data.tags || '',
     projectId: data.project_id || data.projectId || '',
+    imageUrl: getIdeaImageUrl(data),
     features: optional.features || [],
     additionalNotes: optional.additionalNotes || [],
     artStyle: optional.artStyle,
@@ -83,10 +89,17 @@ function formFromIdeaRow(data) {
 const IdeaEdit = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(() => {
+    const fromNav = location.state?.message;
+    return typeof fromNav === 'string' ? fromNav : '';
+  });
+  const [messageTone, setMessageTone] = useState(() =>
+    location.state?.imagePersistFailed ? 'error' : 'error'
+  );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [removeTarget, setRemoveTarget] = useState(null);
   const removeTargetRef = useRef(null);
@@ -97,8 +110,12 @@ const IdeaEdit = () => {
     description: '',
     tags: '',
     projectId: '',
+    imageUrl: null,
     ...emptyOptional,
   });
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [removeImage, setRemoveImage] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -126,10 +143,27 @@ const IdeaEdit = () => {
       }
 
       setFormData(formFromIdeaRow(data));
+      setImageFile(null);
+      setImagePreview(null);
+      setRemoveImage(false);
       setLoading(false);
     };
     init();
   }, [id, navigate]);
+
+  const onImageFile = useCallback((file) => {
+    setImageFile(file);
+    setImagePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return file ? URL.createObjectURL(file) : null;
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+    };
+  }, [imagePreview]);
 
   const setField = (key, value) =>
     setFormData((f) => ({ ...f, [key]: value }));
@@ -256,7 +290,18 @@ const IdeaEdit = () => {
       ),
     ].join(', ');
 
-    const guided_data = buildGuidedData(guidedFieldsFromForm(formData));
+    let guided_data = buildGuidedData(guidedFieldsFromForm(formData));
+    // Preserve existing image dual-write unless user is removing it
+    const existingImage =
+      !removeImage && formData.imageUrl
+        ? String(formData.imageUrl).trim()
+        : null;
+    if (existingImage && !imageFile) {
+      guided_data = {
+        ...guided_data,
+        supporting_image_url: existingImage,
+      };
+    }
 
     const ideaIdNum = Number(id);
     const patch = {
@@ -294,6 +339,55 @@ const IdeaEdit = () => {
       patch.project_id = String(formData.projectId).trim();
     }
 
+    // Optional supporting image: upload first, then attach via dedicated helper
+    // so we survive a missing image_url column (guided_data fallback).
+    let uploadedUrl = null;
+    try {
+      if (imageFile && user?.id) {
+        uploadedUrl = await ideasService.uploadIdeaImage(imageFile, user.id);
+        if (uploadedUrl) {
+          patch.image_url = uploadedUrl;
+          // Keep guided_data dual-write in sync when present
+          if (
+            patch.guided_data &&
+            typeof patch.guided_data === 'object' &&
+            !Array.isArray(patch.guided_data)
+          ) {
+            patch.guided_data = {
+              ...patch.guided_data,
+              supporting_image_url: uploadedUrl,
+            };
+          }
+          if (formData.imageUrl && formData.imageUrl !== uploadedUrl) {
+            await ideasService.deleteIdeaImageByUrl(
+              formData.imageUrl,
+              user.id
+            );
+          }
+        }
+      } else if (removeImage) {
+        patch.image_url = null;
+        if (
+          patch.guided_data &&
+          typeof patch.guided_data === 'object' &&
+          !Array.isArray(patch.guided_data)
+        ) {
+          const nextG = { ...patch.guided_data };
+          delete nextG.supporting_image_url;
+          delete nextG.supportingImageUrl;
+          patch.guided_data = nextG;
+        }
+        if (formData.imageUrl && user?.id) {
+          await ideasService.deleteIdeaImageByUrl(formData.imageUrl, user.id);
+        }
+      }
+    } catch (imgErr) {
+      setMessage(imgErr?.message || 'Image upload failed.');
+      setMessageTone('error');
+      setSaving(false);
+      return;
+    }
+
     // Try full patch; strip optional columns on failure
     let { data, error } = await supabase
       .from('ideas')
@@ -306,6 +400,7 @@ const IdeaEdit = () => {
         'guided_data',
         'features',
         'project_id',
+        'image_url',
         'twitch_integration',
         'environmental_storytelling',
         'economy_description',
@@ -331,6 +426,7 @@ const IdeaEdit = () => {
 
     if (error) {
       setMessage('Update failed: ' + error.message);
+      setMessageTone('error');
       setSaving(false);
       return;
     }
@@ -338,9 +434,34 @@ const IdeaEdit = () => {
       setMessage(
         'Update did not apply. You may not have permission to edit this idea (RLS policy or missing user_id on the row).'
       );
+      setMessageTone('error');
       setSaving(false);
       return;
     }
+
+    let saved = Array.isArray(data) ? data[0] : data;
+
+    // If image was uploaded but stripped from the update, attach separately
+    if (uploadedUrl && user?.id && !getIdeaImageUrl(saved)) {
+      const attached = await ideasService.setIdeaImageUrl(
+        ideaIdNum,
+        uploadedUrl,
+        user.id
+      );
+      if (attached) {
+        saved = attached;
+      } else {
+        setMessage(
+          'Idea saved, but the image could not be stored. In Supabase SQL Editor run supabase/sql/supabase_ideas_image.sql, then try attaching the image again.'
+        );
+        setMessageTone('error');
+        setFormData((f) => ({ ...f, imageUrl: uploadedUrl }));
+        setImageFile(null);
+        setSaving(false);
+        return;
+      }
+    }
+
     navigate(`/ideas/${id}`);
   };
 
@@ -367,7 +488,11 @@ const IdeaEdit = () => {
         {message && (
           <div
             role="alert"
-            className="mb-6 rounded-lg border border-red-400/40 bg-red-400/10 px-4 py-3 text-sm text-red-100"
+            className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
+              messageTone === 'error'
+                ? 'border-red-400/40 bg-red-400/10 text-red-100'
+                : 'border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan'
+            }`}
           >
             {message}
           </div>
@@ -444,6 +569,16 @@ const IdeaEdit = () => {
               />
               <CharCount value={formData.description} max={4000} />
             </div>
+
+            <IdeaImageField
+              id="idea-image-edit"
+              file={imageFile}
+              existingUrl={formData.imageUrl}
+              previewUrl={imagePreview}
+              removeExisting={removeImage}
+              onFileChange={onImageFile}
+              onRemoveExisting={setRemoveImage}
+            />
 
             <div>
               <label className={labelClass} htmlFor="edit-tags">

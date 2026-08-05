@@ -8,6 +8,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import UserAvatar from '../components/ui/UserAvatar';
 import { publicProfilePath } from '../utils/profileLinks';
+import { bannerObjectPosition } from '../utils/bannerPosition';
 
 const Profile = () => {
     const navigate = useNavigate();
@@ -520,8 +521,31 @@ const Profile = () => {
                         {/* Sidebar - Profile Card */}
                         <div className="lg:col-span-4">
                             <div className="cyber-card overflow-hidden">
-                                {/* Banner */}
-                                <div className="h-24 bg-gradient-to-r from-neon-cyan/10 via-white/5 to-neon-cyan/10" />
+                                {/* Banner (set on Edit profile) */}
+                                <div className="relative h-28 sm:h-32 w-full bg-gradient-to-r from-neon-cyan/10 via-white/5 to-neon-cyan/10">
+                                    {profileData?.banner_url ? (
+                                        <img
+                                            src={profileData.banner_url}
+                                            alt=""
+                                            className="absolute inset-0 w-full h-full object-cover"
+                                            style={{
+                                                objectPosition: bannerObjectPosition(
+                                                    profileData.banner_position
+                                                ),
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,249,255,0.08)_0%,transparent_70%)]" />
+                                    )}
+                                    <Link
+                                        to="/profile/edit"
+                                        className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-lg border border-cyber-border bg-cyber-bg/85 px-2 py-1 text-[10px] font-mono tracking-widest uppercase text-text-secondary hover:text-neon-cyan hover:border-neon-cyan/50"
+                                        title="Change banner on Edit profile"
+                                    >
+                                        <Camera className="w-3 h-3" />
+                                        Banner
+                                    </Link>
+                                </div>
 
                                 <div className="px-6 pb-6 -mt-10">
                                     {/* Avatar */}

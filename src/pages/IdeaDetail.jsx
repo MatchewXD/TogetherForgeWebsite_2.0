@@ -22,7 +22,11 @@ import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
 import Card from '../components/ui/Card';
 import LoadingScreen from '../components/ui/LoadingScreen';
-import { ideasService, isDraftIdea } from '../services/ideasService';
+import {
+  ideasService,
+  isDraftIdea,
+  getIdeaImageUrl,
+} from '../services/ideasService';
 import { tasksService } from '../services/tasksService';
 import {
   deriveIdeaStatus,
@@ -305,6 +309,10 @@ const IdeaDetail = () => {
   }, [linkedProject]);
 
   const tags = useMemo(() => parseTags(idea?.tags), [idea?.tags]);
+  const supportingImageUrl = useMemo(
+    () => getIdeaImageUrl(idea),
+    [idea]
+  );
 
   const chipStatus = useMemo(
     () => (idea ? deriveIdeaStatus(idea) : 'Proposed'),
@@ -642,16 +650,53 @@ const IdeaDetail = () => {
           )}
         </header>
 
-        {/* Description */}
-        {textOrNull(idea.description) && (
-          <Card className="mb-8 bg-cyber-card/80 w-full">
-            <div className="font-mono text-sm tracking-widest text-neon-cyan mb-3">
-              DESCRIPTION
-            </div>
-            <p className="text-text-secondary whitespace-pre-wrap break-words leading-relaxed text-base sm:text-lg">
-              {idea.description}
-            </p>
-          </Card>
+        {/*
+          Pitch + supporting image
+          - Desktop: description primary (left), modest image secondary (right)
+          - Mobile: description first (text readable without scrolling past media), image after
+        */}
+        {(textOrNull(idea.description) || supportingImageUrl) && (
+          <div
+            className={`mb-8 grid gap-5 items-start ${
+              supportingImageUrl && textOrNull(idea.description)
+                ? 'lg:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)]'
+                : ''
+            }`}
+          >
+            {textOrNull(idea.description) && (
+              <Card className="bg-cyber-card/80 w-full min-w-0 order-1">
+                <div className="font-mono text-sm tracking-widest text-neon-cyan mb-3">
+                  DESCRIPTION
+                </div>
+                <p className="text-text-secondary whitespace-pre-wrap break-words leading-relaxed text-base sm:text-lg">
+                  {idea.description}
+                </p>
+              </Card>
+            )}
+
+            {supportingImageUrl && (
+              <figure
+                className={`w-full min-w-0 ${
+                  textOrNull(idea.description)
+                    ? 'order-2 lg:sticky lg:top-24'
+                    : 'order-1 max-w-md'
+                }`}
+              >
+                <div className="rounded-xl overflow-hidden border border-cyber-border bg-cyber-surface/80 shadow-md">
+                  <img
+                    src={supportingImageUrl}
+                    alt={`Supporting image for ${idea.title || 'this idea'}`}
+                    className="w-full max-h-48 sm:max-h-56 lg:max-h-64 object-contain bg-cyber-bg/40"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </div>
+                <figcaption className="mt-2 text-center lg:text-left text-[11px] font-mono tracking-widest uppercase text-text-muted">
+                  Supporting image
+                </figcaption>
+              </figure>
+            )}
+          </div>
         )}
 
         {/* Additional details: subsections + auto-fit card grid */}

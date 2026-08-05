@@ -161,8 +161,9 @@ const ProjectContributors = () => {
             {title}
           </h1>
           <p className="text-text-secondary max-w-2xl leading-relaxed">
-            Everyone who helped this project, listed by how they contributed.
-            The same credit records can feed released-game credits later.
+            Everyone who helped this project — a permanent credit record. When
+            the project completes, these names stay here and on All
+            Contributors.
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link
