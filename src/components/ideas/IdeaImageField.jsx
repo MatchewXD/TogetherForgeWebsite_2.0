@@ -69,7 +69,7 @@ const IdeaImageField = ({
         Supporting image (optional)
       </label>
       <p className="text-xs text-text-muted mb-3 leading-relaxed">
-        One image only — concept art, mood reference, sketch, or mockup. Text
+        One image only: concept art, mood reference, sketch, or mockup. Text
         stays the main part of the idea. JPEG, PNG, WebP, or GIF · max 5MB.
       </p>
 

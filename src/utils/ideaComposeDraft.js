@@ -22,6 +22,11 @@ export function formHasMeaningfulContent(form = {}) {
   if ((form.description || '').trim()) return true;
   if ((form.tags || '').trim()) return true;
   if ((form.projectId || form.project_id || '').toString().trim()) return true;
+  if (
+    (form.parentIdeaId || form.parent_idea_id || '').toString().trim()
+  ) {
+    return true;
+  }
 
   const features = form.features;
   if (Array.isArray(features)) {

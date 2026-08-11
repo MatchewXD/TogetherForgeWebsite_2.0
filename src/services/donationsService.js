@@ -80,10 +80,18 @@ export async function getPublicSupportSummary() {
 }
 
 /**
- * Recent anonymized studio donations for social proof.
+ * Recent studio donations for social proof (UI shows name/avatar/time only).
  * @param {number} [limit=12]
  * @returns {Promise<{
- *   items: Array<{ amountCents: number, createdAt: string, isRecurring: boolean, label: string }>,
+ *   items: Array<{
+ *     amountCents: number,
+ *     createdAt: string,
+ *     isRecurring: boolean,
+ *     isAnonymous: boolean,
+ *     username: string|null,
+ *     avatarUrl: string|null,
+ *     label: string
+ *   }>,
  *   source: 'supabase'|'local'|'empty',
  *   error: string|null
  * }>}
@@ -138,11 +146,32 @@ function mapRecentRow(row) {
     Number(row.amount_cents) ||
     (row.amount != null ? Math.round(Number(row.amount) * 100) : 0);
   if (!amountCents) return null;
+
+  const flaggedAnonymous = row.is_anonymous ?? row.isAnonymous;
+  const displayName = String(
+    row.display_name || row.displayName || row.username || ''
+  ).trim();
+  const usernameRaw = String(row.username || '').trim();
+  // Named only when not anonymous and we have a display label
+  const isNamed =
+    flaggedAnonymous !== true && Boolean(displayName || usernameRaw);
+  const username = isNamed ? usernameRaw || displayName || null : null;
+  const avatarUrl =
+    isNamed && (row.avatar_url || row.avatarUrl)
+      ? String(row.avatar_url || row.avatarUrl).trim() || null
+      : null;
+  const label = isNamed
+    ? usernameRaw || displayName || 'Supporter'
+    : 'Anonymous Supporter';
+
   return {
-    amountCents,
+    amountCents, // kept for filtering / keys only; UI must not display
     createdAt: row.created_at || row.createdAt || null,
     isRecurring: Boolean(row.is_recurring ?? row.interval === 'month'),
-    label: 'Anonymous Supporter',
+    isAnonymous: !isNamed,
+    username: isNamed ? username : null,
+    avatarUrl,
+    label,
   };
 }
 
@@ -249,13 +278,22 @@ function sumFromLocalStorage() {
 
 function recentFromLocalStorage(limit) {
   const studio = readLocalList('tf_donations');
-  return studio.slice(0, limit).map((d) => ({
-    amountCents:
-      Number(d.amountCents) || Math.round((Number(d.amount) || 0) * 100),
-    createdAt: d.timestamp || null,
-    isRecurring: d.interval === 'month',
-    label: 'Anonymous Supporter',
-  }));
+  return studio.slice(0, limit).map((d) => {
+    const amountCents =
+      Number(d.amountCents) || Math.round((Number(d.amount) || 0) * 100);
+    const isAnonymous = d.isAnonymous !== false && !d.username;
+    const username =
+      !isAnonymous && d.username ? String(d.username).trim() : null;
+    return {
+      amountCents,
+      createdAt: d.timestamp || null,
+      isRecurring: d.interval === 'month',
+      isAnonymous: !username,
+      username,
+      avatarUrl: !isAnonymous && d.avatarUrl ? d.avatarUrl : null,
+      label: username || 'Anonymous Supporter',
+    };
+  });
 }
 
 function readLocalList(key) {

@@ -19,10 +19,19 @@ import {
 } from '../data/demoReleasedGame';
 
 const PROJECT_SELECT_FULL =
-  'id, slug, title, description, summary, phase, status, sort_order, created_at, completed_at, completion_links, completion_notes, release_meta, updated_at';
+  'id, slug, title, description, summary, phase, status, sort_order, created_at, completed_at, completion_links, completion_notes, release_meta, github_url, contribution_meta, updated_at';
 
 const PROJECT_SELECT_BASIC =
   'id, slug, title, description, phase, status, created_at';
+
+/** Normalize optional GitHub repo / Project board URL. */
+export function normalizeGithubUrl(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return null;
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^github\.com\//i.test(s)) return `https://${s}`;
+  return s;
+}
 
 /** Status values treated as "done" for active-board filtering */
 export const COMPLETED_STATUSES = new Set([
@@ -137,6 +146,17 @@ export function parseCompletionLinks(raw) {
 function mapProjectRow(row) {
   if (!row) return null;
   const releaseMeta = parseReleaseMeta(row.release_meta);
+  let contributionMeta = row.contribution_meta;
+  if (typeof contributionMeta === 'string') {
+    try {
+      contributionMeta = JSON.parse(contributionMeta);
+    } catch {
+      contributionMeta = {};
+    }
+  }
+  if (!contributionMeta || typeof contributionMeta !== 'object') {
+    contributionMeta = {};
+  }
   const mapped = {
     ...row,
     summary: row.summary ?? null,
@@ -146,6 +166,10 @@ function mapProjectRow(row) {
     sort_order: Number(row.sort_order) || 0,
     phase: normalizePhase(row.phase),
     release_meta: releaseMeta,
+    github_url: normalizeGithubUrl(row.github_url) || null,
+    githubUrl: normalizeGithubUrl(row.github_url) || null,
+    contribution_meta: contributionMeta,
+    contributionMeta,
   };
   // Always expose the public title (Prototype Systems → Tether)
   mapped.title = displayProjectTitle(mapped);
@@ -172,10 +196,19 @@ async function selectProjects(queryBuilder) {
   let { data, error } = await queryBuilder.select(PROJECT_SELECT_FULL);
   if (
     error &&
-    /column .* does not exist|completion_links|completed_at|summary|sort_order|release_meta|updated_at/i.test(
+    /column .* does not exist|completion_links|completed_at|summary|sort_order|release_meta|github_url|contribution_meta|updated_at/i.test(
       error.message || ''
     )
   ) {
+    // Drop newer optional columns first
+    if (/github_url|contribution_meta/i.test(error.message || '')) {
+      const withoutGh = await queryBuilder.select(
+        'id, slug, title, description, summary, phase, status, sort_order, created_at, completed_at, completion_links, completion_notes, release_meta, updated_at'
+      );
+      if (!withoutGh.error) {
+        return (withoutGh.data || []).map(mapProjectRow);
+      }
+    }
     // Drop release_meta first if that is the missing column
     if (/release_meta/i.test(error.message || '')) {
       const withoutMeta = await queryBuilder.select(
@@ -467,6 +500,13 @@ export async function createProject(input) {
   // Optional columns (migration may not be applied yet)
   if (input.summary != null) row.summary = String(input.summary).trim() || null;
   if (input.sort_order != null) row.sort_order = Number(input.sort_order) || 0;
+  if (input.github_url != null || input.githubUrl != null) {
+    row.github_url = normalizeGithubUrl(input.github_url ?? input.githubUrl);
+  }
+  if (input.contribution_meta != null || input.contributionMeta != null) {
+    row.contribution_meta =
+      input.contribution_meta ?? input.contributionMeta ?? {};
+  }
 
   let { data, error } = await supabase
     .from('projects')
@@ -517,6 +557,17 @@ export async function updateProject(id, patch) {
   if (updates.completion_links != null) {
     updates.completion_links = parseCompletionLinks(updates.completion_links);
   }
+  if (updates.githubUrl != null && updates.github_url == null) {
+    updates.github_url = updates.githubUrl;
+  }
+  if (updates.github_url != null) {
+    updates.github_url = normalizeGithubUrl(updates.github_url);
+  }
+  if (updates.contributionMeta != null && updates.contribution_meta == null) {
+    updates.contribution_meta = updates.contributionMeta;
+  }
+  delete updates.githubUrl;
+  delete updates.contributionMeta;
 
   // Strip undefined
   Object.keys(updates).forEach((k) => {
@@ -532,7 +583,7 @@ export async function updateProject(id, patch) {
 
   if (
     error &&
-    /column .* does not exist|completion_|summary|sort_order|updated_at/i.test(
+    /column .* does not exist|completion_|summary|sort_order|github_url|contribution_meta|updated_at/i.test(
       error.message || ''
     )
   ) {
@@ -542,6 +593,7 @@ export async function updateProject(id, patch) {
       'description',
       'phase',
       'status',
+      'github_url',
     ];
     const basic = {};
     basicKeys.forEach((k) => {
@@ -643,9 +695,89 @@ export async function reactivateProject(id, status = 'In Development') {
   });
 }
 
+/**
+ * Active projects that have a Task Board (/projects/:slug/board).
+ * In Development only (not Planning, not Completed). Includes light open-task counts.
+ */
+export async function listActiveTaskBoards() {
+  const phases = ['Early', 'Mid', 'Late'];
+  const all = [];
+  for (const phase of phases) {
+    try {
+      const rows = await listProjectsByPhase(phase, { onlyInDevelopment: true });
+      all.push(...(rows || []));
+    } catch (err) {
+      console.warn('[projectsService] listActiveTaskBoards', phase, err);
+    }
+  }
+
+  const seen = new Set();
+  const boards = [];
+  for (const p of all) {
+    const key = p.id || p.slug;
+    if (!key || seen.has(key)) continue;
+    if (!isProjectInDevelopment(p)) continue;
+    seen.add(key);
+    const slug = p.slug || p.id;
+    boards.push({
+      id: p.id,
+      slug,
+      title: displayProjectTitle(p),
+      phase: normalizePhase(p.phase),
+      status: p.status || 'In Development',
+      description: p.summary || p.description || '',
+      boardPath: `/projects/${slug}/board`,
+      hubPath: `/projects/${slug}`,
+      openTasks: null,
+      totalTasks: null,
+      sort_order: p.sort_order || 0,
+    });
+  }
+
+  boards.sort((a, b) => {
+    const so = (a.sort_order || 0) - (b.sort_order || 0);
+    if (so !== 0) return so;
+    return String(a.title || '').localeCompare(String(b.title || ''));
+  });
+
+  // Light task counts (open = ToDo claimable work)
+  const uuids = boards.map((b) => b.id).filter(Boolean);
+  if (uuids.length > 0) {
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('project_id, status')
+        .in('project_id', uuids);
+      if (!error && data) {
+        const openBy = new Map();
+        const totalBy = new Map();
+        for (const row of data) {
+          const pid = row.project_id;
+          if (!pid) continue;
+          totalBy.set(pid, (totalBy.get(pid) || 0) + 1);
+          const st = String(row.status || '');
+          if (st === 'ToDo' || st === 'todo') {
+            openBy.set(pid, (openBy.get(pid) || 0) + 1);
+          }
+        }
+        for (const b of boards) {
+          if (!b.id) continue;
+          b.openTasks = openBy.get(b.id) ?? 0;
+          b.totalTasks = totalBy.get(b.id) ?? 0;
+        }
+      }
+    } catch (err) {
+      console.warn('[projectsService] listActiveTaskBoards counts', err);
+    }
+  }
+
+  return boards;
+}
+
 export const projectsService = {
   listProjectsByPhase,
   listReleasedGames,
+  listActiveTaskBoards,
   getReleasedGameBySlug,
   getProjectById,
   createProject,

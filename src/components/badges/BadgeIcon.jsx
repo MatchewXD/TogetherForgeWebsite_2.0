@@ -1,0 +1,183 @@
+/**
+ * Badge icon: custom PNG from public/images/Badges when available,
+ * Lucide geometric fallback otherwise. Tooltip on hover / tap.
+ */
+import { useState, useRef, useEffect } from 'react';
+import {
+  Heart,
+  Sparkles,
+  Coins,
+  Gem,
+  Crown,
+  CheckCircle2,
+  Flag,
+  Rocket,
+  Star,
+  Ship,
+} from 'lucide-react';
+import { getBadgeDef, getBadgeImageSrc } from '../../constants/badges';
+
+const ICONS = {
+  heart: Heart,
+  spark: Sparkles,
+  coin: Coins,
+  gem: Gem,
+  crown: Crown,
+  check: CheckCircle2,
+  flag: Flag,
+  rocket: Rocket,
+  star: Star,
+  ship: Ship,
+};
+
+const CATEGORY_TONE = {
+  status: 'border-neon-cyan/40 text-neon-cyan bg-neon-cyan/10',
+  donation: 'border-forge-gold/40 text-forge-gold bg-forge-gold/10',
+  tasks: 'border-neon-magenta/40 text-neon-magenta bg-neon-magenta/10',
+};
+
+/**
+ * box  = outer hit target
+ * icon = lucide size when no art
+ * img  = classes for <img> (fill frame; slight scale so padded PNGs read larger)
+ */
+const SIZES = {
+  sm: {
+    box: 'w-10 h-10',
+    icon: 'w-5 h-5',
+    img: 'w-full h-full object-contain scale-[1.15]',
+  },
+  md: {
+    box: 'w-16 h-16',
+    icon: 'w-8 h-8',
+    img: 'w-full h-full object-contain scale-[1.12]',
+  },
+  lg: {
+    box: 'w-24 h-24',
+    icon: 'w-12 h-12',
+    img: 'w-full h-full object-contain scale-[1.1]',
+  },
+  xl: {
+    box: 'w-28 h-28 sm:w-32 sm:h-32',
+    icon: 'w-14 h-14',
+    img: 'w-full h-full object-contain scale-[1.08]',
+  },
+};
+
+/**
+ * @param {{
+ *   badgeKey?: string|null,
+ *   def?: object|null,
+ *   size?: 'sm'|'md'|'lg'|'xl',
+ *   className?: string,
+ *   showTooltip?: boolean,
+ *   fill?: boolean,
+ * }} props
+ */
+export default function BadgeIcon({
+  badgeKey = null,
+  def: defProp = null,
+  size = 'sm',
+  className = '',
+  showTooltip = true,
+  fill = false,
+}) {
+  const def = defProp || getBadgeDef(badgeKey);
+  const [open, setOpen] = useState(false);
+  const [imgFailed, setImgFailed] = useState(false);
+  const rootRef = useRef(null);
+
+  const imageSrc = def
+    ? getBadgeImageSrc(def.key || badgeKey) || def.image || null
+    : null;
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [imageSrc, def?.key, badgeKey]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDoc = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', onDoc);
+    return () => document.removeEventListener('pointerdown', onDoc);
+  }, [open]);
+
+  if (!def) return null;
+
+  const Icon = ICONS[def.icon] || Star;
+  const tone = CATEGORY_TONE[def.category] || CATEGORY_TONE.status;
+  const dim = SIZES[size] || SIZES.sm;
+  const label = `${def.name}. ${def.description}`;
+  const useImage = Boolean(imageSrc) && !imgFailed;
+
+  return (
+    <span
+      ref={rootRef}
+      className={`relative inline-flex shrink-0 ${
+        fill ? 'w-full h-full' : ''
+      } ${className}`}
+      onMouseEnter={() => showTooltip && setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        className={`${
+          fill ? 'w-full h-full rounded-none border-0 bg-transparent' : dim.box
+        } inline-flex items-center justify-center ${
+          fill ? '' : 'rounded-lg border'
+        } overflow-hidden outline-none focus-visible:ring-1 focus-visible:ring-neon-cyan/50 ${
+          fill
+            ? ''
+            : useImage
+              ? 'border-white/10 bg-black/25 p-0'
+              : tone
+        }`}
+        title={label}
+        aria-label={label}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (showTooltip) setOpen((v) => !v);
+        }}
+      >
+        {useImage ? (
+          <img
+            src={imageSrc}
+            alt=""
+            className={
+              fill
+                ? 'w-full h-full object-contain scale-110 p-1'
+                : dim.img
+            }
+            loading="lazy"
+            decoding="async"
+            onError={() => setImgFailed(true)}
+          />
+        ) : (
+          <Icon
+            className={fill ? 'w-12 h-12' : dim.icon}
+            strokeWidth={2}
+            aria-hidden
+          />
+        )}
+      </button>
+      {showTooltip && open && (
+        <span
+          role="tooltip"
+          className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-max max-w-[14rem] px-2.5 py-1.5 rounded-lg border border-white/15 bg-cyber-surface/95 text-left shadow-lg pointer-events-none"
+        >
+          <span className="block text-[11px] font-semibold text-white leading-tight">
+            {def.name}
+          </span>
+          <span className="block text-[10px] text-text-muted mt-0.5 leading-snug">
+            {def.description}
+          </span>
+        </span>
+      )}
+    </span>
+  );
+}

@@ -37,70 +37,12 @@ import {
   getPublicRecentDonations,
 } from '../services/donationsService';
 import { supabase } from '../lib/supabase';
+import {
+  ONCE_TIERS,
+  MONTH_TIERS,
+} from '../constants/supportPlans';
 
-/** One-time tiers */
 const SUPPORT_BANNER_SRC = '/images/Support_Page.webp';
-
-const ONCE_TIERS = [
-  {
-    id: 'supporter',
-    amount: 5,
-    label: 'Supporter',
-    perks: ['Public thank-you', 'Name on the supporters list'],
-  },
-  {
-    id: 'member',
-    amount: 20,
-    label: 'Forge Member',
-    perks: [
-      'Discord supporter role',
-      'Monthly devlog access',
-      'Name in credits list',
-    ],
-    featured: true,
-  },
-  {
-    id: 'builder',
-    amount: 50,
-    label: 'Builder',
-    perks: [
-      'Early prototype peeks',
-      'Name in game credits',
-      'Occasional digital thank-yous',
-    ],
-  },
-];
-
-/** Monthly tiers (same labels, recurring impact) */
-const MONTH_TIERS = [
-  {
-    id: 'supporter',
-    amount: 5,
-    label: 'Supporter',
-    perks: ['Public thank-you', 'Ongoing supporters list'],
-  },
-  {
-    id: 'member',
-    amount: 15,
-    label: 'Forge Member',
-    perks: [
-      'Discord supporter role',
-      'Monthly devlog access',
-      'Priority shoutouts',
-    ],
-    featured: true,
-  },
-  {
-    id: 'builder',
-    amount: 40,
-    label: 'Builder',
-    perks: [
-      'Early prototype peeks',
-      'Name in game credits',
-      'Builder badge on profile (when live)',
-    ],
-  },
-];
 
 const IMPACT_POINTS = [
   {
@@ -165,15 +107,15 @@ const FAQ_ITEMS = [
   },
   {
     q: 'What is the difference between one-time and monthly?',
-    a: 'One-time is a single payment. Monthly is a recurring subscription you can cancel anytime through Stripe.',
+    a: 'One-time is a pure donation (single charge). Monthly is a Stripe subscription that renews until you cancel. You can manage or cancel under Account → My Plan.',
   },
   {
     q: 'Do I have to take the perks?',
-    a: 'Perks are optional thank-yous. You can support any amount without using Discord roles or credit listings if you prefer privacy.',
+    a: 'Perks are optional thank-yous (public recognition and future badges). You can choose anonymous support at checkout if you prefer privacy.',
   },
   {
-    q: 'How do refunds work?',
-    a: 'Contact us if something went wrong. Recurring plans can be canceled in your Stripe customer portal or by emailing us.',
+    q: 'How do I cancel a subscription?',
+    a: 'Open Account → My Plan and cancel with confirmation, or use Billing to open the Stripe customer portal. You keep access until the current period ends.',
   },
 ];
 
@@ -348,8 +290,9 @@ const SupportPage = () => {
         tierId,
         label,
         fundType: 'studio',
-        // Visibility decided on-site; Stripe Checkout metadata + webhook record it
-        userId: credit.userId,
+        // Per-user Stripe Customer (signed-in) + public credit metadata
+        userId: credit.userId || authUser?.id || null,
+        email: authUser?.email || null,
         displayName: credit.displayName,
         isAnonymous: credit.isAnonymous,
       });
@@ -454,18 +397,20 @@ const SupportPage = () => {
               id="tiers-heading"
               className="section-header mb-0 text-base sm:text-lg tracking-[0.2em]"
             >
-              Choose a level
+              {interval === 'month'
+                ? 'Monthly subscriptions'
+                : 'One-time donations'}
             </h2>
 
-            {/* Billing interval toggle */}
+            {/* One-time donation vs monthly subscription */}
             <div className="self-start sm:self-auto">
               <p className="text-[10px] font-mono tracking-widest uppercase text-forge-gold mb-1.5 text-left sm:text-right">
-                Billing type
+                Support type
               </p>
               <div
                 className="inline-flex items-center rounded-xl border-2 border-forge-gold/40 bg-cyber-surface p-1 shadow-[0_0_20px_rgba(245,197,66,0.1)]"
                 role="group"
-                aria-label="One-time or monthly billing"
+                aria-label="One-time donation or monthly subscription"
               >
                 <button
                   type="button"
@@ -489,11 +434,16 @@ const SupportPage = () => {
                       : 'text-text-secondary hover:text-white'
                   }`}
                 >
-                  Monthly
+                  Monthly plan
                 </button>
               </div>
             </div>
           </div>
+          <p className="text-sm text-text-secondary mb-5 max-w-2xl">
+            {interval === 'month'
+              ? 'Recurring Stripe subscription. Manage or cancel anytime under Account → My Plan. Each payment can appear on the thank-you list.'
+              : 'Single donation — not a subscription. No renewals or plan to cancel.'}
+          </p>
 
           {/* Credit choice — must happen before any donate button */}
           <DonationCreditChoice
@@ -611,11 +561,16 @@ const SupportPage = () => {
         <section aria-labelledby="custom-heading">
           <Card className="bg-cyber-card/80 border-neon-purple/30">
             <h2 id="custom-heading" className="section-header mb-2">
-              Custom amount
+              {interval === 'month'
+                ? 'Custom monthly plan'
+                : 'Custom one-time donation'}
             </h2>
             <p className="text-sm text-text-secondary mb-5">
-              Any amount from $1 up. Uses the same billing type and public
-              credit choice selected above.
+              Any amount from $1 up. Uses the support type and public credit
+              choice selected above
+              {interval === 'month'
+                ? ' (recurring subscription).'
+                : ' (single charge, not a plan).'}
             </p>
             <form
               onSubmit={handleCustom}

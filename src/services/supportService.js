@@ -82,7 +82,8 @@ function checkoutHeaders() {
  * @param {string} [opts.successUrl]
  * @param {string} [opts.cancelUrl]
  * @param {string} [opts.productId] - optional Stripe product id override
- * @param {string|null} [opts.userId] - signed-in profile/user id for public credit
+ * @param {string|null} [opts.userId] - signed-in TF user id (Stripe Customer ownership)
+ * @param {string|null} [opts.email] - signed-in user email (for Customer create / match)
  * @param {string|null} [opts.displayName] - username for credits when not anonymous
  * @param {boolean} [opts.isAnonymous=true] - false = public credit (project + All Contributors)
  */
@@ -96,6 +97,7 @@ export async function startStripeCheckout({
   cancelUrl,
   productId,
   userId = null,
+  email = null,
   displayName = null,
   isAnonymous = true,
 } = {}) {
@@ -144,9 +146,12 @@ export async function startStripeCheckout({
           fundType: safeFund,
           successUrl: success,
           cancelUrl: cancel,
-          ...(productId ? { productId } : {}),
-          // Public project credit while a game is In Development
+          // Only pass productId when explicitly provided — do not use a stale
+          // VITE_STRIPE_PRODUCT_ID (dynamic amounts use inline product_data).
+          ...(productId ? { productId, useProduct: true } : {}),
+          // Per-user Stripe Customer + public credit metadata
           userId: userId || null,
+          email: email || null,
           displayName: displayName || null,
           isAnonymous: isAnonymous !== false,
         }),

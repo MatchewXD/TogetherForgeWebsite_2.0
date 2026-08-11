@@ -46,7 +46,8 @@ const CONTRIB_SELECT = `
   profiles:user_id (
     id,
     username,
-    avatar_url
+    avatar_url,
+    pinned_badge_key
   )
 `;
 
@@ -66,7 +67,8 @@ const CONTRIB_SELECT_BASIC = `
   profiles:user_id (
     id,
     username,
-    avatar_url
+    avatar_url,
+    pinned_badge_key
   )
 `;
 
@@ -84,6 +86,8 @@ function mapContribRow(row) {
   const profile = row.profiles || null;
   const username =
     profile?.username || row.username_snapshot || null;
+  const pinnedBadgeKey =
+    profile?.pinned_badge_key || profile?.pinnedBadgeKey || null;
   return {
     id: row.id,
     projectId: row.project_id,
@@ -91,6 +95,8 @@ function mapContribRow(row) {
     userId: row.user_id || null,
     username,
     avatarUrl: profile?.avatar_url || null,
+    pinnedBadgeKey,
+    pinned_badge_key: pinnedBadgeKey,
     displayName:
       username ||
       row.display_name ||
@@ -415,7 +421,8 @@ export async function listDevelopmentFromTasks(projectId) {
           profiles:user_id (
             id,
             username,
-            avatar_url
+            avatar_url,
+            pinned_badge_key
           )
         )
       `
@@ -442,12 +449,16 @@ export async function listDevelopmentFromTasks(projectId) {
         const profile = claim.profiles;
         const key = `${uid}::${sub}`;
         if (byPersonSub.has(key)) continue;
+        const pinnedBadgeKey =
+          profile?.pinned_badge_key || profile?.pinnedBadgeKey || null;
         byPersonSub.set(key, {
           id: `task-${claim.id || uid}-${sub}`,
           projectId,
           userId: uid,
           username: profile?.username || null,
           avatarUrl: profile?.avatar_url || null,
+          pinnedBadgeKey,
+          pinned_badge_key: pinnedBadgeKey,
           displayName: profile?.username || 'Contributor',
           category: 'development',
           subcategory: sub,
@@ -627,11 +638,51 @@ export async function getProjectCredits(projectId) {
     byCategory[r.category].push(r);
   }
 
+  let namedDonors = [...namedDonorsMap.values()];
+  // Hydrate pinned badges for project people + named donors
+  try {
+    const ids = new Set();
+    for (const r of merged) {
+      if (r.userId) ids.add(r.userId);
+    }
+    for (const d of namedDonors) {
+      if (d.userId) ids.add(d.userId);
+    }
+    if (ids.size) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, pinned_badge_key')
+        .in('id', [...ids]);
+      const pinById = new Map(
+        (profiles || []).map((p) => [p.id, p.pinned_badge_key || null])
+      );
+      for (const r of merged) {
+        if (!r.userId) continue;
+        const pin = pinById.get(r.userId);
+        if (pin) {
+          r.pinnedBadgeKey = pin;
+          r.pinned_badge_key = pin;
+        }
+      }
+      namedDonors = namedDonors.map((d) => {
+        if (!d.userId) return d;
+        const pin = pinById.get(d.userId) || d.pinnedBadgeKey || null;
+        return {
+          ...d,
+          pinnedBadgeKey: pin,
+          pinned_badge_key: pin,
+        };
+      });
+    }
+  } catch {
+    /* optional */
+  }
+
   return {
     donations: {
       projectTotalCents,
       anonymousCents,
-      namedDonors: [...namedDonorsMap.values()],
+      namedDonors,
       /** true when totals come from payments attributed while project was active */
       attributedWhileActive: donationCredits.source === 'donations_rpc',
     },
@@ -683,12 +734,24 @@ function upsertPerson(map, person, context = null) {
     if (person.roleLabel && !existing.roleLabel) {
       existing.roleLabel = person.roleLabel;
     }
+    if (
+      !existing.pinnedBadgeKey &&
+      (person.pinnedBadgeKey || person.pinned_badge_key)
+    ) {
+      existing.pinnedBadgeKey =
+        person.pinnedBadgeKey || person.pinned_badge_key;
+      existing.pinned_badge_key = existing.pinnedBadgeKey;
+    }
     return;
   }
   map.set(key, {
     userId: person.userId || null,
     username: person.username || null,
     avatarUrl: person.avatarUrl || null,
+    pinnedBadgeKey:
+      person.pinnedBadgeKey || person.pinned_badge_key || null,
+    pinned_badge_key:
+      person.pinnedBadgeKey || person.pinned_badge_key || null,
     displayName:
       person.displayName || person.username || 'Contributor',
     roleLabel: person.roleLabel || null,
@@ -865,6 +928,10 @@ export async function listAllContributorsGrouped() {
           userId,
           username,
           avatarUrl,
+          pinnedBadgeKey:
+            creator?.pinnedBadgeKey || creator?.pinned_badge_key || null,
+          pinned_badge_key:
+            creator?.pinnedBadgeKey || creator?.pinned_badge_key || null,
           displayName: username || 'Idea author',
         },
         idea.title ? `Idea: ${idea.title}` : 'Idea'
@@ -918,7 +985,7 @@ export async function listAllContributorsGrouped() {
       if (userIds.length) {
         const { data: profiles, error: pErr } = await supabase
           .from('profiles')
-          .select('id, username, avatar_url')
+          .select('id, username, avatar_url, pinned_badge_key')
           .in('id', userIds);
         if (pErr) {
           console.warn('[contributors] showcase profiles', pErr);
@@ -949,6 +1016,8 @@ export async function listAllContributorsGrouped() {
             userId: row.creator_user_id || null,
             username,
             avatarUrl: profile?.avatar_url || null,
+            pinnedBadgeKey:
+              profile?.pinned_badge_key || profile?.pinnedBadgeKey || null,
             displayName,
             roleLabel: 'Community Showcase',
           },
@@ -993,6 +1062,37 @@ export async function listAllContributorsGrouped() {
     contentShowcase: mapToSortedList(contentShowcase),
     otherSkills: mapToSortedList(otherSkills),
   };
+
+  // Ensure pinned badges for anyone with a userId
+  try {
+    const ids = new Set();
+    for (const list of Object.values(sections)) {
+      for (const p of list) {
+        if (p.userId) ids.add(p.userId);
+      }
+    }
+    if (ids.size) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, pinned_badge_key')
+        .in('id', [...ids]);
+      const pinById = new Map(
+        (profiles || []).map((p) => [p.id, p.pinned_badge_key || null])
+      );
+      for (const list of Object.values(sections)) {
+        for (const p of list) {
+          if (!p.userId) continue;
+          const pin = pinById.get(p.userId);
+          if (pin && !p.pinnedBadgeKey) {
+            p.pinnedBadgeKey = pin;
+            p.pinned_badge_key = pin;
+          }
+        }
+      }
+    }
+  } catch {
+    /* optional */
+  }
 
   const allKeys = new Set();
   for (const list of Object.values(sections)) {

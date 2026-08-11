@@ -9,7 +9,7 @@ import { ArrowLeft, Users, Heart } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import UserAvatar from '../components/ui/UserAvatar';
-import ProfileLink from '../components/ui/ProfileLink';
+import UserNameWithBadge from '../components/badges/UserNameWithBadge';
 import { tasksService } from '../services/tasksService';
 import {
   getProjectCredits,
@@ -53,12 +53,14 @@ function PersonRow({ person }) {
         size="md"
       />
       <div className="min-w-0">
-        <ProfileLink
+        <UserNameWithBadge
           username={person.username}
-          className="font-semibold text-white truncate block"
-        >
-          {name}
-        </ProfileLink>
+          displayName={name}
+          pinnedBadgeKey={
+            person.pinnedBadgeKey || person.pinned_badge_key || null
+          }
+          linkClassName="font-semibold text-white truncate"
+        />
         {person.roleLabel && (
           <p className="text-xs text-text-muted truncate">{person.roleLabel}</p>
         )}

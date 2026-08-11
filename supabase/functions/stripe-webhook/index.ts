@@ -18,12 +18,16 @@
  *   Or: supabase status / project URL host before .supabase.co
  *
  * ── Events to enable ───────────────────────────────────────────────────
- *   checkout.session.completed
- *   invoice.paid
+ *   checkout.session.completed   → first payment + credit metadata
+ *   invoice.paid                 → each subscription RENEWAL → new thank-you card
  *   customer.subscription.created
  *   customer.subscription.updated
  *   customer.subscription.deleted
  *   charge.refunded (optional)
+ *
+ * Monthly recognition: every successful renewal inserts a donations row with the
+ * same public credit as checkout (user_id / is_anonymous). get_public_recent_donations
+ * surfaces each payment as its own card on the Donate page thank-you section.
  *
  * ── Local test ─────────────────────────────────────────────────────────
  *   stripe listen --forward-to http://127.0.0.1:54321/functions/v1/stripe-webhook
@@ -73,6 +77,56 @@ function idOf(field: unknown): string | null {
   if (typeof field === 'string') return field;
   if (typeof field === 'object' && field.id) return String(field.id);
   return null;
+}
+
+/** Map custom / missing tier by amount (matches src/constants/badges.js). */
+function resolveDonationTierMeta(
+  tierId: string | null | undefined,
+  amountCents: number,
+  interval: string = 'once',
+  tierLabel?: string | null
+) {
+  const id = String(tierId || '').toLowerCase().trim();
+  if (id === 'supporter' || id === 'member' || id === 'builder') {
+    return {
+      tierId: id,
+      tierLabel:
+        tierLabel ||
+        (id === 'member'
+          ? 'Forge Member'
+          : id.charAt(0).toUpperCase() + id.slice(1)),
+    };
+  }
+  const cents = Number(amountCents) || 0;
+  const monthly = String(interval || 'once').toLowerCase() === 'month';
+  if (monthly) {
+    if (cents >= 4000) return { tierId: 'builder', tierLabel: tierLabel || 'Builder' };
+    if (cents >= 1500) return { tierId: 'member', tierLabel: tierLabel || 'Forge Member' };
+    if (cents >= 500) return { tierId: 'supporter', tierLabel: tierLabel || 'Supporter' };
+  } else {
+    if (cents >= 5000) return { tierId: 'builder', tierLabel: tierLabel || 'Builder' };
+    if (cents >= 2000) return { tierId: 'member', tierLabel: tierLabel || 'Forge Member' };
+    if (cents >= 500) return { tierId: 'supporter', tierLabel: tierLabel || 'Supporter' };
+  }
+  return {
+    tierId: id || 'custom',
+    tierLabel: tierLabel || 'Custom',
+  };
+}
+
+/** Recompute badge grants (non-fatal). */
+async function syncUserBadges(userId: string | null | undefined) {
+  if (!userId) return;
+  try {
+    const { error } = await admin().rpc('sync_user_badges', {
+      p_user_id: userId,
+    });
+    if (error) {
+      console.warn('[stripe-webhook] sync_user_badges', error.message);
+    }
+  } catch (e) {
+    console.warn('[stripe-webhook] sync_user_badges', e?.message || e);
+  }
 }
 
 function fundTypeFromMeta(meta: Record<string, string> | null | undefined) {
@@ -206,6 +260,38 @@ async function markEventProcessed(eventId: string, type: string) {
   }
 }
 
+async function writeDonation(
+  sb: ReturnType<typeof admin>,
+  row: Record<string, unknown>,
+  mode: 'insert' | 'update',
+  id?: string
+) {
+  let payload = { ...row };
+  for (let attempt = 0; attempt < 4; attempt++) {
+    let error;
+    if (mode === 'update' && id) {
+      ({ error } = await sb.from('donations').update(payload).eq('id', id));
+    } else {
+      const res = await sb.from('donations').insert([payload]).select('id').maybeSingle();
+      error = res.error;
+      if (!error) return { inserted: true, id: res.data?.id };
+    }
+    if (!error) return { updated: true, id };
+    // Strip optional columns if migration not applied yet
+    const msg = String(error.message || '');
+    if (/payment_kind/i.test(msg) && 'payment_kind' in payload) {
+      delete payload.payment_kind;
+      continue;
+    }
+    if (/project_id/i.test(msg) && 'project_id' in payload) {
+      delete payload.project_id;
+      continue;
+    }
+    throw error;
+  }
+  throw new Error('Could not write donation');
+}
+
 async function upsertDonation(row: Record<string, unknown>) {
   const sb = admin();
 
@@ -216,9 +302,7 @@ async function upsertDonation(row: Record<string, unknown>) {
       .eq('stripe_session_id', row.stripe_session_id)
       .maybeSingle();
     if (existing?.id) {
-      const { error } = await sb.from('donations').update(row).eq('id', existing.id);
-      if (error) throw error;
-      return { updated: true, id: existing.id };
+      return writeDonation(sb, row, 'update', existing.id);
     }
   }
 
@@ -229,9 +313,7 @@ async function upsertDonation(row: Record<string, unknown>) {
       .eq('stripe_payment_intent', row.stripe_payment_intent)
       .maybeSingle();
     if (existing?.id) {
-      const { error } = await sb.from('donations').update(row).eq('id', existing.id);
-      if (error) throw error;
-      return { updated: true, id: existing.id };
+      return writeDonation(sb, row, 'update', existing.id);
     }
   }
 
@@ -246,13 +328,100 @@ async function upsertDonation(row: Record<string, unknown>) {
     }
   }
 
-  const { data, error } = await sb
-    .from('donations')
-    .insert([row])
-    .select('id')
-    .maybeSingle();
-  if (error) throw error;
-  return { inserted: true, id: data?.id };
+  return writeDonation(sb, row, 'insert');
+}
+
+/**
+ * Credit identity for a subscription payment (public recognition feed).
+ * Order: Stripe subscription metadata (set at checkout) → stripe_subscriptions
+ * cache → earliest donation row for this subscription.
+ * Each invoice.paid renewal gets its own donations row so the thank-you feed
+ * shows a new card every month they pay.
+ */
+async function resolveSubscriptionCredit(
+  subId: string | null,
+  subMeta: Record<string, string> | null | undefined
+): Promise<{
+  userId: string | null;
+  displayName: string | null;
+  isAnonymous: boolean;
+}> {
+  const meta = subMeta || {};
+  let userId = meta.userId || meta.user_id || null;
+  let displayName = meta.displayName || meta.display_name || null;
+  let isAnonymous = true;
+
+  if ('isAnonymous' in meta || 'anonymous' in meta) {
+    isAnonymous =
+      meta.isAnonymous === 'false' || meta.anonymous === 'false' ? false : true;
+  } else if (userId || displayName) {
+    // Metadata had a credited identity without an explicit flag
+    isAnonymous = false;
+  }
+
+  const finish = () => ({
+    userId: userId || null,
+    displayName: isAnonymous ? null : displayName || null,
+    isAnonymous: isAnonymous || !(userId || displayName),
+  });
+
+  if ((userId || displayName) && ('isAnonymous' in meta || !isAnonymous)) {
+    return finish();
+  }
+
+  if (!subId) return finish();
+
+  // Cache on stripe_subscriptions (optional columns)
+  try {
+    const { data: subRow } = await admin()
+      .from('stripe_subscriptions')
+      .select('user_id, display_name, is_anonymous')
+      .eq('id', subId)
+      .maybeSingle();
+    if (subRow) {
+      if (!userId && subRow.user_id) userId = subRow.user_id;
+      if (subRow.is_anonymous === false) {
+        isAnonymous = false;
+        if (!displayName && subRow.display_name) {
+          displayName = subRow.display_name;
+        }
+      } else if (subRow.is_anonymous === true && !('isAnonymous' in meta)) {
+        isAnonymous = true;
+      }
+    }
+  } catch {
+    /* columns may not exist yet */
+  }
+
+  if (userId && !isAnonymous) return finish();
+
+  // Fallback: copy credit from the original checkout donation
+  try {
+    const { data: prior } = await admin()
+      .from('donations')
+      .select('user_id, display_name, is_anonymous')
+      .eq('stripe_subscription_id', subId)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (prior) {
+      if (!userId && prior.user_id) userId = prior.user_id;
+      if (prior.is_anonymous === false) {
+        isAnonymous = false;
+        if (!displayName && prior.display_name) {
+          displayName = prior.display_name;
+        }
+      } else if (prior.is_anonymous === true && !userId) {
+        isAnonymous = true;
+        displayName = null;
+      }
+    }
+  } catch (e) {
+    console.warn('[stripe-webhook] resolveSubscriptionCredit', e?.message);
+  }
+
+  return finish();
 }
 
 async function upsertSubscription(sub: Stripe.Subscription) {
@@ -262,16 +431,19 @@ async function upsertSubscription(sub: Stripe.Subscription) {
     item?.price?.unit_amount ??
     item?.plan?.amount ??
     null;
-  const fundType = fundTypeFromMeta(sub.metadata as Record<string, string>);
+  const meta = (sub.metadata || {}) as Record<string, string>;
+  const fundType = fundTypeFromMeta(meta);
+  const credit = await resolveSubscriptionCredit(sub.id, meta);
 
-  const row = {
+  const row: Record<string, unknown> = {
     id: sub.id,
     status: sub.status,
     fund_type: fundType,
     amount_cents: amountCents,
     currency: item?.price?.currency || 'usd',
     customer_id: idOf(sub.customer),
-    tier_id: sub.metadata?.tierId || null,
+    tier_id: meta.tierId || null,
+    tier_label: meta.label || meta.tierLabel || meta.tierId || null,
     cancel_at_period_end: !!sub.cancel_at_period_end,
     current_period_end: sub.current_period_end
       ? new Date(sub.current_period_end * 1000).toISOString()
@@ -280,17 +452,40 @@ async function upsertSubscription(sub: Stripe.Subscription) {
       ? new Date(sub.canceled_at * 1000).toISOString()
       : null,
     updated_at: new Date().toISOString(),
+    // Optional columns (billing account SQL)
+    user_id: credit.userId,
+    is_anonymous: credit.isAnonymous,
+    display_name: credit.displayName,
   };
 
-  const { error } = await sb.from('stripe_subscriptions').upsert(row, {
+  let { error } = await sb.from('stripe_subscriptions').upsert(row, {
     onConflict: 'id',
   });
+  // Retry without optional credit columns if schema not migrated yet
+  if (
+    error &&
+    /user_id|is_anonymous|display_name|tier_label|column/i.test(
+      String(error.message || '')
+    )
+  ) {
+    delete row.user_id;
+    delete row.is_anonymous;
+    delete row.display_name;
+    delete row.tier_label;
+    ({ error } = await sb.from('stripe_subscriptions').upsert(row, {
+      onConflict: 'id',
+    }));
+  }
   if (error) {
     // Table may not exist yet - log and continue so payment recording still works
     console.warn('[stripe-webhook] subscription upsert', error.message);
     return { ok: false, error: error.message };
   }
-  return { ok: true, id: sub.id, status: sub.status };
+  // Active Subscriber badge grant/revoke
+  if (credit.userId) {
+    await syncUserBadges(credit.userId);
+  }
+  return { ok: true, id: sub.id, status: sub.status, userId: credit.userId };
 }
 
 async function handleCheckoutCompleted(
@@ -331,14 +526,26 @@ async function handleCheckoutCompleted(
   // Attribute only while a project is In Development; released projects get nothing new
   const projectId = await resolveActiveProjectId(fundType);
 
+  const tierResolved = resolveDonationTierMeta(
+    session.metadata?.tierId || null,
+    amountCents,
+    interval,
+    session.metadata?.label || session.metadata?.tierLabel || null
+  );
+  const tierId = tierResolved.tierId;
+  const tierLabel = tierResolved.tierLabel;
+
   const row = {
     amount_cents: amountCents,
     amount: Math.round(amountCents / 100),
     currency: session.currency || 'usd',
     interval,
+    // Clear separation: pure donation vs subscription charge
+    payment_kind:
+      interval === 'month' ? 'subscription_payment' : 'one_time',
     fund_type: fundType,
-    tier_id: session.metadata?.tierId || null,
-    tier_label: session.metadata?.tierId || session.metadata?.label || null,
+    tier_id: tierId,
+    tier_label: tierLabel,
     status: 'completed',
     is_anonymous: isAnonymous,
     stripe_session_id: session.id,
@@ -354,6 +561,32 @@ async function handleCheckoutCompleted(
   const result = await upsertDonation(row);
   if (result?.inserted || result?.updated) {
     await mirrorDonationContribution(row);
+    await syncUserBadges(userId);
+  }
+
+  // Ensure Stripe Customer is tagged with TF user_id for future checkouts / My Plan
+  const customerId = idOf(session.customer);
+  if (customerId && userId && stripeKey) {
+    try {
+      const c = await stripe.customers.retrieve(customerId);
+      if (c && !c.deleted) {
+        const meta = c.metadata || {};
+        if (
+          meta.together_forge_user_id !== userId &&
+          meta.userId !== userId
+        ) {
+          await stripe.customers.update(customerId, {
+            metadata: {
+              ...meta,
+              together_forge_user_id: userId,
+              userId,
+            },
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[stripe-webhook] tag customer', e?.message);
+    }
   }
 
   // If subscription checkout, sync subscription row when expanded/id present
@@ -371,7 +604,8 @@ async function handleCheckoutCompleted(
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice, eventId: string) {
-  // First invoice usually already recorded via checkout.session.completed
+  // First invoice is recorded via checkout.session.completed (with credit metadata).
+  // Renewals use invoice.paid → each successful charge becomes its own recognition card.
   if (invoice.billing_reason === 'subscription_create') {
     return { skipped: 'subscription_create' };
   }
@@ -384,12 +618,14 @@ async function handleInvoicePaid(invoice: Stripe.Invoice, eventId: string) {
   let fundType = 'studio';
   let tierId: string | null = invoice.metadata?.tierId || null;
   const subId = idOf(invoice.subscription);
+  let subMeta: Record<string, string> | null = null;
 
   if (subId && stripeKey) {
     try {
       const sub = await stripe.subscriptions.retrieve(subId);
-      fundType = fundTypeFromMeta(sub.metadata as Record<string, string>);
-      tierId = sub.metadata?.tierId || tierId;
+      subMeta = (sub.metadata || {}) as Record<string, string>;
+      fundType = fundTypeFromMeta(subMeta);
+      tierId = subMeta.tierId || tierId;
       await upsertSubscription(sub);
     } catch (e) {
       console.warn('[stripe-webhook] sub on invoice', e?.message);
@@ -397,33 +633,44 @@ async function handleInvoicePaid(invoice: Stripe.Invoice, eventId: string) {
   }
   if (invoice.metadata?.fundType === 'runway') fundType = 'runway';
 
+  // Same public credit as the original subscribe (username every month they pay)
+  const credit = await resolveSubscriptionCredit(subId, subMeta);
   const projectId = await resolveActiveProjectId(fundType);
+  const tierResolved = resolveDonationTierMeta(
+    tierId,
+    amountCents,
+    'month',
+    (subMeta && (subMeta.label || subMeta.tierLabel)) || null
+  );
 
   const row = {
     amount_cents: amountCents,
     amount: Math.round(amountCents / 100),
     currency: invoice.currency || 'usd',
     interval: 'month',
+    payment_kind: 'subscription_payment',
     fund_type: fundType,
-    tier_id: tierId,
-    tier_label: tierId,
+    tier_id: tierResolved.tierId,
+    tier_label: tierResolved.tierLabel,
     status: 'completed',
-    is_anonymous: true,
+    is_anonymous: credit.isAnonymous,
     stripe_session_id: null,
+    // Unique per invoice charge → new feed card each renewal
     stripe_payment_intent: idOf(invoice.payment_intent),
     stripe_subscription_id: subId,
     stripe_customer_id: idOf(invoice.customer),
     raw_event_id: eventId,
-    user_id: null,
-    display_name: null,
+    user_id: credit.userId,
+    display_name: credit.displayName,
     project_id: projectId,
   };
 
   const result = await upsertDonation(row);
   if (result?.inserted || result?.updated) {
     await mirrorDonationContribution(row);
+    await syncUserBadges(credit.userId);
   }
-  return result;
+  return { ...result, recognition: true, is_anonymous: credit.isAnonymous };
 }
 
 Deno.serve(async (req) => {
@@ -509,10 +756,19 @@ Deno.serve(async (req) => {
         const charge = event.data.object as Stripe.Charge;
         const pi = idOf(charge.payment_intent);
         if (pi) {
-          await admin()
+          const sb = admin();
+          const { data: donRows } = await sb
+            .from('donations')
+            .select('user_id')
+            .eq('stripe_payment_intent', pi)
+            .limit(5);
+          await sb
             .from('donations')
             .update({ status: 'refunded' })
             .eq('stripe_payment_intent', pi);
+          for (const d of donRows || []) {
+            if (d?.user_id) await syncUserBadges(d.user_id);
+          }
           result = { refunded: true, payment_intent: pi };
         } else {
           result = { skipped: 'no_payment_intent' };

@@ -31,6 +31,8 @@ import {
   getIdeaImageUrl,
 } from '../services/ideasService';
 import IdeaImageField from '../components/ideas/IdeaImageField';
+import IdeaTagsField from '../components/ideas/IdeaTagsField';
+import ParentIdeaPicker from '../components/ideas/ParentIdeaPicker';
 import {
   buildGuidedDisplayItems,
   GUIDED_GRID_CLASS,
@@ -105,6 +107,7 @@ const emptyForm = {
   description: '',
   tags: '',
   projectId: '',
+  parentIdeaId: '',
   ...emptyOptionalForm(),
 };
 
@@ -129,19 +132,38 @@ const IdeaSubmit = () => {
     return Number.isFinite(n) ? n : null;
   }, [searchParams]);
 
+  const parentFromQuery = useMemo(() => {
+    const raw =
+      searchParams.get('parent') ||
+      searchParams.get('parent_idea') ||
+      searchParams.get('buildsOn');
+    if (!raw) return '';
+    const n = Number(raw);
+    return Number.isFinite(n) ? String(n) : '';
+  }, [searchParams]);
+
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState(() => ({
     ...emptyForm,
     projectId: linkedFromQuery || '',
     tags: tagFromQuery || '',
+    parentIdeaId: parentFromQuery || '',
   }));
   const [draftId, setDraftId] = useState(null);
-  const [tagDraft, setTagDraft] = useState('');
   const [message, setMessage] = useState('');
   const [messageTone, setMessageTone] = useState('error'); // error | success | info
   const [submitting, setSubmitting] = useState(false);
   const [imageFile, setImageFile] = useState(null);
+  /** Local object URL for a newly picked file */
   const [imagePreview, setImagePreview] = useState(null);
+  /** Stored draft/public URL (resume) — shown when no new file is picked */
+  const [existingImageUrl, setExistingImageUrl] = useState(null);
+  const [removeExistingImage, setRemoveExistingImage] = useState(false);
+  const imageObjectUrlRef = useRef(null);
+  /** Refs so draft autosave always sees latest image selection */
+  const imageFileRef = useRef(null);
+  const existingImageUrlRef = useRef(null);
+  const removeExistingImageRef = useRef(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState(null);
   const [autosaveFlash, setAutosaveFlash] = useState(false);
@@ -173,6 +195,15 @@ const IdeaSubmit = () => {
   useEffect(() => {
     stepRef.current = step;
   }, [step]);
+  useEffect(() => {
+    imageFileRef.current = imageFile;
+  }, [imageFile]);
+  useEffect(() => {
+    existingImageUrlRef.current = existingImageUrl;
+  }, [existingImageUrl]);
+  useEffect(() => {
+    removeExistingImageRef.current = removeExistingImage;
+  }, [removeExistingImage]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -233,13 +264,26 @@ const IdeaSubmit = () => {
         description: data.description || '',
         tags: data.tags || '',
         projectId: data.project_id || linkedFromQuery || '',
+        parentIdeaId:
+          data.parent_idea_id != null
+            ? String(data.parent_idea_id)
+            : parentFromQuery || '',
         ...optionalFormFromIdea(data),
       });
       setDraftId(data.id);
+      // Restore supporting image from draft so Preview can show it
+      if (imageObjectUrlRef.current) {
+        URL.revokeObjectURL(imageObjectUrlRef.current);
+        imageObjectUrlRef.current = null;
+      }
+      setImageFile(null);
+      setImagePreview(null);
+      setExistingImageUrl(getIdeaImageUrl(data) || null);
+      setRemoveExistingImage(false);
       dirtyRef.current = false;
       skipDirtyRef.current = true;
     },
-    [linkedFromQuery]
+    [linkedFromQuery, parentFromQuery]
   );
 
   // Load explicit ?draft= or resume last in-progress autosave session
@@ -354,7 +398,7 @@ const IdeaSubmit = () => {
       return;
     }
     dirtyRef.current = true;
-  }, [formData, step, loadingDraft]);
+  }, [formData, step, loadingDraft, imageFile, existingImageUrl, removeExistingImage]);
 
   const tags = useMemo(
     () =>
@@ -373,36 +417,37 @@ const IdeaSubmit = () => {
     setFormData((f) => ({ ...f, [key]: value }));
 
   const onImageFile = useCallback((file) => {
-    setImageFile(file);
-    setImagePreview((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return file ? URL.createObjectURL(file) : null;
-    });
+    // Revoke previous blob URL only when replacing (not via Strict Mode effect)
+    if (imageObjectUrlRef.current) {
+      URL.revokeObjectURL(imageObjectUrlRef.current);
+      imageObjectUrlRef.current = null;
+    }
+    if (file) {
+      const url = URL.createObjectURL(file);
+      imageObjectUrlRef.current = url;
+      setImageFile(file);
+      setImagePreview(url);
+      setRemoveExistingImage(false);
+    } else {
+      setImageFile(null);
+      setImagePreview(null);
+    }
   }, []);
 
+  // Unmount only — avoid revoking on every preview change (breaks React Strict Mode)
   useEffect(() => {
     return () => {
-      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      if (imageObjectUrlRef.current) {
+        URL.revokeObjectURL(imageObjectUrlRef.current);
+        imageObjectUrlRef.current = null;
+      }
     };
-  }, [imagePreview]);
+  }, []);
 
-  const addTag = () => {
-    const cleaned = tagDraft.trim().replace(/^#/, '');
-    if (!cleaned) return;
-    const next = [...tags];
-    if (!next.some((t) => t.toLowerCase() === cleaned.toLowerCase())) {
-      next.push(cleaned);
-    }
-    setField('tags', next.join(', '));
-    setTagDraft('');
-  };
-
-  const removeTag = (tag) => {
-    setField(
-      'tags',
-      tags.filter((t) => t.toLowerCase() !== tag.toLowerCase()).join(', ')
-    );
-  };
+  /** What Preview / Step 1 should show for the supporting image */
+  const previewImageSrc =
+    imagePreview ||
+    (!removeExistingImage && existingImageUrl ? existingImageUrl : null);
 
   const openRemoveModal = (target) => {
     removeTargetRef.current = target;
@@ -511,6 +556,11 @@ const IdeaSubmit = () => {
       ),
     ];
     const guided_data = buildGuidedData(guidedFieldsFromForm(form));
+    const parentRaw = form.parentIdeaId;
+    const parentIdeaId =
+      parentRaw === '' || parentRaw == null
+        ? null
+        : Number(parentRaw);
     return {
       ...(id ? { id } : {}),
       title: (form.title || '').trim(),
@@ -523,6 +573,11 @@ const IdeaSubmit = () => {
       status,
       votes: 0,
       ...(projectId ? { project_id: projectId } : {}),
+      // Always include so clear works on draft update
+      parent_idea_id:
+        parentIdeaId != null && Number.isFinite(parentIdeaId)
+          ? parentIdeaId
+          : null,
     };
   }, []);
 
@@ -551,18 +606,75 @@ const IdeaSubmit = () => {
       }
       const form = formDataRef.current;
       const id = draftIdRef.current;
-      if (!force && !id && !formHasMeaningfulContent(form)) return null;
+      const hasImage =
+        Boolean(imageFileRef.current) ||
+        (Boolean(existingImageUrlRef.current) &&
+          !removeExistingImageRef.current);
+      if (
+        !force &&
+        !id &&
+        !formHasMeaningfulContent(form) &&
+        !hasImage
+      ) {
+        return null;
+      }
       if (savingDraftRef.current) return null;
 
       savingDraftRef.current = true;
       if (!silent) setSavingDraft(true);
       try {
-        const payload = buildIdeaPayloadFrom(form, 'Draft', id);
+        // Upload new file (or clear) so the draft row keeps image_url
+        let imageUrl = null;
+        const pendingFile = imageFileRef.current;
+        const existingUrl = existingImageUrlRef.current;
+        const removeExisting = removeExistingImageRef.current;
+
+        if (pendingFile) {
+          imageUrl = await ideasService.uploadIdeaImage(pendingFile, user.id);
+          if (!imageUrl) {
+            throw new Error(
+              'Image upload did not return a public URL. Check the idea-images storage bucket.'
+            );
+          }
+        } else if (existingUrl && !removeExisting) {
+          imageUrl = existingUrl;
+        } else {
+          imageUrl = null; // removed or never set
+        }
+
+        const payload = {
+          ...buildIdeaPayloadFrom(form, 'Draft', id),
+          // Explicit null clears image when user removed it on a draft update
+          image_url: imageUrl,
+        };
         const data = await ideasService.saveDraft({
           ...payload,
           user_id: user.id,
         });
         if (!data?.id) throw new Error('Draft saved but no id returned.');
+
+        // After upload, treat stored URL as existing (avoid re-upload on next save)
+        if (pendingFile && imageUrl) {
+          if (imageObjectUrlRef.current) {
+            URL.revokeObjectURL(imageObjectUrlRef.current);
+            imageObjectUrlRef.current = null;
+          }
+          setImageFile(null);
+          imageFileRef.current = null;
+          setImagePreview(null);
+          setExistingImageUrl(imageUrl);
+          existingImageUrlRef.current = imageUrl;
+          setRemoveExistingImage(false);
+          removeExistingImageRef.current = false;
+        } else if (removeExisting) {
+          setExistingImageUrl(null);
+          existingImageUrlRef.current = null;
+          setRemoveExistingImage(false);
+          removeExistingImageRef.current = false;
+        } else if (imageUrl) {
+          setExistingImageUrl(imageUrl);
+          existingImageUrlRef.current = imageUrl;
+        }
 
         setDraftId(data.id);
         draftIdRef.current = data.id;
@@ -584,7 +696,9 @@ const IdeaSubmit = () => {
         } else {
           setDraftSavedAt(new Date());
           setMessage(
-            'Draft saved. You can find it under My Drafts on your Dashboard.'
+            imageUrl
+              ? 'Draft saved with supporting image. Find it under My Drafts on your Dashboard.'
+              : 'Draft saved. You can find it under My Drafts on your Dashboard.'
           );
           setMessageTone('success');
         }
@@ -718,6 +832,9 @@ const IdeaSubmit = () => {
             'Image upload did not return a public URL. Check the idea-images storage bucket.'
           );
         }
+      } else if (existingImageUrl && !removeExistingImage) {
+        // Keep image already on the draft
+        imageUrl = existingImageUrl;
       }
       const newIdea = {
         ...buildIdeaPayload('Proposed'),
@@ -1082,52 +1199,30 @@ const IdeaSubmit = () => {
               <IdeaImageField
                 id="idea-image-submit"
                 file={imageFile}
-                existingUrl={null}
+                existingUrl={existingImageUrl}
                 previewUrl={imagePreview}
+                removeExisting={removeExistingImage}
                 onFileChange={onImageFile}
+                onRemoveExisting={setRemoveExistingImage}
+              />
+
+              <IdeaTagsField
+                value={formData.tags}
+                onChange={(v) => setField('tags', v)}
+                labelClass={labelClass}
+              />
+
+              <ParentIdeaPicker
+                value={formData.parentIdeaId}
+                onChange={(v) => setField('parentIdeaId', v)}
+                excludeIdeaId={draftId}
+                labelClass={labelClass}
+                fieldClass={fieldClass}
               />
 
               <div>
-                <label className={labelClass}>Tags (optional)</label>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    maxLength={40}
-                    placeholder="Type a tag and press Enter"
-                    className={fieldClass}
-                    value={tagDraft}
-                    onChange={(e) => setTagDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addTag();
-                      }
-                    }}
-                  />
-                  <Button type="button" variant="secondary" onClick={addTag}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                {tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {tags.map((tag) => (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => removeTag(tag)}
-                        className="inline-flex items-center gap-1 text-xs font-mono rounded-full border border-neon-purple/40 bg-neon-purple/10 text-neon-purple px-2.5 py-1"
-                      >
-                        #{tag}
-                        <span className="opacity-70">x</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div>
                 <label className={labelClass} htmlFor="idea-related-to">
-                  Related to (optional)
+                  Related to project / stage (optional)
                 </label>
                 <RelatedToSelect
                   id="idea-related-to"
@@ -1139,7 +1234,7 @@ const IdeaSubmit = () => {
                 />
                 <p className="mt-1.5 text-xs text-text-muted">
                   Choose a game stage or a live project. Leave as Community Idea
-                  for the global board.
+                  for the global board. Separate from “builds on” another idea.
                 </p>
               </div>
             </div>
@@ -1490,10 +1585,10 @@ const IdeaSubmit = () => {
                   Match Idea Detail: description primary, image secondary.
                   Desktop: side-by-side. Mobile: description first, image after.
                 */}
-                {(formData.description || imagePreview) && (
+                {(formData.description || previewImageSrc) && (
                   <div
                     className={`pt-4 border-t border-cyber-border grid gap-5 items-start ${
-                      imagePreview && formData.description
+                      previewImageSrc && formData.description
                         ? 'lg:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)]'
                         : ''
                     }`}
@@ -1509,7 +1604,7 @@ const IdeaSubmit = () => {
                       </div>
                     ) : null}
 
-                    {imagePreview && (
+                    {previewImageSrc && (
                       <figure
                         className={`w-full min-w-0 ${
                           formData.description
@@ -1519,18 +1614,29 @@ const IdeaSubmit = () => {
                       >
                         <div className="rounded-xl overflow-hidden border border-cyber-border bg-cyber-surface/80 shadow-md">
                           <img
-                            src={imagePreview}
-                            alt="Supporting image preview"
+                            src={previewImageSrc}
+                            alt="Supporting image for this idea"
                             className="w-full max-h-48 sm:max-h-56 lg:max-h-64 object-contain bg-cyber-bg/40"
                           />
                         </div>
                         <figcaption className="mt-2 text-center lg:text-left text-[11px] font-mono tracking-widest uppercase text-text-muted">
                           Supporting image
-                          {imageFile?.name ? ` · ${imageFile.name}` : ''}
+                          {imageFile?.name
+                            ? ` · ${imageFile.name}`
+                            : existingImageUrl && !imageFile
+                              ? ' · from draft'
+                              : ''}
                         </figcaption>
                       </figure>
                     )}
                   </div>
+                )}
+
+                {!previewImageSrc && (
+                  <p className="text-xs text-text-muted pt-2 border-t border-cyber-border/60">
+                    No supporting image. You can go back to Basics to add one
+                    before submitting.
+                  </p>
                 )}
 
                 {hasPreviewExtras && (

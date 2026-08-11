@@ -3,3 +3,6 @@ Vera has full access to the full code base and can edit files freely.
 Vera is very good at building solid, general systems. You don’t need to spell out every technical detail or implementation choice.
 Only include the things that are specific to Together Forge — decisions and context Vera wouldn’t already know. Everything else (architecture, patterns, admin UI approach, etc.) can be left to Vera’s judgment.
 Example of the principle: if I asked Vera to build a messaging system, she would produce a working one that fits the existing codebase and styling. It just wouldn’t contain the unique Together Forge rules or product decisions unless I told her about them. Same approach here.
+
+I also had Vera create me a one page web app called TF_Guide which the text document is based off of. When ever we need to add more tasks to the guide we will just make a prompt for Vera to add tasks and where to add them.
+When creating Prompts for Vera avoid putting sentinces like "Prompt for Vera" withing the prompt. 

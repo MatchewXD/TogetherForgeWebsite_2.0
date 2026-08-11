@@ -159,6 +159,20 @@ begin
     raise exception 'Please work on the task a bit longer before submitting for review (minimum 2 minutes after claim).';
   end if;
 
+  -- All checklist items must be done when a checklist exists
+  if exists (
+    select 1
+    from jsonb_array_elements(coalesce(v_task.subtasks, '[]'::jsonb)) elem
+    where jsonb_typeof(elem) = 'object'
+      and coalesce(
+        (elem->>'done')::boolean,
+        (elem->>'completed')::boolean,
+        false
+      ) is not true
+  ) then
+    raise exception 'Complete every checklist item before submitting for review.';
+  end if;
+
   update task_claims set
     status = 'PendingReview',
     progress_percent = greatest(coalesce(progress_percent, 0), 90),

@@ -173,7 +173,7 @@ const DonationCreditChoice = ({
           <span>
             Add a username on your{' '}
             <Link
-              to="/profile/edit"
+              to="/account/profile"
               className="text-neon-cyan hover:underline"
             >
               profile

@@ -88,8 +88,8 @@ const StripeCheckoutButton = ({
         tierId,
         label,
         fundType,
-        productId:
-          productId || import.meta.env.VITE_STRIPE_PRODUCT_ID || undefined,
+        // Only if parent passes a real product for THIS Stripe account
+        ...(productId ? { productId } : {}),
         successUrl: `${origin}${successPath.startsWith('/') ? successPath : `/${successPath}`}`,
         cancelUrl: `${origin}${cancelPath.startsWith('/') ? cancelPath : `/${cancelPath}`}`,
         userId: userId || null,

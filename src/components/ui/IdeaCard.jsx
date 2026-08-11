@@ -1,8 +1,8 @@
-import { Flame, MessageCircle } from 'lucide-react';
+import { Flame, MessageCircle, Link2 } from 'lucide-react';
 import Card from './Card';
 import Badge from './Badge';
 import UserAvatar from './UserAvatar';
-import ProfileLink from './ProfileLink';
+import UserNameWithBadge from '../badges/UserNameWithBadge';
 import {
   deriveIdeaStatus,
   getIdeaProjectKey,
@@ -13,6 +13,7 @@ import {
   statusLabel,
 } from '../../utils/ideaStatus';
 import { getIdeaImageUrl } from '../../services/ideasService';
+import { ideaHasParent } from '../../utils/ideaRelations';
 
 /**
  * Shared idea listing card for GameIdeas + Project Workspace.
@@ -59,6 +60,8 @@ const IdeaCard = ({
   const category = idea.category || null;
   const summary = idea.summary || idea.description || 'No summary yet.';
   const thumbUrl = getIdeaImageUrl(idea);
+  const parentSummary = idea.parent || idea.parentIdea || null;
+  const hasParent = ideaHasParent(idea) || Boolean(parentSummary);
 
   const open = () => onOpen?.(idea.id);
 
@@ -145,6 +148,28 @@ const IdeaCard = ({
           <p className="text-sm text-text-secondary leading-relaxed line-clamp-2 mb-2.5">
             {summary}
           </p>
+
+          {hasParent && (
+            <div
+              className="inline-flex items-center gap-1.5 max-w-full mb-2.5 text-[11px] font-mono text-neon-purple/90 border border-neon-purple/30 bg-neon-purple/10 rounded-full px-2 py-0.5"
+              title={
+                parentSummary?.title
+                  ? `Builds on ${parentSummary.title}${
+                      parentSummary.creator?.username
+                        ? ` by ${parentSummary.creator.username}`
+                        : ''
+                    }`
+                  : 'Builds on another idea'
+              }
+            >
+              <Link2 className="w-3 h-3 shrink-0" aria-hidden />
+              <span className="truncate">
+                {parentSummary?.title
+                  ? `Builds on ${parentSummary.title}`
+                  : 'Related idea'}
+              </span>
+            </div>
+          )}
 
           {tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-3">
@@ -233,12 +258,16 @@ const IdeaCard = ({
           />
           <span className="truncate">
             by{' '}
-            <ProfileLink
+            <UserNameWithBadge
               username={creatorUsername}
-              className="text-neon-cyan"
-            >
-              {creatorName}
-            </ProfileLink>
+              displayName={creatorName}
+              pinnedBadgeKey={
+                idea.creator?.pinnedBadgeKey ||
+                idea.creator?.pinned_badge_key ||
+                null
+              }
+              linkClassName="text-neon-cyan"
+            />
           </span>
         </div>
 

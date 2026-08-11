@@ -1,39 +1,35 @@
 import Button from './Buttons';
 import Badge from './Badge';
+import TaskCategoryBadge from './TaskCategoryBadge';
 import UserAvatar from './UserAvatar';
-import ProfileLink from './ProfileLink';
+import UserNameWithBadge from '../badges/UserNameWithBadge';
 import {
   formatClaimHeldSince,
-  CLAIM_STALE_DAYS,
+  getClaimAutoReleaseInfo,
 } from '../../services/tasksService';
+import { progressTone } from '../../utils/progressTone';
 
 /**
- * Level / status rail on chamfered panels.
- * Uses inset box-shadow classes (see index.css) - Tailwind border-l is
- * disabled by .cyber-card { border: none }.
+ * Hierarchy rail on chamfered panels (see index.css).
+ * Level classes always apply; status can stack so Epic/Medium/Small stay clear.
  */
 function levelAccentClass(depth, { isCompleted, isStale } = {}) {
-  if (isCompleted) return 'task-card-accent-success';
-  if (isStale) return 'task-card-accent-warning';
-  if (depth === 0) return 'task-card-accent-epic';
-  if (depth === 1) return 'task-card-accent-medium';
-  return 'task-card-accent-small';
+  const level =
+    depth === 0
+      ? 'task-card-accent-epic'
+      : depth === 1
+        ? 'task-card-accent-medium'
+        : 'task-card-accent-small';
+  if (isCompleted) return `${level} task-card-accent-success`;
+  if (isStale) return `${level} task-card-accent-warning`;
+  return level;
 }
 
 function levelBadgeVariant(depth) {
-  if (depth === 0) return 'purple';
+  // Epic = gold (stands out vs category purple); Medium = cyan; Small = muted
+  if (depth === 0) return 'gold';
   if (depth === 1) return 'neon';
   return 'default';
-}
-
-/** True when claim is aging toward auto-release (half of stale window). */
-function isClaimStale(claimedAtIso) {
-  if (!claimedAtIso) return false;
-  const then = new Date(claimedAtIso).getTime();
-  if (Number.isNaN(then)) return false;
-  const days = (Date.now() - then) / (1000 * 60 * 60 * 24);
-  const warnAfter = Math.max(3, Math.floor(CLAIM_STALE_DAYS / 2));
-  return days >= warnAfter;
 }
 
 /**
@@ -52,13 +48,16 @@ const TaskCard = ({
   joinRequestPending = false,
   /** Project Lead / Admin / Moderator - Update on completed tasks */
   canStaffUpdate = false,
+  /** Staff: open create form pre-filled from this task */
+  onDuplicate = null,
 }) => {
   const isCompleted =
     task.status === 'completed' || task.dbStatus === 'Completed';
   const isPendingReview =
     task.status === 'in_review' ||
     task.dbStatus === 'InReview' ||
-    task.claim?.status === 'PendingReview';
+    task.claim?.status === 'PendingReview' ||
+    Boolean(task.readyForParentReview);
   const hasActiveClaim = Boolean(
     task.claim?.status === 'Active' ||
       task.claim?.status === 'PendingReview' ||
@@ -66,10 +65,15 @@ const TaskCard = ({
   );
   const hasChildren = Boolean(task.hasChildren || task.childCount > 0);
   const depth = task.depth || 0;
+  const isLocked = Boolean(task.isLocked);
+  const lockedWaitingOn = Array.isArray(task.lockedWaitingOn)
+    ? task.lockedWaitingOn
+    : [];
   const showClaim =
-    task.volunteerClaimable !== undefined
+    !isLocked &&
+    (task.volunteerClaimable !== undefined
       ? task.volunteerClaimable && !hasActiveClaim && !isCompleted
-      : !hasActiveClaim && !isCompleted && depth > 0 && !hasChildren;
+      : !hasActiveClaim && !isCompleted && depth > 0 && !hasChildren);
 
   const showDifficultyEffort =
     depth > 0 && !hasChildren && (task.difficulty || task.estimatedEffort);
@@ -87,7 +91,7 @@ const TaskCard = ({
   const completedChildren = task.completedChildCount || 0;
   const levelShort =
     task.levelShort ||
-    (depth === 0 ? 'Epic' : depth === 1 ? 'Medium' : 'Small');
+    (depth === 0 ? 'Epic' : depth === 1 ? 'Mid' : 'Small');
 
   const assigneeName = task.claimedBy || task.claim?.username || null;
   const assigneeAvatar =
@@ -102,10 +106,11 @@ const TaskCard = ({
       ? formatClaimHeldSince(task.claim?.claimedAt)
       : '');
 
-  const stale =
-    hasActiveClaim &&
-    !isCompleted &&
-    isClaimStale(task.claim?.claimedAt || task.claim?.lastActivityAt);
+  const releaseInfo =
+    hasActiveClaim && !isCompleted && !isPendingReview
+      ? getClaimAutoReleaseInfo(task.claim)
+      : null;
+  const stale = Boolean(releaseInfo?.warn);
 
   const canRequestJoin =
     hasActiveClaim &&
@@ -122,46 +127,57 @@ const TaskCard = ({
   const showProgress =
     hasChildren || hasActiveClaim || isCompleted || hasChecklist;
 
-  const effortLine = [task.difficulty, task.estimatedEffort]
+  // Prefix difficulty so "Medium" never looks like hierarchy "Mid"
+  const effortLine = [
+    task.difficulty ? `Difficulty: ${task.difficulty}` : null,
+    task.estimatedEffort || null,
+  ]
     .filter(Boolean)
     .join(' · ');
 
-  const progressColor = isCompleted
-    ? 'text-semantic-success'
-    : stale
-      ? 'text-semantic-warning'
-      : 'text-neon-cyan';
-  const progressBarColor = isCompleted
-    ? 'bg-semantic-success'
-    : stale
-      ? 'bg-semantic-warning'
-      : 'bg-neon-cyan';
+  const { text: progressColor, bar: progressBarColor } = progressTone(
+    isCompleted ? 100 : progress,
+    { isCompleted, isStale: stale }
+  );
+
+  const isEpic = depth === 0;
+  const isMedium = depth === 1;
 
   return (
     <div
-      className={`task-card cyber-card cyber-card-subtle p-4 transition-all group ${levelAccentClass(
-        depth,
-        { isCompleted, isStale: stale }
-      )}`}
+      className={`task-card cyber-card cyber-card-subtle transition-all group ${
+        isEpic ? 'p-4 sm:p-5' : 'p-4'
+      } ${levelAccentClass(depth, { isCompleted, isStale: stale })} ${
+        isLocked
+          ? 'opacity-60 grayscale-[0.45] border-white/10 shadow-none'
+          : ''
+      }`}
       style={
-        depth > 0 && task.parentTaskId
-          ? { marginLeft: Math.min(depth, 2) * 6 }
+        depth > 0
+          ? { marginLeft: Math.min(depth, 2) * 14 }
           : undefined
       }
+      data-task-level={levelShort}
+      data-locked={isLocked ? 'true' : undefined}
     >
-      <div className="flex justify-between items-start gap-2 mb-2">
-        <h4 className="font-medium text-text-primary text-sm leading-snug min-w-0">
-          {task.title}
-        </h4>
-      </div>
-
-      <div className="flex flex-wrap gap-1.5 mb-2">
+      {/* Level chip first so hierarchy is obvious in All tasks */}
+      <div className="flex flex-wrap items-center gap-1.5 mb-2">
         <Badge
           variant={levelBadgeVariant(depth)}
-          className="!normal-case tracking-wide"
+          className={`!normal-case tracking-widest ${
+            isEpic ? 'text-[11px] px-3.5 py-1 shadow-sm' : 'tracking-wide'
+          }`}
         >
           {levelShort}
         </Badge>
+        {isLocked && (
+          <Badge
+            variant="default"
+            className="!normal-case tracking-wide !bg-white/5 !text-text-muted !border-white/15"
+          >
+            Locked
+          </Badge>
+        )}
         {isCompleted && (
           <Badge variant="success" className="!normal-case tracking-wide">
             Completed
@@ -169,18 +185,39 @@ const TaskCard = ({
         )}
         {isPendingReview && !isCompleted && (
           <Badge variant="warning" className="!normal-case tracking-wide">
-            Ready for review
+            Ready for Review
           </Badge>
         )}
+        {task.claim?.primaryGithubUrl && (
+          <a
+            href={task.claim.primaryGithubUrl}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center rounded-full border border-neon-cyan/35 bg-neon-cyan/10 px-2 py-0.5 text-[10px] font-mono tracking-wide text-neon-cyan hover:bg-neon-cyan/20"
+            title="Open GitHub evidence from submission"
+          >
+            GitHub
+          </a>
+        )}
         {stale && !isPendingReview && (
+          <Badge
+            variant="warning"
+            className="!normal-case tracking-wide"
+            title={releaseInfo?.detailLabel || 'Claim may auto-release soon'}
+          >
+            {releaseInfo?.urgent
+              ? releaseInfo.shortLabel || 'Release due'
+              : releaseInfo?.shortLabel || 'Needs attention'}
+          </Badge>
+        )}
+        {task.scopeRequest?.status === 'pending' && (
           <Badge variant="warning" className="!normal-case tracking-wide">
-            Needs attention
+            Scope help
           </Badge>
         )}
         {task.category && (
-          <Badge variant="purple" className="!normal-case tracking-wide">
-            {task.category}
-          </Badge>
+          <TaskCategoryBadge category={task.category} size="sm" />
         )}
         {hasChildren && (
           <Badge variant="default" className="!normal-case tracking-wide">
@@ -189,14 +226,46 @@ const TaskCard = ({
         )}
       </div>
 
+      <div className="flex justify-between items-start gap-2 mb-2">
+        <h4
+          className={`leading-snug min-w-0 ${
+            isEpic
+              ? 'font-bold text-base sm:text-[1.05rem] text-white'
+              : isMedium
+                ? 'font-semibold text-sm text-text-primary'
+                : 'font-medium text-sm text-text-primary'
+          }`}
+        >
+          {task.title}
+        </h4>
+      </div>
+
       {showDifficultyEffort && effortLine && (
         <p className="text-xs font-mono text-text-muted mb-2">{effortLine}</p>
       )}
 
+      {isLocked && (
+        <div className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 mb-3">
+          <p className="text-[11px] font-mono tracking-wide text-text-muted uppercase mb-0.5">
+            Locked
+          </p>
+          <p className="text-text-secondary text-xs leading-snug line-clamp-2">
+            Waiting on:{' '}
+            <span className="text-text-primary/90">
+              {lockedWaitingOn.length
+                ? lockedWaitingOn.join(', ')
+                : 'blocking tasks'}
+            </span>
+          </p>
+        </div>
+      )}
+
       {task.description ? (
-        <p className="text-text-secondary text-sm line-clamp-2 mb-3">
-          {task.description}
-        </p>
+        <div className="rounded-lg border border-cyber-border/80 bg-cyber-bg/40 px-2.5 py-2 mb-3">
+          <p className="text-text-secondary text-sm line-clamp-2 leading-snug">
+            {task.description}
+          </p>
+        </div>
       ) : null}
 
       {assigneeName && !hasChildren && (
@@ -229,14 +298,18 @@ const TaskCard = ({
               <span className="text-text-muted">
                 {isCompleted ? 'Shipped by' : 'Claimed by'}{' '}
               </span>
-              <ProfileLink
+              <UserNameWithBadge
                 username={task.claim?.username || assigneeName}
-                className={
+                displayName={assigneeName}
+                pinnedBadgeKey={
+                  task.claim?.pinnedBadgeKey ||
+                  task.claim?.pinned_badge_key ||
+                  null
+                }
+                linkClassName={
                   isCompleted ? 'text-semantic-success' : 'text-neon-cyan'
                 }
-              >
-                {assigneeName}
-              </ProfileLink>
+              />
               {isMine && !isCompleted ? (
                 <span className="text-text-muted"> (you)</span>
               ) : null}
@@ -247,13 +320,18 @@ const TaskCard = ({
                   stale ? 'text-semantic-warning' : 'text-text-muted'
                 }`}
                 title={
-                  stale
+                  releaseInfo?.detailLabel ||
+                  (stale
                     ? 'Claim is aging - update progress or it may auto-release'
-                    : 'Time since claim'
+                    : 'Time since claim')
                 }
               >
                 {heldLabel}
-                {stale ? ' · update soon' : ''}
+                {stale
+                  ? releaseInfo?.urgent
+                    ? ' · release soon'
+                    : ' · update soon'
+                  : ''}
               </p>
             )}
           </div>
@@ -311,6 +389,19 @@ const TaskCard = ({
               : isMine
                 ? 'Update'
                 : 'View Details'}
+          </Button>
+        )}
+        {canStaffUpdate && onDuplicate && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e?.stopPropagation?.();
+              onDuplicate(task.id);
+            }}
+            title="Duplicate as a new To Do task"
+          >
+            Duplicate
           </Button>
         )}
         {isCompleted && canStaffUpdate && onUpdate && (

@@ -74,7 +74,7 @@ const FEATURED_PROJECT = {
   status: 'In Development',
   description:
     'A tethered crew crosses dangerous semi-procedural levels to reach a destroyed orbital station. Linked by a shared energy tether, players must coordinate movement, manage tension and momentum, collect critical resources for their stranded colony, and ultimately recover an antimatter generator that will let the colony survive on its own. Teamwork tools grow stronger when used together, while simple enemies try to break the tether. The tone is serious and the stakes are real: the people waiting below are counting on the crew.',
-  href: '/projects/prototype-systems',
+  href: '/projects/prototype-systems/board',
 };
 
 const PROJECTS_BANNER_SRC = '/images/Projects_Page.webp';
@@ -387,7 +387,7 @@ const Projects = () => {
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition" />
                   </span>
                   <span className="text-xs text-text-muted font-mono">
-                    /projects/{FEATURED_PROJECT.id}
+                    /projects/{FEATURED_PROJECT.id}/board
                   </span>
                 </div>
               </div>

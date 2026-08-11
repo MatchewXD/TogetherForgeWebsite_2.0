@@ -24,6 +24,12 @@ import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
 import CharCount from '../components/ui/CharCount';
 import IdeaImageField from '../components/ideas/IdeaImageField';
+import IdeaTagsField from '../components/ideas/IdeaTagsField';
+import ParentIdeaPicker from '../components/ideas/ParentIdeaPicker';
+import { ideaTagsService } from '../services/ideaTagsService';
+import { serializeTags } from '../utils/ideaTags';
+import { parseTags } from '../utils/ideaStatus';
+import { humanizeParentLinkError } from '../utils/ideaRelations';
 
 const CATEGORIES = [
   'Full Game Idea',
@@ -71,6 +77,12 @@ function formFromIdeaRow(data) {
     description: data.description || '',
     tags: data.tags || '',
     projectId: data.project_id || data.projectId || '',
+    parentIdeaId:
+      data.parent_idea_id != null
+        ? String(data.parent_idea_id)
+        : data.parentIdeaId != null
+          ? String(data.parentIdeaId)
+          : '',
     imageUrl: getIdeaImageUrl(data),
     features: optional.features || [],
     additionalNotes: optional.additionalNotes || [],
@@ -110,6 +122,7 @@ const IdeaEdit = () => {
     description: '',
     tags: '',
     projectId: '',
+    parentIdeaId: '',
     imageUrl: null,
     ...emptyOptional,
   });
@@ -281,14 +294,7 @@ const IdeaEdit = () => {
     setSaving(true);
     setMessage('');
 
-    const uniqueTags = [
-      ...new Set(
-        (formData.tags || '')
-          .split(',')
-          .map((t) => t.trim())
-          .filter(Boolean)
-      ),
-    ].join(', ');
+    const uniqueTags = serializeTags(parseTags(formData.tags));
 
     let guided_data = buildGuidedData(guidedFieldsFromForm(formData));
     // Preserve existing image dual-write unless user is removing it
@@ -310,6 +316,10 @@ const IdeaEdit = () => {
       summary: formData.summary.trim(),
       description: formData.description.trim(),
       tags: uniqueTags,
+      parent_idea_id:
+        formData.parentIdeaId === '' || formData.parentIdeaId == null
+          ? null
+          : Number(formData.parentIdeaId),
       guided_data,
       features: (formData.features || []).filter(
         (f) => f.name || f.description
@@ -401,6 +411,7 @@ const IdeaEdit = () => {
         'features',
         'project_id',
         'image_url',
+        'parent_idea_id',
         'twitch_integration',
         'environmental_storytelling',
         'economy_description',
@@ -425,7 +436,9 @@ const IdeaEdit = () => {
     }
 
     if (error) {
-      setMessage('Update failed: ' + error.message);
+      setMessage(
+        'Update failed: ' + (humanizeParentLinkError(error) || error.message)
+      );
       setMessageTone('error');
       setSaving(false);
       return;
@@ -460,6 +473,14 @@ const IdeaEdit = () => {
         setSaving(false);
         return;
       }
+    }
+
+    try {
+      await ideaTagsService.syncTagsAfterSave(saved?.tags ?? uniqueTags, {
+        userId: user?.id,
+      });
+    } catch (tagErr) {
+      console.warn('[IdeaEdit] tag sync', tagErr);
     }
 
     navigate(`/ideas/${id}`);
@@ -580,21 +601,19 @@ const IdeaEdit = () => {
               onRemoveExisting={setRemoveImage}
             />
 
-            <div>
-              <label className={labelClass} htmlFor="edit-tags">
-                Tags (optional)
-              </label>
-              <input
-                id="edit-tags"
-                type="text"
-                maxLength={200}
-                placeholder="co-op, streamer, inventory"
-                className={fieldClass}
-                value={formData.tags}
-                onChange={(e) => setField('tags', e.target.value)}
-              />
-              <CharCount value={formData.tags} max={200} />
-            </div>
+            <IdeaTagsField
+              value={formData.tags}
+              onChange={(v) => setField('tags', v)}
+              labelClass={labelClass}
+            />
+
+            <ParentIdeaPicker
+              value={formData.parentIdeaId}
+              onChange={(v) => setField('parentIdeaId', v)}
+              excludeIdeaId={Number(id)}
+              labelClass={labelClass}
+              fieldClass={fieldClass}
+            />
           </Card>
 
           <Card className="bg-cyber-card/80 space-y-6 p-6 sm:p-8">

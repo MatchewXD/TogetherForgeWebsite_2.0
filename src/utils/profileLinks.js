@@ -1,5 +1,5 @@
 /**
- * Public profile URL helpers.
+ * Profile URL helpers.
  * Canonical route: /u/:username (also aliased as /profile/:username).
  */
 

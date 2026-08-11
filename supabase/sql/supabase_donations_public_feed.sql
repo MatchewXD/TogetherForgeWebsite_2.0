@@ -87,15 +87,33 @@ as $$
       select json_agg(row_to_json(t))
       from (
         select
-          coalesce(amount_cents, amount * 100, 0)::integer as amount_cents,
-          created_at,
-          (coalesce(interval, 'once') = 'month') as is_recurring,
-          true as is_anonymous
-        from donations
-        where coalesce(fund_type, 'studio') = 'studio'
-          and coalesce(status, 'completed') in ('completed', 'paid', 'succeeded')
-          and coalesce(amount_cents, amount * 100, 0) > 0
-        order by created_at desc nulls last
+          coalesce(d.amount_cents, d.amount * 100, 0)::integer as amount_cents,
+          d.created_at,
+          (coalesce(d.interval, 'once') = 'month') as is_recurring,
+          coalesce(d.is_anonymous, true) as is_anonymous,
+          case
+            when coalesce(d.is_anonymous, true) = false then p.username
+            else null
+          end as username,
+          case
+            when coalesce(d.is_anonymous, true) = false then p.avatar_url
+            else null
+          end as avatar_url,
+          case
+            when coalesce(d.is_anonymous, true) = false then
+              coalesce(
+                nullif(trim(p.username), ''),
+                nullif(trim(d.display_name), ''),
+                null
+              )
+            else null
+          end as display_name
+        from donations d
+        left join profiles p on p.id = d.user_id
+        where coalesce(d.fund_type, 'studio') = 'studio'
+          and coalesce(d.status, 'completed') in ('completed', 'paid', 'succeeded')
+          and coalesce(d.amount_cents, d.amount * 100, 0) > 0
+        order by d.created_at desc nulls last
         limit least(greatest(coalesce(limit_n, 12), 1), 20)
       ) t
     ),
@@ -108,4 +126,4 @@ grant execute on function get_public_recent_donations(integer) to anon, authenti
 comment on function get_public_support_summary is
   'Anonymized studio totals + MRR for Support and Transparency pages.';
 comment on function get_public_recent_donations is
-  'Last N studio payments: amount_cents, created_at, is_recurring only (no PII).';
+  'Last N studio payments for Recent support: time + optional username/avatar (no amounts shown in UI).';

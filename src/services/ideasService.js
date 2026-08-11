@@ -1,4 +1,10 @@
 import { supabase } from '../lib/supabase';
+import { ideaTagsService } from './ideaTagsService';
+import {
+  getParentIdeaId,
+  humanizeParentLinkError,
+  normalizeParentIdeaId,
+} from '../utils/ideaRelations';
 
 /** Optional supporting image on ideas */
 export const IDEA_IMAGE_BUCKET = 'idea-images';
@@ -20,6 +26,8 @@ export function mapProfile(profile, fallbackName = 'Member') {
       username: fallbackName,
       avatar_url: null,
       avatarUrl: null,
+      pinned_badge_key: null,
+      pinnedBadgeKey: null,
     };
   }
   const username = profile.username || fallbackName;
@@ -27,12 +35,16 @@ export function mapProfile(profile, fallbackName = 'Member') {
     (typeof profile.avatar_url === 'string' && profile.avatar_url.trim()) ||
     (typeof profile.avatarUrl === 'string' && profile.avatarUrl.trim()) ||
     null;
+  const pinned =
+    profile.pinned_badge_key || profile.pinnedBadgeKey || null;
 
   return {
     id: profile.id || null,
     username,
     avatar_url,
     avatarUrl: avatar_url,
+    pinned_badge_key: pinned,
+    pinnedBadgeKey: pinned,
   };
 }
 
@@ -346,19 +358,33 @@ export function buildSafeIdeaPayload(raw = {}) {
   // Optional primary supporting image (public Storage URL).
   // Dual-write into guided_data so the image still shows if image_url
   // column is missing but guided_data exists.
+  // When image_url is explicitly null/'' on the raw payload, clear both stores
+  // (used by draft save when the user removes the image).
+  const imageKeyPresent =
+    Object.prototype.hasOwnProperty.call(raw, 'image_url') ||
+    Object.prototype.hasOwnProperty.call(raw, 'imageUrl');
   const imageUrl = asText(raw.image_url ?? raw.imageUrl);
+  const baseGuided =
+    payload.guided_data &&
+    typeof payload.guided_data === 'object' &&
+    !Array.isArray(payload.guided_data)
+      ? { ...payload.guided_data }
+      : {};
+
   if (imageUrl) {
     payload.image_url = imageUrl;
-    const baseGuided =
-      payload.guided_data &&
-      typeof payload.guided_data === 'object' &&
-      !Array.isArray(payload.guided_data)
-        ? payload.guided_data
-        : {};
     payload.guided_data = {
       ...baseGuided,
       supporting_image_url: imageUrl,
     };
+  } else if (imageKeyPresent) {
+    payload.image_url = null;
+    if (baseGuided.supporting_image_url != null) {
+      delete baseGuided.supporting_image_url;
+    }
+    if (baseGuided.image_url != null) delete baseGuided.image_url;
+    if (baseGuided.imageUrl != null) delete baseGuided.imageUrl;
+    payload.guided_data = baseGuided;
   }
 
   if (Array.isArray(guided.features) && guided.features.length) {
@@ -374,9 +400,21 @@ export function buildSafeIdeaPayload(raw = {}) {
     payload.project_id = String(projectId).trim();
   }
 
-  // Drop nulls so we don't trip optional column issues
+  // Related idea parent (optional). Explicit null clears the link on update.
+  const parentKeyPresent =
+    Object.prototype.hasOwnProperty.call(raw, 'parent_idea_id') ||
+    Object.prototype.hasOwnProperty.call(raw, 'parentIdeaId');
+  if (parentKeyPresent) {
+    const pid = normalizeParentIdeaId(raw.parent_idea_id ?? raw.parentIdeaId);
+    payload.parent_idea_id = pid;
+  }
+
+  // Drop nulls so we don't trip optional column issues — except image_url
+  // when explicitly clearing an image on draft update, and parent_idea_id when clearing.
   Object.keys(payload).forEach((k) => {
     if (payload[k] === null || payload[k] === undefined) {
+      if (k === 'image_url' && imageKeyPresent && !imageUrl) return;
+      if (k === 'parent_idea_id' && parentKeyPresent) return;
       delete payload[k];
     }
   });
@@ -402,10 +440,26 @@ export const ideasService = {
     const ids = [...new Set((userIds || []).filter(Boolean))];
     if (ids.length === 0) return {};
 
-    const { data, error } = await supabase
+    // Prefer pin flair when migration applied; fall back if column missing
+    let { data, error } = await supabase
       .from('profiles')
-      .select('id, username, avatar_url')
+      .select('id, username, avatar_url, pinned_badge_key')
       .in('id', ids);
+
+    if (error) {
+      const msg = String(error.message || error.details || '');
+      if (
+        msg.includes('pinned_badge_key') ||
+        msg.toLowerCase().includes('column')
+      ) {
+        const fallback = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url')
+          .in('id', ids);
+        data = fallback.data;
+        error = fallback.error;
+      }
+    }
 
     if (error) {
       console.warn('[ideasService.getProfilesByIds]', error);
@@ -460,14 +514,16 @@ export const ideasService = {
 
   /**
    * Full listing payload for the global Ideas hub.
+   * Attaches parent summary when parent_idea_id is set (card indicator).
    */
   async getIdeasListing() {
     const [ideas, commentCounts] = await Promise.all([
       this.getAllIdeasWithCreators(),
       this.getCommentCounts(),
     ]);
+    const withParents = await this._attachParentSummaries(ideas || []);
     return {
-      ideas: (ideas || []).map((idea) => ({
+      ideas: withParents.map((idea) => ({
         ...idea,
         commentCount: commentCounts[idea.id] || 0,
       })),
@@ -476,7 +532,64 @@ export const ideasService = {
   },
 
   /**
-   * Single idea with creator profile.
+   * Batch-attach lightweight parent idea + creator for list cards.
+   * Safe if parent_idea_id column is missing.
+   * @param {object[]} ideas
+   */
+  async _attachParentSummaries(ideas = []) {
+    const list = ideas || [];
+    const parentIds = [
+      ...new Set(
+        list
+          .map((i) => getParentIdeaId(i))
+          .filter((id) => id != null)
+      ),
+    ];
+    if (!parentIds.length) return list;
+
+    try {
+      const { data, error } = await supabase
+        .from('ideas')
+        .select('id, title, user_id, parent_idea_id')
+        .in('id', parentIds);
+      if (error) throw error;
+      const parents = data || [];
+      const profileMap = await this.getProfilesByIds(
+        parents.map((p) => p.user_id)
+      );
+      const byId = new Map(
+        parents.map((p) => [
+          Number(p.id),
+          {
+            id: p.id,
+            title: p.title || 'Untitled idea',
+            user_id: p.user_id || null,
+            creator: p.user_id
+              ? profileMap[p.user_id] || mapProfile(null, 'Member')
+              : null,
+          },
+        ])
+      );
+      return list.map((idea) => {
+        const pid = getParentIdeaId(idea);
+        if (pid == null) return idea;
+        const parent = byId.get(pid) || {
+          id: pid,
+          title: `Idea #${pid}`,
+          creator: null,
+        };
+        return { ...idea, parent, parentIdea: parent };
+      });
+    } catch (err) {
+      if (!/parent_idea_id|column .* does not exist/i.test(String(err?.message || ''))) {
+        console.warn('[ideasService._attachParentSummaries]', err);
+      }
+      return list;
+    }
+  },
+
+  /**
+   * Single idea with creator profile (+ optional parent summary).
    */
   async getIdeaWithCreator(ideaId) {
     const { data, error } = await supabase
@@ -487,15 +600,164 @@ export const ideasService = {
     if (error) throw error;
     if (!data) return null;
 
-    if (!data.user_id) {
-      return { ...data, creator: null };
+    let idea = data;
+    if (data.user_id) {
+      const profileMap = await this.getProfilesByIds([data.user_id]);
+      idea = {
+        ...data,
+        creator: profileMap[data.user_id] || mapProfile(null, 'Member'),
+      };
+    } else {
+      idea = { ...data, creator: null };
     }
 
-    const profileMap = await this.getProfilesByIds([data.user_id]);
-    return {
-      ...data,
-      creator: profileMap[data.user_id] || mapProfile(null, 'Member'),
-    };
+    const parentId = getParentIdeaId(idea);
+    if (parentId != null) {
+      try {
+        const parent = await this.getIdeaWithCreator(parentId);
+        // Avoid recursive parent chain on parent object
+        if (parent) {
+          idea = {
+            ...idea,
+            parent: {
+              id: parent.id,
+              title: parent.title || 'Untitled idea',
+              user_id: parent.user_id || null,
+              creator: parent.creator || null,
+              summary: parent.summary || null,
+            },
+            parentIdea: {
+              id: parent.id,
+              title: parent.title || 'Untitled idea',
+              creator: parent.creator || null,
+            },
+          };
+        }
+      } catch (err) {
+        console.warn('[ideasService.getIdeaWithCreator] parent', err);
+      }
+    }
+
+    return idea;
+  },
+
+  /**
+   * Ideas that build on a parent (public, with creators).
+   * @param {number|string} parentId
+   */
+  async getChildIdeas(parentId) {
+    const id = Number(parentId);
+    if (!Number.isFinite(id)) return [];
+    try {
+      const { data, error } = await supabase
+        .from('ideas')
+        .select('*')
+        .eq('parent_idea_id', id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return this._withCreators(filterPublicIdeas(data || []));
+    } catch (err) {
+      if (/parent_idea_id|column .* does not exist/i.test(String(err?.message || ''))) {
+        return [];
+      }
+      console.warn('[ideasService.getChildIdeas]', err);
+      return [];
+    }
+  },
+
+  /**
+   * Count children per parent id (for dashboard / optional badges).
+   * @param {number[]} parentIds
+   * @returns {Promise<Record<string, number>>}
+   */
+  async getChildCounts(parentIds = []) {
+    const ids = [...new Set((parentIds || []).map(Number).filter(Number.isFinite))];
+    if (!ids.length) return {};
+    try {
+      const { data, error } = await supabase
+        .from('ideas')
+        .select('parent_idea_id')
+        .in('parent_idea_id', ids);
+      if (error) throw error;
+      const counts = {};
+      for (const row of data || []) {
+        if (row.parent_idea_id == null) continue;
+        const k = String(row.parent_idea_id);
+        counts[k] = (counts[k] || 0) + 1;
+      }
+      return counts;
+    } catch (err) {
+      if (!/parent_idea_id|column .* does not exist/i.test(String(err?.message || ''))) {
+        console.warn('[ideasService.getChildCounts]', err);
+      }
+      return {};
+    }
+  },
+
+  /**
+   * Root public ideas eligible as parents (for picker).
+   * @param {{ excludeIdeaId?: number|null, search?: string, limit?: number }} [opts]
+   */
+  async listParentCandidates(opts = {}) {
+    const exclude =
+      opts.excludeIdeaId != null ? Number(opts.excludeIdeaId) : null;
+    const limit = Math.min(80, Math.max(10, Number(opts.limit) || 40));
+    const search = String(opts.search || '').trim();
+
+    try {
+      let query = supabase
+        .from('ideas')
+        .select('id, title, summary, category, user_id, parent_idea_id, created_at, status, votes')
+        .is('parent_idea_id', null)
+        .order('votes', { ascending: false })
+        .limit(limit * 2);
+
+      if (search) {
+        query = query.ilike('title', `%${search}%`);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      let list = filterPublicIdeas(data || []);
+      if (exclude != null && Number.isFinite(exclude)) {
+        // Also exclude ideas that have this idea as... N/A
+        // Exclude self; exclude ideas that already have children if we're
+        // only showing roots — already filtered by parent_idea_id is null.
+        list = list.filter((i) => Number(i.id) !== exclude);
+        // If exclude idea has children, it can still be a parent (it is a root).
+        // Candidate list is fine.
+      }
+
+      // Prefer not offering an idea that already has max nesting concerns —
+      // roots only. Optionally drop ideas that cannot accept children later.
+
+      list = list.slice(0, limit);
+      return this._withCreators(list);
+    } catch (err) {
+      // Column missing: fall back to all public ideas without parent filter
+      if (/parent_idea_id|column .* does not exist/i.test(String(err?.message || ''))) {
+        const { data } = await supabase
+          .from('ideas')
+          .select('id, title, summary, category, user_id, created_at, status, votes')
+          .order('votes', { ascending: false })
+          .limit(limit);
+        let list = filterPublicIdeas(data || []);
+        if (exclude != null) {
+          list = list.filter((i) => Number(i.id) !== exclude);
+        }
+        if (search) {
+          const q = search.toLowerCase();
+          list = list.filter((i) =>
+            String(i.title || '')
+              .toLowerCase()
+              .includes(q)
+          );
+        }
+        return this._withCreators(list.slice(0, limit));
+      }
+      throw new Error(humanizeParentLinkError(err));
+    }
   },
 
   /**
@@ -651,21 +913,17 @@ export const ideasService = {
    */
   async getMyDrafts(userId) {
     if (!userId) return [];
+    // ideas table uses created_at (updated_at is not in base schema — ordering by
+    // it returns PostgREST 400). Sort by updated_at client-side when present.
     const { data, error } = await supabase
       .from('ideas')
       .select('*')
       .eq('user_id', userId)
-      .order('updated_at', { ascending: false });
+      .order('created_at', { ascending: false });
 
-    // updated_at may be missing; fall back to created_at sort client-side
     if (error) {
-      const fallback = await supabase
-        .from('ideas')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-      if (fallback.error) throw fallback.error;
-      return (fallback.data || []).filter((i) => isDraftIdea(i));
+      console.warn('[ideasService.getMyDrafts]', error);
+      throw error;
     }
 
     return (data || [])
@@ -738,10 +996,37 @@ export const ideasService = {
       console.warn('[ideasService.getMyIdeasWithActivity] comments', err);
     }
 
+    const childCounts = await this.getChildCounts(ids);
+
+    // Latest related child activity per parent
+    const relatedMeta = {};
+    try {
+      const { data: kids, error: kErr } = await supabase
+        .from('ideas')
+        .select('parent_idea_id, created_at')
+        .in('parent_idea_id', ids);
+      if (!kErr && kids) {
+        for (const row of kids) {
+          if (row.parent_idea_id == null) continue;
+          const key = String(row.parent_idea_id);
+          const t = row.created_at ? new Date(row.created_at).getTime() : 0;
+          if (!relatedMeta[key] || t > relatedMeta[key]) {
+            relatedMeta[key] = t;
+          }
+        }
+      }
+    } catch {
+      /* parent_idea_id may be missing */
+    }
+
     return published.map((idea) => {
       const c = commentMeta[idea.id] || commentMeta[String(idea.id)] || {};
       // Prefer activity from others; fall back to any comment time
       const latestCommentAt = c.latestOtherAt || c.latestAt || null;
+      const relatedCount =
+        childCounts[idea.id] || childCounts[String(idea.id)] || 0;
+      const latestRelatedMs =
+        relatedMeta[idea.id] || relatedMeta[String(idea.id)] || null;
       return {
         ...idea,
         commentCount: c.count || 0,
@@ -749,8 +1034,10 @@ export const ideasService = {
         latestCommentAt: latestCommentAt
           ? new Date(latestCommentAt).toISOString()
           : null,
-        relatedCount: 0,
-        latestRelatedAt: null,
+        relatedCount,
+        latestRelatedAt: latestRelatedMs
+          ? new Date(latestRelatedMs).toISOString()
+          : null,
       };
     });
   },
@@ -800,6 +1087,7 @@ export const ideasService = {
           'status',
           'project_id',
           'image_url',
+          'parent_idea_id',
           'twitch_integration',
           'environmental_storytelling',
           'economy_description',
@@ -825,12 +1113,23 @@ export const ideasService = {
             lastErr = retry.error;
           }
         }
-        throw new Error(lastErr.message || 'Failed to update draft');
+        throw new Error(
+          humanizeParentLinkError(lastErr) ||
+            lastErr.message ||
+            'Failed to update draft'
+        );
       }
       if (!data) {
         throw new Error(
           'Draft not found or you do not have permission to update it.'
         );
+      }
+      try {
+        await ideaTagsService.syncTagsAfterSave(data?.tags ?? idea.tags, {
+          userId,
+        });
+      } catch (tagErr) {
+        console.warn('[ideasService.saveDraft] tag sync', tagErr);
       }
       return data;
     }
@@ -908,7 +1207,11 @@ export const ideasService = {
           }
         }
         if (lastErr) {
-          throw new Error(lastErr.message || 'Failed to publish draft');
+          throw new Error(
+            humanizeParentLinkError(lastErr) ||
+              lastErr.message ||
+              'Failed to publish draft'
+          );
         }
       }
 
@@ -918,7 +1221,15 @@ export const ideasService = {
         );
       }
 
-      return this._ensureIdeaImagePersisted(data, intendedImage, userId);
+      data = await this._ensureIdeaImagePersisted(data, intendedImage, userId);
+      try {
+        await ideaTagsService.syncTagsAfterSave(data?.tags ?? idea.tags, {
+          userId,
+        });
+      } catch (tagErr) {
+        console.warn('[ideasService.publishIdea] tag sync', tagErr);
+      }
+      return data;
     }
 
     return this.createIdea({
@@ -959,6 +1270,7 @@ export const ideasService = {
       'status',
       'project_id',
       'image_url',
+      'parent_idea_id',
     ];
     for (const col of optional) {
       if (payload[col] !== undefined && isMissingColumnError(error, col)) {
@@ -1265,7 +1577,9 @@ export const ideasService = {
 
     if (error) {
       console.error('[ideasService.createIdea] failed', error, payload);
-      throw new Error(error.message || 'Failed to create idea');
+      throw new Error(
+        humanizeParentLinkError(error) || error.message || 'Failed to create idea'
+      );
     }
 
     // Re-attach pseudo fields for client navigation when not persisted
@@ -1290,6 +1604,15 @@ export const ideasService = {
         intendedImage,
         idea.user_id || payload.user_id
       );
+    }
+
+    // Hybrid tags: ensure suggested catalog rows + recompute usage
+    try {
+      await ideaTagsService.syncTagsAfterSave(data?.tags ?? payload.tags, {
+        userId: idea.user_id || payload.user_id,
+      });
+    } catch (tagErr) {
+      console.warn('[ideasService.createIdea] tag sync', tagErr);
     }
 
     return data;

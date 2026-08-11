@@ -33,6 +33,7 @@ import ScrollProgress, {
   SectionContinueCue,
 } from '../components/ScrollProgress';
 import { getHomeCommunityStats } from '../services/communityStatsService';
+import { DISCORD_URL } from '../constants/communityLinks';
 
 const TF_LOGO_SRC = '/images/TF_Logo_Ideas_V2.png';
 const HERO_BG_SRC = '/images/Hero_Background.webp';
@@ -104,7 +105,7 @@ const FEATURED_PROJECTS = [
   },
   {
     id: 'polish-playtests',
-    title: 'Stability & Polish',
+    title: 'Magnum Opus',
     phase: 'Late',
     status: 'planned',
     description:
@@ -165,7 +166,6 @@ const RECENT_ACTIVITY = [
   },
 ];
 
-const DISCORD_URL = 'https://discord.gg/togetherforge';
 const INTRO_VIDEO_URL = 'https://www.youtube.com/@MXDGameGuides';
 
 const HomePage = () => {

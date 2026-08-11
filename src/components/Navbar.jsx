@@ -4,14 +4,10 @@ import {
   Menu,
   X,
   Heart,
-  User,
-  LayoutDashboard,
   ChevronDown,
-  Shield,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import UserAvatar from './ui/UserAvatar';
-import useIsModerator from '../hooks/useIsModerator';
+import AvatarMenu from './account/AvatarMenu';
 
 const TF_LOGO_SRC = '/images/TF_Logo_Ideas_V2.png';
 
@@ -31,10 +27,12 @@ const EXPLORE_LINKS = [
   { to: '/demos', label: 'Mechanic Lab' },
   { to: '/released', label: 'Released Games' },
   { to: '/contributors', label: 'Contributors' },
+  { to: '/badges', label: 'Badges' },
   { to: '/showcase', label: 'Showcase' },
 ];
 
 const SUPPORT_LINKS = [
+  { to: '/open-work', label: 'Open Work' },
   { to: '/donate', label: 'Donate' },
   { to: '/transparency', label: 'Transparency' },
   { to: '/faq', label: 'FAQ' },
@@ -75,6 +73,7 @@ function DesktopDropdown({ label, links, active, children }) {
     () => () => {
       clearClose();
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
@@ -139,11 +138,11 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [avatarUrl, setAvatarUrl] = useState(null);
+  const [username, setUsername] = useState(null);
   const [mobileExploreOpen, setMobileExploreOpen] = useState(false);
   const [mobileSupportOpen, setMobileSupportOpen] = useState(false);
   const [mobileAccountOpen, setMobileAccountOpen] = useState(false);
   const location = useLocation();
-  const { isModerator } = useIsModerator();
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -158,17 +157,23 @@ const Navbar = () => {
     let profileChannel = null;
     let authSubscription = null;
 
-    const loadAvatar = async (uid) => {
+    const loadProfile = async (uid) => {
       if (!mounted || !uid) return;
       try {
         const { data } = await supabase
           .from('profiles')
-          .select('avatar_url')
+          .select('avatar_url, username')
           .eq('id', uid)
           .maybeSingle();
-        if (mounted) setAvatarUrl(data?.avatar_url || null);
+        if (mounted) {
+          setAvatarUrl(data?.avatar_url || null);
+          setUsername(data?.username || null);
+        }
       } catch {
-        if (mounted) setAvatarUrl(null);
+        if (mounted) {
+          setAvatarUrl(null);
+          setUsername(null);
+        }
       }
     };
 
@@ -176,8 +181,11 @@ const Navbar = () => {
       if (!mounted) return;
       const currentUser = session?.user || null;
       setUser(currentUser);
-      if (currentUser) loadAvatar(currentUser.id);
-      else setAvatarUrl(null);
+      if (currentUser) loadProfile(currentUser.id);
+      else {
+        setAvatarUrl(null);
+        setUsername(null);
+      }
     };
 
     supabase.auth
@@ -189,6 +197,7 @@ const Navbar = () => {
         if (mounted) {
           setUser(null);
           setAvatarUrl(null);
+          setUsername(null);
         }
       });
 
@@ -215,6 +224,9 @@ const Navbar = () => {
                 if (newRow.avatar_url !== undefined) {
                   setAvatarUrl(newRow.avatar_url || null);
                 }
+                if (newRow.username !== undefined) {
+                  setUsername(newRow.username || null);
+                }
               }
               return prev;
             });
@@ -228,25 +240,15 @@ const Navbar = () => {
     return () => {
       mounted = false;
       try {
-        if (profileChannel) supabase.removeChannel(profileChannel);
-      } catch {
-        /* ignore */
-      }
-      try {
         authSubscription?.unsubscribe?.();
       } catch {
         /* ignore */
       }
+      if (profileChannel) supabase.removeChannel(profileChannel);
     };
   }, []);
 
   const isActive = (to, end) => pathMatches(location.pathname, to, end);
-
-  const accountLinks = [
-    { to: '/dashboard', label: 'My Dashboard' },
-    { to: '/profile', label: 'Profile' },
-    ...(isModerator ? [{ to: '/moderator', label: 'Moderator' }] : []),
-  ];
 
   return (
     <nav className="navbar fixed top-0 left-0 right-0 z-50">
@@ -305,74 +307,47 @@ const Navbar = () => {
             active={isGroupActive(location.pathname, SUPPORT_LINKS)}
           />
 
-          {/* Account: separated when logged in */}
           {user ? (
-            <DesktopDropdown
-              label="Account"
-              links={accountLinks}
-              active={isGroupActive(location.pathname, accountLinks)}
-            >
-              <div className="border-t border-white/10 mt-2 pt-2 px-3 pb-1">
-                <Link
-                  to="/dashboard"
-                  className="flex items-center gap-2 text-xs text-text-muted hover:text-neon-cyan"
-                >
-                  <UserAvatar
-                    src={avatarUrl}
-                    name={user?.email || 'You'}
-                    linkProfile={false}
-                    size="sm"
-                    className="!w-7 !h-7"
-                    borderClass="border border-transparent"
-                  />
-                  <span className="truncate max-w-[8rem]">
-                    {user.email || 'Signed in'}
-                  </span>
-                </Link>
-              </div>
-            </DesktopDropdown>
+            <AvatarMenu
+              user={user}
+              username={username}
+              avatarUrl={avatarUrl}
+            />
           ) : (
             <Link
-              to="/profile"
+              to="/account"
               className="btn-neon btn-neon-magenta text-xs py-2 px-5"
             >
               <Heart className="w-3.5 h-3.5" /> JOIN THE FORGE
             </Link>
           )}
-
-          {user && (
-            <Link
-              to="/dashboard"
-              className="rounded-full hover:opacity-90 transition ring-1 ring-white/20 hover:ring-neon-cyan"
-              title="My Dashboard"
-            >
-              <UserAvatar
-                src={avatarUrl}
-                name={user?.email || 'You'}
-                linkProfile={false}
-                size="md"
-                className="!w-9 !h-9"
-                borderClass="border border-transparent"
-              />
-            </Link>
-          )}
         </div>
 
         {/* Mobile / tablet Menu Button */}
-        <button
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className="lg:hidden text-neon-cyan p-2"
-          aria-label="Toggle menu"
-          aria-expanded={isOpen}
-        >
-          {isOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
+        <div className="lg:hidden flex items-center gap-2">
+          {user && (
+            <AvatarMenu
+              user={user}
+              username={username}
+              avatarUrl={avatarUrl}
+              onNavigate={() => setIsOpen(false)}
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => setIsOpen(!isOpen)}
+            className="text-neon-cyan p-2"
+            aria-label="Toggle menu"
+            aria-expanded={isOpen}
+          >
+            {isOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="mobile-menu lg:hidden border-t border-white/10 bg-cyber-bg/98 backdrop-blur-xl max-h-[calc(100vh-5rem)] overflow-y-auto">
+        <div className="mobile-menu task-scroll lg:hidden border-t border-white/10 bg-cyber-bg/98 backdrop-blur-xl max-h-[calc(100vh-5rem)] overflow-y-auto">
           <div className="container-custom py-6 flex flex-col gap-1 text-sm font-mono tracking-widest">
             {TOP_LINKS.map((link) => (
               <Link
@@ -463,21 +438,26 @@ const Navbar = () => {
               </div>
             )}
 
-            {/* Account section — separated */}
-            {user ? (
+            {!user && (
+              <Link
+                to="/account"
+                onClick={() => setIsOpen(false)}
+                className="btn-neon btn-neon-magenta w-full justify-center mt-4"
+              >
+                <Heart className="w-4 h-4" /> JOIN THE FORGE
+              </Link>
+            )}
+
+            {user && (
               <>
                 <div className="border-t border-white/10 my-3" />
                 <button
                   type="button"
-                  className={`flex items-center justify-between py-2.5 text-left ${
-                    isGroupActive(location.pathname, accountLinks)
-                      ? 'text-neon-cyan'
-                      : 'text-text-secondary'
-                  }`}
+                  className="flex items-center justify-between py-2.5 text-left text-text-secondary"
                   onClick={() => setMobileAccountOpen((v) => !v)}
                   aria-expanded={mobileAccountOpen}
                 >
-                  Account
+                  Account menu
                   <ChevronDown
                     className={`w-4 h-4 transition-transform ${
                       mobileAccountOpen ? 'rotate-180' : ''
@@ -485,44 +465,17 @@ const Navbar = () => {
                   />
                 </button>
                 {mobileAccountOpen && (
-                  <div className="pl-3 border-l border-white/10 flex flex-col gap-1 mb-2">
-                    <Link
-                      to="/dashboard"
-                      onClick={() => setIsOpen(false)}
-                      className="py-2 text-sm text-text-muted hover:text-neon-cyan inline-flex items-center gap-2"
-                    >
-                      <LayoutDashboard className="w-3.5 h-3.5" />
-                      My Dashboard
-                    </Link>
-                    <Link
-                      to="/profile"
-                      onClick={() => setIsOpen(false)}
-                      className="py-2 text-sm text-text-muted hover:text-neon-cyan inline-flex items-center gap-2"
-                    >
-                      <User className="w-3.5 h-3.5" />
-                      Profile
-                    </Link>
-                    {isModerator && (
-                      <Link
-                        to="/moderator"
-                        onClick={() => setIsOpen(false)}
-                        className="py-2 text-sm text-text-muted hover:text-neon-cyan inline-flex items-center gap-2"
-                      >
-                        <Shield className="w-3.5 h-3.5" />
-                        Moderator
-                      </Link>
-                    )}
+                  <div className="rounded-xl border border-cyber-border bg-cyber-card mb-2 overflow-hidden shadow-lg">
+                    <AvatarMenu
+                      user={user}
+                      username={username}
+                      avatarUrl={avatarUrl}
+                      variant="inline"
+                      onNavigate={() => setIsOpen(false)}
+                    />
                   </div>
                 )}
               </>
-            ) : (
-              <Link
-                to="/profile"
-                onClick={() => setIsOpen(false)}
-                className="btn-neon btn-neon-magenta w-full justify-center mt-4"
-              >
-                <Heart className="w-4 h-4" /> JOIN THE FORGE
-              </Link>
             )}
           </div>
         </div>

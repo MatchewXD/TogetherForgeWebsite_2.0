@@ -56,6 +56,7 @@ const emptyProjectForm = () => ({
   description: '',
   status: 'In Development',
   sort_order: '0',
+  github_url: '',
 });
 
 function toDateInputValue(iso) {
@@ -172,6 +173,7 @@ const ProjectsEarlyEdit = () => {
         status: addForm.status || 'In Development',
         phase: 'Early',
         sort_order: Number(addForm.sort_order) || 0,
+        github_url: addForm.github_url || null,
       });
       setShowAdd(false);
       setAddForm(emptyProjectForm());
@@ -193,6 +195,7 @@ const ProjectsEarlyEdit = () => {
       slug: p.slug || '',
       summary: p.summary || '',
       description: p.description || '',
+      github_url: p.github_url || p.githubUrl || '',
       status: p.status || 'In Development',
       sort_order: String(p.sort_order ?? 0),
     });
@@ -210,6 +213,7 @@ const ProjectsEarlyEdit = () => {
         description: editForm.description,
         status: editForm.status,
         sort_order: Number(editForm.sort_order) || 0,
+        github_url: editForm.github_url || null,
       });
       setEditingId(null);
       flash('Project updated.', true);
@@ -462,6 +466,21 @@ const ProjectsEarlyEdit = () => {
                 />
               </div>
               <div>
+                <label className={labelClass}>GitHub repository URL</label>
+                <input
+                  className={fieldClass}
+                  type="url"
+                  value={addForm.github_url || ''}
+                  onChange={(e) =>
+                    setAddForm((f) => ({ ...f, github_url: e.target.value }))
+                  }
+                  placeholder="https://github.com/org/repo"
+                />
+                <p className="text-[11px] text-text-muted mt-1">
+                  Shown on the Task Board as “View on GitHub”.
+                </p>
+              </div>
+              <div>
                 <label className={labelClass}>Sort order (lower first)</label>
                 <input
                   className={fieldClass}
@@ -635,6 +654,23 @@ const ProjectsEarlyEdit = () => {
                               description: e.target.value,
                             }))
                           }
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>
+                          GitHub repository URL
+                        </label>
+                        <input
+                          className={fieldClass}
+                          type="url"
+                          value={editForm.github_url || ''}
+                          onChange={(e) =>
+                            setEditForm((f) => ({
+                              ...f,
+                              github_url: e.target.value,
+                            }))
+                          }
+                          placeholder="https://github.com/org/repo"
                         />
                       </div>
                       <div>

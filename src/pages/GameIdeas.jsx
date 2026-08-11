@@ -27,7 +27,10 @@ import IdeaCard from '../components/ui/IdeaCard';
 import Badge from '../components/ui/Badge';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Buttons';
+import DiscordLink from '../components/ui/DiscordLink';
 import LoadingScreen from '../components/ui/LoadingScreen';
+import TagPicker from '../components/ideas/TagPicker';
+import { slugifyTag } from '../utils/ideaTags';
 
 const CATEGORIES = [
   'Full Game Idea',
@@ -75,7 +78,6 @@ const GameIdeas = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const categoryMenuRef = useRef(null);
-  const tagMenuRef = useRef(null);
 
   const [allIdeas, setAllIdeas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -98,12 +100,11 @@ const GameIdeas = () => {
   );
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
-  const [tagDraft, setTagDraft] = useState('');
   const [statusFilter, setStatusFilter] = useState(
     () => searchParams.get('status') || 'all'
   );
   const [categoryOpen, setCategoryOpen] = useState(false);
-  const [tagOpen, setTagOpen] = useState(false);
+  const [tagPickerOpen, setTagPickerOpen] = useState(false);
 
   const [feedMode, setFeedMode] = useState(
     () => searchParams.get('feed') || 'community'
@@ -203,24 +204,18 @@ const GameIdeas = () => {
     return () => subscription?.unsubscribe();
   }, [loadUserVotes]);
 
-  // Click-outside + Escape closes Category / Tags menus (native <select> already auto-closes)
+  // Click-outside + Escape closes Category menu (tag filter uses modal)
   useEffect(() => {
-    if (!categoryOpen && !tagOpen) return undefined;
+    if (!categoryOpen) return undefined;
 
     const onPointerDown = (e) => {
       const t = e.target;
-      if (categoryOpen && categoryMenuRef.current && !categoryMenuRef.current.contains(t)) {
+      if (categoryMenuRef.current && !categoryMenuRef.current.contains(t)) {
         setCategoryOpen(false);
-      }
-      if (tagOpen && tagMenuRef.current && !tagMenuRef.current.contains(t)) {
-        setTagOpen(false);
       }
     };
     const onKey = (e) => {
-      if (e.key === 'Escape') {
-        setCategoryOpen(false);
-        setTagOpen(false);
-      }
+      if (e.key === 'Escape') setCategoryOpen(false);
     };
     document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('keydown', onKey);
@@ -228,7 +223,7 @@ const GameIdeas = () => {
       document.removeEventListener('mousedown', onPointerDown);
       document.removeEventListener('keydown', onKey);
     };
-  }, [categoryOpen, tagOpen]);
+  }, [categoryOpen]);
 
   // Projects for Together Forge feed (workspace projects + phase_games)
   useEffect(() => {
@@ -297,16 +292,6 @@ const GameIdeas = () => {
     feedMode,
     selectedProject,
   ]);
-
-  const availableTags = useMemo(() => {
-    const set = new Set();
-    for (const idea of allIdeas) {
-      parseTags(idea.tags).forEach((t) => set.add(t));
-    }
-    // Include any user-selected tags even if no longer present
-    selectedTags.forEach((t) => set.add(t));
-    return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-  }, [allIdeas, selectedTags]);
 
   const filteredIdeas = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -541,29 +526,20 @@ const GameIdeas = () => {
   const toggleTag = (tag) => {
     const cleaned = String(tag || '').trim();
     if (!cleaned) return;
+    const slug = slugifyTag(cleaned);
     setSelectedTags((prev) => {
-      const exists = prev.some(
-        (t) => t.toLowerCase() === cleaned.toLowerCase()
-      );
+      const exists = prev.some((t) => slugifyTag(t) === slug);
       if (exists) {
-        return prev.filter((t) => t.toLowerCase() !== cleaned.toLowerCase());
+        return prev.filter((t) => slugifyTag(t) !== slug);
       }
       return [...prev, cleaned];
     });
-  };
-
-  const addTagFromDraft = () => {
-    const cleaned = tagDraft.trim().replace(/^#/, '');
-    if (!cleaned) return;
-    toggleTag(cleaned);
-    setTagDraft('');
   };
 
   const clearFilters = () => {
     setSearchTerm('');
     setSelectedCategories([]);
     setSelectedTags([]);
-    setTagDraft('');
     setStatusFilter('all');
     setSortMode('newest');
     setCategoryOpen(false);
@@ -613,6 +589,14 @@ const GameIdeas = () => {
               {feedMode === 'community'
                 ? 'Browse every community pitch. Vote, discuss, and spark the next build. Project leads can adopt ideas into workspaces.'
                 : 'Ideas tied to Together Forge projects. Pick a project or browse everything already linked.'}
+            </p>
+            <p className="mt-3 text-sm text-white/70">
+              Want to talk through a pitch live?{' '}
+              <DiscordLink
+                variant="link"
+                labelKey="join"
+                className="text-neon-cyan hover:text-white"
+              />
             </p>
 
             {/* Feed toggle + CTA */}
@@ -752,7 +736,7 @@ const GameIdeas = () => {
                       Clear
                     </button>
                   </div>
-                  <div className="max-h-56 overflow-auto space-y-1">
+                  <div className="task-scroll max-h-56 overflow-auto space-y-1">
                     {CATEGORIES.map((cat) => (
                       <label
                         key={cat}
@@ -779,104 +763,33 @@ const GameIdeas = () => {
               )}
             </div>
 
-            {/* Tags multi-select + freeform entry */}
-            <div className="relative" ref={tagMenuRef}>
-              <button
-                type="button"
-                onClick={() => {
-                  setTagOpen((o) => !o);
-                  setCategoryOpen(false);
-                }}
-                className={`${controlClass} inline-flex items-center gap-2 w-full sm:w-auto`}
-                aria-expanded={tagOpen}
-                aria-haspopup="listbox"
-              >
-                Tags
-                {selectedTags.length > 0 && (
-                  <span className="text-xs bg-neon-cyan text-cyber-bg px-2 py-0.5 rounded-full font-mono">
-                    {selectedTags.length}
-                  </span>
-                )}
-                <ChevronDown className="w-4 h-4 text-text-muted" />
-              </button>
-              {tagOpen && (
-                <div className="absolute mt-2 w-80 max-w-[calc(100vw-2rem)] bg-cyber-surface border border-cyber-border rounded-lg p-4 z-50 shadow-lg">
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-sm text-text-muted">
-                      Filter by tags (any match)
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedTags([])}
-                      className="text-xs text-neon-cyan hover:underline"
-                    >
-                      Clear
-                    </button>
-                  </div>
-
-                  <div className="flex gap-2 mb-3">
-                    <input
-                      type="text"
-                      value={tagDraft}
-                      onChange={(e) => setTagDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          addTagFromDraft();
-                        }
-                      }}
-                      placeholder="Type a tag + Enter"
-                      className={`${controlClass} flex-1 !py-2`}
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={addTagFromDraft}
-                    >
-                      Add
-                    </Button>
-                  </div>
-
-                  {availableTags.length === 0 ? (
-                    <p className="text-xs text-text-muted mb-2">
-                      No tags on ideas yet. Type a tag above to filter, or add
-                      tags when submitting ideas.
-                    </p>
-                  ) : (
-                    <div className="max-h-48 overflow-auto space-y-1">
-                      {availableTags.map((tag) => {
-                        const checked = selectedTags.some(
-                          (t) => t.toLowerCase() === tag.toLowerCase()
-                        );
-                        return (
-                          <label
-                            key={tag}
-                            className="flex items-center gap-2 text-sm cursor-pointer hover:bg-white/5 p-1.5 rounded"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleTag(tag)}
-                              className="accent-cyan-400"
-                            />
-                            <span className="text-text-secondary">#{tag}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    className="mt-3 text-xs text-neon-cyan hover:underline"
-                    onClick={() => setTagOpen(false)}
-                  >
-                    Done
-                  </button>
-                </div>
+            {/* Tags — same hybrid picker as create/edit */}
+            <button
+              type="button"
+              onClick={() => {
+                setTagPickerOpen(true);
+                setCategoryOpen(false);
+              }}
+              className={`${controlClass} inline-flex items-center gap-2 w-full sm:w-auto`}
+              aria-haspopup="dialog"
+            >
+              Tags
+              {selectedTags.length > 0 && (
+                <span className="text-xs bg-neon-cyan text-cyber-bg px-2 py-0.5 rounded-full font-mono">
+                  {selectedTags.length}
+                </span>
               )}
-            </div>
+              <ChevronDown className="w-4 h-4 text-text-muted" />
+            </button>
+            <TagPicker
+              isOpen={tagPickerOpen}
+              onClose={() => setTagPickerOpen(false)}
+              selected={selectedTags}
+              onChange={setSelectedTags}
+              mode="filter"
+              ideasFallback={allIdeas}
+              allowSuggest={false}
+            />
 
             {activeFilterCount > 0 && (
               <button

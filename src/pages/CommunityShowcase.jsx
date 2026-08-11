@@ -24,8 +24,9 @@ import {
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
+import DiscordLink from '../components/ui/DiscordLink';
 import UserAvatar from '../components/ui/UserAvatar';
-import ProfileLink from '../components/ui/ProfileLink';
+import UserNameWithBadge from '../components/badges/UserNameWithBadge';
 import ShowcaseLinkPreview from '../components/showcase/ShowcaseLinkPreview';
 import { useIsModerator } from '../hooks/useIsModerator';
 import { supabase } from '../lib/supabase';
@@ -284,14 +285,18 @@ function ShowcaseCard({
             size="sm"
             borderClass="border border-neon-cyan/30"
           />
-          <span className="text-sm text-text-secondary truncate">
+          <span className="text-sm text-text-secondary truncate inline-flex items-center gap-1 min-w-0">
             by{' '}
-            <ProfileLink
+            <UserNameWithBadge
               username={creatorUsername}
-              className="text-neon-cyan font-semibold"
-            >
-              {creatorName}
-            </ProfileLink>
+              displayName={creatorName}
+              pinnedBadgeKey={
+                item?.creator?.pinnedBadgeKey ||
+                item?.creator?.pinned_badge_key ||
+                null
+              }
+              linkClassName="text-neon-cyan font-semibold"
+            />
           </span>
         </div>
         {blurb ? (
@@ -633,7 +638,7 @@ const CommunityShowcase = () => {
               Forge. Official studio videos stay on the Media page. Everything
               here is moderated before it goes live.
             </p>
-            <div className="mt-6 flex flex-col sm:flex-row flex-wrap gap-3">
+            <div className="mt-6 flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-center">
               <Link to="/showcase/submit" className={`rounded-lg ${focusRing}`}>
                 <Button size="lg" className="gap-2 w-full sm:w-auto">
                   <Send className="w-4 h-4" aria-hidden />
@@ -651,6 +656,11 @@ const CommunityShowcase = () => {
                   <ArrowRight className="w-4 h-4" aria-hidden />
                 </Button>
               </Link>
+              <DiscordLink
+                variant="link"
+                labelKey="chat"
+                className="text-sm self-center sm:self-auto"
+              />
             </div>
           </div>
         </div>

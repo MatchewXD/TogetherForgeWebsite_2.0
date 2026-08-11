@@ -7,8 +7,16 @@ import Badge from './Badge';
 import Button from './Buttons';
 import { taskLevelLabel } from '../../services/tasksService';
 
+const isTaskDone = (task) =>
+  Boolean(
+    task &&
+      (task.isFullyDone ||
+        task.status === 'completed' ||
+        task.dbStatus === 'Completed')
+  );
+
 const statusLabel = (task) => {
-  if (task.status === 'completed' || task.dbStatus === 'Completed') {
+  if (isTaskDone(task)) {
     return 'Done';
   }
   if (task.status === 'in_progress' || task.dbStatus === 'InProgress') {
@@ -18,7 +26,7 @@ const statusLabel = (task) => {
 };
 
 const statusVariant = (task) => {
-  if (task.status === 'completed' || task.dbStatus === 'Completed') {
+  if (isTaskDone(task)) {
     return 'success';
   }
   if (task.status === 'in_progress' || task.dbStatus === 'InProgress') {
@@ -51,9 +59,8 @@ const SubTaskList = ({
   hideEmptyMessage = false,
 }) => {
   const childLevel = taskLevelLabel(Math.min(parentDepth + 1, 2));
-  const done = items.filter(
-    (c) => c.status === 'completed' || c.dbStatus === 'Completed'
-  ).length;
+  // Count fully done children (status Completed OR all nested work done)
+  const done = items.filter((c) => isTaskDone(c)).length;
   const total = items.length;
   const pct = total > 0 ? Math.round((100 * done) / total) : 0;
 
@@ -83,14 +90,15 @@ const SubTaskList = ({
       {total > 0 && (
         <ul className="space-y-2">
           {items.map((child) => {
-            const isDone =
-              child.status === 'completed' || child.dbStatus === 'Completed';
+            const isDone = isTaskDone(child);
             const hasActiveClaim =
               child.claim?.status === 'Active' ||
               (Boolean(child.claimedBy) && !isDone);
+            const isLocked = Boolean(child.isLocked);
             const showClaim =
               canClaim &&
               onClaim &&
+              !isLocked &&
               child.volunteerClaimable &&
               !hasActiveClaim &&
               !isDone;
@@ -103,7 +111,9 @@ const SubTaskList = ({
             return (
               <li
                 key={child.id}
-                className={`rounded-lg border border-cyber-border bg-cyber-surface/60 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 ${accent}`}
+                className={`rounded-lg border border-cyber-border bg-cyber-surface/60 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 ${accent} ${
+                  isLocked ? 'opacity-60 grayscale-[0.4]' : ''
+                }`}
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -117,6 +127,14 @@ const SubTaskList = ({
                     <Badge variant="default" className="!text-[10px] !normal-case">
                       {child.levelShort || taskLevelLabel(depth)}
                     </Badge>
+                    {isLocked && (
+                      <Badge
+                        variant="default"
+                        className="!text-[10px] !normal-case !bg-white/5 !text-text-muted"
+                      >
+                        Locked
+                      </Badge>
+                    )}
                     <Badge variant={statusVariant(child)} className="!text-[10px]">
                       {statusLabel(child)}
                     </Badge>
@@ -126,6 +144,13 @@ const SubTaskList = ({
                       </span>
                     )}
                   </div>
+                  {isLocked && (
+                    <p className="text-xs text-text-muted mt-0.5 line-clamp-1">
+                      Waiting on:{' '}
+                      {(child.lockedWaitingOn || []).join(', ') ||
+                        'blocking tasks'}
+                    </p>
+                  )}
                   {child.claimedBy && !child.hasChildren && (
                     <p className="text-xs text-text-muted mt-0.5 truncate">
                       {isDone ? 'Shipped by' : 'Claimed by'} {child.claimedBy}

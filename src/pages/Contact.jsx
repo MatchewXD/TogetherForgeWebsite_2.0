@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Buttons';
+import { DISCORD_URL } from '../constants/communityLinks';
 
 const Contact = () => {
   const [user, setUser] = useState(null);
@@ -167,9 +168,14 @@ const Contact = () => {
         </div>
 
         <div className="text-center mt-12 text-text-muted text-sm">
-          Or join the conversation on{' '}
-          <a href="#" className="text-neon-cyan hover:underline">
-            Discord
+          Prefer real-time chat?{' '}
+          <a
+            href={DISCORD_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-neon-cyan hover:underline"
+          >
+            Join the Discord
           </a>
         </div>
       </div>

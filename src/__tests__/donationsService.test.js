@@ -69,13 +69,23 @@ describe('donationsService.getPublicSupportSummary', () => {
     expect(summary.source).toBe('local');
   });
 
-  it('maps recent donations RPC to anonymous items', async () => {
+  it('maps recent donations RPC (amounts kept in data, labels for display)', async () => {
     rpc.mockResolvedValue({
       data: [
         {
           amount_cents: 2000,
           created_at: new Date().toISOString(),
           is_recurring: true,
+          is_anonymous: true,
+        },
+        {
+          amount_cents: 1500,
+          created_at: new Date().toISOString(),
+          is_recurring: false,
+          is_anonymous: false,
+          username: 'forge_dev',
+          avatar_url: 'https://example.com/a.png',
+          display_name: 'forge_dev',
         },
       ],
       error: null,
@@ -83,10 +93,12 @@ describe('donationsService.getPublicSupportSummary', () => {
 
     const recent = await getPublicRecentDonations(10);
     expect(recent.source).toBe('supabase');
-    expect(recent.items).toHaveLength(1);
+    expect(recent.items).toHaveLength(2);
     expect(recent.items[0].label).toBe('Anonymous Supporter');
-    expect(recent.items[0].amountCents).toBe(2000);
     expect(recent.items[0].isRecurring).toBe(true);
+    expect(recent.items[1].username).toBe('forge_dev');
+    expect(recent.items[1].avatarUrl).toBe('https://example.com/a.png');
+    expect(recent.items[1].label).toBe('forge_dev');
   });
 });
 

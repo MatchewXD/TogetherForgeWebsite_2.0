@@ -393,14 +393,53 @@ a.cyber-card:focus-visible,
 .task-card-accent-warning {
     box-shadow: inset 3px 0 0 0 rgb(var(--tf-semantic-warning));
 }
+/* Hierarchy: Epic = bold magenta frame, Medium = cyan rail, Small = quiet rail */
 .task-card-accent-epic {
-    box-shadow: inset 3px 0 0 0 rgb(var(--tf-neon-magenta));
+    box-shadow:
+        inset 5px 0 0 0 rgb(var(--tf-neon-magenta)),
+        inset 0 0 0 1px rgb(var(--tf-neon-magenta) / 0.35);
+    background-image: linear-gradient(
+        105deg,
+        rgb(var(--tf-neon-magenta) / 0.1) 0%,
+        transparent 42%
+    );
 }
 .task-card-accent-medium {
-    box-shadow: inset 3px 0 0 0 rgb(var(--tf-neon-cyan));
+    box-shadow: inset 4px 0 0 0 rgb(var(--tf-neon-cyan));
+    background-image: linear-gradient(
+        105deg,
+        rgb(var(--tf-neon-cyan) / 0.06) 0%,
+        transparent 36%
+    );
 }
 .task-card-accent-small {
-    box-shadow: inset 2px 0 0 0 rgb(255 255 255 / 0.22);
+    box-shadow: inset 3px 0 0 0 rgb(255 255 255 / 0.18);
+}
+/* Keep hierarchy readable even when completed / stale (rail + status) */
+.task-card-accent-epic.task-card-accent-success {
+    box-shadow:
+        inset 5px 0 0 0 rgb(var(--tf-neon-magenta)),
+        inset 0 0 0 1px rgb(var(--tf-semantic-success) / 0.45);
+}
+.task-card-accent-medium.task-card-accent-success {
+    box-shadow:
+        inset 4px 0 0 0 rgb(var(--tf-neon-cyan)),
+        inset 0 0 0 1px rgb(var(--tf-semantic-success) / 0.45);
+}
+.task-card-accent-small.task-card-accent-success {
+    box-shadow:
+        inset 3px 0 0 0 rgb(255 255 255 / 0.18),
+        inset 0 0 0 1px rgb(var(--tf-semantic-success) / 0.4);
+}
+.task-card-accent-epic.task-card-accent-warning {
+    box-shadow:
+        inset 5px 0 0 0 rgb(var(--tf-neon-magenta)),
+        inset 0 0 0 1px rgb(var(--tf-semantic-warning) / 0.5);
+}
+.task-card-accent-medium.task-card-accent-warning {
+    box-shadow:
+        inset 4px 0 0 0 rgb(var(--tf-neon-cyan)),
+        inset 0 0 0 1px rgb(var(--tf-semantic-warning) / 0.5);
 }
 
 /* ---------- Exploration / featured panels ---------- */
@@ -502,14 +541,40 @@ a.cyber-card:focus-visible,
         100% calc(100% - var(--panel-cut) - var(--panel-tick)) / 1px
             var(--panel-tick) no-repeat;
 }
-/* Task column scroll area: fully hide native scrollbars but keep scrolling functional */
-.task-scroll {
-    -ms-overflow-style: none; /* IE and Edge */
-    scrollbar-width: none; /* Firefox */
-    -webkit-overflow-scrolling: touch; /* smooth scrolling on iOS */
+/*
+ * Themed thin neon scrollbar for overflow panels / cards.
+ * Use class "task-scroll" (or alias "dashboard-panel-scroll") on any
+ * overflow-y-auto / overflow-auto container.
+ * Firefox: scrollbar-width + scrollbar-color.
+ * Chromium/Safari: ::-webkit-scrollbar*.
+ */
+.task-scroll,
+.dashboard-panel-scroll {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 249, 255, 0.4) transparent;
 }
-.task-scroll::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
+.task-scroll::-webkit-scrollbar,
+.dashboard-panel-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.task-scroll::-webkit-scrollbar-track,
+.dashboard-panel-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+.task-scroll::-webkit-scrollbar-thumb,
+.dashboard-panel-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 249, 255, 0.35);
+    border-radius: 999px;
+}
+.task-scroll::-webkit-scrollbar-thumb:hover,
+.dashboard-panel-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 249, 255, 0.55);
+}
+.task-scroll::-webkit-scrollbar-corner,
+.dashboard-panel-scroll::-webkit-scrollbar-corner {
+    background: transparent;
 }
 
 /* Custom scrollbar overlay styling (used by JS) */
@@ -600,6 +665,18 @@ a.cyber-card:focus-visible,
         /* Original accent: cyan → magenta (not gold) */
         background: linear-gradient(to right, var(--neon-cyan), var(--neon-magenta));
     }
+
+/* Centered section label + accent bar (e.g. Donate thank-you) */
+.section-header.section-header--centered {
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+}
+
+.section-header.section-header--centered::after {
+    left: 50%;
+    transform: translateX(-50%);
+}
 
 /* Status / HUD style labels */
 .status-bar {
@@ -815,6 +892,105 @@ html {
       0 0 0 1px rgb(var(--tf-neon-cyan) / 0.7),
       0 0 40px rgb(var(--tf-neon-cyan) / 0.4),
       0 16px 48px rgb(0 0 0 / 0.55);
+}
+
+/* ----------------------------------------
+   Auth entry (Sign In / Sign Up) — pure CSS atmosphere
+   Warm forge-gold / amber + soft teal wash. No images.
+   Gradients live on the page itself so they always paint.
+   ---------------------------------------- */
+.auth-page {
+    position: relative;
+    min-height: 100vh;
+    isolation: isolate;
+    /* Fallback solid */
+    background-color: rgb(var(--tf-cyber-bg));
+    /* Full-page layered wash (gold + amber + teal) */
+    background-image:
+      radial-gradient(
+        ellipse 120% 70% at 50% -10%,
+        rgb(var(--tf-forge-gold) / 0.16) 0%,
+        transparent 58%
+      ),
+      radial-gradient(
+        ellipse 80% 55% at 110% 35%,
+        rgb(var(--tf-warning-amber) / 0.12) 0%,
+        transparent 55%
+      ),
+      radial-gradient(
+        ellipse 75% 50% at -10% 75%,
+        rgb(var(--tf-neon-cyan) / 0.12) 0%,
+        transparent 55%
+      ),
+      radial-gradient(
+        ellipse 90% 45% at 50% 110%,
+        rgb(var(--tf-neon-cyan) / 0.08) 0%,
+        transparent 50%
+      ),
+      linear-gradient(
+        168deg,
+        rgb(8 8 14) 0%,
+        rgb(var(--tf-cyber-surface)) 42%,
+        rgb(6 10 14) 100%
+      );
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+}
+
+/* Extra soft overlays for depth (does not cover the form) */
+.auth-page__atmosphere {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background:
+      radial-gradient(
+        circle at 20% 30%,
+        rgb(var(--tf-forge-gold) / 0.06) 0%,
+        transparent 40%
+      ),
+      radial-gradient(
+        circle at 80% 70%,
+        rgb(var(--tf-neon-cyan) / 0.07) 0%,
+        transparent 42%
+      );
+}
+
+.auth-page__content {
+    position: relative;
+    z-index: 1;
+}
+
+.auth-page__heading.section-header {
+    font-size: 1.5rem;
+    letter-spacing: 0.28em;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+@media (min-width: 640px) {
+    .auth-page__heading.section-header {
+        font-size: 1.875rem;
+        letter-spacing: 0.32em;
+    }
+}
+
+.auth-page__heading.section-header::after {
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4.5rem;
+    height: 2px;
+}
+
+.auth-page__card.cyber-card,
+.auth-page .auth-page__card {
+    background-color: rgb(var(--tf-cyber-card) / 0.96) !important;
+    border-color: rgb(var(--tf-cyber-border)) !important;
+    box-shadow:
+      0 0 0 1px rgb(var(--tf-forge-gold) / 0.1),
+      0 20px 50px rgb(0 0 0 / 0.45);
 }
 
 /* Quieter working-style sections under the hero */

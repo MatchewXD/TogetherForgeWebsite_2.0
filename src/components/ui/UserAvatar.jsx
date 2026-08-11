@@ -14,7 +14,7 @@ import { publicProfilePath } from '../../utils/profileLinks';
  * 2. default avatar image
  * 3. colored initials circle
  *
- * Pass `username` (or `to`) to make the avatar a link to the public profile.
+ * Pass `username` (or `to`) to make the avatar a link to their profile.
  * Clicks stop propagation so cards/lists do not open parent targets.
  *
  * @param {string|null} [src] - Primary image URL (avatar_url)

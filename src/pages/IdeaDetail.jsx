@@ -12,12 +12,15 @@ import {
   ExternalLink,
   Hammer,
   Pencil,
+  Link2,
+  GitBranch,
+  Plus,
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import UserAvatar from '../components/ui/UserAvatar';
-import ProfileLink from '../components/ui/ProfileLink';
+import UserNameWithBadge from '../components/badges/UserNameWithBadge';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
 import Card from '../components/ui/Card';
@@ -27,6 +30,7 @@ import {
   isDraftIdea,
   getIdeaImageUrl,
 } from '../services/ideasService';
+import { getParentIdeaId } from '../utils/ideaRelations';
 import { tasksService } from '../services/tasksService';
 import {
   deriveIdeaStatus,
@@ -65,6 +69,8 @@ const IdeaDetail = () => {
   const [replyText, setReplyText] = useState('');
   const [collapsed, setCollapsed] = useState(new Set());
   const [linkedProject, setLinkedProject] = useState(null);
+  const [parentIdea, setParentIdea] = useState(null);
+  const [childIdeas, setChildIdeas] = useState([]);
   const voteBusyRef = useRef(false);
 
   const ideaId = Number.parseInt(String(id), 10);
@@ -181,6 +187,7 @@ const IdeaDetail = () => {
             hasGuided: !!data.guided_data,
           });
           setIdea({ ...data, votes });
+          setParentIdea(data.parent || data.parentIdea || null);
           // Owner (or any signed-in visitor): mark viewed so Dashboard "new activity" clears
           try {
             const {
@@ -193,6 +200,7 @@ const IdeaDetail = () => {
             /* ignore */
           }
         } else {
+          setParentIdea(null);
           setIdea({
             id: ideaId,
             title: 'Idea not found',
@@ -294,6 +302,26 @@ const IdeaDetail = () => {
       cancelled = true;
     };
   }, [idea?.project_id, idea?.projectId]);
+
+  // Related ideas that build on this one (roots only — children cannot nest)
+  useEffect(() => {
+    let cancelled = false;
+    if (!Number.isFinite(ideaId) || !idea?.id || getParentIdeaId(idea)) {
+      setChildIdeas([]);
+      return undefined;
+    }
+    (async () => {
+      try {
+        const kids = await ideasService.getChildIdeas(ideaId);
+        if (!cancelled) setChildIdeas(kids || []);
+      } catch {
+        if (!cancelled) setChildIdeas([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ideaId, idea?.id, idea?.parent_idea_id, idea?.parentIdeaId]);
 
   const projectPath = useMemo(() => {
     if (!linkedProject?.slug) return null;
@@ -618,9 +646,15 @@ const IdeaDetail = () => {
                   Submitted by
                 </div>
                 <div className="truncate text-text-primary">
-                  <ProfileLink username={idea.creator?.username}>
-                    {idea.creator?.username || 'Community'}
-                  </ProfileLink>
+                  <UserNameWithBadge
+                    username={idea.creator?.username}
+                    displayName={idea.creator?.username || 'Community'}
+                    pinnedBadgeKey={
+                      idea.creator?.pinnedBadgeKey ||
+                      idea.creator?.pinned_badge_key ||
+                      null
+                    }
+                  />
                 </div>
               </div>
             </div>
@@ -635,6 +669,43 @@ const IdeaDetail = () => {
               </Link>
             )}
           </div>
+
+          {/* Child idea: builds on parent */}
+          {(parentIdea || getParentIdeaId(idea)) && (
+            <div
+              className="mt-5 rounded-xl border border-neon-purple/35 bg-neon-purple/10 px-4 py-3 flex flex-wrap items-start gap-3"
+              role="note"
+            >
+              <Link2 className="w-4 h-4 text-neon-purple shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1 text-sm leading-relaxed">
+                <span className="text-text-secondary">This idea builds on </span>
+                <Link
+                  to={`/ideas/${parentIdea?.id || getParentIdeaId(idea)}`}
+                  className="font-semibold text-white hover:text-neon-cyan underline-offset-2 hover:underline"
+                >
+                  {parentIdea?.title || 'a parent idea'}
+                </Link>
+                {parentIdea?.creator?.username && (
+                  <>
+                    <span className="text-text-secondary"> by </span>
+                    <UserNameWithBadge
+                      username={parentIdea.creator.username}
+                      displayName={parentIdea.creator.username}
+                      pinnedBadgeKey={
+                        parentIdea.creator.pinnedBadgeKey ||
+                        parentIdea.creator.pinned_badge_key ||
+                        null
+                      }
+                      linkClassName="text-neon-cyan hover:underline"
+                    />
+                  </>
+                )}
+                {!parentIdea?.creator?.username && (
+                  <span className="text-text-muted"> · credit on parent</span>
+                )}
+              </div>
+            </div>
+          )}
 
           {tags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
@@ -751,6 +822,94 @@ const IdeaDetail = () => {
           </section>
         )}
 
+        {/* Related ideas only on roots — children cannot have nested related ideas (v1) */}
+        {!getParentIdeaId(idea) && (
+          <section
+            className="border-t border-white/10 pt-10 mb-10"
+            aria-labelledby="related-ideas-heading"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
+              <div>
+                <div className="font-mono tracking-widest text-sm text-neon-cyan flex items-center gap-2 mb-1">
+                  <GitBranch className="w-4 h-4" />
+                  RELATED IDEAS
+                </div>
+                <h2
+                  id="related-ideas-heading"
+                  className="text-xl font-bold text-white"
+                >
+                  Ideas that build on this one
+                </h2>
+              </div>
+              <Link
+                to={`/ideas/submit?parent=${ideaId}`}
+                className="inline-flex items-center gap-1.5 text-xs font-mono tracking-widest text-neon-purple border border-neon-purple/40 hover:bg-neon-purple/10 px-3 py-2 rounded-lg shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                ADD RELATED IDEA
+              </Link>
+            </div>
+
+            {childIdeas.length === 0 ? (
+              <p className="text-sm text-text-muted">
+                No related ideas yet. Be the first to build on this pitch.
+              </p>
+            ) : (
+              <div className="task-scroll max-h-72 sm:max-h-80 overflow-y-auto overscroll-contain rounded-xl border border-cyber-border/80 bg-cyber-bg/30 p-2 sm:p-2.5 pr-1.5 space-y-2.5">
+                <ul className="space-y-2.5">
+                  {childIdeas.map((child) => (
+                    <li key={child.id}>
+                      <Link
+                        to={`/ideas/${child.id}`}
+                        className="flex flex-wrap items-center gap-3 rounded-xl border border-cyber-border bg-cyber-card/70 hover:border-neon-cyan/40 hover:bg-cyber-surface/80 px-4 py-3 transition-colors"
+                      >
+                        <UserAvatar
+                          src={
+                            child.creator?.avatar_url ||
+                            child.creator?.avatarUrl
+                          }
+                          name={child.creator?.username || 'Community'}
+                          username={child.creator?.username}
+                          size="sm"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-semibold text-white truncate">
+                            {child.title || 'Untitled idea'}
+                          </div>
+                          <div className="text-[11px] font-mono text-text-muted inline-flex flex-wrap items-center gap-1 min-w-0">
+                            <span>by</span>
+                            <UserNameWithBadge
+                              username={child.creator?.username}
+                              displayName={
+                                child.creator?.username || 'Community'
+                              }
+                              pinnedBadgeKey={
+                                child.creator?.pinnedBadgeKey ||
+                                child.creator?.pinned_badge_key ||
+                                null
+                              }
+                              linkClassName="text-neon-cyan"
+                            />
+                            {child.category ? (
+                              <span>· {child.category}</span>
+                            ) : null}
+                            {Number(child.votes) > 0 ? (
+                              <span>· {child.votes} votes</span>
+                            ) : null}
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-mono tracking-widest uppercase text-text-muted shrink-0">
+                          Builds on this
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Discussion */}
         <section className="border-t border-white/10 pt-10">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -830,12 +989,16 @@ const IdeaDetail = () => {
                         username={c.profiles?.username}
                         size="sm"
                       />
-                      <ProfileLink
+                      <UserNameWithBadge
                         username={c.profiles?.username}
-                        className="truncate min-w-0 text-text-primary"
-                      >
-                        {c.profiles?.username || 'Anonymous'}
-                      </ProfileLink>
+                        displayName={c.profiles?.username || 'Anonymous'}
+                        pinnedBadgeKey={
+                          c.profiles?.pinnedBadgeKey ||
+                          c.profiles?.pinned_badge_key ||
+                          null
+                        }
+                        linkClassName="truncate min-w-0 text-text-primary"
+                      />
                       <button
                         type="button"
                         onClick={() => toggleCollapse(c.id)}

@@ -28,7 +28,7 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
 import UserAvatar from '../components/ui/UserAvatar';
-import ProfileLink from '../components/ui/ProfileLink';
+import UserNameWithBadge from '../components/badges/UserNameWithBadge';
 import {
   getReleasedGameBySlug,
   isProjectCompleted,
@@ -90,12 +90,14 @@ function PersonChip({ person }) {
         size="sm"
       />
       <div className="min-w-0">
-        <ProfileLink
+        <UserNameWithBadge
           username={person.username}
-          className="font-semibold text-white text-sm truncate block"
-        >
-          {name}
-        </ProfileLink>
+          displayName={name}
+          pinnedBadgeKey={
+            person.pinnedBadgeKey || person.pinned_badge_key || null
+          }
+          linkClassName="font-semibold text-white text-sm truncate"
+        />
         {person.roleLabel && (
           <p className="text-[11px] text-text-muted truncate">
             {person.roleLabel}
@@ -682,7 +684,7 @@ const ReleasedGameDetail = () => {
                 </p>
                 <div className="relative rounded-xl border border-cyber-border bg-cyber-surface/40 overflow-hidden">
                   <div
-                    className="max-h-[22rem] sm:max-h-[26rem] overflow-y-auto overscroll-contain p-3 sm:p-4 scroll-smooth [scrollbar-gutter:stable]"
+                    className="task-scroll max-h-[22rem] sm:max-h-[26rem] overflow-y-auto overscroll-contain p-3 sm:p-4 scroll-smooth [scrollbar-gutter:stable]"
                     role="region"
                     aria-label="Community ideas list"
                     tabIndex={0}

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import DiscordLink from '../ui/DiscordLink';
 
 const Footer = () => {
   return (
@@ -12,6 +13,13 @@ const Footer = () => {
             </div>
             <div className="text-xs text-text-muted mt-1">
               Community-first independent game studio • Est. 2026
+            </div>
+            <div className="mt-3 flex justify-center md:justify-start">
+              <DiscordLink
+                variant="link"
+                labelKey="join"
+                className="text-xs font-mono tracking-widest text-text-muted hover:text-neon-cyan"
+              />
             </div>
           </div>
 
@@ -57,6 +65,12 @@ const Footer = () => {
               CONTRIBUTORS
             </Link>
             <Link
+              to="/badges"
+              className="hover:text-neon-cyan transition-colors"
+            >
+              BADGES
+            </Link>
+            <Link
               to="/donate"
               className="hover:text-neon-cyan transition-colors"
             >
@@ -73,6 +87,12 @@ const Footer = () => {
               className="hover:text-neon-cyan transition-colors"
             >
               CONTACT
+            </Link>
+            <Link
+              to="/suggestions"
+              className="hover:text-neon-cyan transition-colors"
+            >
+              SUGGESTIONS
             </Link>
           </div>
 

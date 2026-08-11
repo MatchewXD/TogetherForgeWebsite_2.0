@@ -38,15 +38,25 @@ describe('useIsModerator hook', () => {
         expect(result.current.isModerator).toBe(false);
     });
 
-    it('returns true for moderator role', async () => {
-        supabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
+    function mockProfileRole(role) {
+        supabase.auth.getUser.mockResolvedValue({
+            data: { user: { id: 'user-1' } },
+        });
+        // Hook uses .maybeSingle() (not .single())
         supabase.from.mockReturnValue({
             select: () => ({
                 eq: () => ({
-                    single: () => Promise.resolve({ data: { role: 'moderator' } })
-                })
-            })
+                    maybeSingle: () =>
+                        Promise.resolve({ data: { role }, error: null }),
+                    single: () =>
+                        Promise.resolve({ data: { role }, error: null }),
+                }),
+            }),
         });
+    }
+
+    it('returns true for moderator role', async () => {
+        mockProfileRole('moderator');
 
         const { result } = renderHook(() => useIsModerator());
 
@@ -58,14 +68,7 @@ describe('useIsModerator hook', () => {
     });
 
     it('returns true for admin role', async () => {
-        supabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
-        supabase.from.mockReturnValue({
-            select: () => ({
-                eq: () => ({
-                    single: () => Promise.resolve({ data: { role: 'admin' } })
-                })
-            })
-        });
+        mockProfileRole('admin');
 
         const { result } = renderHook(() => useIsModerator());
 
@@ -77,14 +80,7 @@ describe('useIsModerator hook', () => {
     });
 
     it('returns true for project_lead role', async () => {
-        supabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
-        supabase.from.mockReturnValue({
-            select: () => ({
-                eq: () => ({
-                    single: () => Promise.resolve({ data: { role: 'project_lead' } })
-                })
-            })
-        });
+        mockProfileRole('project_lead');
 
         const { result } = renderHook(() => useIsModerator());
 
@@ -96,14 +92,7 @@ describe('useIsModerator hook', () => {
     });
 
     it('returns false for regular user role', async () => {
-        supabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
-        supabase.from.mockReturnValue({
-            select: () => ({
-                eq: () => ({
-                    single: () => Promise.resolve({ data: { role: 'user' } })
-                })
-            })
-        });
+        mockProfileRole('user');
 
         const { result } = renderHook(() => useIsModerator());
 

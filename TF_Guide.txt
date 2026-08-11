@@ -1,68 +1,5 @@
-Media / Videos page: Create a dedicated /media (or /videos) page for official Together Forge videos that are not tied to a single page. Show a clean grid of videos (thumbnail, title, short description, Watch action), newest first. Include links to the YouTube channel and to the Community Showcase. Related videos remain on their corresponding pages.
-
-
-Media data source: Provide a simple way to manage the list of official videos (data file or small table) so new videos can be added without a full CMS.
-
-
-Test donations recording on active projects: Verify that donations made while a project is active are correctly recorded and appear on that project’s Contributors page (named donors + project total + anonymous total). Confirm the data flows correctly from the donation system into the Contributors view.
-
-
-Official Media page polish: Review layout, spacing, typography, and mobile behavior. Ensure video cards are consistent, thumbnails load cleanly, and the “Watch” action works well on both desktop and mobile.
-
-
-Official Media empty and loading states: Add clear empty state when no videos exist yet and a simple loading state while videos are fetched.
-
-
-Official Media accessibility and performance: Check keyboard navigation, alt text on thumbnails, and avoid loading too many heavy embeds at once.
-
-
-Official Media content and links: Confirm the intro text is accurate, the YouTube channel link is correct, and the link to Community Showcase is prominent and clear.
-
-
-Community Showcase polish: Review overall layout, card design, spacing, and mobile experience so submitted content looks clean and consistent with the rest of the site.
-
-
-Community Showcase submission feedback: Ensure the submission form gives clear success and error messages and that the review/moderation flow is understandable for moderators.
-
-
-Community Showcase empty, loading, and filtered states: Add helpful empty states (no posts yet, no results for a filter) and smooth loading indicators.
-
-
-Community Showcase credit and discovery: Verify that every accepted post shows clear credit, that project tags work, and that visitors can easily browse by newest or by project.
-
-
-Community Showcase moderation tools: Confirm moderators can easily approve, reject, or feature submissions and that the process feels lightweight.
-
-
-Task Board clarity and hierarchy: Make status columns (To Do, In Progress, Ready for Review, Completed), task cards, and progress indicators immediately clear at a glance. Improve visual weight so the most important information (title, category, claim status, progress) stands out.
-
-
-Claim flow polish: Make claiming a task feel fast, obvious, and reliable. Clear feedback when a task is claimed, when a claim limit is reached, and when an idle claim is auto-released.
-
-
-Task detail view: Ensure the individual task view shows everything a contributor needs (full description, sub-tasks, category, difficulty, current claimant, progress notes, and clear actions) without clutter.
-
-
-Task Board empty states: Add helpful, encouraging empty states for every column and for the whole board when no tasks exist yet or when filters return nothing.
-
-
-Progress and credit visibility: Make completed work and who did it highly visible (on the board, in Recent Activity, and in Shoutouts) so contribution feels rewarding in real time.
-
-
-Mobile task board experience: Ensure the board remains usable and readable on phones. Cards, claim buttons, and status changes must work well on small screens.
-
-
-Task Board filtering and sorting: Improve or confirm that Top-level / All tasks, category filters, and any sorting options are clear and useful.
-
-
-Task Board loading, error, and success feedback: Add clear loading states, error messages, and success confirmations for claiming, updating progress, completing, and creating tasks.
-
-
-Auto-release and claim limits: Confirm the 14-day idle auto-release and the active claim limit (currently 5) are clearly communicated to users and behave reliably.
-
-
-Add / Edit Task experience: Polish the “Add New Task” flow (and edit flow) so Project Leads and Admins can create clear, well-structured tasks quickly. Ensure required fields and sub-tasks are easy to manage.
-
+Together Forge – Completion Tracker
+Private progress guide
 
 Task Board permissions and safety: Double-check that only authorized roles can create or edit tasks, and that the experience fails gracefully for unauthorized users.
 
@@ -160,7 +97,22 @@ Build user-generated marketing submission system + public Community Showcase / C
 Implement activity feeds and site liveness signals
 
 
-Add Google and Discord SSO + account linking
+SSO: Implement full Sign-up / Sign-in with Google
+
+
+SSO: Implement full Sign-up / Sign-in with Discord
+
+
+SSO: Support account linking (connect Google or Discord to an existing email/password account)
+
+
+SSO: Support unlinking of connected accounts
+
+
+SSO: Ensure the identity gate (required for claiming / submitting tasks) correctly recognizes linked accounts
+
+
+SSO: Handle edge cases (account already linked to another user, email conflicts, etc.)
 
 
 Ideas Tags: Switch from pure free-form auto-creation to a hybrid tags model
@@ -201,22 +153,55 @@ Related Ideas / Add-ons: Keep the interface simple and readable
 
 Related Ideas / Add-ons: Design so deeper nesting can be added later if needed
 
-14 of 81 items complete
+36 of 86 items complete
 Mark phase complete
 
 P2
 Payments, Security, Testing, Polish
-0/12 items
+0/23 items
 
 Not started
 
-Complete Stripe integration for Support flows
+Complete Stripe integration for Support flows (one-time donations already exist)
 
 
-Final Stripe end-to-end testing (test mode then live)
+Implement Stripe Subscriptions (monthly/recurring plans) alongside one-time donations
+
+
+Build cancel-subscription flow with clear confirmation and immediate status update
+
+
+Create “My Plan” / “View my plan” account section that shows: current plan name; plan status and expiry date (e.g. “Your plan will expire on …”); Change Plan and Renew Plan actions
+
+
+Create Billing section in the account area that surfaces (via Stripe): transaction history; linked payment methods / cards; active monthly subscriptions; Update Payment Method action
+
+
+Ensure clear separation in both UI and database between pure donations and subscription/token purchases
+
+
+Final Stripe end-to-end testing (test mode → live) covering one-time, subscriptions, cancel, and billing views
 
 
 Full security pass (auth, validation, rate limits, headers, secrets, staging isolation)
+
+
+2FA: Add optional Two-Factor Authentication (TOTP / authenticator app)
+
+
+2FA: Allow users to enable / disable 2FA from their account / security settings
+
+
+2FA: Require 2FA code on login when enabled
+
+
+2FA: Provide recovery codes and a clear recovery flow
+
+
+2FA: Show 2FA status on the account/security page
+
+
+2FA: Consider making 2FA strongly recommended (or eventually required) for Project Leads, Moderators, and anyone with elevated permissions
 
 
 Implement automated tests for critical paths + manual test checklist
@@ -245,10 +230,90 @@ Legal & Policies: Link the documents from the footer, signup flow, and any relev
 
 Legal & Policies: Reference the guidelines when enforcing rules so moderation decisions are clearly based on published policy
 
-0 of 12 items complete
+0 of 23 items complete
 Mark phase complete
 
 P3
+AI Token Services
+0/24 items
+
+Not started
+
+AI Tokens Phase 1: Design and implement token balance + immutable ledger on the user record (prompt summary, tokens used, actual API cost, timestamp, result status)
+
+
+AI Tokens Phase 1: Create token pack purchase flow via Stripe (packs sized for low commitment testing)
+
+
+AI Tokens Phase 1: Price packs so studio covers API cost + 25–40% margin
+
+
+AI Tokens Phase 1: Implement Idea Structuring service (user pastes short text → AI maps into existing TogetherForge Idea fields)
+
+
+AI Tokens Phase 1: Implement Gap Filling / Content Expansion service (proposes additions for empty/sparse fields; user can Accept / Edit / Discard each suggestion)
+
+
+AI Tokens Phase 1: Show exact token cost for every action before confirmation
+
+
+AI Tokens Phase 1: Display current token balance wherever the services are used
+
+
+AI Tokens Phase 1: Add rate limiting, abuse controls, and daily/monthly backend spend caps
+
+
+AI Tokens Phase 1: Log every successful and failed generation
+
+
+AI Tokens Phase 1: Keep strict separation between donation records and token purchases in UI + database
+
+
+AI Tokens Phase 1: Structured system prompts locked to the TogetherForge Idea schema
+
+
+AI Tokens Phase 2: Add Profile Picture Generation service (constrained prompts, cost-controlled)
+
+
+AI Tokens Phase 2: Store generated images and allow user to set as profile picture
+
+
+AI Tokens Phase 2: Only enable after Phase 1 token ledger, payments, and logging are stable
+
+
+AI Tokens Phase 3 (later): One-page pitch generator
+
+
+AI Tokens Phase 3 (later): Mechanics expansion
+
+
+AI Tokens Phase 3 (later): Feedback synthesizer
+
+
+AI Tokens Phase 3 (later): Tag and category suggestions
+
+
+AI Tokens Phase 3 (later): Visual mock description generator
+
+
+AI Tokens (cross-cutting): Clear Accept / Edit / Discard controls on every generation
+
+
+AI Tokens (cross-cutting): Error handling and retries for external AI API failures
+
+
+AI Tokens (cross-cutting): Content filters and constrained prompts (especially for images)
+
+
+AI Tokens (cross-cutting): Optional donor incentives (bonus tokens or discount) without merging donation and token systems
+
+
+AI Tokens (cross-cutting): Track real API cost per generation so pricing can be adjusted later
+
+0 of 24 items complete
+Mark phase complete
+
+P4
 Community Infrastructure
 0/17 items
 
@@ -307,7 +372,50 @@ Content Creation: Ensure the submission form and Showcase page are live before p
 0 of 17 items complete
 Mark phase complete
 
-P4
+P5
+Pre-Deployment Legal & Business
+0/11 items
+
+Not started
+Launch blockers: complete these before public go-live so the project has proper legal protection and a clean business structure. Full trademark registration can take months — filing and having the application in process is the pre-launch goal.
+
+
+Business Formation: Decide on legal entity type (recommended: LLC)
+
+
+Business Formation: Form the legal entity in the appropriate state
+
+
+Business Formation: Obtain an EIN from the IRS
+
+
+Business Formation: Open a dedicated business bank account
+
+
+Business Formation: Create basic operating agreement / founding documents and keep them on file
+
+
+Business Formation: Record the official business name and any DBAs if needed
+
+
+Trademark – “Together Forge”: Conduct a thorough trademark search (USPTO and common-law)
+
+
+Trademark – “Together Forge”: File a federal trademark application for “Together Forge” (and any needed logo mark)
+
+
+Trademark – “Together Forge”: Track application status and respond to any USPTO office actions
+
+
+Trademark – “Together Forge”: Budget for filing fees and, if needed, attorney assistance
+
+
+Trademark – “Together Forge”: Note — full registration takes months; the goal before launch is to have the application filed and in process
+
+0 of 11 items complete
+Mark phase complete
+
+P6
 Deployment
 0/6 items
 
@@ -333,7 +441,7 @@ Soft launch then public go-live + post-deploy smoke tests
 0 of 6 items complete
 Mark phase complete
 
-P5
+P7
 YouTube Channel
 0/8 items
 
@@ -365,7 +473,7 @@ Record and publish: 6. Short call to creators and streamers
 0 of 8 items complete
 Mark phase complete
 
-P6
+P8
 Marketing Strategies
 0/6 items
 

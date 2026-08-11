@@ -1,11 +1,11 @@
 /**
  * Private workspace hub at /dashboard.
  * Active claims, join requests, personal stats, quick actions.
- * Public identity lives on /profile (edit) and /u/:username (public).
+ * Account settings: /account. Profile page: /u/:username.
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   ListTodo,
@@ -29,7 +29,11 @@ import { supabase } from '../lib/supabase';
 import tasksService, {
   NEW_USER_CLAIM_LIMIT,
   MAX_ACTIVE_CLAIMS,
+  ESTABLISHED_CLAIM_LIMIT,
   CLAIM_LIMIT_UNLOCK_COMPLETIONS,
+  TRUSTED_CLAIM_UNLOCK_COMPLETIONS,
+  CLAIM_AUTO_RELEASE_POLICY_COPY,
+  getClaimAutoReleaseInfo,
 } from '../services/tasksService';
 import { ideasService } from '../services/ideasService';
 import { listMyShowcaseSubmissions } from '../services/showcaseService';
@@ -49,6 +53,12 @@ import {
   formatIdeaActivityHint,
 } from '../utils/ideaActivity';
 import useIsModerator from '../hooks/useIsModerator';
+import {
+  ensureUsernameFromSignup,
+} from '../utils/ensureUserProfile';
+import {
+  resolveOAuthReturnState,
+} from '../utils/authIdentities';
 
 function showcaseStatusVariant(status) {
   if (status === 'approved') return 'neon';
@@ -61,6 +71,12 @@ function showcaseStatusLabel(status) {
   if (status === 'rejected') return 'Rejected';
   return 'Pending review';
 }
+
+/** Equal-height dashboard panels; body scrolls when content overflows. */
+const DASH_PANEL =
+  'h-[22rem] sm:h-96 flex flex-col overflow-hidden min-h-0';
+const DASH_PANEL_BODY =
+  'dashboard-panel-scroll flex-1 min-h-0 overflow-y-auto overscroll-contain';
 
 const Dashboard = () => {
   const { isModerator } = useIsModerator();
@@ -76,6 +92,7 @@ const Dashboard = () => {
   const [showcaseSubs, setShowcaseSubs] = useState([]);
   const [deletingDraftId, setDeletingDraftId] = useState(null);
   const [error, setError] = useState('');
+  const [autoReleaseNotices, setAutoReleaseNotices] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,8 +113,16 @@ const Dashboard = () => {
         setMyIdeas([]);
         setMyDrafts([]);
         setShowcaseSubs([]);
+        setAutoReleaseNotices([]);
         setLoading(false);
         return;
+      }
+
+      // Housekeeping: dual-rule auto-release before loading claims
+      try {
+        await tasksService.runClaimAutoRelease();
+      } catch {
+        /* optional migration */
       }
 
       const [
@@ -108,6 +133,7 @@ const Dashboard = () => {
         ideasRes,
         draftsRes,
         showcaseRes,
+        autoRes,
       ] = await Promise.all([
           supabase
             .from('profiles')
@@ -129,7 +155,19 @@ const Dashboard = () => {
             console.warn('[Dashboard] listMyShowcaseSubmissions', err);
             return [];
           }),
+          tasksService.listMyRecentAutoReleases({ days: 14, limit: 8 }).catch(
+            () => []
+          ),
         ]);
+
+      // Apply username from email sign-up if still missing (avoid second gate loop)
+      let profileRow = profileRes.data || null;
+      if (!String(profileRow?.username || '').trim()) {
+        profileRow = await ensureUsernameFromSignup(current, profileRow);
+      }
+      if (profileRes.data !== profileRow) {
+        // keep rest of load using updated profile
+      }
 
       const ideasList = ideasRes || [];
       const lastViewed = getIdeaLastViewedMap(current.id);
@@ -163,7 +201,7 @@ const Dashboard = () => {
         };
       });
 
-      setProfile(profileRes.data || null);
+      setProfile(profileRow);
       setQuota(quotaRes?.signedIn ? quotaRes : null);
       setClaims(claimsRes || []);
       setJoinRequests(joinsRes || []);
@@ -171,6 +209,17 @@ const Dashboard = () => {
       setMyIdeas(withActivity);
       setIdeaCount(withActivity.length);
       setMyDrafts(draftsRes || []);
+
+      // Show auto-release notices not yet dismissed
+      const notices = autoRes || [];
+      try {
+        const seen = JSON.parse(
+          localStorage.getItem('tf_auto_release_seen') || '[]'
+        );
+        setAutoReleaseNotices(notices.filter((n) => !seen.includes(n.id)));
+      } catch {
+        setAutoReleaseNotices(notices);
+      }
     } catch (err) {
       console.error('[Dashboard]', err);
       setError(err.message || 'Failed to load dashboard');
@@ -179,13 +228,62 @@ const Dashboard = () => {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-    const { data: listener } = supabase.auth.onAuthStateChange(() => {
-      load();
+  const dismissAutoReleaseNotices = () => {
+    setAutoReleaseNotices((prev) => {
+      try {
+        const seen = JSON.parse(
+          localStorage.getItem('tf_auto_release_seen') || '[]'
+        );
+        const next = [...new Set([...seen, ...prev.map((n) => n.id)])].slice(
+          -50
+        );
+        localStorage.setItem('tf_auto_release_seen', JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return [];
     });
-    return () => listener.subscription.unsubscribe();
+  };
+
+  useEffect(() => {
+    // Avoid reloading on every token refresh / noise event (OAuth can fire many).
+    let cancelled = false;
+    const run = () => {
+      if (!cancelled) void load();
+    };
+    run();
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      if (
+        event === 'SIGNED_IN' ||
+        event === 'SIGNED_OUT' ||
+        event === 'USER_UPDATED'
+      ) {
+        run();
+      }
+    });
+    return () => {
+      cancelled = true;
+      listener?.subscription?.unsubscribe?.();
+    };
   }, [load]);
+
+  // OAuth return: clean ?sso= params (banner optional; username gate above)
+  useEffect(() => {
+    try {
+      const href = window.location.href;
+      if (!/[?&#]sso=|error=|provider=/.test(href)) return;
+      const result = resolveOAuthReturnState({
+        user,
+        href,
+        consumeIntent: true,
+      });
+      if (result.cleanPath) {
+        window.history.replaceState({}, '', result.cleanPath);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [user]);
 
   // Deep-link: /dashboard#my-drafts | #my-ideas | #showcase-submissions
   useEffect(() => {
@@ -223,7 +321,7 @@ const Dashboard = () => {
     window.scrollTo(0, 0);
   }, []);
 
-  // Not signed in: point to login on Profile
+  // Not signed in: point to login
   if (!loading && !user) {
     return (
       <div className="pt-20 min-h-screen">
@@ -244,7 +342,7 @@ const Dashboard = () => {
               quick actions. Sign in to continue.
             </p>
             <Link
-              to="/profile"
+              to="/account"
               className="btn-primary btn-neon inline-flex px-6 py-3 mt-2"
             >
               LOG IN
@@ -255,8 +353,23 @@ const Dashboard = () => {
     );
   }
 
+  // OAuth / first-time users without a username → Account gate (single username step)
+  if (
+    !loading &&
+    user &&
+    !String(profile?.username || '').trim()
+  ) {
+    return <Navigate to="/account" replace />;
+  }
+
   const publicPath = publicProfilePath(profile?.username);
-  const activeCount = quota?.activeClaims ?? claims.length;
+  // Prefer live list length (Active + PendingReview); fall back to quota
+  const activeCount =
+    claims.length > 0
+      ? claims.length
+      : Number(quota?.activeClaims) || 0;
+  const inReviewCount = claims.filter((c) => c.inReview).length;
+  const workingCount = Math.max(0, activeCount - inReviewCount);
   const completedCount = quota?.completedClaims ?? 0;
   const claimLimit = quota?.claimLimit ?? NEW_USER_CLAIM_LIMIT;
   const slotsLeft = Math.max(0, claimLimit - activeCount);
@@ -266,17 +379,20 @@ const Dashboard = () => {
 
   return (
     <div className="pt-20 min-h-screen bg-cyber-bg">
-      <div className="border-b border-white/10 bg-cyber-surface py-12 sm:py-16">
+      <div
+        className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(168,85,247,0.06)_0%,transparent_45%),radial-gradient(ellipse_at_top_right,rgba(0,249,255,0.05)_0%,transparent_40%),radial-gradient(ellipse_at_bottom,rgba(255,0,128,0.04)_0%,transparent_45%)]"
+        aria-hidden
+      />
+      <div className="border-b border-white/10 bg-cyber-surface/90 py-12 sm:py-16 relative">
         <div className="container-custom">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
             <div>
-              <div className="section-header">DASHBOARD</div>
+              <div className="section-header text-neon-purple">DASHBOARD</div>
               <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white">
                 My Dashboard
               </h1>
               <p className="text-text-secondary mt-2 text-sm max-w-xl">
-                Private workspace: active work, requests, and shortcuts. Your
-                public-facing identity lives on Profile.
+                Private workspace: active work, requests, and shortcuts.
               </p>
             </div>
 
@@ -287,7 +403,7 @@ const Dashboard = () => {
                   name={displayName}
                   size="md"
                   className="!w-12 !h-12"
-                  borderClass="border border-white/20"
+                  borderClass="border border-neon-purple/40"
                   alt=""
                 />
                 <div className="min-w-0">
@@ -296,19 +412,19 @@ const Dashboard = () => {
                   </div>
                   <div className="flex flex-wrap gap-2 mt-1">
                     <Link
-                      to="/profile"
+                      to="/account/profile"
                       className="text-xs text-neon-cyan hover:underline"
                     >
-                      Edit profile
+                      Account
                     </Link>
                     {publicPath && (
                       <>
                         <span className="text-text-muted text-xs">·</span>
                         <Link
                           to={publicPath}
-                          className="text-xs text-neon-cyan hover:underline inline-flex items-center gap-1"
+                          className="text-xs text-neon-magenta hover:underline inline-flex items-center gap-1"
                         >
-                          Public profile
+                          Profile
                           <ExternalLink className="w-3 h-3" />
                         </Link>
                       </>
@@ -321,7 +437,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="container-custom py-10 max-w-6xl space-y-8">
+      <div className="container-custom relative z-10 py-10 max-w-6xl space-y-8">
         {error && (
           <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300 flex items-start gap-2">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -333,40 +449,77 @@ const Dashboard = () => {
           <LoadingScreen variant="section" message="Loading dashboard…" />
         ) : (
           <>
+            {autoReleaseNotices.length > 0 && (
+              <div className="rounded-xl border border-semantic-warning/40 bg-semantic-warning/10 px-4 py-3 flex flex-col sm:flex-row gap-3">
+                <div className="min-w-0 flex-1 space-y-2">
+                  <p className="text-xs font-mono tracking-widest text-semantic-warning uppercase">
+                    Claim auto-released
+                  </p>
+                  {autoReleaseNotices.map((n) => (
+                    <p
+                      key={n.id}
+                      className="text-sm text-text-secondary leading-snug"
+                    >
+                      {n.message}
+                      {n.taskTitle ? (
+                        <span className="text-text-muted">
+                          {' '}
+                          · {n.taskTitle}
+                        </span>
+                      ) : null}
+                    </p>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={dismissAutoReleaseNotices}
+                  className="shrink-0 self-start text-xs font-semibold text-semantic-warning hover:text-white border border-semantic-warning/40 rounded-lg px-3 py-1.5"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
             {/* Stats */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="bg-cyber-card/80 text-center py-5">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
+              <Card className="bg-cyber-card text-center py-5 h-full border border-neon-magenta/25 border-t-2 border-t-neon-magenta">
                 <ListTodo className="w-5 h-5 text-neon-magenta mx-auto mb-2" />
-                <div className="text-2xl font-mono font-bold text-white">
+                <div className="text-2xl font-mono font-bold text-neon-magenta">
                   {activeCount}
                   <span className="text-text-muted text-base font-normal">
                     /{claimLimit}
                   </span>
                 </div>
                 <div className="text-xs font-mono tracking-widest text-text-muted uppercase mt-1">
-                  Active claims
+                  Open claims
                 </div>
+                {(workingCount > 0 || inReviewCount > 0) && (
+                  <div className="mt-2 text-[10px] font-mono text-text-muted">
+                    {workingCount} working
+                    {inReviewCount > 0 ? ` · ${inReviewCount} in review` : ''}
+                  </div>
+                )}
               </Card>
-              <Card className="bg-cyber-card/80 text-center py-5">
+              <Card className="bg-cyber-card text-center py-5 h-full border border-neon-purple/25 border-t-2 border-t-neon-purple">
                 <CheckCircle2 className="w-5 h-5 text-neon-purple mx-auto mb-2" />
-                <div className="text-2xl font-mono font-bold text-white">
+                <div className="text-2xl font-mono font-bold text-neon-purple">
                   {completedCount}
                 </div>
                 <div className="text-xs font-mono tracking-widest text-text-muted uppercase mt-1">
                   Completed
                 </div>
               </Card>
-              <Card className="bg-cyber-card/80 text-center py-5">
-                <HandHelping className="w-5 h-5 text-neon-cyan mx-auto mb-2" />
-                <div className="text-2xl font-mono font-bold text-white">
+              <Card className="bg-cyber-card text-center py-5 h-full border border-neon-green/25 border-t-2 border-t-neon-green">
+                <HandHelping className="w-5 h-5 text-neon-green mx-auto mb-2" />
+                <div className="text-2xl font-mono font-bold text-neon-green">
                   {slotsLeft}
                 </div>
                 <div className="text-xs font-mono tracking-widest text-text-muted uppercase mt-1">
                   Claim slots left
                 </div>
               </Card>
-              <a href="#my-ideas" className="block group">
-                <Card className="bg-cyber-card/80 text-center py-5 group-hover:border-neon-cyan/40 transition-colors">
+              <a href="#my-ideas" className="block group h-full min-h-0">
+                <Card className="bg-cyber-card text-center py-5 h-full border border-neon-cyan/25 border-t-2 border-t-neon-cyan group-hover:border-neon-cyan/50 transition-colors">
                   <Lightbulb className="w-5 h-5 text-neon-cyan mx-auto mb-2" />
                   <div className="text-2xl font-mono font-bold text-neon-cyan">
                     {ideaCount}
@@ -375,7 +528,7 @@ const Dashboard = () => {
                     Ideas submitted
                   </div>
                   {myIdeas.some((i) => i.hasNewActivity) && (
-                    <div className="mt-2 text-[10px] font-mono tracking-widest uppercase text-forge-gold">
+                    <div className="mt-2 text-[10px] font-mono tracking-widest uppercase text-semantic-achievement">
                       New activity
                     </div>
                   )}
@@ -383,34 +536,132 @@ const Dashboard = () => {
               </a>
             </div>
 
-            {quota && completedCount < CLAIM_LIMIT_UNLOCK_COMPLETIONS && (
+            {quota && completedCount < TRUSTED_CLAIM_UNLOCK_COMPLETIONS && (
               <p className="text-xs text-text-muted font-mono">
-                New volunteers start with {NEW_USER_CLAIM_LIMIT} claim slots.
-                Complete {CLAIM_LIMIT_UNLOCK_COMPLETIONS} tasks to unlock up to{' '}
-                {MAX_ACTIVE_CLAIMS}.
+                Progressive trust: {NEW_USER_CLAIM_LIMIT} claim slots to start →{' '}
+                {ESTABLISHED_CLAIM_LIMIT} after {CLAIM_LIMIT_UNLOCK_COMPLETIONS}{' '}
+                accepted reviews → {MAX_ACTIVE_CLAIMS} after{' '}
+                {TRUSTED_CLAIM_UNLOCK_COMPLETIONS}. Limits rise only when work is
+                accepted, not merely submitted.
+              </p>
+            )}
+            {quota?.isRestricted && (
+              <p className="text-xs text-red-300 font-mono">
+                Claim privileges are currently limited
+                {quota.restrictedUntil
+                  ? ` until ${new Date(quota.restrictedUntil).toLocaleDateString()}`
+                  : ''}
+                . Message a Project Lead on Discord to appeal.
               </p>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Main: claims + join requests */}
-              <div className="lg:col-span-8 space-y-6">
-                <Card className="bg-cyber-card/80">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-sm font-mono tracking-widest text-neon-cyan flex items-center gap-2">
+            {/* Full-width quick actions (avoids empty sidebar column) */}
+            <Card className="bg-cyber-card border border-neon-purple/20 border-l-2 border-l-neon-purple">
+              <div className="text-sm font-mono tracking-widest text-neon-purple mb-4">
+                QUICK ACTIONS
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
+                <Link
+                  to="/projects"
+                  className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-magenta hover:text-white transition-colors"
+                >
+                  <FolderKanban className="w-4 h-4 text-neon-magenta shrink-0" />
+                  Browse projects
+                </Link>
+                <Link
+                  to="/ideas"
+                  className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-cyan hover:text-white transition-colors"
+                >
+                  <Lightbulb className="w-4 h-4 text-neon-cyan shrink-0" />
+                  Game ideas
+                </Link>
+                <Link
+                  to="/ideas/wizard"
+                  className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-cyan hover:text-white transition-colors"
+                >
+                  <Lightbulb className="w-4 h-4 text-neon-magenta shrink-0" />
+                  Idea wizard
+                </Link>
+                <a
+                  href="#my-ideas"
+                  className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-cyan hover:text-white transition-colors"
+                >
+                  <Lightbulb className="w-4 h-4 text-neon-cyan shrink-0" />
+                  <span className="flex-1">My ideas</span>
+                  {ideaCount > 0 && (
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-neon-cyan/40 text-neon-cyan">
+                      {ideaCount}
+                    </span>
+                  )}
+                </a>
+                <a
+                  href="#my-drafts"
+                  className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-cyan hover:text-white transition-colors"
+                >
+                  <FolderOpen className="w-4 h-4 text-neon-cyan shrink-0" />
+                  <span className="flex-1">My idea drafts</span>
+                  {myDrafts.length > 0 && (
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-neon-cyan/40 text-neon-cyan">
+                      {myDrafts.length}
+                    </span>
+                  )}
+                </a>
+                <Link
+                  to="/account"
+                  className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-cyan hover:text-white transition-colors"
+                >
+                  <User className="w-4 h-4 text-neon-cyan shrink-0" />
+                  Edit profile &amp; bio
+                </Link>
+                {publicPath ? (
+                  <Link
+                    to={publicPath}
+                    className="flex items-center gap-3 rounded-lg border border-neon-cyan/30 bg-neon-cyan/5 px-4 py-3 text-sm text-neon-cyan hover:border-neon-cyan transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4 shrink-0" />
+                    View profile
+                  </Link>
+                ) : null}
+                <Link
+                  to="/get-involved"
+                  className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-cyan hover:text-white transition-colors"
+                >
+                  <HandHelping className="w-4 h-4 text-neon-cyan shrink-0" />
+                  Get involved
+                </Link>
+              </div>
+            </Card>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+                <Card
+                  className={`${DASH_PANEL} bg-cyber-card border border-neon-magenta/20 border-l-2 border-l-neon-magenta`}
+                >
+                  <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div className="text-sm font-mono tracking-widest text-neon-magenta flex items-center gap-2">
                       <ListTodo className="w-4 h-4" />
                       ACTIVE TASKS
+                      {claims.length > 0 && (
+                        <Badge variant="default" className="!normal-case">
+                          {claims.length}
+                        </Badge>
+                      )}
                     </div>
                     <Link
                       to="/projects"
-                      className="text-xs text-neon-cyan hover:underline"
+                      className="text-xs text-neon-magenta hover:underline"
                     >
                       Browse projects
                     </Link>
                   </div>
+                  <div className={DASH_PANEL_BODY}>
+                  <p className="text-[11px] text-text-muted mb-3">
+                    Open claims: work in progress and submissions waiting for
+                    review (both use a claim slot). {CLAIM_AUTO_RELEASE_POLICY_COPY}
+                  </p>
 
                   {claims.length === 0 ? (
-                    <div className="text-sm text-text-secondary py-6 text-center border border-dashed border-white/10 rounded-lg">
-                      <p className="mb-3">No active claims yet.</p>
+                    <div className="text-sm text-text-secondary py-6 text-center border border-dashed border-neon-magenta/25 rounded-lg bg-neon-magenta/5">
+                      <p className="mb-3">No open claims yet.</p>
                       <Link
                         to="/projects"
                         className="btn-neon text-xs px-4 py-2 inline-flex"
@@ -420,25 +671,66 @@ const Dashboard = () => {
                     </div>
                   ) : (
                     <ul className="space-y-3">
-                      {claims.map((c) => (
+                      {claims.map((c) => {
+                        const releaseInfo = c.inReview
+                          ? null
+                          : getClaimAutoReleaseInfo({
+                              status: 'Active',
+                              claimedAt: c.claimedAt,
+                              lastActivityAt: c.lastActivityAt,
+                            });
+                        return (
                         <li
                           key={c.claimId}
-                          className="rounded-lg border border-white/10 bg-cyber-surface/50 p-4 hover:border-neon-cyan/40 transition-colors"
+                          className={`rounded-lg border bg-cyber-surface/60 p-4 transition-colors ${
+                            c.inReview
+                              ? 'border-semantic-warning/40 hover:border-semantic-warning/60'
+                              : 'border-white/10 hover:border-neon-magenta/40'
+                          }`}
                         >
                           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                             <div className="min-w-0">
-                              <Link
-                                to={
-                                  c.projectPath
-                                    ? `/projects/${c.projectPath}`
-                                    : '/projects'
-                                }
-                                className="font-semibold text-white hover:text-neon-cyan transition-colors"
-                              >
-                                {c.taskTitle}
-                              </Link>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Link
+                                  to={
+                                    c.boardPath ||
+                                    (c.projectPath
+                                      ? `/projects/${c.projectPath}`
+                                      : '/projects')
+                                  }
+                                  className="font-semibold text-white hover:text-neon-magenta transition-colors"
+                                >
+                                  {c.taskTitle}
+                                </Link>
+                                {c.inReview ? (
+                                  <Badge
+                                    variant="warning"
+                                    className="!normal-case tracking-wide"
+                                  >
+                                    Ready for review
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="purple"
+                                    className="!normal-case tracking-wide"
+                                  >
+                                    In progress
+                                  </Badge>
+                                )}
+                                {releaseInfo?.warn && (
+                                  <Badge
+                                    variant="warning"
+                                    className="!normal-case tracking-wide"
+                                    title={releaseInfo.detailLabel}
+                                  >
+                                    {releaseInfo.shortLabel || 'Needs attention'}
+                                  </Badge>
+                                )}
+                              </div>
                               <div className="text-xs text-text-muted mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                                <span>{c.projectTitle}</span>
+                                <span className="text-neon-purple/90">
+                                  {c.projectTitle}
+                                </span>
                                 {c.heldLabel && (
                                   <>
                                     <span>·</span>
@@ -449,17 +741,34 @@ const Dashboard = () => {
                                   </>
                                 )}
                                 {c.category && (
-                                  <Badge>{c.category}</Badge>
+                                  <Badge className="!normal-case">
+                                    {c.category}
+                                  </Badge>
                                 )}
                               </div>
                               <div className="mt-3 max-w-xs">
                                 <div className="flex justify-between text-[10px] font-mono text-text-muted mb-1">
-                                  <span>Progress</span>
-                                  <span>{c.progressPercent}%</span>
+                                  <span>
+                                    {c.inReview ? 'Submitted' : 'Progress'}
+                                  </span>
+                                  <span
+                                    className={
+                                      c.inReview
+                                        ? 'text-semantic-warning'
+                                        : 'text-neon-magenta'
+                                    }
+                                  >
+                                    {Math.min(100, Math.max(0, c.progressPercent))}
+                                    %
+                                  </span>
                                 </div>
                                 <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
                                   <div
-                                    className="h-full bg-neon-cyan/80 rounded-full transition-all"
+                                    className={`h-full rounded-full transition-all ${
+                                      c.inReview
+                                        ? 'bg-semantic-warning'
+                                        : 'bg-neon-magenta/90'
+                                    }`}
                                     style={{
                                       width: `${Math.min(100, Math.max(0, c.progressPercent))}%`,
                                     }}
@@ -467,27 +776,39 @@ const Dashboard = () => {
                                 </div>
                               </div>
                             </div>
-                            {c.projectPath && (
+                            {(c.boardPath || c.projectPath) && (
                               <Link
-                                to={`/projects/${c.projectPath}`}
-                                className="shrink-0 text-xs px-3 py-1.5 rounded-full border border-white/20 hover:border-neon-cyan text-neon-cyan self-start"
+                                to={
+                                  c.boardPath ||
+                                  `/projects/${c.projectPath}`
+                                }
+                                className={`shrink-0 text-xs px-3 py-1.5 rounded-full border self-start ${
+                                  c.inReview
+                                    ? 'border-semantic-warning/50 text-semantic-warning hover:bg-semantic-warning/10'
+                                    : 'border-neon-magenta/40 text-neon-magenta hover:bg-neon-magenta/10'
+                                }`}
                               >
-                                Open workspace
+                                {c.inReview ? 'Open board' : 'Continue work'}
                               </Link>
                             )}
                           </div>
                         </li>
-                      ))}
+                        );
+                      })}
                     </ul>
                   )}
+                  </div>
                 </Card>
 
-                <Card className="bg-cyber-card/80">
-                  <div className="text-sm font-mono tracking-widest text-neon-cyan flex items-center gap-2 mb-4">
+                <Card
+                  className={`${DASH_PANEL} bg-cyber-card border border-neon-green/20 border-l-2 border-l-neon-green`}
+                >
+                  <div className="shrink-0 text-sm font-mono tracking-widest text-neon-green flex items-center gap-2 mb-3">
                     <HandHelping className="w-4 h-4" />
                     PENDING JOIN REQUESTS
                   </div>
 
+                  <div className={DASH_PANEL_BODY}>
                   {joinRequests.length === 0 ? (
                     <p className="text-sm text-text-muted py-2">
                       No pending requests to join other people&apos;s claims.
@@ -536,15 +857,16 @@ const Dashboard = () => {
                       ))}
                     </ul>
                   )}
+                  </div>
                 </Card>
 
                 {/* Showcase submissions status */}
                 <Card
                   id="showcase-submissions"
-                  className="bg-cyber-card/80 scroll-mt-24"
+                  className={`${DASH_PANEL} bg-cyber-card border border-semantic-achievement/20 border-l-2 border-l-semantic-achievement scroll-mt-24`}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <div className="text-sm font-mono tracking-widest text-neon-cyan flex items-center gap-2">
+                  <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 mb-3">
+                    <div className="text-sm font-mono tracking-widest text-semantic-achievement flex items-center gap-2">
                       <Film className="w-4 h-4" />
                       SHOWCASE SUBMISSIONS
                       {showcasePendingCount > 0 && (
@@ -577,6 +899,7 @@ const Dashboard = () => {
                     </div>
                   </div>
 
+                  <div className={DASH_PANEL_BODY}>
                   {showcaseSubs.length === 0 ? (
                     <div className="text-sm text-text-secondary py-4 text-center border border-dashed border-white/10 rounded-lg">
                       <p className="mb-2">
@@ -657,11 +980,15 @@ const Dashboard = () => {
                       ))}
                     </ul>
                   )}
+                  </div>
                 </Card>
 
                 {/* My submitted ideas */}
-                <Card id="my-ideas" className="bg-cyber-card/80 scroll-mt-24">
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <Card
+                  id="my-ideas"
+                  className={`${DASH_PANEL} bg-cyber-card border border-neon-cyan/20 border-l-2 border-l-neon-cyan scroll-mt-24`}
+                >
+                  <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 mb-3">
                     <div className="text-sm font-mono tracking-widest text-neon-cyan flex items-center gap-2">
                       <Lightbulb className="w-4 h-4" />
                       MY IDEAS
@@ -686,6 +1013,7 @@ const Dashboard = () => {
                     </Link>
                   </div>
 
+                  <div className={DASH_PANEL_BODY}>
                   {myIdeas.length === 0 ? (
                     <div className="text-sm text-text-secondary py-6 text-center border border-dashed border-white/10 rounded-lg">
                       <p className="mb-3">You have not submitted any ideas yet.</p>
@@ -697,8 +1025,7 @@ const Dashboard = () => {
                       </Link>
                     </div>
                   ) : (
-                    <div className="relative">
-                      <ul className="task-scroll space-y-3 max-h-[28rem] overflow-y-auto overscroll-contain">
+                    <ul className="space-y-3">
                         {myIdeas.map((idea) => {
                           const chip = deriveIdeaStatus(idea);
                           const submitted = idea.created_at
@@ -776,29 +1103,18 @@ const Dashboard = () => {
                             </li>
                           );
                         })}
-                      </ul>
-                      {/* Themed scroll hint: fade edge instead of native scrollbar */}
-                      {myIdeas.length > 3 && (
-                        <div
-                          className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-cyber-card via-cyber-card/80 to-transparent flex items-end justify-center pb-1"
-                          aria-hidden="true"
-                        >
-                          <span className="text-[10px] font-mono tracking-widest uppercase text-neon-cyan/60">
-                            Scroll for more
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                    </ul>
                   )}
+                  </div>
                 </Card>
 
                 {/* Private idea drafts */}
                 <Card
                   id="my-drafts"
-                  className="bg-cyber-card/80 scroll-mt-24"
+                  className={`${DASH_PANEL} bg-cyber-card border border-neon-purple/20 border-l-2 border-l-neon-purple scroll-mt-24`}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <div className="text-sm font-mono tracking-widest text-neon-cyan flex items-center gap-2">
+                  <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 mb-3">
+                    <div className="text-sm font-mono tracking-widest text-neon-purple flex items-center gap-2">
                       <FolderOpen className="w-4 h-4" />
                       MY DRAFTS
                       {myDrafts.length > 0 && (
@@ -813,6 +1129,7 @@ const Dashboard = () => {
                     </Link>
                   </div>
 
+                  <div className={DASH_PANEL_BODY}>
                   {myDrafts.length === 0 ? (
                     <p className="text-sm text-text-secondary">
                       No idea drafts yet. While creating an idea, choose{' '}
@@ -877,13 +1194,17 @@ const Dashboard = () => {
                       ))}
                     </ul>
                   )}
+                  </div>
                 </Card>
 
                 {/* Lightweight activity / notices placeholder */}
-                <Card className="bg-cyber-card/80">
-                  <div className="text-sm font-mono tracking-widest text-neon-cyan mb-3">
+                <Card
+                  className={`${DASH_PANEL} bg-cyber-card border border-semantic-warning/25 border-l-2 border-l-semantic-warning`}
+                >
+                  <div className="shrink-0 text-sm font-mono tracking-widest text-semantic-warning mb-3">
                     NOTICES
                   </div>
+                  <div className={DASH_PANEL_BODY}>
                   <p className="text-sm text-text-secondary">
                     Claim cooldowns, join approvals, and project updates will
                     surface here. For now, check active tasks and join requests
@@ -896,102 +1217,8 @@ const Dashboard = () => {
                         {new Date(quota.cooldownEndsAt).toLocaleTimeString()}.
                       </p>
                     )}
-                </Card>
-              </div>
-
-              {/* Sidebar: quick actions */}
-              <div className="lg:col-span-4 space-y-6">
-                <Card className="bg-cyber-card/80">
-                  <div className="text-sm font-mono tracking-widest text-neon-cyan mb-4">
-                    QUICK ACTIONS
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Link
-                      to="/projects"
-                      className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-cyan hover:text-white transition-colors"
-                    >
-                      <FolderKanban className="w-4 h-4 text-neon-cyan shrink-0" />
-                      Browse projects
-                    </Link>
-                    <Link
-                      to="/ideas"
-                      className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-cyan hover:text-white transition-colors"
-                    >
-                      <Lightbulb className="w-4 h-4 text-neon-cyan shrink-0" />
-                      Game ideas
-                    </Link>
-                    <Link
-                      to="/ideas/wizard"
-                      className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-cyan hover:text-white transition-colors"
-                    >
-                      <Lightbulb className="w-4 h-4 text-neon-magenta shrink-0" />
-                      Idea wizard
-                    </Link>
-                    <a
-                      href="#my-ideas"
-                      className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-cyan hover:text-white transition-colors"
-                    >
-                      <Lightbulb className="w-4 h-4 text-neon-cyan shrink-0" />
-                      <span className="flex-1">My ideas</span>
-                      {ideaCount > 0 && (
-                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-neon-cyan/40 text-neon-cyan">
-                          {ideaCount}
-                        </span>
-                      )}
-                    </a>
-                    <a
-                      href="#my-drafts"
-                      className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-cyan hover:text-white transition-colors"
-                    >
-                      <FolderOpen className="w-4 h-4 text-neon-cyan shrink-0" />
-                      <span className="flex-1">My idea drafts</span>
-                      {myDrafts.length > 0 && (
-                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-neon-cyan/40 text-neon-cyan">
-                          {myDrafts.length}
-                        </span>
-                      )}
-                    </a>
-                    <Link
-                      to="/profile"
-                      className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-cyan hover:text-white transition-colors"
-                    >
-                      <User className="w-4 h-4 text-neon-cyan shrink-0" />
-                      Edit profile &amp; bio
-                    </Link>
-                    {publicPath && (
-                      <Link
-                        to={publicPath}
-                        className="flex items-center gap-3 rounded-lg border border-neon-cyan/30 bg-neon-cyan/5 px-4 py-3 text-sm text-neon-cyan hover:border-neon-cyan transition-colors"
-                      >
-                        <ExternalLink className="w-4 h-4 shrink-0" />
-                        View public profile
-                      </Link>
-                    )}
-                    <Link
-                      to="/get-involved"
-                      className="flex items-center gap-3 rounded-lg border border-white/10 px-4 py-3 text-sm text-text-secondary hover:border-neon-cyan hover:text-white transition-colors"
-                    >
-                      <HandHelping className="w-4 h-4 text-neon-cyan shrink-0" />
-                      Get involved
-                    </Link>
                   </div>
                 </Card>
-
-                <Card className="bg-cyber-card/80">
-                  <div className="text-sm font-mono tracking-widest text-neon-cyan mb-3">
-                    ABOUT THIS PAGE
-                  </div>
-                  <p className="text-xs text-text-secondary leading-relaxed">
-                    <strong className="text-white">Dashboard</strong> is private
-                    (only you).{' '}
-                    <strong className="text-white">Profile</strong> is where you
-                    edit how you appear and manage account details.{' '}
-                    <strong className="text-white">Public profile</strong> (
-                    <code className="text-neon-cyan">/u/username</code>) is what
-                    others see.
-                  </p>
-                </Card>
-              </div>
             </div>
           </>
         )}

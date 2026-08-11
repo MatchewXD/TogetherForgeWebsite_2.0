@@ -15,6 +15,7 @@ import {
 
 import Button from '../components/ui/Buttons';
 import Badge from '../components/ui/Badge';
+import DiscordLink from '../components/ui/DiscordLink';
 
 const STEPS = [
   {
@@ -166,6 +167,11 @@ const HowItWorks = () => {
               Get involved
               <ArrowRight className="w-4 h-4" />
             </Button>
+            <DiscordLink
+              variant="button"
+              labelKey="join"
+              className="w-full sm:w-auto"
+            />
           </div>
           <p className="mt-5 text-xs font-mono tracking-widest text-text-muted">
             <Link

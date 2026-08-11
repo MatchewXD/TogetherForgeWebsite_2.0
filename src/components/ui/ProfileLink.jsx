@@ -1,5 +1,5 @@
 /**
- * Link to a user's public profile when username is real; otherwise plain span.
+ * Link to a user's profile when username is real; otherwise plain span.
  */
 
 import { Link } from 'react-router-dom';

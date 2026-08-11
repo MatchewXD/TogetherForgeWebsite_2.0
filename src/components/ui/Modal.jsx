@@ -2,27 +2,59 @@ import { useEffect, useId, useRef } from 'react';
 
 /**
  * Centered dialog. Sits above scanline/navbar so actions remain clickable.
- * Escape closes; initial focus moves to the close control for keyboard users.
+ * Escape closes; initial focus moves to the close control only when opening
+ * (not on every parent re-render / onClose identity change).
  */
 const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
   const titleId = useId();
   const closeRef = useRef(null);
   const panelRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  const wasOpenRef = useRef(false);
+  onCloseRef.current = onClose;
 
+  // Body scroll lock + focus close only on open transition
   useEffect(() => {
-    if (!isOpen) return undefined;
+    if (!isOpen) {
+      wasOpenRef.current = false;
+      document.body.style.overflow = 'unset';
+      return undefined;
+    }
 
     document.body.style.overflow = 'hidden';
 
-    // Focus close button when dialog opens (avoids trapping in page behind)
-    const t = window.setTimeout(() => {
-      closeRef.current?.focus?.();
-    }, 0);
+    // Only steal focus when the modal first opens, never while typing in fields
+    const justOpened = !wasOpenRef.current;
+    wasOpenRef.current = true;
+    let t;
+    if (justOpened) {
+      t = window.setTimeout(() => {
+        // Prefer first text field if present; else close button
+        const firstField = panelRef.current?.querySelector(
+          'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])'
+        );
+        if (firstField && typeof firstField.focus === 'function') {
+          firstField.focus();
+        } else {
+          closeRef.current?.focus?.();
+        }
+      }, 0);
+    }
+
+    return () => {
+      if (t) window.clearTimeout(t);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  // Key handlers: keep latest onClose via ref so identity changes do not rebind focus
+  useEffect(() => {
+    if (!isOpen) return undefined;
 
     const onKey = (e) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose?.();
+        onCloseRef.current?.();
         return;
       }
       // Simple focus trap within the dialog panel
@@ -46,13 +78,8 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
       }
     };
     document.addEventListener('keydown', onKey);
-
-    return () => {
-      window.clearTimeout(t);
-      document.body.style.overflow = 'unset';
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [isOpen, onClose]);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

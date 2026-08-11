@@ -16,15 +16,16 @@ import {
   Award,
   HandHeart,
   UserPlus,
-  MessageCircle,
   CheckCircle2,
   Sparkles,
   Layers,
+  MessageSquarePlus,
 } from 'lucide-react';
 
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
+import DiscordLink from '../components/ui/DiscordLink';
 
 /** Ways people can contribute */
 const CONTRIBUTION_WAYS = [
@@ -70,17 +71,17 @@ const CONTRIBUTION_WAYS = [
 const TASK_BOARDS = [
   {
     id: 'global',
-    title: 'All Projects Hub',
-    subtitle: 'Browse every project',
-    href: '/projects',
-    badge: 'Directory',
-    desc: 'See the full pipeline and open the Early workspace where claims are live today.',
+    title: 'Open Work',
+    subtitle: 'All active task boards',
+    href: '/open-work',
+    badge: 'Boards',
+    desc: 'Jump straight to any active project Task Board. Claim work, track progress, and ship wins.',
   },
   {
     id: 'prototype-systems',
     title: 'Tether',
     subtitle: 'Early phase · open',
-    href: '/projects/prototype-systems',
+    href: '/projects/prototype-systems/board',
     badge: 'Early',
     desc: 'A tethered crew crosses dangerous semi-procedural levels to reach a destroyed orbital station and recover an antimatter generator for their stranded colony.',
   },
@@ -108,7 +109,7 @@ const ONBOARDING_STEPS = [
     step: '01',
     title: 'Create a profile',
     desc: 'Sign in and set a username so contributions can be credited publicly.',
-    cta: { label: 'Open profile', to: '/profile' },
+    cta: { label: 'Open account', to: '/account' },
     icon: UserPlus,
   },
   {
@@ -201,6 +202,11 @@ const GetInvolved = () => {
                 <Heart className="w-4 h-4" />
                 Donate
               </Button>
+              <DiscordLink
+                variant="button"
+                labelKey="join"
+                className="w-full sm:w-auto"
+              />
             </div>
           </div>
         </div>
@@ -334,7 +340,7 @@ const GetInvolved = () => {
                 </h2>
                 <p className="text-text-secondary text-sm sm:text-base leading-relaxed mb-4">
                   Contributors show up on project shoutouts, task history, and
-                  future game credits. Public profiles track what you ship so
+                  future game credits. Profiles track what you ship so
                   effort is never anonymous busywork.
                 </p>
                 <ul className="space-y-2 text-sm text-text-muted mb-6">
@@ -441,6 +447,36 @@ const GetInvolved = () => {
           </div>
         </section>
 
+        {/* ---------- Platform feedback (medium-low visibility) ---------- */}
+        <section aria-labelledby="platform-suggest-heading">
+          <Card className="bg-cyber-card/80 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+            <div className="w-11 h-11 rounded-xl bg-cyber-surface border border-cyber-border flex items-center justify-center text-neon-cyan shrink-0">
+              <MessageSquarePlus className="w-5 h-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2
+                id="platform-suggest-heading"
+                className="text-lg font-semibold text-white"
+              >
+                Platform suggestions
+              </h2>
+              <p className="text-sm text-text-secondary mt-1 leading-relaxed">
+                Small feedback channel for the site itself — task board, auth,
+                payments, and more. Separate from game ideas.
+              </p>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="gap-2 shrink-0 self-start sm:self-auto"
+              onClick={() => navigate('/suggestions')}
+            >
+              View / submit
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Button>
+          </Card>
+        </section>
+
         {/* ---------- Closing CTAs ---------- */}
         <section
           id="join"
@@ -487,25 +523,25 @@ const GetInvolved = () => {
                 Donate
               </Button>
             </div>
-            <p className="mt-6 text-xs font-mono tracking-widest text-text-muted">
-              Questions?{' '}
+            <p className="mt-6 text-xs font-mono tracking-widest text-text-muted flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+              <span>Questions?</span>
               <Link to="/faq" className="text-neon-cyan hover:underline">
                 FAQ
               </Link>
-              {' · '}
+              <span className="text-white/20" aria-hidden>
+                ·
+              </span>
               <Link to="/contact" className="text-neon-cyan hover:underline">
                 Contact
               </Link>
-              {' · '}
-              <a
-                href="https://discord.gg/togetherforge"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-neon-cyan hover:underline"
-              >
-                <MessageCircle className="w-3 h-3" />
-                Discord
-              </a>
+              <span className="text-white/20" aria-hidden>
+                ·
+              </span>
+              <DiscordLink
+                variant="link"
+                labelKey="chat"
+                className="text-xs font-mono tracking-widest text-neon-cyan hover:text-white"
+              />
             </p>
           </div>
         </section>

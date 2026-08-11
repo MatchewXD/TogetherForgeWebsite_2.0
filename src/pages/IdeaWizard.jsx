@@ -48,6 +48,10 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import CharCount from '../components/ui/CharCount';
 import RelatedToSelect from '../components/ideas/RelatedToSelect';
+import IdeaTagsField from '../components/ideas/IdeaTagsField';
+import ParentIdeaPicker from '../components/ideas/ParentIdeaPicker';
+import { serializeTags } from '../utils/ideaTags';
+import { parseTags } from '../utils/ideaStatus';
 import {
   RELATED_PHASE_OPTIONS,
   getRelatedToGroupedOptions,
@@ -110,6 +114,7 @@ const emptyForm = {
   description: '',
   tags: '',
   projectId: '',
+  parentIdeaId: '',
   features: [{ name: '', description: '' }],
   additionalNotes: [''],
   artStyle: '',
@@ -204,8 +209,15 @@ function buildStepDefs() {
       kind: 'tags',
     },
     {
+      id: 'parent',
+      title: 'Builds on another idea? (optional)',
+      tip: 'Link this as a related idea that expands or riffs on a parent. One level deep for now. Skip if this is a standalone idea.',
+      required: false,
+      kind: 'parent',
+    },
+    {
       id: 'project',
-      title: 'Related to (optional)',
+      title: 'Related to project / stage (optional)',
       tip: 'Pick a game stage (Early / Mid / Late Game) or a live project like Tether. Community Idea keeps it on the global board.',
       required: false,
       kind: 'project',
@@ -262,7 +274,6 @@ const IdeaWizard = () => {
   }));
   const [draftId, setDraftId] = useState(null);
   const [stepIndex, setStepIndex] = useState(0);
-  const [tagDraft, setTagDraft] = useState('');
   const [message, setMessage] = useState('');
   const [messageTone, setMessageTone] = useState('error');
   const [submitting, setSubmitting] = useState(false);
@@ -359,6 +370,8 @@ const IdeaWizard = () => {
         description: data.description || '',
         tags: data.tags || '',
         projectId: data.project_id || linkedFromQuery || '',
+        parentIdeaId:
+          data.parent_idea_id != null ? String(data.parent_idea_id) : '',
         features:
           Array.isArray(optional.features) && optional.features.length
             ? optional.features
@@ -501,18 +514,7 @@ const IdeaWizard = () => {
   const progress = ((stepIndex + 1) / steps.length) * 100;
   const isReview = step?.kind === 'review';
 
-  const tags = useMemo(
-    () =>
-      [
-        ...new Set(
-          (form.tags || '')
-            .split(/[,;#]+/)
-            .map((t) => t.trim().replace(/^#/, ''))
-            .filter(Boolean)
-        ),
-      ],
-    [form.tags]
-  );
+  const tags = useMemo(() => parseTags(form.tags), [form.tags]);
 
   const setField = (key, value) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -531,14 +533,6 @@ const IdeaWizard = () => {
 
   const buildIdeaPayloadFrom = useCallback((f, status, id) => {
     const projectId = (f.projectId || '').trim() || null;
-    const tagList = [
-      ...new Set(
-        (f.tags || '')
-          .split(/[,;#]+/)
-          .map((t) => t.trim().replace(/^#/, ''))
-          .filter(Boolean)
-      ),
-    ];
     const guided_data = {
       ...buildGuidedData(guidedFieldsFromForm(f)),
       wizard_mode: 'guided_v1',
@@ -549,12 +543,16 @@ const IdeaWizard = () => {
       summary: (f.summary || '').trim(),
       category: f.category || 'Idea',
       description: (f.description || '').trim(),
-      tags: tagList.join(', '),
+      tags: serializeTags(parseTags(f.tags)),
       ...guidedFieldsFromForm(f),
       guided_data,
       status,
       votes: 0,
       ...(projectId ? { project_id: projectId } : {}),
+      parent_idea_id:
+        f.parentIdeaId === '' || f.parentIdeaId == null
+          ? null
+          : Number(f.parentIdeaId),
     };
   }, []);
 
@@ -701,7 +699,7 @@ const IdeaWizard = () => {
       return Boolean((form[step.field] || '').trim());
     }
     if (step.kind === 'tags') {
-      return tags.length > 0 || Boolean(tagDraft.trim());
+      return tags.length > 0;
     }
     if (step.kind === 'project') {
       return Boolean((form.projectId || '').trim());
@@ -717,7 +715,7 @@ const IdeaWizard = () => {
       );
     }
     return false;
-  }, [step, form, tags, tagDraft]);
+  }, [step, form, tags]);
 
   const skip = () => {
     if (step?.required) return;
@@ -738,17 +736,6 @@ const IdeaWizard = () => {
       setMessage('');
       setStepIndex(idx);
     }
-  };
-
-  const addTag = () => {
-    const cleaned = tagDraft.trim().replace(/^#/, '');
-    if (!cleaned) return;
-    const next = [...tags];
-    if (!next.some((t) => t.toLowerCase() === cleaned.toLowerCase())) {
-      next.push(cleaned);
-    }
-    setField('tags', next.join(', '));
-    setTagDraft('');
   };
 
   const updateFeature = (idx, field, value) => {
@@ -1075,47 +1062,22 @@ const IdeaWizard = () => {
             )}
 
             {step?.kind === 'tags' && (
-              <div className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  {tags.length === 0 && (
-                    <span className="text-sm text-text-muted">No tags yet</span>
-                  )}
-                  {tags.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() =>
-                        setField(
-                          'tags',
-                          tags.filter((x) => x !== t).join(', ')
-                        )
-                      }
-                      className="px-3 py-1 rounded-full text-xs font-mono border border-cyber-border text-neon-cyan hover:border-neon-cyan"
-                      title="Remove tag"
-                    >
-                      #{t} ×
-                    </button>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    className={fieldClass}
-                    value={tagDraft}
-                    onChange={(e) => setTagDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ',') {
-                        e.preventDefault();
-                        addTag();
-                      }
-                    }}
-                    placeholder="Type a tag and press Enter"
-                    autoFocus
-                  />
-                  <Button type="button" variant="secondary" onClick={addTag}>
-                    Add
-                  </Button>
-                </div>
-              </div>
+              <IdeaTagsField
+                value={form.tags}
+                onChange={(v) => setField('tags', v)}
+                label="Tags for this idea"
+                labelClass="block text-sm font-mono tracking-widest text-neon-cyan mb-2"
+              />
+            )}
+
+            {step?.kind === 'parent' && (
+              <ParentIdeaPicker
+                value={form.parentIdeaId}
+                onChange={(v) => setField('parentIdeaId', v)}
+                excludeIdeaId={draftId}
+                labelClass="block text-sm font-mono tracking-widest text-neon-cyan mb-2"
+                fieldClass={fieldClass}
+              />
             )}
 
             {step?.kind === 'project' && (

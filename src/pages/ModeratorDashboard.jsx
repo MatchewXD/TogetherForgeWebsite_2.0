@@ -5,7 +5,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Shield,
   Users,
@@ -21,6 +21,8 @@ import {
   Film,
   LayoutGrid,
   Search,
+  SplitSquareVertical,
+  Tags,
 } from 'lucide-react';
 
 import Card from '../components/ui/Card';
@@ -28,20 +30,34 @@ import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
 import Modal from '../components/ui/Modal';
 import UserAvatar from '../components/ui/UserAvatar';
+import TaskCategoryBadge from '../components/ui/TaskCategoryBadge';
 import LoadingScreen from '../components/ui/LoadingScreen';
 import useIsModerator from '../hooks/useIsModerator';
 import moderationService, {
   WORKFLOW_STATUSES,
   MODERATION_STATUSES,
 } from '../services/moderationService';
-import { STATUS_LABELS } from '../utils/ideaStatus';
+import { tasksService } from '../services/tasksService';
+import { STATUS_LABELS, displayProjectTitle } from '../utils/ideaStatus';
 import { listShowcaseForModeration } from '../services/showcaseService';
+import IdeaTagsAdminPanel from '../components/ideas/IdeaTagsAdminPanel';
 
 const TABS = [
   { id: 'users', label: 'Users', icon: Users },
   { id: 'ideas', label: 'Ideas', icon: Lightbulb },
+  { id: 'tags', label: 'Tags', icon: Tags },
+  { id: 'scope', label: 'Scope help', icon: SplitSquareVertical },
+  { id: 'restrictions', label: 'Claim restrict', icon: Ban },
   { id: 'reports', label: 'Reports', icon: Flag },
 ];
+
+const SCOPE_RESOLUTION_LABELS = {
+  breakdown: 'Broken into sub-tasks',
+  promoted: 'Promoted / re-parented',
+  adjusted: 'Adjusted in place',
+  kept: 'Clarified / keep as-is',
+  other: 'Other',
+};
 
 const filterControl =
   'w-full min-w-0 bg-cyber-surface border border-cyber-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-neon-cyan';
@@ -74,9 +90,21 @@ function ideaTime(idea) {
 
 const ModeratorDashboard = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isModerator, loading: roleLoading } = useIsModerator();
 
-  const [tab, setTab] = useState('users');
+  const initialTab = searchParams.get('tab');
+  const [tab, setTab] = useState(
+    TABS.some((t) => t.id === initialTab) ? initialTab : 'users'
+  );
+
+  // Deep-link: /moderator?tab=scope
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t && TABS.some((x) => x.id === t) && t !== tab) {
+      setTab(t);
+    }
+  }, [searchParams, tab]);
   const [users, setUsers] = useState([]);
   const [ideas, setIdeas] = useState([]);
   const [reports, setReports] = useState([]);
@@ -86,6 +114,16 @@ const ModeratorDashboard = () => {
   const [toast, setToast] = useState('');
   const [busyKey, setBusyKey] = useState(null);
   const [showcasePendingCount, setShowcasePendingCount] = useState(0);
+  const [scopeRequests, setScopeRequests] = useState([]);
+  const [scopeMissing, setScopeMissing] = useState(false);
+  const [scopeLoadError, setScopeLoadError] = useState('');
+  const [scopePendingCount, setScopePendingCount] = useState(0);
+  const [scopeStatusFilter, setScopeStatusFilter] = useState('pending');
+  /** Optional resolve notes keyed by request id */
+  const [scopeStaffNotes, setScopeStaffNotes] = useState({});
+  const [restrictionEvents, setRestrictionEvents] = useState([]);
+  const [restrictionsMissing, setRestrictionsMissing] = useState(false);
+  const [restrictionsLoadError, setRestrictionsLoadError] = useState('');
   /**
    * In-app confirm dialog (replaces window.confirm).
    * @type {null | { title: string, message: string, confirmLabel?: string, onConfirm: () => void }}
@@ -119,6 +157,12 @@ const ModeratorDashboard = () => {
       moderationService.listIdeas({ limit: 200 }),
       moderationService.listReports({ status: 'all', limit: 50 }),
       listShowcaseForModeration({ status: 'pending', limit: 100 }),
+      tasksService.listScopeRequests({
+        status: scopeStatusFilter === 'all' ? 'all' : scopeStatusFilter,
+        limit: 150,
+      }),
+      tasksService.countPendingScopeRequests(),
+      tasksService.listRestrictionEvents(80),
     ]);
 
     const errs = [];
@@ -156,9 +200,57 @@ const ModeratorDashboard = () => {
       setShowcasePendingCount(0);
     }
 
+    if (results[4].status === 'fulfilled') {
+      setScopeRequests(results[4].value || []);
+      setScopeMissing(false);
+      setScopeLoadError('');
+    } else {
+      setScopeRequests([]);
+      const reason = results[4].reason;
+      console.warn('[ModeratorDashboard] scope', reason);
+      const missing =
+        reason?.code === 'SCOPE_TABLE_MISSING' ||
+        /task_scope_requests|Scope requests are not set up|does not exist|schema cache/i.test(
+          reason?.message || ''
+        );
+      setScopeMissing(missing);
+      setScopeLoadError(
+        missing
+          ? ''
+          : reason?.message ||
+              'Could not load scope requests. Check the browser console and RLS policies.'
+      );
+    }
+
+    if (results[5].status === 'fulfilled') {
+      setScopePendingCount(results[5].value || 0);
+    } else {
+      setScopePendingCount(0);
+    }
+
+    if (results[6].status === 'fulfilled') {
+      setRestrictionEvents(results[6].value || []);
+      setRestrictionsMissing(false);
+      setRestrictionsLoadError('');
+    } else {
+      setRestrictionEvents([]);
+      const reason = results[6].reason;
+      const missing =
+        reason?.code === 'RESTRICTION_TABLE_MISSING' ||
+        /task_restriction|list_recent_restriction|does not exist|schema cache/i.test(
+          reason?.message || ''
+        );
+      setRestrictionsMissing(missing);
+      setRestrictionsLoadError(
+        missing
+          ? ''
+          : reason?.message || 'Could not load restriction audit events.'
+      );
+    }
+
     if (errs.length) setError(errs.join(' · '));
     setLoading(false);
-  }, [isModerator]);
+  }, [isModerator, scopeStatusFilter]);
 
   useEffect(() => {
     if (!roleLoading && isModerator) load();
@@ -405,7 +497,13 @@ const ModeratorDashboard = () => {
                   type="button"
                   role="tab"
                   aria-selected={active}
-                  onClick={() => setTab(t.id)}
+                  onClick={() => {
+                    setTab(t.id);
+                    setSearchParams(
+                      t.id === 'users' ? {} : { tab: t.id },
+                      { replace: true }
+                    );
+                  }}
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-mono tracking-widest uppercase border transition-colors ${
                     active
                       ? 'border-neon-cyan bg-neon-cyan/15 text-neon-cyan'
@@ -417,6 +515,11 @@ const ModeratorDashboard = () => {
                   {t.id === 'reports' && pendingCount > 0 && (
                     <span className="ml-1 text-xs bg-neon-magenta/20 text-neon-magenta px-1.5 py-0.5 rounded">
                       {pendingCount}
+                    </span>
+                  )}
+                  {t.id === 'scope' && scopePendingCount > 0 && (
+                    <span className="ml-1 text-xs bg-semantic-warning/20 text-semantic-warning px-1.5 py-0.5 rounded">
+                      {scopePendingCount}
                     </span>
                   )}
                 </button>
@@ -437,6 +540,283 @@ const ModeratorDashboard = () => {
 
         {loading && !users.length && !ideas.length && (
           <LoadingScreen variant="section" message="Loading…" />
+        )}
+
+        {/* ---------- Scope help (task breakdown requests) ---------- */}
+        {tab === 'scope' && (
+          <section aria-labelledby="scope-heading">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
+              <div>
+                <h2
+                  id="scope-heading"
+                  className="text-xl sm:text-2xl font-bold text-white tracking-tight"
+                >
+                  Scope help
+                </h2>
+                <p className="text-sm text-text-secondary mt-1 max-w-xl">
+                  Volunteers flagged work as larger than expected. Open the
+                  board task, break it down or re-scope, then mark resolved.
+                  Scope discovery is expected, not a failure.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="sr-only" htmlFor="mod-scope-status">
+                  Status filter
+                </label>
+                <select
+                  id="mod-scope-status"
+                  className={filterControl + ' w-auto min-w-[9rem]'}
+                  value={scopeStatusFilter}
+                  onChange={(e) => setScopeStatusFilter(e.target.value)}
+                >
+                  <option value="pending">Pending</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="all">All</option>
+                </select>
+              </div>
+            </div>
+
+            {scopeMissing && (
+              <Card className="bg-semantic-warning/10 border-semantic-warning/40 mb-4">
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  Scope requests table is not installed yet. Run{' '}
+                  <code className="text-neon-cyan text-xs">
+                    supabase/sql/supabase_task_scope_requests.sql
+                  </code>{' '}
+                  in the Supabase SQL Editor, then click Refresh.
+                </p>
+              </Card>
+            )}
+
+            {!scopeMissing && scopeLoadError && (
+              <Card className="bg-red-400/10 border-red-400/40 mb-4">
+                <p className="text-sm text-red-100" role="alert">
+                  {scopeLoadError}
+                </p>
+              </Card>
+            )}
+
+            {!scopeMissing &&
+              !scopeLoadError &&
+              scopeRequests.length === 0 &&
+              !loading && (
+              <Card className="bg-cyber-card/80 text-center py-10 px-6">
+                <SplitSquareVertical className="w-8 h-8 text-text-muted mx-auto mb-3" />
+                <p className="text-sm text-text-secondary">
+                  {scopeStatusFilter === 'pending'
+                    ? 'No open scope help requests. When claimants flag oversized work, they appear here.'
+                    : 'No requests in this filter.'}
+                </p>
+              </Card>
+            )}
+
+            <div className="space-y-3">
+              {scopeRequests.map((req) => {
+                const busy = busyKey === `scope-${req.id}`;
+                return (
+                  <Card
+                    key={req.id}
+                    className="bg-cyber-card/80 border-cyber-border"
+                  >
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge
+                              variant={
+                                req.status === 'pending'
+                                  ? 'warning'
+                                  : req.status === 'resolved'
+                                    ? 'success'
+                                    : 'default'
+                              }
+                              className="!normal-case"
+                            >
+                              {req.status}
+                            </Badge>
+                            {req.resolution && (
+                              <span className="text-[11px] font-mono text-text-muted">
+                                {SCOPE_RESOLUTION_LABELS[req.resolution] ||
+                                  req.resolution}
+                              </span>
+                            )}
+                            <span className="text-[11px] font-mono text-text-muted">
+                              {formatDate(req.createdAt)}
+                            </span>
+                          </div>
+                          <h3 className="text-base sm:text-lg font-semibold text-white truncate">
+                            {req.taskTitle}
+                          </h3>
+                          <p className="text-xs font-mono text-text-muted">
+                            {displayProjectTitle({
+                              title: req.projectTitle,
+                              slug: req.projectSlug,
+                            })}
+                            {req.taskCategory ? ` · ${req.taskCategory}` : ''}
+                            {req.taskDifficulty
+                              ? ` · Difficulty: ${req.taskDifficulty}`
+                              : ''}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <UserAvatar
+                            src={req.avatarUrl}
+                            name={req.username}
+                            username={req.username}
+                            size="sm"
+                          />
+                          <span className="text-sm text-text-secondary">
+                            {req.username}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="text-sm text-text-secondary whitespace-pre-wrap border-l-2 border-semantic-warning/40 pl-3">
+                        {req.note}
+                      </p>
+
+                      {req.staffNote && (
+                        <p className="text-sm text-text-secondary whitespace-pre-wrap border-l-2 border-neon-cyan/30 pl-3">
+                          <span className="text-[10px] font-mono tracking-widest uppercase text-text-muted block mb-1">
+                            Staff note
+                          </span>
+                          {req.staffNote}
+                        </p>
+                      )}
+
+                      {req.taskCategory && (
+                        <div>
+                          <TaskCategoryBadge
+                            category={req.taskCategory}
+                            size="sm"
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <Link to={req.boardPath}>
+                          <Button size="sm" variant="secondary" className="gap-1.5">
+                            Open board
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </Button>
+                        </Link>
+                      </div>
+
+                      {req.status === 'pending' && (
+                        <div className="space-y-2 pt-1 border-t border-cyber-border/60">
+                          <label
+                            className="block text-[10px] font-mono tracking-widest uppercase text-text-muted"
+                            htmlFor={`scope-staff-note-${req.id}`}
+                          >
+                            Resolve note (optional)
+                          </label>
+                          <textarea
+                            id={`scope-staff-note-${req.id}`}
+                            rows={2}
+                            maxLength={1000}
+                            placeholder="What you did or told the volunteer (e.g. split into three Small tasks under this parent)."
+                            className={`${filterControl} resize-y min-h-[3.5rem]`}
+                            value={scopeStaffNotes[req.id] || ''}
+                            onChange={(e) =>
+                              setScopeStaffNotes((prev) => ({
+                                ...prev,
+                                [req.id]: e.target.value,
+                              }))
+                            }
+                            disabled={busy}
+                          />
+                          <p className="text-[11px] text-text-muted">
+                            Saved with the resolution on this request (and in
+                            activity history). Optional but helpful for the
+                            volunteer and future staff.
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              size="sm"
+                              variant="success"
+                              disabled={busy}
+                              onClick={() =>
+                                runAction(
+                                  `scope-${req.id}`,
+                                  () =>
+                                    tasksService.resolveScopeRequest(
+                                      req.id,
+                                      'breakdown',
+                                      scopeStaffNotes[req.id] || ''
+                                    ),
+                                  'Marked as broken into sub-tasks'
+                                )
+                              }
+                            >
+                              Broken into sub-tasks
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={busy}
+                              onClick={() =>
+                                runAction(
+                                  `scope-${req.id}`,
+                                  () =>
+                                    tasksService.resolveScopeRequest(
+                                      req.id,
+                                      'promoted',
+                                      scopeStaffNotes[req.id] || ''
+                                    ),
+                                  'Marked as promoted / re-parented'
+                                )
+                              }
+                            >
+                              Promoted
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={busy}
+                              onClick={() =>
+                                runAction(
+                                  `scope-${req.id}`,
+                                  () =>
+                                    tasksService.resolveScopeRequest(
+                                      req.id,
+                                      'adjusted',
+                                      scopeStaffNotes[req.id] || ''
+                                    ),
+                                  'Marked as adjusted'
+                                )
+                              }
+                            >
+                              Adjusted
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={busy}
+                              onClick={() =>
+                                runAction(
+                                  `scope-${req.id}`,
+                                  () =>
+                                    tasksService.resolveScopeRequest(
+                                      req.id,
+                                      'kept',
+                                      scopeStaffNotes[req.id] || ''
+                                    ),
+                                  'Closed as clarified'
+                                )
+                              }
+                            >
+                              Clarified / keep
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
         )}
 
         {/* ---------- Users ---------- */}
@@ -692,6 +1072,13 @@ const ModeratorDashboard = () => {
           </section>
         )}
 
+        {/* ---------- Idea tags (hybrid catalog) ---------- */}
+        {tab === 'tags' && (
+          <section aria-labelledby="tags-heading">
+            <IdeaTagsAdminPanel />
+          </section>
+        )}
+
         {/* ---------- Ideas ---------- */}
         {tab === 'ideas' && (
           <section aria-labelledby="ideas-heading">
@@ -906,6 +1293,111 @@ const ModeratorDashboard = () => {
                           <Trash2 className="w-3.5 h-3.5" />
                           Delete
                         </Button>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ---------- Claim restrictions audit ---------- */}
+        {tab === 'restrictions' && (
+          <section aria-labelledby="restrictions-heading" className="space-y-4">
+            <div>
+              <h2
+                id="restrictions-heading"
+                className="text-lg font-semibold text-white"
+              >
+                Claim restriction audit
+              </h2>
+              <p className="text-sm text-text-secondary mt-1 leading-relaxed">
+                Fake-work rejections and claim privilege restrictions. Use
+                “Reject as fake work” on a Ready for Review task to log events
+                here. Escalation: 2 flags → 7 days, 3 → 30 days, 4+ → permanent.
+              </p>
+            </div>
+
+            {restrictionsMissing && (
+              <Card className="bg-cyber-card/80 border-amber-500/30">
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  Restriction audit is not set up yet. Run{' '}
+                  <code className="text-neon-cyan text-xs font-mono">
+                    supabase/sql/supabase_task_anti_abuse.sql
+                  </code>{' '}
+                  in Supabase after the review workflow scripts.
+                </p>
+              </Card>
+            )}
+
+            {restrictionsLoadError && (
+              <Card className="bg-red-400/10 border-red-400/40">
+                <p className="text-sm text-red-100">{restrictionsLoadError}</p>
+              </Card>
+            )}
+
+            {!restrictionsMissing &&
+              !restrictionsLoadError &&
+              restrictionEvents.length === 0 && (
+                <Card className="bg-cyber-card/80">
+                  <p className="text-sm text-text-muted">
+                    No restriction events yet. When staff flag fake work on the
+                    Task Board, entries appear here.
+                  </p>
+                </Card>
+              )}
+
+            <div className="space-y-3">
+              {restrictionEvents.map((ev) => {
+                const userLabel =
+                  users.find((u) => u.id === ev.userId)?.username ||
+                  ev.userId?.slice?.(0, 8) ||
+                  'user';
+                const actorLabel =
+                  users.find((u) => u.id === ev.actorId)?.username ||
+                  (ev.actorId ? ev.actorId.slice(0, 8) : 'system');
+                return (
+                  <Card key={ev.id} className="bg-cyber-card/80">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge
+                            variant={
+                              ev.eventType === 'fake_reject' ||
+                              ev.eventType === 'auto_restrict' ||
+                              ev.eventType === 'restrict'
+                                ? 'danger'
+                                : 'default'
+                            }
+                            className="!normal-case tracking-wide"
+                          >
+                            {ev.eventType}
+                          </Badge>
+                          <span className="text-sm text-white font-medium">
+                            {userLabel}
+                          </span>
+                          <span className="text-xs font-mono text-text-muted">
+                            by {actorLabel}
+                          </span>
+                        </div>
+                        {ev.reason && (
+                          <p className="text-sm text-text-secondary leading-relaxed">
+                            {ev.reason}
+                          </p>
+                        )}
+                        <p className="text-[11px] font-mono text-text-muted">
+                          {formatDate(ev.createdAt)}
+                          {ev.metadata?.fake_rejection_count != null
+                            ? ` · fake flags: ${ev.metadata.fake_rejection_count}`
+                            : ''}
+                          {ev.metadata?.is_restricted
+                            ? ' · restricted'
+                            : ''}
+                          {ev.taskId
+                            ? ` · task ${String(ev.taskId).slice(0, 8)}…`
+                            : ''}
+                        </p>
                       </div>
                     </div>
                   </Card>

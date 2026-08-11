@@ -83,4 +83,14 @@ describe('supportService.recordLocalSupportEvent', () => {
     );
     expect(JSON.parse(localStorage.getItem('tf_donations') || '[]')).toHaveLength(0);
   });
+
+  it('does not store named credit fields on local ledger entries by default', () => {
+    const entry = recordLocalSupportEvent({
+      amountCents: 1000,
+      fundType: 'studio',
+    });
+    expect(entry.amountCents).toBe(1000);
+    // Public feed remains anonymous; local stub is amount-only social proof
+    expect(entry.isAnonymous).not.toBe(false);
+  });
 });

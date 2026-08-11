@@ -16,6 +16,7 @@ import EducationApprenticeship from './pages/EducationApprenticeship';
 import FAQ from './pages/FAQ';
 import BugTracker from './pages/BugTracker';
 import ReportBug from './pages/ReportBug';
+import PlatformSuggestions from './pages/PlatformSuggestions';
 import Donations from './pages/Donations';
 import Contact from './pages/Contact';
 import TransparencyHub from './pages/TransparencyHub';
@@ -24,7 +25,9 @@ import SupportRunway from './pages/SupportRunway';
 import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
 import EditProfile from './pages/EditProfile';
+import Account from './pages/Account';
 import EmailConfirmation from './pages/EmailConfirmation';
+import ResetPassword from './pages/ResetPassword';
 import PublicProfile from './pages/PublicProfile';
 import IdeaEdit from './pages/IdeaEdit';
 import ProjectsEarly from './pages/ProjectsEarly';
@@ -34,6 +37,7 @@ import ProjectsEarlyDetail from './pages/ProjectsEarlyDetail';
 import ProjectsEdit from './pages/ProjectsEdit';
 import ProjectsEarlyEdit from './pages/ProjectsEarlyEdit';
 import ProjectWorkspace from './pages/ProjectWorkspace';
+import OpenWork from './pages/OpenWork';
 import Contributors from './pages/Contributors';
 import ProjectContributors from './pages/ProjectContributors';
 import AllContributors from './pages/AllContributors';
@@ -44,6 +48,7 @@ import MediaEdit from './pages/MediaEdit';
 import CommunityShowcase from './pages/CommunityShowcase';
 import ShowcaseSubmit from './pages/ShowcaseSubmit';
 import ShowcaseModerate from './pages/ShowcaseModerate';
+import Badges from './pages/Badges';
 import ReleasedGames from './pages/ReleasedGames';
 import ReleasedGameDetail from './pages/ReleasedGameDetail';
 import NotFound from './pages/NotFound';
@@ -73,16 +78,22 @@ function App() {
                         <Route path="/ideas/:id" element={<IdeaDetail />} />
                         <Route path="/ideas/:id/edit" element={<IdeaEdit />} />
                         <Route path="/projects" element={<Projects />} />
+                        <Route path="/open-work" element={<OpenWork />} />
+                        <Route path="/task-boards" element={<OpenWork />} />
                         <Route path="/projects/early" element={<ProjectsEarly />} />
                         <Route path="/projects/early/:id" element={<ProjectsEarlyDetail />} />
                         <Route path="/projects/edit" element={<ProjectsEdit />} />
                         <Route path="/projects/early/edit" element={<ProjectsEarlyEdit />} />
                         <Route path="/projects/mid" element={<ProjectsMid />} />
                         <Route path="/projects/late" element={<ProjectsLate />} />
-                        {/* Contributors before generic :id workspace */}
+                        {/* Contributors + board before generic :id workspace */}
                         <Route
                           path="/projects/:id/contributors"
                           element={<ProjectContributors />}
+                        />
+                        <Route
+                          path="/projects/:id/board"
+                          element={<ProjectWorkspace />}
                         />
                         {/* Generic workspace - after static phase routes so early/mid/late are not captured */}
                         <Route path="/projects/:id" element={<ProjectWorkspace />} />
@@ -115,10 +126,20 @@ function App() {
                         <Route path="/bugs" element={<BugTracker />} />
                         <Route path="/bugs/report" element={<ReportBug />} />
                         <Route path="/report-bug" element={<ReportBug />} />
+                        <Route
+                          path="/suggestions"
+                          element={<PlatformSuggestions />}
+                        />
+                        <Route
+                          path="/platform-suggestions"
+                          element={<PlatformSuggestions />}
+                        />
                         <Route path="/donate" element={<Donations />} />
                         {/* Legacy aliases → Donate */}
                         <Route path="/support" element={<Donations />} />
                         <Route path="/donations" element={<Donations />} />
+                        <Route path="/badges" element={<Badges />} />
+                        <Route path="/achievements" element={<Badges />} />
                         <Route path="/contact" element={<Contact />} />
                         <Route path="/transparency" element={<TransparencyHub />} />
                         <Route path="/founders-thoughts" element={<FoundersThoughts />} />
@@ -126,13 +147,16 @@ function App() {
                         <Route path="/moderator" element={<ModeratorDashboard />} />
                         {/* Private hub (claims, requests, shortcuts) */}
                         <Route path="/dashboard" element={<Dashboard />} />
-                        {/* Own account: login + light profile editing */}
+                        {/* Account / Settings (profile, linked, security, plan, billing, …) */}
+                        <Route path="/account/:section?" element={<Account />} />
+                        {/* Legacy private profile → Account redirects */}
                         <Route path="/profile" element={<Profile />} />
                         <Route path="/profile/edit" element={<EditProfile />} />
-                        {/* Public profiles: /u/:username (canonical) and /profile/:username */}
+                        {/* Profile: /u/:username (canonical) and /profile/:username */}
                         <Route path="/u/:username" element={<PublicProfile />} />
                         <Route path="/profile/:username" element={<PublicProfile />} />
                         <Route path="/confirm-email" element={<EmailConfirmation />} />
+                        <Route path="/reset-password" element={<ResetPassword />} />
                         {/* Unknown routes */}
                         <Route path="*" element={<NotFound />} />
                     </Routes>

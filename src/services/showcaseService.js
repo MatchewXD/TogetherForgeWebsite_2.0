@@ -268,7 +268,7 @@ async function attachCreators(posts = []) {
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, username, avatar_url')
+      .select('id, username, avatar_url, pinned_badge_key')
       .in('id', ids);
     if (error) {
       console.warn('[showcase] attachCreators', error);
@@ -294,6 +294,8 @@ async function attachCreators(posts = []) {
           id: profile.id,
           username: profile.username || post.creatorDisplayName || null,
           avatar_url: profile.avatar_url || null,
+          pinned_badge_key: profile.pinned_badge_key || null,
+          pinnedBadgeKey: profile.pinned_badge_key || null,
         },
         // Prefer profile username for display when available
         creatorDisplayName:
