@@ -97,11 +97,28 @@ const Footer = () => {
           </div>
 
           {/* Right side message + Trademark */}
-          <div className="text-xs text-text-muted max-w-[260px] md:text-right w-full md:w-auto mx-auto md:mx-0">
+          <div className="text-xs text-text-muted max-w-[280px] md:text-right w-full md:w-auto mx-auto md:mx-0">
             Building games worth playing.
             <br />
             Building communities worth belonging to.
-            <div className="mt-4 text-[10px] opacity-60">
+            <div className="mt-4 flex flex-wrap justify-center md:justify-end gap-x-3 gap-y-1 text-[10px] font-mono tracking-widest">
+              <Link to="/terms" className="hover:text-neon-cyan transition-colors">
+                TERMS
+              </Link>
+              <Link
+                to="/privacy"
+                className="hover:text-neon-cyan transition-colors"
+              >
+                PRIVACY
+              </Link>
+              <Link
+                to="/guidelines"
+                className="hover:text-neon-cyan transition-colors"
+              >
+                GUIDELINES
+              </Link>
+            </div>
+            <div className="mt-3 text-[10px] opacity-60">
               © 2026 Together Forge. All Rights Reserved.
               <br />
               &quot;Together Forge&quot; is a trademark of Together Forge

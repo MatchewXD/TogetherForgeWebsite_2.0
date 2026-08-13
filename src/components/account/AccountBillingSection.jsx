@@ -31,6 +31,19 @@ export default function AccountBillingSection() {
     setLoading(true);
     setError('');
     try {
+      try {
+        const sid =
+          searchParams.get('session_id') ||
+          searchParams.get('sessionId') ||
+          sessionStorage.getItem('tf_last_checkout_session') ||
+          '';
+        if (sid.startsWith('cs_')) {
+          sessionStorage.removeItem('tf_last_checkout_session');
+          await billingService.syncCheckoutSession(sid);
+        }
+      } catch {
+        /* optional */
+      }
       const [h, s] = await Promise.all([
         billingService.getMyHistory(40),
         billingService.listMySubscriptions(),
@@ -42,7 +55,7 @@ export default function AccountBillingSection() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     void load();

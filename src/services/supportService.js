@@ -5,10 +5,13 @@
  * - Never put STRIPE_SECRET_KEY (sk_...) in VITE_* env vars.
  * - Client may only use: publishable key (optional), Supabase URL/anon, checkout API URL.
  * - Checkout Sessions are created by Supabase Edge Function create-checkout.
+ * - Account attachment uses the signed-in JWT only (server ignores body.userId).
  *
  * Local defaults (when VITE_STRIPE_CHECKOUT_API_URL is unset):
  *   {VITE_SUPABASE_URL}/functions/v1/create-checkout
  */
+
+import { supabase } from '../lib/supabase';
 
 const MIN_CENTS = 100;
 const MAX_CENTS = 1_000_000;
@@ -61,13 +64,28 @@ export function getCheckoutApiUrl() {
 
 /**
  * Headers required by local + hosted Supabase Edge Functions.
+ * Prefer the signed-in user JWT so create-checkout can attach payments to
+ * the verified account. Fall back to anon key for guest checkout.
  */
-function checkoutHeaders() {
+async function checkoutHeaders() {
   const headers = { 'Content-Type': 'application/json' };
   const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
   if (anon) {
-    headers.Authorization = `Bearer ${anon}`;
     headers.apikey = anon;
+  }
+  try {
+    // Prefer a fresh access token so create-checkout can attach user_id for My Plan
+    let token = null;
+    const { data: sess } = await supabase.auth.getSession();
+    token = sess?.session?.access_token || null;
+    if (!token) {
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      token = refreshed?.session?.access_token || null;
+    }
+    if (!token) token = anon || null;
+    if (token) headers.Authorization = `Bearer ${token}`;
+  } catch {
+    if (anon) headers.Authorization = `Bearer ${anon}`;
   }
   return headers;
 }
@@ -82,8 +100,8 @@ function checkoutHeaders() {
  * @param {string} [opts.successUrl]
  * @param {string} [opts.cancelUrl]
  * @param {string} [opts.productId] - optional Stripe product id override
- * @param {string|null} [opts.userId] - signed-in TF user id (Stripe Customer ownership)
- * @param {string|null} [opts.email] - signed-in user email (for Customer create / match)
+ * @param {string|null} [opts.userId] - ignored for ownership (JWT only); kept for call-site compat
+ * @param {string|null} [opts.email] - guest email hint; signed-in email comes from JWT on server
  * @param {string|null} [opts.displayName] - username for credits when not anonymous
  * @param {boolean} [opts.isAnonymous=true] - false = public credit (project + All Contributors)
  */
@@ -96,7 +114,7 @@ export async function startStripeCheckout({
   successUrl,
   cancelUrl,
   productId,
-  userId = null,
+  userId: _userId = null, // ownership is JWT-only on the server
   email = null,
   displayName = null,
   isAnonymous = true,
@@ -124,19 +142,14 @@ export async function startStripeCheckout({
   const apiUrl = getCheckoutApiUrl();
 
   if (apiUrl) {
-    console.log('[support] creating checkout session via Edge Function', {
-      apiUrl,
-      amountCents: cents,
-      interval: safeInterval,
-      tierId: safeTier,
-      fundType: safeFund,
-    });
-
+    const headers = await checkoutHeaders();
     let res;
     try {
+      // Ownership is derived server-side from the session JWT in Authorization.
+      // Do not send userId for attachment — guests cannot attach to an account.
       res = await fetch(apiUrl, {
         method: 'POST',
-        headers: checkoutHeaders(),
+        headers,
         body: JSON.stringify({
           amountCents: cents,
           interval: safeInterval,
@@ -149,8 +162,7 @@ export async function startStripeCheckout({
           // Only pass productId when explicitly provided — do not use a stale
           // VITE_STRIPE_PRODUCT_ID (dynamic amounts use inline product_data).
           ...(productId ? { productId, useProduct: true } : {}),
-          // Per-user Stripe Customer + public credit metadata
-          userId: userId || null,
+          // Display / guest contact only — server ignores body.userId for ownership
           email: email || null,
           displayName: displayName || null,
           isAnonymous: isAnonymous !== false,
@@ -179,15 +191,26 @@ export async function startStripeCheckout({
       const detail =
         data?.error || data?.message || text || `HTTP ${res.status}`;
       console.error('[support] checkout API error', res.status, detail);
-      throw new Error(
+      const err = new Error(
         typeof detail === 'string'
           ? detail
           : `Checkout API failed (${res.status}). Check Edge Function logs and STRIPE_SECRET_KEY.`
       );
+      err.code = data?.code || (res.status === 429 ? 'RATE_LIMITED' : 'CHECKOUT_API');
+      err.status = res.status;
+      throw err;
     }
 
     if (!data?.url) {
       throw new Error('Checkout API did not return a url.');
+    }
+
+    if (data.sessionId) {
+      try {
+        sessionStorage.setItem('tf_last_checkout_session', data.sessionId);
+      } catch {
+        /* ignore */
+      }
     }
 
     window.location.assign(data.url);
@@ -235,17 +258,27 @@ export function recordLocalSupportEvent({
   label,
   fundType = 'studio',
   interval = 'once',
+  isAnonymous = true,
+  username = null,
+  avatarUrl = null,
 } = {}) {
   try {
     const key =
       fundType === 'runway' ? 'tf_runway_donations' : 'tf_donations';
     const stored = JSON.parse(localStorage.getItem(key) || '[]');
+    const named =
+      isAnonymous === false && username
+        ? String(username).trim()
+        : null;
     const entry = {
       amount: Math.round((amountCents || 0) / 100),
       amountCents: amountCents || 0,
       label: label || 'Support',
       fundType,
       interval,
+      isAnonymous: !named,
+      username: named,
+      avatarUrl: named && avatarUrl ? avatarUrl : null,
       timestamp: new Date().toISOString(),
     };
     stored.unshift(entry);

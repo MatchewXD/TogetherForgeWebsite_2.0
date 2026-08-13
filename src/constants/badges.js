@@ -88,8 +88,10 @@ function formatDollar(n) {
 
 /**
  * Custom art under public/images/Badges/.
- * Explicit map for current filenames (case varies).
- * Future donation art: prefer `{dollars}_donor.png` (e.g. 2500_donor.png).
+ * Explicit map when filenames differ (case / naming).
+ * Conventions (auto-resolved if not listed):
+ *   donation_N → {N}_donor.png
+ *   tasks_N    → {N}_tasks.png  (except First Ship → first_Ship.png)
  */
 export const BADGE_IMAGE_DIR = '/images/Badges';
 
@@ -97,22 +99,37 @@ export const BADGE_IMAGE_DIR = '/images/Badges';
 export const BADGE_IMAGE_FILES = {
   status_active_subscriber: 'Active_Subscriber.png',
   status_donor: 'Donator.png',
+  status_game_shipper: 'game_shipper.png',
+
   donation_10: '10_donor.png',
   donation_50: '50_donor.png',
   donation_100: '100_donor.png',
   donation_250: '250_donor.png',
   donation_500: '500_donor.png',
   donation_1000: '1000_donor.png',
-  // Add when art lands, e.g.:
-  // donation_2500: '2500_donor.png',
-  // status_game_shipper: 'Game_Shipper.png',
-  // tasks_1: '1_tasks.png',
+  donation_2500: '2500_donor.png',
+  donation_5000: '5000_donor.png',
+  donation_10000: '10000_donor.png',
+  donation_25000: '25000_donor.png',
+  donation_50000: '50000_donor.png',
+  donation_100000: '100000_donor.png',
+
+  tasks_1: 'first_Ship.png',
+  tasks_5: '5_tasks.png',
+  tasks_10: '10_tasks.png',
+  tasks_25: '25_tasks.png',
+  tasks_50: '50_tasks.png',
+  tasks_75: '75_tasks.png',
+  tasks_100: '100_tasks.png',
+  tasks_150: '150_tasks.png',
+  tasks_200: '200_tasks.png',
+  tasks_250: '250_tasks.png',
 };
 
 /**
  * Public URL for badge art, or null if we have no known asset yet.
- * Donation milestones without an explicit map try `{n}_donor.png` so new files
- * work once you drop them in the folder (onError falls back to Lucide).
+ * Unlisted donation/task keys still try the naming convention; img onError
+ * falls back to Lucide in BadgeIcon.
  * @param {string|null|undefined} key
  * @returns {string|null}
  */
@@ -125,6 +142,13 @@ export function getBadgeImageSrc(key) {
   const donationMatch = /^donation_(\d+)$/.exec(k);
   if (donationMatch) {
     return `${BADGE_IMAGE_DIR}/${donationMatch[1]}_donor.png`;
+  }
+  const taskMatch = /^tasks_(\d+)$/.exec(k);
+  if (taskMatch) {
+    if (taskMatch[1] === '1') {
+      return `${BADGE_IMAGE_DIR}/first_Ship.png`;
+    }
+    return `${BADGE_IMAGE_DIR}/${taskMatch[1]}_tasks.png`;
   }
   return null;
 }

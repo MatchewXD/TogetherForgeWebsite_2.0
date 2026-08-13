@@ -23,6 +23,7 @@ import {
   LayoutDashboard,
   ExternalLink,
   Pencil,
+  Sparkles,
 } from 'lucide-react';
 
 import { supabase } from '../lib/supabase';
@@ -42,6 +43,10 @@ import {
   stashPendingUsername,
   ensureUsernameFromSignup,
 } from '../utils/ensureUserProfile';
+import {
+  acceptCurrentLegal,
+  legalAcceptanceMetadata,
+} from '../services/legalService';
 import {
   ACCOUNT_SECTIONS,
   ACCOUNT_SECTION_GROUPS,
@@ -63,6 +68,8 @@ import {
 } from '../utils/authIdentities';
 import AccountPlanSection from '../components/account/AccountPlanSection';
 import AccountBillingSection from '../components/account/AccountBillingSection';
+import AccountAiTokensSection from '../components/account/AccountAiTokensSection';
+import AccountMfaSection from '../components/account/AccountMfaSection';
 
 const SSO_FLASH_KEY = 'tf_sso_flash';
 
@@ -102,6 +109,7 @@ const SECTION_ICONS = {
   security: Shield,
   plan: CreditCard,
   billing: CreditCard,
+  'ai-tokens': Sparkles,
   preferences: Bell,
   privacy: Eye,
   danger: AlertTriangle,
@@ -117,6 +125,8 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
   const [usernameHint, setUsernameHint] = useState('');
   const [usernameStatus, setUsernameStatus] = useState('idle');
   const [showEmailForm, setShowEmailForm] = useState(false);
+  /** Required on register: Terms of Service + Community Guidelines */
+  const [legalAgreed, setLegalAgreed] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -221,6 +231,13 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
         return;
       }
       if (mode === 'register') {
+        if (!legalAgreed) {
+          setMessage(
+            'Please agree to the Terms of Service and Community Guidelines to create an account.'
+          );
+          setLoading(false);
+          return;
+        }
         const format = validatePublicUsername(form.username);
         if (!format.ok) {
           setUsernameError(format.message || 'Username is required');
@@ -250,11 +267,12 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
         }
         // Persist choice so we never ask again after confirm-email / first login
         stashPendingUsername(avail.value);
+        const legalMeta = legalAcceptanceMetadata();
         const { data, error } = await supabase.auth.signUp({
           email: form.email,
           password: form.password,
           options: {
-            data: { username: avail.value },
+            data: { username: avail.value, ...legalMeta },
             emailRedirectTo: `${window.location.origin}/dashboard`,
           },
         });
@@ -267,6 +285,11 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
               avail.value,
               form.email
             );
+            try {
+              await acceptCurrentLegal(data.user.id);
+            } catch {
+              /* gate will re-prompt if profile columns missing */
+            }
             onAuthed?.(data.user);
             navigate('/dashboard', { replace: true });
           } else {
@@ -289,6 +312,7 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
           await ensureUsernameFromSignup(data.user, null);
         }
         onAuthed?.(data.user);
+        // MFA challenge (if enrolled) is handled by MfaSessionGate at app root
         navigate('/dashboard', { replace: true });
       }
     } catch (err) {
@@ -333,9 +357,52 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
 
           {mode !== 'forgot' && (
             <>
+              {mode === 'register' && (
+                <label className="flex items-start gap-3 cursor-pointer text-sm text-text-secondary leading-relaxed mb-5">
+                  <input
+                    type="checkbox"
+                    className="mt-1 accent-neon-cyan shrink-0"
+                    checked={legalAgreed}
+                    onChange={(e) => setLegalAgreed(e.target.checked)}
+                    required
+                  />
+                  <span>
+                    I agree to the{' '}
+                    <Link
+                      to="/terms"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-neon-cyan hover:underline"
+                    >
+                      Terms of Service
+                    </Link>{' '}
+                    and{' '}
+                    <Link
+                      to="/guidelines"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-neon-cyan hover:underline"
+                    >
+                      Community Guidelines
+                    </Link>
+                    . See also our{' '}
+                    <Link
+                      to="/privacy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-neon-cyan hover:underline"
+                    >
+                      Privacy Policy
+                    </Link>
+                    .
+                  </span>
+                </label>
+              )}
               <OAuthSignInButtons
                 mode={mode === 'register' ? 'register' : 'login'}
                 disabled={loading}
+                requireAgree={mode === 'register'}
+                agreed={legalAgreed}
                 onError={(msg) => {
                   setMessageOk(false);
                   setMessage(msg || '');
@@ -502,7 +569,8 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
                 disabled={
                   loading ||
                   (mode === 'register' &&
-                    (usernameStatus === 'taken' ||
+                    (!legalAgreed ||
+                      usernameStatus === 'taken' ||
                       usernameStatus === 'invalid' ||
                       usernameStatus === 'checking' ||
                       !form.username.trim()))
@@ -543,6 +611,7 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
                   setMessage('');
                   setMessageOk(false);
                   setUsernameError('');
+                  setLegalAgreed(false);
                 }}
               >
                 {mode === 'login'
@@ -554,9 +623,46 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
         </Card>
 
         <p className="text-center text-[11px] text-text-muted mt-6 leading-relaxed max-w-sm mx-auto">
-          By continuing you agree to participate in the Together Forge
-          community. Link Discord, Google, or GitHub anytime under Account →
-          Linked accounts.
+          {mode === 'register' ? (
+            <>
+              Creating an account requires accepting our{' '}
+              <Link to="/terms" className="text-neon-cyan hover:underline">
+                Terms
+              </Link>
+              ,{' '}
+              <Link
+                to="/guidelines"
+                className="text-neon-cyan hover:underline"
+              >
+                Guidelines
+              </Link>
+              , and reviewing the{' '}
+              <Link to="/privacy" className="text-neon-cyan hover:underline">
+                Privacy Policy
+              </Link>
+              . Link Discord, Google, or GitHub anytime under Account → Linked
+              accounts.
+            </>
+          ) : (
+            <>
+              Link Discord, Google, or GitHub anytime under Account → Linked
+              accounts.{' '}
+              <Link to="/terms" className="text-neon-cyan hover:underline">
+                Terms
+              </Link>
+              {' · '}
+              <Link to="/privacy" className="text-neon-cyan hover:underline">
+                Privacy
+              </Link>
+              {' · '}
+              <Link
+                to="/guidelines"
+                className="text-neon-cyan hover:underline"
+              >
+                Guidelines
+              </Link>
+            </>
+          )}
         </p>
       </div>
     </div>
@@ -726,7 +832,8 @@ function SecuritySection({ user }) {
       <div>
         <h2 className="text-xl font-bold text-white">Security</h2>
         <p className="text-sm text-text-secondary mt-1">
-          Password and sign-in for {user?.email || 'your account'}.
+          Password, two-factor authentication, and sign-in for{' '}
+          {user?.email || 'your account'}.
         </p>
       </div>
       <Card className="bg-cyber-card border border-cyber-border p-6 space-y-4">
@@ -865,10 +972,7 @@ function SecuritySection({ user }) {
           </form>
         )}
       </Card>
-      <ComingSoon
-        title="Two-factor authentication"
-        body="Optional authenticator apps and backup codes will appear here. If you already enrolled 2FA, password changes will ask for a code."
-      />
+      <AccountMfaSection />
       <ComingSoon
         title="Active sessions"
         body="Review and sign out other devices will be available here. Password change can already sign out other sessions."
@@ -1179,6 +1283,9 @@ const Account = () => {
     }
     if (section === 'billing') {
       return <AccountBillingSection />;
+    }
+    if (section === 'ai-tokens') {
+      return <AccountAiTokensSection />;
     }
     if (section === 'preferences') {
       return (

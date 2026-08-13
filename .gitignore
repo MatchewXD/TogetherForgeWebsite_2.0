@@ -18,8 +18,13 @@ dist-ssr
 .idea
 .env.local
 .env
+.env.staging
+.env.production
+.env.*.local
 supabase/.env
 supabase/.env.local
+supabase/.env.staging
+supabase/.env.production
 .DS_Store
 *.suo
 *.ntvs*

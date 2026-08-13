@@ -25,6 +25,7 @@ alter table donations add column if not exists tier_id text;
 alter table donations add column if not exists status text default 'completed';
   -- completed | refunded | failed
 alter table donations add column if not exists is_anonymous boolean default true;
+alter table donations add column if not exists display_name text;
 alter table donations add column if not exists stripe_session_id text;
 alter table donations add column if not exists stripe_payment_intent text;
 alter table donations add column if not exists stripe_subscription_id text;

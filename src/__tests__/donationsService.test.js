@@ -69,6 +69,33 @@ describe('donationsService.getPublicSupportSummary', () => {
     expect(summary.source).toBe('local');
   });
 
+  it('labels anonymous vs named recent supporters', async () => {
+    rpc.mockResolvedValue({
+      data: [
+        {
+          amount_cents: 500,
+          created_at: new Date().toISOString(),
+          is_anonymous: true,
+          username: null,
+          display_name: null,
+        },
+        {
+          amount_cents: 1500,
+          created_at: new Date().toISOString(),
+          is_anonymous: false,
+          username: 'MatchewXD',
+          display_name: 'MatchewXD',
+        },
+      ],
+      error: null,
+    });
+    const recent = await getPublicRecentDonations(12);
+    expect(recent.items[0].label).toBe('Anonymous Supporter');
+    expect(recent.items[0].isAnonymous).toBe(true);
+    expect(recent.items[1].label).toBe('MatchewXD');
+    expect(recent.items[1].isAnonymous).toBe(false);
+  });
+
   it('maps recent donations RPC (amounts kept in data, labels for display)', async () => {
     rpc.mockResolvedValue({
       data: [

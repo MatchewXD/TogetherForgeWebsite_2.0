@@ -1,7 +1,24 @@
 -- =============================================================================
 -- Require signed-in accounts for all public content posts
 -- Safe to re-run. Apply after showcase + bug report base SQL.
+-- Ideas: also see supabase_ideas_insert_rls.sql (owner-only insert).
 -- =============================================================================
+
+-- ---------------------------------------------------------------------------
+-- Ideas: authenticated insert only, row owned by auth.uid()
+-- ---------------------------------------------------------------------------
+revoke insert on table public.ideas from anon;
+grant insert on table public.ideas to authenticated;
+
+drop policy if exists "Anyone can submit ideas" on public.ideas;
+drop policy if exists "Authenticated users can insert ideas" on public.ideas;
+create policy "Authenticated users can insert ideas"
+  on public.ideas for insert
+  to authenticated
+  with check (
+    auth.uid() is not null
+    and user_id = auth.uid()
+  );
 
 -- ---------------------------------------------------------------------------
 -- Community Showcase: authenticated insert only, linked to auth.uid()

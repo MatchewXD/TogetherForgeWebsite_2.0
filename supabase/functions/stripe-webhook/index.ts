@@ -44,6 +44,7 @@
 // @ts-nocheck
 import Stripe from 'https://esm.sh/stripe@14?target=deno';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno';
+import { fulfillTokenPurchase } from '../_shared/aiTokenEconomy.ts';
 
 const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
 const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') ?? '';
@@ -58,6 +59,18 @@ const stripe = new Stripe(stripeKey, {
   apiVersion: '2023-10-16',
   httpClient: Stripe.createFetchHttpClient(),
 });
+
+/** Structured logs → Supabase Dashboard → Edge Functions → stripe-webhook → Logs */
+function wlog(step: string, detail: Record<string, unknown> = {}) {
+  console.log(
+    JSON.stringify({
+      tag: 'TF_STRIPE_WEBHOOK',
+      step,
+      ts: new Date().toISOString(),
+      ...detail,
+    })
+  );
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -249,16 +262,36 @@ async function alreadyProcessed(eventId: string): Promise<boolean> {
 
 async function markEventProcessed(eventId: string, type: string) {
   try {
-    await admin().from('stripe_webhook_events').upsert({
+    const { error } = await admin().from('stripe_webhook_events').upsert({
       id: eventId,
       type,
       processed_at: new Date().toISOString(),
     });
+    if (error) {
+      // Supabase client does not throw — log so empty event table is diagnosable
+      console.warn('[stripe-webhook] event log upsert failed', error.message);
+    }
   } catch (e) {
-    // Table optional
     console.warn('[stripe-webhook] event log skip', e?.message);
   }
 }
+
+const OPTIONAL_DONATION_COLS = [
+  'payment_kind',
+  'project_id',
+  'display_name',
+  'is_anonymous',
+  'tier_id',
+  'tier_label',
+  'stripe_customer_id',
+  'stripe_subscription_id',
+  'fund_type',
+  'amount_cents',
+  'currency',
+  'interval',
+  'status',
+  'raw_event_id',
+];
 
 async function writeDonation(
   sb: ReturnType<typeof admin>,
@@ -267,27 +300,36 @@ async function writeDonation(
   id?: string
 ) {
   let payload = { ...row };
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 10; attempt++) {
     let error;
     if (mode === 'update' && id) {
       ({ error } = await sb.from('donations').update(payload).eq('id', id));
     } else {
-      const res = await sb.from('donations').insert([payload]).select('id').maybeSingle();
+      const res = await sb
+        .from('donations')
+        .insert([payload])
+        .select('id')
+        .maybeSingle();
       error = res.error;
       if (!error) return { inserted: true, id: res.data?.id };
     }
     if (!error) return { updated: true, id };
-    // Strip optional columns if migration not applied yet
     const msg = String(error.message || '');
-    if (/payment_kind/i.test(msg) && 'payment_kind' in payload) {
-      delete payload.payment_kind;
-      continue;
+    console.warn('[stripe-webhook] donation write attempt', attempt, msg);
+    // Strip optional / unknown columns if schema is behind
+    let stripped = false;
+    for (const col of OPTIONAL_DONATION_COLS) {
+      if (new RegExp(col, 'i').test(msg) && col in payload) {
+        delete payload[col];
+        stripped = true;
+      }
     }
-    if (/project_id/i.test(msg) && 'project_id' in payload) {
-      delete payload.project_id;
-      continue;
+    // amount may be NOT NULL on some schemas — derive from cents
+    if (/amount/i.test(msg) && payload.amount == null && payload.amount_cents) {
+      payload.amount = Math.round(Number(payload.amount_cents) / 100);
+      stripped = true;
     }
-    throw error;
+    if (!stripped) throw error;
   }
   throw new Error('Could not write donation');
 }
@@ -347,7 +389,11 @@ async function resolveSubscriptionCredit(
   isAnonymous: boolean;
 }> {
   const meta = subMeta || {};
-  let userId = meta.userId || meta.user_id || null;
+  let userId =
+    meta.userId ||
+    meta.user_id ||
+    meta.together_forge_user_id ||
+    null;
   let displayName = meta.displayName || meta.display_name || null;
   let isAnonymous = true;
 
@@ -424,64 +470,148 @@ async function resolveSubscriptionCredit(
   return finish();
 }
 
+/** Stripe API 2024+ often puts period bounds on items, not subscription root. */
+function unixToIso(sec: unknown): string | null {
+  const n = Number(sec);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  try {
+    return new Date(n * 1000).toISOString();
+  } catch {
+    return null;
+  }
+}
+
+function subscriptionPeriodEnd(sub: Stripe.Subscription): string | null {
+  const root = unixToIso(sub.current_period_end);
+  if (root) return root;
+  const item = sub.items?.data?.[0];
+  return unixToIso(item?.current_period_end);
+}
+
 async function upsertSubscription(sub: Stripe.Subscription) {
   const sb = admin();
   const item = sub.items?.data?.[0];
   const amountCents =
     item?.price?.unit_amount ??
     item?.plan?.amount ??
-    null;
+    (sub.metadata?.amountCents
+      ? Number(sub.metadata.amountCents)
+      : null);
   const meta = (sub.metadata || {}) as Record<string, string>;
   const fundType = fundTypeFromMeta(meta);
   const credit = await resolveSubscriptionCredit(sub.id, meta);
 
-  const row: Record<string, unknown> = {
-    id: sub.id,
+  wlog('upsert_subscription_start', {
+    subId: sub.id,
     status: sub.status,
+    cancel_at_period_end: !!sub.cancel_at_period_end,
+    creditUserId: credit.userId,
+    metaUserId: meta.userId || meta.together_forge_user_id || null,
+    amountCents,
+    periodEnd: subscriptionPeriodEnd(sub),
+  });
+
+  // Prefer a row that always has user_id when metadata provides it
+  const baseRow: Record<string, unknown> = {
+    id: String(sub.id),
+    status: String(sub.status || 'active'),
     fund_type: fundType,
-    amount_cents: amountCents,
-    currency: item?.price?.currency || 'usd',
+    amount_cents: Number.isFinite(Number(amountCents))
+      ? Number(amountCents)
+      : null,
+    currency: item?.price?.currency || item?.plan?.currency || 'usd',
     customer_id: idOf(sub.customer),
     tier_id: meta.tierId || null,
-    tier_label: meta.label || meta.tierLabel || meta.tierId || null,
     cancel_at_period_end: !!sub.cancel_at_period_end,
-    current_period_end: sub.current_period_end
-      ? new Date(sub.current_period_end * 1000).toISOString()
-      : null,
-    canceled_at: sub.canceled_at
-      ? new Date(sub.canceled_at * 1000).toISOString()
-      : null,
+    current_period_end: subscriptionPeriodEnd(sub),
+    canceled_at: unixToIso(sub.canceled_at),
     updated_at: new Date().toISOString(),
-    // Optional columns (billing account SQL)
-    user_id: credit.userId,
-    is_anonymous: credit.isAnonymous,
-    display_name: credit.displayName,
   };
 
+  if (credit.userId) baseRow.user_id = credit.userId;
+  if (credit.displayName != null) baseRow.display_name = credit.displayName;
+  if (typeof credit.isAnonymous === 'boolean') {
+    baseRow.is_anonymous = credit.isAnonymous;
+  }
+  if (meta.label || meta.tierLabel) {
+    baseRow.tier_label = meta.label || meta.tierLabel;
+  }
+
+  let row = { ...baseRow };
   let { error } = await sb.from('stripe_subscriptions').upsert(row, {
     onConflict: 'id',
   });
-  // Retry without optional credit columns if schema not migrated yet
-  if (
-    error &&
-    /user_id|is_anonymous|display_name|tier_label|column/i.test(
-      String(error.message || '')
-    )
-  ) {
-    delete row.user_id;
-    delete row.is_anonymous;
-    delete row.display_name;
-    delete row.tier_label;
+
+  // Progressive strip of optional columns (never drop id/status/user_id first)
+  const stripOrder = [
+    'display_name',
+    'is_anonymous',
+    'tier_label',
+    'tier_id',
+    'canceled_at',
+    'current_period_end',
+    'cancel_at_period_end',
+    'fund_type',
+    'amount_cents',
+    'currency',
+    'customer_id',
+  ];
+  let attempt = 0;
+  while (error && attempt < stripOrder.length) {
+    const col = stripOrder[attempt];
+    attempt += 1;
+    if (!(col in row)) continue;
+    if (!new RegExp(col, 'i').test(String(error.message || ''))) {
+      // still try stripping known-optional cols if message is generic
+      if (!/column|schema|unknown/i.test(String(error.message || ''))) break;
+    }
+    wlog('upsert_subscription_retry_strip', {
+      subId: sub.id,
+      strip: col,
+      error: error.message,
+    });
+    delete row[col];
     ({ error } = await sb.from('stripe_subscriptions').upsert(row, {
       onConflict: 'id',
     }));
   }
+
+  // Last resort: absolute minimum row for My Plan
   if (error) {
-    // Table may not exist yet - log and continue so payment recording still works
-    console.warn('[stripe-webhook] subscription upsert', error.message);
-    return { ok: false, error: error.message };
+    wlog('upsert_subscription_min_row', {
+      subId: sub.id,
+      error: error.message,
+    });
+    const minRow: Record<string, unknown> = {
+      id: String(sub.id),
+      status: String(sub.status || 'active'),
+      updated_at: new Date().toISOString(),
+    };
+    if (credit.userId) minRow.user_id = credit.userId;
+    if (Number.isFinite(Number(amountCents))) {
+      minRow.amount_cents = Number(amountCents);
+    }
+    ({ error } = await sb.from('stripe_subscriptions').upsert(minRow, {
+      onConflict: 'id',
+    }));
   }
-  // Active Subscriber badge grant/revoke
+
+  if (error) {
+    wlog('upsert_subscription_FAILED', {
+      subId: sub.id,
+      error: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
+    throw new Error(`subscription_upsert_failed: ${error.message}`);
+  }
+  wlog('upsert_subscription_ok', {
+    subId: sub.id,
+    status: sub.status,
+    userId: credit.userId,
+    cancel_at_period_end: !!sub.cancel_at_period_end,
+  });
   if (credit.userId) {
     await syncUserBadges(credit.userId);
   }
@@ -492,18 +622,92 @@ async function handleCheckoutCompleted(
   session: Stripe.Checkout.Session,
   eventId: string
 ) {
+  wlog('checkout_completed_start', {
+    eventId,
+    sessionId: session.id,
+    mode: session.mode,
+    payment_status: session.payment_status,
+    status: session.status,
+    amount_total: session.amount_total,
+    client_reference_id: session.client_reference_id,
+    metaUserId:
+      session.metadata?.userId ||
+      session.metadata?.together_forge_user_id ||
+      null,
+    checkoutKind: session.metadata?.checkoutKind || null,
+    subscription: idOf(session.subscription),
+    customer: idOf(session.customer),
+  });
+
   // Unpaid/incomplete sessions: acknowledge without writing a success row
   if (
     session.payment_status &&
     session.payment_status !== 'paid' &&
     session.status !== 'complete'
   ) {
+    wlog('checkout_skipped_not_paid', { sessionId: session.id });
     return { skipped: 'not_paid', sessionId: session.id };
+  }
+
+  // ── AI token packs (never write to donations) ───────────────────────────
+  const checkoutKind = String(
+    session.metadata?.checkoutKind || session.metadata?.checkout_kind || ''
+  ).toLowerCase();
+  if (checkoutKind === 'ai_tokens' || checkoutKind === 'ai_token') {
+    const meta = (session.metadata || {}) as Record<string, string>;
+    let userId =
+      meta.userId ||
+      meta.user_id ||
+      meta.together_forge_user_id ||
+      (typeof session.client_reference_id === 'string'
+        ? session.client_reference_id
+        : null) ||
+      null;
+    const customerId = idOf(session.customer);
+    if (!userId && customerId && stripeKey) {
+      try {
+        const c = await stripe.customers.retrieve(customerId);
+        if (c && !c.deleted) {
+          const cm = (c.metadata || {}) as Record<string, string>;
+          userId =
+            cm.together_forge_user_id || cm.userId || cm.user_id || null;
+        }
+      } catch (e) {
+        console.warn('[stripe-webhook] token customer identity', e?.message);
+      }
+    }
+    if (!userId) {
+      wlog('token_checkout_missing_user', { sessionId: session.id });
+      return { skipped: 'ai_tokens_missing_user', sessionId: session.id };
+    }
+    const amountCents =
+      session.amount_total ?? Number(meta.amountCents) ?? 0;
+    const result = await fulfillTokenPurchase(admin(), {
+      userId,
+      packId: meta.packId || meta.pack_id,
+      amountCents,
+      stripeSessionId: session.id,
+      stripePaymentIntent: idOf(session.payment_intent),
+      stripeCustomerId: customerId,
+    });
+    wlog('token_checkout_fulfilled', {
+      sessionId: session.id,
+      userId,
+      ok: result.ok,
+      tokens: result.tokens,
+      duplicate: result.duplicate || false,
+      error: result.error || null,
+    });
+    return { kind: 'ai_tokens', ...result, sessionId: session.id };
   }
 
   const amountCents =
     session.amount_total ?? Number(session.metadata?.amountCents) ?? 0;
   if (!amountCents || amountCents < 100) {
+    wlog('checkout_skipped_bad_amount', {
+      sessionId: session.id,
+      amountCents,
+    });
     return { skipped: 'bad_amount', sessionId: session.id };
   }
 
@@ -521,8 +725,34 @@ async function handleCheckoutCompleted(
     meta.isAnonymous === 'false' || meta.anonymous === 'false'
       ? false
       : true;
-  const userId = meta.userId || meta.user_id || null;
-  const displayName = meta.displayName || meta.display_name || null;
+  // Identity: session metadata → client_reference_id → Stripe Customer metadata
+  let userId =
+    meta.userId ||
+    meta.user_id ||
+    meta.together_forge_user_id ||
+    (typeof session.client_reference_id === 'string'
+      ? session.client_reference_id
+      : null) ||
+    null;
+  let displayName = meta.displayName || meta.display_name || null;
+  const customerIdEarly = idOf(session.customer);
+  if ((!userId || !displayName) && customerIdEarly && stripeKey) {
+    try {
+      const c = await stripe.customers.retrieve(customerIdEarly);
+      if (c && !c.deleted) {
+        const cm = (c.metadata || {}) as Record<string, string>;
+        if (!userId) {
+          userId =
+            cm.together_forge_user_id || cm.userId || cm.user_id || null;
+        }
+        if (!displayName && (cm.displayName || cm.display_name)) {
+          displayName = cm.displayName || cm.display_name;
+        }
+      }
+    } catch (e) {
+      console.warn('[stripe-webhook] customer identity fallback', e?.message);
+    }
+  }
   // Attribute only while a project is In Development; released projects get nothing new
   const projectId = await resolveActiveProjectId(fundType);
 
@@ -558,10 +788,33 @@ async function handleCheckoutCompleted(
     project_id: projectId,
   };
 
+  wlog('checkout_identity_resolved', {
+    sessionId: session.id,
+    userId,
+    displayName,
+    isAnonymous,
+    amountCents,
+    interval,
+  });
+
   const result = await upsertDonation(row);
+  wlog('checkout_donation_write', {
+    sessionId: session.id,
+    userId,
+    result,
+  });
+  // Never fail the webhook after money is recorded — badges/credits are best-effort
   if (result?.inserted || result?.updated) {
-    await mirrorDonationContribution(row);
-    await syncUserBadges(userId);
+    try {
+      await mirrorDonationContribution(row);
+    } catch (e) {
+      console.warn('[stripe-webhook] mirror contribution', e?.message);
+    }
+    try {
+      await syncUserBadges(userId);
+    } catch (e) {
+      console.warn('[stripe-webhook] badges after checkout', e?.message);
+    }
   }
 
   // Ensure Stripe Customer is tagged with TF user_id for future checkouts / My Plan
@@ -594,9 +847,60 @@ async function handleCheckoutCompleted(
   if (subId && stripeKey) {
     try {
       const sub = await stripe.subscriptions.retrieve(subId);
+      // Ensure subscription metadata carries TF user for My Plan / renewals
+      const sm = (sub.metadata || {}) as Record<string, string>;
+      if (userId && (sm.userId !== userId && sm.together_forge_user_id !== userId)) {
+        try {
+          await stripe.subscriptions.update(subId, {
+            metadata: {
+              ...sm,
+              userId,
+              together_forge_user_id: userId,
+              ...(displayName ? { displayName } : {}),
+              isAnonymous: isAnonymous ? 'true' : 'false',
+            },
+          });
+        } catch (e) {
+          console.warn('[stripe-webhook] sub metadata tag', e?.message);
+        }
+      }
+      // Prefer session-resolved userId if Stripe sub metadata was empty
+      if (userId && !sub.metadata?.userId) {
+        sub.metadata = {
+          ...(sub.metadata || {}),
+          userId,
+          together_forge_user_id: userId,
+          isAnonymous: isAnonymous ? 'true' : 'false',
+          ...(displayName ? { displayName } : {}),
+        };
+      }
       await upsertSubscription(sub);
     } catch (e) {
       console.warn('[stripe-webhook] sub fetch after checkout', e?.message);
+      // Fallback: still write a minimal subscription row so My Plan works
+      if (userId && subId) {
+        try {
+          await admin().from('stripe_subscriptions').upsert(
+            {
+              id: subId,
+              status: 'active',
+              fund_type: fundType,
+              amount_cents: amountCents,
+              currency: session.currency || 'usd',
+              customer_id: idOf(session.customer),
+              tier_id: tierId,
+              tier_label: tierLabel,
+              user_id: userId,
+              is_anonymous: isAnonymous,
+              display_name: displayName,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'id' }
+          );
+        } catch (e2) {
+          console.warn('[stripe-webhook] sub fallback upsert', e2?.message);
+        }
+      }
     }
   }
 
@@ -685,21 +989,32 @@ Deno.serve(async (req) => {
   }
 
   if (!stripeKey || !webhookSecret) {
-    console.error('[stripe-webhook] missing STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET');
+    wlog('config_error', {
+      hasStripeKey: !!stripeKey,
+      hasWebhookSecret: !!webhookSecret,
+    });
     return json({ error: 'Webhook not configured' }, 500);
   }
   if (!supabaseUrl || !serviceKey) {
-    console.error('[stripe-webhook] missing SUPABASE_URL or SERVICE_ROLE_KEY');
+    wlog('config_error', {
+      hasSupabaseUrl: !!supabaseUrl,
+      hasServiceKey: !!serviceKey,
+    });
     return json({ error: 'Database not configured' }, 500);
   }
 
   const signature = req.headers.get('stripe-signature');
   if (!signature) {
+    wlog('missing_signature', {});
     return json({ error: 'Missing stripe-signature' }, 400);
   }
 
   // Must use raw body for signature verification
   const rawBody = await req.text();
+  wlog('request_received', {
+    bodyBytes: rawBody?.length || 0,
+    hasSignature: true,
+  });
 
   let event: Stripe.Event;
   try {
@@ -713,18 +1028,18 @@ Deno.serve(async (req) => {
     try {
       event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
     } catch (err2) {
-      console.error(
-        '[stripe-webhook] signature verify failed',
-        err2?.message || err?.message
-      );
+      wlog('signature_FAILED', {
+        error: String(err2?.message || err?.message || err2),
+      });
       return json({ error: 'Invalid signature' }, 400);
     }
   }
 
-  console.log('[stripe-webhook] event', event.type, event.id);
+  wlog('event_verified', { type: event.type, id: event.id });
 
   try {
     if (await alreadyProcessed(event.id)) {
+      wlog('event_duplicate', { id: event.id, type: event.type });
       return json({ received: true, duplicate: true, id: event.id });
     }
 
@@ -749,6 +1064,12 @@ Deno.serve(async (req) => {
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
         const sub = event.data.object as Stripe.Subscription;
+        wlog('subscription_event', {
+          type: event.type,
+          subId: sub.id,
+          status: sub.status,
+          cancel_at_period_end: sub.cancel_at_period_end,
+        });
         result = await upsertSubscription(sub);
         break;
       }
@@ -769,6 +1090,11 @@ Deno.serve(async (req) => {
           for (const d of donRows || []) {
             if (d?.user_id) await syncUserBadges(d.user_id);
           }
+          // Mark token purchase refunded (ledger stays immutable; no auto clawback)
+          await sb
+            .from('ai_token_purchases')
+            .update({ status: 'refunded' })
+            .eq('stripe_payment_intent', pi);
           result = { refunded: true, payment_intent: pi };
         } else {
           result = { skipped: 'no_payment_intent' };
@@ -781,17 +1107,35 @@ Deno.serve(async (req) => {
 
     await markEventProcessed(event.id, event.type);
 
-    console.log('[stripe-webhook] done', {
+    wlog('event_done', {
       type: event.type,
+      id: event.id,
       ms: Date.now() - started,
       result,
     });
 
     // Always 200 after successful handling so Stripe does not retry forever
-    return json({ received: true, type: event.type, result });
+    return json({
+      received: true,
+      type: event.type,
+      result,
+      project: 'together-forge-stripe-webhook',
+    });
   } catch (err) {
-    console.error('[stripe-webhook] handler error', err?.message || err);
+    wlog('handler_FAILED', {
+      type: event?.type || null,
+      id: event?.id || null,
+      error: String(err?.message || err),
+      ms: Date.now() - started,
+    });
     // 500 → Stripe retries (good for transient DB failures)
-    return json({ error: err?.message || 'Handler failed' }, 500);
+    return json(
+      {
+        error: err?.message || 'Handler failed',
+        type: event?.type || null,
+        project: 'together-forge-stripe-webhook',
+      },
+      500
+    );
   }
 });

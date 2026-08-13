@@ -63,6 +63,7 @@ import Badge from '../components/ui/Badge';
 import Modal from '../components/ui/Modal';
 import CharCount from '../components/ui/CharCount';
 import RelatedToSelect from '../components/ideas/RelatedToSelect';
+import IdeaAiToolsPanel from '../components/ideas/IdeaAiToolsPanel';
 import {
   RELATED_PHASE_OPTIONS,
   getRelatedToGroupedOptions,
@@ -1109,11 +1110,20 @@ const IdeaSubmit = () => {
           </div>
         )}
 
-        <Card className="bg-cyber-card/80 border-cyber-border p-6 sm:p-8 space-y-8">
+        <Card className="relative bg-cyber-card/80 border-cyber-border p-6 sm:p-8 space-y-8">
           {/* ========== STEP 1: BASICS (required) ========== */}
           {step === 1 && (
             <div className="space-y-6" aria-labelledby="step1-title">
-              <div>
+              <IdeaAiToolsPanel
+                formData={formData}
+                setFormData={setFormData}
+                user={user}
+                mode="submit"
+                showStructure
+                showGapFill
+                onAfterStructure={() => setStep(3)}
+              />
+              <div className="pr-24 sm:pr-28">
                 <h2
                   id="step1-title"
                   className="text-xl font-bold text-white mb-1"

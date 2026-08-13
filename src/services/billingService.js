@@ -22,6 +22,24 @@ function functionsBaseUrl() {
   return '';
 }
 
+/** Opt-in only: localStorage.setItem('tf_billing_debug','1') then refresh */
+function billingDebugEnabled() {
+  try {
+    return localStorage.getItem('tf_billing_debug') === '1';
+  } catch {
+    return false;
+  }
+}
+
+function blog(step, detail = {}) {
+  if (!billingDebugEnabled()) return;
+  console.log(`[TF billing] ${step}`, {
+    supabaseUrl: import.meta.env.VITE_SUPABASE_URL || null,
+    functionsBase: functionsBaseUrl() || null,
+    ...detail,
+  });
+}
+
 async function authHeaders() {
   const headers = { 'Content-Type': 'application/json' };
   const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -29,8 +47,14 @@ async function authHeaders() {
     headers.apikey = anon;
   }
   try {
-    const { data } = await supabase.auth.getSession();
-    const token = data?.session?.access_token || anon;
+    let token = null;
+    const { data: sess } = await supabase.auth.getSession();
+    token = sess?.session?.access_token || null;
+    if (!token) {
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      token = refreshed?.session?.access_token || null;
+    }
+    if (!token) token = anon || null;
     if (token) headers.Authorization = `Bearer ${token}`;
   } catch {
     if (anon) headers.Authorization = `Bearer ${anon}`;
@@ -38,7 +62,8 @@ async function authHeaders() {
   return headers;
 }
 
-function mapPlan(raw) {
+/** Exported for unit tests + stable plan UI shape */
+export function mapPlan(raw) {
   if (!raw) return null;
   const amountCents = Number(raw.amount_cents ?? raw.amountCents) || 0;
   const tierId = raw.tier_id || raw.tierId || null;
@@ -82,7 +107,8 @@ function mapPlan(raw) {
   };
 }
 
-function mapHistoryRow(row) {
+/** Exported for unit tests + transaction history shape */
+export function mapHistoryRow(row) {
   if (!row) return null;
   const kind =
     row.payment_kind ||
@@ -373,13 +399,72 @@ export const billingService = {
   },
 
   /**
+   * Attach a completed Stripe Checkout session to the signed-in account.
+   * Call after return from Checkout (?session_id=cs_…) so My Plan / history fill
+   * even if the webhook lagged or metadata lacked userId.
+   * @param {string} sessionId
+   */
+  async syncCheckoutSession(sessionId) {
+    const id = String(sessionId || '').trim();
+    blog('syncCheckoutSession:start', { sessionId: id });
+    if (!id.startsWith('cs_')) {
+      return { ok: false, error: 'Missing checkout session id.' };
+    }
+    const base = functionsBaseUrl();
+    if (!base) {
+      return { ok: false, error: 'Billing is not configured.' };
+    }
+    try {
+      const res = await fetch(`${base}/sync-checkout`, {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: JSON.stringify({ sessionId: id }),
+      });
+      const text = await res.text();
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
+      blog('syncCheckoutSession:response', {
+        status: res.status,
+        ok: res.ok,
+        data,
+        text: String(text || '').slice(0, 500),
+      });
+      if (!res.ok) {
+        return {
+          ok: false,
+          error:
+            data?.error || data?.message || text || `Sync failed (${res.status})`,
+          status: res.status,
+        };
+      }
+      return { ok: true, ...(data || {}) };
+    } catch (e) {
+      console.warn('[billing] syncCheckoutSession', e);
+      return { ok: false, error: e?.message || 'Sync failed' };
+    }
+  },
+
+  /**
    * Current / most relevant plan for the signed-in user.
    */
   async getMyPlan() {
+    blog('getMyPlan:start', {});
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      blog('getMyPlan:user', { userId: user?.id || null, email: user?.email || null });
+
       const { data, error } = await supabase.rpc('get_my_subscription_plan');
+      blog('getMyPlan:rpc', { data, error: error?.message || null });
       if (error) throw error;
-      return mapPlan(data);
+      const plan = mapPlan(data);
+      blog('getMyPlan:mapped', { plan });
+      return plan;
     } catch (err) {
       // Fallback: direct table if RPC missing
       if (/function|schema cache|does not exist/i.test(String(err?.message))) {
@@ -394,6 +479,11 @@ export const billingService = {
           .order('updated_at', { ascending: false })
           .limit(1)
           .maybeSingle();
+        blog('getMyPlan:table_fallback', {
+          userId: user.id,
+          data,
+          error: e2?.message || null,
+        });
         if (e2) {
           console.warn('[billing] getMyPlan', e2);
           return null;
@@ -401,13 +491,20 @@ export const billingService = {
         return mapPlan(data);
       }
       console.warn('[billing] getMyPlan', err);
+      blog('getMyPlan:error', { message: err?.message || String(err) });
       return null;
     }
   },
 
   async listMySubscriptions() {
+    blog('listMySubscriptions:start', {});
     try {
       const { data, error } = await supabase.rpc('get_my_subscriptions');
+      blog('listMySubscriptions:rpc', {
+        count: Array.isArray(data) ? data.length : 0,
+        data,
+        error: error?.message || null,
+      });
       if (error) throw error;
       const rows = Array.isArray(data) ? data : [];
       return rows.map(mapPlan).filter(Boolean);
@@ -418,9 +515,15 @@ export const billingService = {
   },
 
   async getMyHistory(limit = 30) {
+    blog('getMyHistory:start', { limit });
     try {
       const { data, error } = await supabase.rpc('get_my_billing_history', {
         limit_n: limit,
+      });
+      blog('getMyHistory:rpc', {
+        count: Array.isArray(data) ? data.length : 0,
+        data,
+        error: error?.message || null,
       });
       if (error) throw error;
       const rows = Array.isArray(data) ? data : [];
@@ -439,6 +542,11 @@ export const billingService = {
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(limit);
+        blog('getMyHistory:table_fallback', {
+          userId: user.id,
+          count: data?.length || 0,
+          error: e2?.message || null,
+        });
         if (e2) {
           console.warn('[billing] getMyHistory', e2);
           return [];
@@ -453,6 +561,43 @@ export const billingService = {
       console.warn('[billing] getMyHistory', err);
       return [];
     }
+  },
+
+  /**
+   * Pull latest subscription state from Stripe into our DB (no charge).
+   * Use after changing cancel/status in Stripe Dashboard.
+   * @param {string} subscriptionId
+   */
+  async refreshSubscription(subscriptionId) {
+    const base = functionsBaseUrl();
+    blog('refreshSubscription:start', { subscriptionId });
+    if (!base) throw new Error('Billing is not configured.');
+    const res = await fetch(`${base}/manage-subscription`, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({
+        action: 'refresh',
+        subscriptionId,
+      }),
+    });
+    const text = await res.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = null;
+    }
+    blog('refreshSubscription:response', {
+      status: res.status,
+      data,
+      text: String(text || '').slice(0, 500),
+    });
+    if (!res.ok) {
+      throw new Error(
+        data?.error || data?.message || text || `Refresh failed (${res.status})`
+      );
+    }
+    return mapPlan(data?.subscription || data);
   },
 
   /**
@@ -487,9 +632,12 @@ export const billingService = {
       data = null;
     }
     if (!res.ok) {
-      throw new Error(
+      const err = new Error(
         data?.error || data?.message || text || `Portal failed (${res.status})`
       );
+      err.code = data?.code || (res.status === 429 ? 'RATE_LIMITED' : 'PORTAL');
+      err.status = res.status;
+      throw err;
     }
     if (!data?.url) throw new Error('Portal did not return a URL.');
     window.location.assign(data.url);
@@ -521,9 +669,12 @@ export const billingService = {
       data = null;
     }
     if (!res.ok) {
-      throw new Error(
+      const err = new Error(
         data?.error || data?.message || text || `Cancel failed (${res.status})`
       );
+      err.code = data?.code || (res.status === 429 ? 'RATE_LIMITED' : 'CANCEL');
+      err.status = res.status;
+      throw err;
     }
     return mapPlan(data?.subscription || data);
   },
@@ -553,9 +704,12 @@ export const billingService = {
       data = null;
     }
     if (!res.ok) {
-      throw new Error(
+      const err = new Error(
         data?.error || data?.message || text || `Renew failed (${res.status})`
       );
+      err.code = data?.code || (res.status === 429 ? 'RATE_LIMITED' : 'RENEW');
+      err.status = res.status;
+      throw err;
     }
     return mapPlan(data?.subscription || data);
   },

@@ -84,13 +84,24 @@ describe('supportService.recordLocalSupportEvent', () => {
     expect(JSON.parse(localStorage.getItem('tf_donations') || '[]')).toHaveLength(0);
   });
 
-  it('does not store named credit fields on local ledger entries by default', () => {
+  it('defaults local ledger entries to anonymous', () => {
     const entry = recordLocalSupportEvent({
       amountCents: 1000,
       fundType: 'studio',
     });
     expect(entry.amountCents).toBe(1000);
-    // Public feed remains anonymous; local stub is amount-only social proof
-    expect(entry.isAnonymous).not.toBe(false);
+    expect(entry.isAnonymous).toBe(true);
+    expect(entry.username).toBeNull();
+  });
+
+  it('preserves named public credit on local optimistic entries', () => {
+    const entry = recordLocalSupportEvent({
+      amountCents: 2500,
+      fundType: 'studio',
+      isAnonymous: false,
+      username: 'MatchewXDDDDD',
+    });
+    expect(entry.isAnonymous).toBe(false);
+    expect(entry.username).toBe('MatchewXDDDDD');
   });
 });

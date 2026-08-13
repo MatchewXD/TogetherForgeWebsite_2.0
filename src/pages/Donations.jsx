@@ -36,6 +36,7 @@ import {
   getPublicSupportSummary,
   getPublicRecentDonations,
 } from '../services/donationsService';
+import { billingService } from '../services/billingService';
 import { supabase } from '../lib/supabase';
 import {
   ONCE_TIERS,
@@ -213,6 +214,9 @@ const SupportPage = () => {
             label: p.label || 'Studio support',
             fundType: 'studio',
             interval: p.interval || 'once',
+            isAnonymous: p.isAnonymous !== false,
+            username: p.username || null,
+            avatarUrl: p.avatarUrl || null,
           });
         } catch {
           /* ignore */
@@ -224,9 +228,33 @@ const SupportPage = () => {
         text: 'Thank you! Your payment was successful. We really appreciate your support',
       });
 
-      // Webhook may lag a few seconds - poll for updated totals
+      // Attach paid session to this account (My Plan / history), then poll feed
       let cancelled = false;
       (async () => {
+        const sessionId =
+          searchParams.get('session_id') ||
+          searchParams.get('sessionId') ||
+          '';
+        if (sessionId.startsWith('cs_')) {
+          try {
+            sessionStorage.setItem('tf_last_checkout_session', sessionId);
+          } catch {
+            /* ignore */
+          }
+          if (authUser?.id) {
+            const sync = await billingService.syncCheckoutSession(sessionId);
+            if (!sync.ok) {
+              console.warn('[Support] sync-checkout', sync.error);
+            } else {
+              try {
+                sessionStorage.removeItem('tf_last_checkout_session');
+              } catch {
+                /* ignore */
+              }
+            }
+          }
+        }
+        if (cancelled) return;
         await loadSocialProof({ quiet: true });
         for (const delay of [1500, 3000, 5000]) {
           await new Promise((r) => setTimeout(r, delay));
@@ -246,7 +274,7 @@ const SupportPage = () => {
         text: 'Checkout canceled. You can pick a tier anytime you are ready.',
       });
     }
-  }, [searchParams]);
+  }, [searchParams, authUser?.id]);
 
   const runCheckout = async ({ amount, tierId, label }) => {
     setError('');
@@ -279,8 +307,12 @@ const SupportPage = () => {
             interval,
             tierId,
             isAnonymous: credit.isAnonymous,
+            username: credit.isAnonymous ? null : credit.displayName || null,
+            avatarUrl: credit.isAnonymous ? null : authAvatarUrl || null,
           })
         );
+        // Cleared after sync-checkout on success return
+        sessionStorage.removeItem('tf_last_checkout_session');
       } catch {
         /* ignore */
       }

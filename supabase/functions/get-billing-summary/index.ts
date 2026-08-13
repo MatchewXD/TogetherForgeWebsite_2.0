@@ -9,6 +9,10 @@
 // @ts-nocheck
 import Stripe from 'https://esm.sh/stripe@14?target=deno';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno';
+import {
+  enforceRateLimit,
+  RATE_LIMITS,
+} from '../_shared/rateLimit.ts';
 
 const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
 const supabaseUrl =
@@ -50,6 +54,8 @@ async function userFromRequest(req) {
   const auth = req.headers.get('Authorization') || '';
   const token = auth.replace(/^Bearer\s+/i, '').trim();
   if (!token || !supabaseUrl) return null;
+  if (anonKey && token === anonKey) return null;
+  if (serviceKey && token === serviceKey) return null;
   const client = createClient(supabaseUrl, anonKey || serviceKey, {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
@@ -59,14 +65,24 @@ async function userFromRequest(req) {
   return data.user;
 }
 
+function metaUserId(meta) {
+  if (!meta || typeof meta !== 'object') return '';
+  return String(
+    meta[META_USER_KEY] || meta.userId || meta.user_id || ''
+  ).trim();
+}
+
 function customerOwnedByUser(customer, userId) {
   if (!customer || !userId) return false;
-  const meta = customer.metadata || {};
-  return (
-    meta[META_USER_KEY] === userId ||
-    meta.userId === userId ||
-    meta.user_id === userId
-  );
+  return metaUserId(customer.metadata) === userId;
+}
+
+/** Reject customers owned by a different TF user. */
+function customerAllowedForUser(customer, userId) {
+  if (!customer || customer.deleted || !userId) return false;
+  const owner = metaUserId(customer.metadata);
+  if (owner && owner !== userId) return false;
+  return true;
 }
 
 /**
@@ -146,6 +162,9 @@ async function resolveCustomerId(user) {
     }
   }
 
+  // Email is weak: only customers already owned by this TF user via metadata.
+  // Never attach billing views to a customer owned by someone else (or untagged
+  // strangers who happen to share an email).
   const email = user.email ? String(user.email).toLowerCase() : '';
   if (email) {
     try {
@@ -153,8 +172,6 @@ async function resolveCustomerId(user) {
       for (const c of listed.data || []) {
         if (customerOwnedByUser(c, uid)) push(c.id);
       }
-      // Owned-by-metadata first; then any email match as weak candidates
-      for (const c of listed.data || []) push(c.id);
     } catch {
       /* ignore */
     }
@@ -167,12 +184,12 @@ async function resolveCustomerId(user) {
   for (const id of candidateIds) {
     try {
       const c = await stripe.customers.retrieve(id);
-      if (!c || c.deleted) continue;
+      if (!customerAllowedForUser(c, uid)) continue;
       const { cards, links } = await countCustomerMethods(id);
-      // Cards win hard over Link-only / empty customers
-      const owned = customerOwnedByUser(c, uid) ? 5 : 0;
+      // Prefer metadata-owned; DB-linked (subs/donations for this user) still OK
+      const owned = customerOwnedByUser(c, uid) ? 5 : 1;
       const score = cards * 1000 + links * 10 + owned;
-      scored.push({ id, cards, links, score, owned: owned > 0 });
+      scored.push({ id, cards, links, score, owned: owned >= 5 });
       if (score > bestScore) {
         bestScore = score;
         bestId = id;
@@ -723,6 +740,13 @@ Deno.serve(async (req) => {
     if (!user?.id) {
       return json({ error: 'Sign in to view payment methods.' }, 401);
     }
+
+    const limited = enforceRateLimit(req, {
+      ...RATE_LIMITS.billingSummary,
+      userId: user.id,
+      cors,
+    });
+    if (limited) return limited;
 
     const customerId = await resolveCustomerId(user);
     const resolveDebug = resolveCustomerId._lastDebug || null;

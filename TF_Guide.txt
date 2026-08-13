@@ -1,188 +1,6 @@
 Together Forge – Completion Tracker
 Private progress guide
 
-Task Board permissions and safety: Double-check that only authorized roles can create or edit tasks, and that the experience fails gracefully for unauthorized users.
-
-
-Task Board bulk and quality-of-life tools (lightweight): Consider simple moderator helpers such as quickly moving multiple tasks or marking several as ready for review if they do not add significant complexity.
-
-
-Task Board visual and interaction polish: Consistent spacing, hover/focus states, button feedback, and alignment with the rest of the site’s design language.
-
-
-Task Board performance: Board should feel responsive even as the number of tasks grows.
-
-
-Task Board final review pass: Walk through the full contributor journey (discover task → claim → update progress → complete → see credit) and fix any friction points.
-
-
-Task Board Testing – Visibility: Status columns are immediately clear (To Do, In Progress, Ready for Review, Completed)
-
-
-Task Board Testing – Visibility: Task cards show the most important info at a glance (title, category, claim status, progress)
-
-
-Task Board Testing – Visibility: Empty columns show helpful empty states instead of looking broken
-
-
-Task Board Testing – Claiming: Claim button is obvious and works
-
-
-Task Board Testing – Claiming: Clear feedback appears when a task is successfully claimed
-
-
-Task Board Testing – Claiming: Claim limit (5 active) is communicated and enforced
-
-
-Task Board Testing – Claiming: Idle claims auto-release after 14 days and the user is informed
-
-
-Task Board Testing – Claiming: User can see their current claims easily
-
-
-Task Board Testing – Detail: Opening a task shows full description, sub-tasks, category, difficulty, current claimant, and progress notes
-
-
-Task Board Testing – Detail: Actions (update progress, mark complete, etc.) are clear and work reliably
-
-
-Task Board Testing – Progress & Credit: Completing a task immediately shows up in Recent Activity and Shoutouts
-
-
-Task Board Testing – Progress & Credit: Contributor receives visible credit
-
-
-Task Board Testing – Progress & Credit: Completed column updates correctly
-
-
-Task Board Testing – Creation: “Add New Task” is only visible to authorized users (Project Lead / Admin)
-
-
-Task Board Testing – Creation: Creating a task works and the new task appears in To Do
-
-
-Task Board Testing – Creation: Editing a task works cleanly
-
-
-Task Board Testing – Creation: Unauthorized users cannot create or edit tasks
-
-
-Task Board Testing – Usability: Board is usable on mobile
-
-
-Task Board Testing – Usability: Filters (Top-level / All tasks, categories) work as expected
-
-
-Task Board Testing – Usability: Loading states and error messages are clear
-
-
-Task Board Testing – Usability: Success feedback appears for claim, progress update, and completion
-
-
-Task Board Testing – Overall: Full journey (find task → claim → update → complete → see credit) feels smooth and motivating
-
-
-Task Board Testing – Overall: Nothing feels broken, confusing, or hidden
-
-
-Ship Mechanic Demos / Lab informational version
-
-
-Add consistent images and icons across all pages (Home, Projects, Ideas, Get Involved, Support, Lab, etc.), optimized
-
-
-Build user-generated marketing submission system + public Community Showcase / Creator Spotlights page with clear credit
-
-
-Implement activity feeds and site liveness signals
-
-
-SSO: Implement full Sign-up / Sign-in with Google
-
-
-SSO: Implement full Sign-up / Sign-in with Discord
-
-
-SSO: Support account linking (connect Google or Discord to an existing email/password account)
-
-
-SSO: Support unlinking of connected accounts
-
-
-SSO: Ensure the identity gate (required for claiming / submitting tasks) correctly recognizes linked accounts
-
-
-SSO: Handle edge cases (account already linked to another user, email conflicts, etc.)
-
-
-Ideas Tags: Switch from pure free-form auto-creation to a hybrid tags model
-
-
-Ideas Tags: Maintain a curated core set of high-quality tags
-
-
-Ideas Tags: Allow users to type or suggest new tags, but only make them publicly selectable after light moderation or after they reach a small usage threshold
-
-
-Ideas Tags: Replace the simple dropdown with a large, scrollable modal or panel that shows all available tags sorted by usage count (most-used at the top)
-
-
-Ideas Tags: Display tags in a multi-column grid (for example 3–4 per row) so many are visible at once and easy to scan
-
-
-Ideas Tags: Add admin tools — merge similar tags, rename, hide, or delete low-quality tags, and view usage stats
-
-
-Ideas Tags: Ensure the Ideas search/filter page uses the same clean tag selection experience
-
-
-Related Ideas / Add-ons: Allow any idea (not just Mid or Late project ideas) to have related ideas or add-ons linked to it
-
-
-Related Ideas / Add-ons: One level deep for v1 — people can attach an add-on or related idea that points back to a parent idea
-
-
-Related Ideas / Add-ons: Show clear credit on both the parent idea and the add-on
-
-
-Related Ideas / Add-ons: Provide an easy way to see “Ideas that build on this one”
-
-
-Related Ideas / Add-ons: Keep the interface simple and readable
-
-
-Related Ideas / Add-ons: Design so deeper nesting can be added later if needed
-
-36 of 86 items complete
-Mark phase complete
-
-P2
-Payments, Security, Testing, Polish
-0/23 items
-
-Not started
-
-Complete Stripe integration for Support flows (one-time donations already exist)
-
-
-Implement Stripe Subscriptions (monthly/recurring plans) alongside one-time donations
-
-
-Build cancel-subscription flow with clear confirmation and immediate status update
-
-
-Create “My Plan” / “View my plan” account section that shows: current plan name; plan status and expiry date (e.g. “Your plan will expire on …”); Change Plan and Renew Plan actions
-
-
-Create Billing section in the account area that surfaces (via Stripe): transaction history; linked payment methods / cards; active monthly subscriptions; Update Payment Method action
-
-
-Ensure clear separation in both UI and database between pure donations and subscription/token purchases
-
-
-Final Stripe end-to-end testing (test mode → live) covering one-time, subscriptions, cancel, and billing views
-
-
 Full security pass (auth, validation, rate limits, headers, secrets, staging isolation)
 
 
@@ -210,6 +28,9 @@ Implement automated tests for critical paths + manual test checklist
 Overall polish: mobile, performance, visual consistency, accessibility, empty/error states
 
 
+Add consistent images and icons across all pages (Home, Projects, Ideas, Get Involved, Support, Lab, etc.), optimized
+
+
 Final security and testing pass after polish
 
 
@@ -230,7 +51,7 @@ Legal & Policies: Link the documents from the footer, signup flow, and any relev
 
 Legal & Policies: Reference the guidelines when enforcing rules so moderation decisions are clearly based on published policy
 
-0 of 23 items complete
+7 of 24 items complete
 Mark phase complete
 
 P3
@@ -315,7 +136,7 @@ Mark phase complete
 
 P4
 Community Infrastructure
-0/17 items
+0/28 items
 
 Not started
 
@@ -369,7 +190,40 @@ Content Creation: Clarify that paid opportunities open later once income is stab
 
 Content Creation: Ensure the submission form and Showcase page are live before promoting this card heavily
 
-0 of 17 items complete
+
+Get Involved Page: Rewrite the hero/intro copy so it feels more like Together Forge and removes the current dash-heavy summary.
+
+
+Get Involved Page: Replace the current non-clickable Contribution Paths cards with six actionable cards that actually lead somewhere useful (Game Development → Open Work/Projects, Ideas & Feedback → Ideas, Content Creation → Showcase submit, Community & Moderation → role descriptions + application, Platform & Other Skills → Open Needs + Offer Skills form, Support the Studio → Support/Donations).
+
+
+Get Involved Page: Add a prominent public “Open Needs” section that lists current non-project help wanted (tooling, translations, moderation, documentation, testing, marketing assets, etc.) with short descriptions and clear “I’m interested” actions.
+
+
+Get Involved Page: Add the flexible “Offer Your Skills” form (skill area, short description, preferred time commitment, contact preference) and route submissions into a private review queue.
+
+
+Get Involved Page: Add short public role descriptions + simple application/self-nomination flow for Community & Moderation roles (Welcome/onboarding helper, Idea reviewer, Discussion moderator, Volunteer coordinator).
+
+
+Get Involved Page: Clean up the Task Board section — keep Open Work and the active project (Tether), remove or demote the Mid Game Ambitions and Stability & Polish cards because they are informational only and not claimable work.
+
+
+Get Involved Page: Tighten the Recognition section, remove outdated “Coming online” language, and link to the real Contributors page.
+
+
+Get Involved Page: Simplify the Onboarding steps so they are accurate and point to real destinations.
+
+
+Get Involved Page: Move the Discord / “Join the community” call-to-action to a more natural location so it no longer feels forced.
+
+
+Get Involved Page: Remove remaining temporary/placeholder content and ensure the whole page is volunteer-focused only (no empty Paid section yet). Include a short honest note that paid opportunities will appear later once income is stable.
+
+
+Get Involved Page: Make sure every major path on the page has a clear next action and that nothing looks like a dead end.
+
+0 of 28 items complete
 Mark phase complete
 
 P5
@@ -497,3 +351,4 @@ Cross-promote site ↔ YouTube ↔ Discord
 Track what drives traffic and Discord joins; iterate
 
 0 of 6 items complete
+Mark phase complete

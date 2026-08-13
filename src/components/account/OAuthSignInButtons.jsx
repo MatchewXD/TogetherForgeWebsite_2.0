@@ -72,6 +72,8 @@ function GoogleGlyph({ className = 'w-5 h-5' }) {
  *   className?: string,
  *   onError?: (msg: string) => void,
  *   showEmailHint?: boolean,
+ *   requireAgree?: boolean,
+ *   agreed?: boolean,
  * }} props
  */
 export default function OAuthSignInButtons({
@@ -80,11 +82,19 @@ export default function OAuthSignInButtons({
   className = '',
   onError,
   showEmailHint = true,
+  requireAgree = false,
+  agreed = false,
 }) {
   const [busy, setBusy] = useState(null);
 
   const startOAuth = async (provider) => {
     if (disabled || busy) return;
+    if (requireAgree && !agreed) {
+      onError?.(
+        'Please agree to the Terms of Service and Community Guidelines to continue.'
+      );
+      return;
+    }
     setBusy(provider);
     onError?.('');
     stashOAuthIntent({ intent: 'signin', provider });

@@ -53,6 +53,11 @@ import ReleasedGames from './pages/ReleasedGames';
 import ReleasedGameDetail from './pages/ReleasedGameDetail';
 import NotFound from './pages/NotFound';
 import Footer from './components/layout/Footer';
+import MfaSessionGate from './components/auth/MfaSessionGate';
+import LegalAcceptanceGate from './components/legal/LegalAcceptanceGate';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
+import Guidelines from './pages/Guidelines';
 
 function App() {
     // Handoff: hide pre-React boot loader once the app shell has mounted
@@ -63,6 +68,8 @@ function App() {
     return (
         <Router>
             <ScrollToTop />
+            <MfaSessionGate>
+            <LegalAcceptanceGate>
             <div className="min-h-screen bg-cyber-bg text-text-primary font-display flex flex-col">
                 <Navbar />
 
@@ -141,6 +148,11 @@ function App() {
                         <Route path="/badges" element={<Badges />} />
                         <Route path="/achievements" element={<Badges />} />
                         <Route path="/contact" element={<Contact />} />
+                        <Route path="/terms" element={<Terms />} />
+                        <Route path="/privacy" element={<Privacy />} />
+                        <Route path="/guidelines" element={<Guidelines />} />
+                        <Route path="/community-guidelines" element={<Guidelines />} />
+                        <Route path="/code-of-conduct" element={<Guidelines />} />
                         <Route path="/transparency" element={<TransparencyHub />} />
                         <Route path="/founders-thoughts" element={<FoundersThoughts />} />
                         <Route path="/support-runway" element={<SupportRunway />} />
@@ -163,6 +175,8 @@ function App() {
                 </main>
                 <Footer />
             </div>
+            </LegalAcceptanceGate>
+            </MfaSessionGate>
         </Router>
     );
 }

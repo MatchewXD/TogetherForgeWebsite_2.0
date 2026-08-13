@@ -19,7 +19,7 @@ export const ACCOUNT_SECTIONS = [
   {
     id: 'security',
     label: 'Password & Authentication',
-    description: 'Password and sign-in',
+    description: 'Password, 2FA, and sign-in',
     group: 'account',
   },
   {
@@ -47,6 +47,12 @@ export const ACCOUNT_SECTIONS = [
     group: 'billing',
   },
   {
+    id: 'ai-tokens',
+    label: 'AI Tokens',
+    description: 'Balance, packs, and usage history',
+    group: 'billing',
+  },
+  {
     id: 'preferences',
     label: 'Preferences',
     description: 'Notifications and site options',
@@ -64,7 +70,7 @@ export const ACCOUNT_SECTION_GROUPS = [
   {
     id: 'billing',
     label: 'Billing',
-    sectionIds: ['plan', 'billing'],
+    sectionIds: ['plan', 'billing', 'ai-tokens'],
   },
   {
     id: 'preferences',

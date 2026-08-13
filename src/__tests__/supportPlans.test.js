@@ -39,4 +39,18 @@ describe('supportPlans', () => {
     expect(d.label).toBe('Canceling');
     expect(d.tone).toBe('warning');
   });
+
+  it('describes active, past_due, and canceled statuses', () => {
+    expect(describePlanStatus({ status: 'active' })).toMatchObject({
+      label: 'Active',
+      tone: 'success',
+    });
+    expect(describePlanStatus({ status: 'trialing' }).label).toBe('Active');
+    expect(describePlanStatus({ status: 'past_due' })).toMatchObject({
+      label: 'Past due',
+      tone: 'danger',
+    });
+    expect(describePlanStatus({ status: 'canceled' }).label).toBe('Canceled');
+    expect(describePlanStatus(null).label).toMatch(/no active plan/i);
+  });
 });

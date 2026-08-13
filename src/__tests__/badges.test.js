@@ -117,16 +117,24 @@ describe('getBadgeImageSrc', () => {
     expect(getBadgeImageSrc('donation_1000')).toBe(
       '/images/Badges/1000_donor.png'
     );
-  });
-
-  it('conventions for future donation files', () => {
-    expect(getBadgeImageSrc('donation_2500')).toBe(
-      '/images/Badges/2500_donor.png'
+    expect(getBadgeImageSrc('donation_100000')).toBe(
+      '/images/Badges/100000_donor.png'
     );
   });
 
-  it('returns null for badges without art yet', () => {
-    expect(getBadgeImageSrc('status_game_shipper')).toBeNull();
-    expect(getBadgeImageSrc('tasks_1')).toBeNull();
+  it('maps task milestone art', () => {
+    expect(getBadgeImageSrc('tasks_1')).toBe(
+      '/images/Badges/first_Ship.png'
+    );
+    expect(getBadgeImageSrc('tasks_5')).toBe('/images/Badges/5_tasks.png');
+    expect(getBadgeImageSrc('tasks_250')).toBe(
+      '/images/Badges/250_tasks.png'
+    );
+  });
+
+  it('maps game shipper art', () => {
+    expect(getBadgeImageSrc('status_game_shipper')).toBe(
+      '/images/Badges/game_shipper.png'
+    );
   });
 });

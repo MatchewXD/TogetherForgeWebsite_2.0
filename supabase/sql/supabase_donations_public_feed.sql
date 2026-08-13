@@ -22,6 +22,8 @@ alter table donations add column if not exists fund_type text default 'studio';
 alter table donations add column if not exists status text default 'completed';
 alter table donations add column if not exists is_anonymous boolean default true;
 alter table donations add column if not exists stripe_subscription_id text;
+-- Guest / checkout credit label (also added by donation_project_attribution)
+alter table donations add column if not exists display_name text;
 
 -- ---------------------------------------------------------------------------
 -- Summary: all-time studio raised + estimated MRR (active monthly subs)

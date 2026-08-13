@@ -132,6 +132,31 @@ npm run build    # production build
 npm test         # unit tests
 ```
 
+### Environment config
+
+| File | Use for |
+|------|---------|
+| `.env.example` | Local / dev client → copy to `.env.local` |
+| `.env.staging.example` | Staging client (test Stripe + staging Supabase) |
+| `.env.production.example` | Production client (live Stripe + main Supabase) |
+| `supabase/.env.example` | Local Edge Function secrets → `supabase/.env` |
+| `supabase/.env.staging.example` / `.env.production.example` | Hosted secrets checklists per project |
+
+**Never** put Stripe secret keys (`sk_…`), webhook secrets, or Supabase **service_role** in `VITE_*` client env.
+
+### Staging isolation
+
+Staging must not touch production users or real money:
+
+- **Staging** → separate Supabase project + Stripe **test** keys + test webhook  
+- **Production** → main Supabase project + Stripe **live** keys + live webhook  
+
+Full rules and checklists: **[docs/STAGING_ISOLATION.md](./docs/STAGING_ISOLATION.md)**.
+
+### Manual QA
+
+Before release or after auth/billing changes: **[docs/MANUAL_TEST_CHECKLIST.md](./docs/MANUAL_TEST_CHECKLIST.md)**.
+
 ---
 
 ## Closing

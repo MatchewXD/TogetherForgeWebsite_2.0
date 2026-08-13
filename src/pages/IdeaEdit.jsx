@@ -26,6 +26,7 @@ import CharCount from '../components/ui/CharCount';
 import IdeaImageField from '../components/ideas/IdeaImageField';
 import IdeaTagsField from '../components/ideas/IdeaTagsField';
 import ParentIdeaPicker from '../components/ideas/ParentIdeaPicker';
+import IdeaAiToolsPanel from '../components/ideas/IdeaAiToolsPanel';
 import { ideaTagsService } from '../services/ideaTagsService';
 import { serializeTags } from '../utils/ideaTags';
 import { parseTags } from '../utils/ideaStatus';
@@ -520,8 +521,30 @@ const IdeaEdit = () => {
         )}
 
         <form onSubmit={handleSave} className="space-y-8">
-          <Card className="bg-cyber-card/80 space-y-6 p-6 sm:p-8">
-            <h2 className="text-lg font-bold text-white">Required</h2>
+          <Card className="relative bg-cyber-card/80 space-y-6 p-6 sm:p-8">
+            <IdeaAiToolsPanel
+              formData={formData}
+              setFormData={setFormData}
+              user={user}
+              mode="edit"
+              showStructure
+              showGapFill
+              onAfterStructure={() => {
+                // No multi-step preview on edit — scroll to top so filled fields are visible
+                try {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                } catch {
+                  /* ignore */
+                }
+                setMessage(
+                  'AI structured fields applied. Review and save when ready.'
+                );
+                setMessageTone('success');
+              }}
+            />
+            <h2 className="text-lg font-bold text-white pr-24 sm:pr-28">
+              Required
+            </h2>
 
             <div>
               <label className={labelClass} htmlFor="edit-title">

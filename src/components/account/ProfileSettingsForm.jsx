@@ -19,6 +19,8 @@ import {
 } from '../../utils/bannerPosition';
 import Modal from '../ui/Modal';
 import Button from '../ui/Buttons';
+import UserAvatar from '../ui/UserAvatar';
+import { emitProfileUpdated } from '../../utils/profileEvents';
 
 function snapshotFields({
   username,
@@ -32,6 +34,7 @@ function snapshotFields({
   twitch,
   xHandle,
   showDonationTotal,
+  avatarUrl,
   bannerUrl,
   bannerPos,
 }) {
@@ -47,6 +50,7 @@ function snapshotFields({
     twitch: String(twitch || ''),
     xHandle: String(xHandle || ''),
     showDonationTotal: Boolean(showDonationTotal),
+    avatarUrl: avatarUrl || null,
     bannerUrl: bannerUrl || null,
     bannerPos: {
       x: Number(bannerPos?.x) || 50,
@@ -56,12 +60,16 @@ function snapshotFields({
 }
 
 const BANNER_MAX_BYTES = 5 * 1024 * 1024; // 5MB
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024; // 2MB
 const BANNER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const BANNER_BUCKET = 'avatars';
 
 /** Ideal display area is wide and short (~3:1). */
 const BANNER_SIZE_TIPS =
   'Recommended size: 1500 x 500 px (3:1 landscape). Larger images are fine; drag the preview to choose which part shows. JPEG, PNG, or WebP · max 5MB.';
+
+const AVATAR_SIZE_TIPS =
+  'Square works best (e.g. 400×400). JPEG, PNG, or WebP · max 2MB. Shown next to your name across the site.';
 
 /** Tag chips (comma-separated string) — must live outside parent to keep hooks stable */
 function TagInput({ label, value, onChange }) {
@@ -166,6 +174,10 @@ export default function ProfileSettingsForm({
   const [xHandle, setXHandle] = useState('');
   const [showDonationTotal, setShowDonationTotal] = useState(false);
 
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [removeAvatar, setRemoveAvatar] = useState(false);
   const [bannerUrl, setBannerUrl] = useState(null);
   const [bannerFile, setBannerFile] = useState(null);
   const [bannerPreview, setBannerPreview] = useState(null);
@@ -209,6 +221,7 @@ export default function ProfileSettingsForm({
         const nextTwitch = data.twitch || '';
         const nextX = data.x_handle || '';
         const nextShowTotal = Boolean(data.show_donation_total);
+        const nextAvatar = data.avatar_url || null;
         const nextBanner = data.banner_url || null;
         const nextPos = parseBannerPosition(data.banner_position);
 
@@ -231,6 +244,13 @@ export default function ProfileSettingsForm({
         setTwitch(nextTwitch);
         setXHandle(nextX);
         setShowDonationTotal(nextShowTotal);
+        setAvatarUrl(nextAvatar);
+        setAvatarFile(null);
+        setRemoveAvatar(false);
+        setAvatarPreview((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return null;
+        });
         setBannerUrl(nextBanner);
         setBannerPos(nextPos);
         setBannerFile(null);
@@ -252,6 +272,7 @@ export default function ProfileSettingsForm({
             twitch: nextTwitch,
             xHandle: nextX,
             showDonationTotal: nextShowTotal,
+            avatarUrl: nextAvatar,
             bannerUrl: nextBanner,
             bannerPos: nextPos,
           })
@@ -267,7 +288,7 @@ export default function ProfileSettingsForm({
   }, [userProp?.id, userProp?.email]);
 
   const isDirty = useMemo(() => {
-    if (bannerFile || removeBanner) return true;
+    if (bannerFile || removeBanner || avatarFile || removeAvatar) return true;
     if (baseline == null) return false;
     return (
       snapshotFields({
@@ -282,6 +303,7 @@ export default function ProfileSettingsForm({
         twitch,
         xHandle,
         showDonationTotal,
+        avatarUrl,
         bannerUrl,
         bannerPos,
       }) !== baseline
@@ -299,10 +321,13 @@ export default function ProfileSettingsForm({
     twitch,
     xHandle,
     showDonationTotal,
+    avatarUrl,
     bannerUrl,
     bannerPos,
     bannerFile,
     removeBanner,
+    avatarFile,
+    removeAvatar,
   ]);
 
   useEffect(() => {
@@ -310,6 +335,44 @@ export default function ProfileSettingsForm({
       if (bannerPreview) URL.revokeObjectURL(bannerPreview);
     };
   }, [bannerPreview]);
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    };
+  }, [avatarPreview]);
+
+  const displayAvatar = avatarPreview || (!removeAvatar && avatarUrl ? avatarUrl : null);
+
+  const onAvatarPick = useCallback((e) => {
+    const file = e.target.files?.[0] || null;
+    e.target.value = '';
+    if (!file) return;
+    if (!BANNER_TYPES.includes(file.type)) {
+      setMessage('Profile picture must be JPEG, PNG, or WebP.');
+      return;
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      setMessage('Profile picture must be under 2MB.');
+      return;
+    }
+    setMessage('');
+    setRemoveAvatar(false);
+    setAvatarFile(file);
+    setAvatarPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  }, []);
+
+  const clearAvatar = useCallback(() => {
+    setAvatarFile(null);
+    setAvatarPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    if (avatarUrl) setRemoveAvatar(true);
+  }, [avatarUrl]);
 
   const onBannerPick = useCallback((e) => {
     const file = e.target.files?.[0] || null;
@@ -402,12 +465,13 @@ export default function ProfileSettingsForm({
     }
   }, []);
 
-  const uploadBannerFile = async (file, userId) => {
+  const uploadProfileImage = async (file, userId, kind) => {
     const ext =
       (file.name && file.name.split('.').pop()?.toLowerCase()) ||
       (file.type === 'image/png' ? 'png' : 'jpg');
     const safeExt = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) ? ext : 'jpg';
-    const path = `${userId}/banner.${safeExt}`;
+    // banner.{ext} or avatar.{ext} under the user's folder
+    const path = `${userId}/${kind}.${safeExt}`;
 
     const { error: upErr } = await supabase.storage
       .from(BANNER_BUCKET)
@@ -429,6 +493,12 @@ export default function ProfileSettingsForm({
     const { data } = supabase.storage.from(BANNER_BUCKET).getPublicUrl(path);
     return `${data?.publicUrl || ''}?v=${Date.now()}`;
   };
+
+  const uploadBannerFile = async (file, userId) =>
+    uploadProfileImage(file, userId, 'banner');
+
+  const uploadAvatarFile = async (file, userId) =>
+    uploadProfileImage(file, userId, 'avatar');
 
   const save = async () => {
     if (!user) return;
@@ -476,15 +546,21 @@ export default function ProfileSettingsForm({
       return;
     }
 
+    let nextAvatarUrl = avatarUrl;
     let nextBannerUrl = bannerUrl;
     try {
+      if (avatarFile) {
+        nextAvatarUrl = await uploadAvatarFile(avatarFile, user.id);
+      } else if (removeAvatar) {
+        nextAvatarUrl = null;
+      }
       if (bannerFile) {
         nextBannerUrl = await uploadBannerFile(bannerFile, user.id);
       } else if (removeBanner) {
         nextBannerUrl = null;
       }
     } catch (imgErr) {
-      setMessage(imgErr?.message || 'Banner upload failed.');
+      setMessage(imgErr?.message || 'Image upload failed.');
       setLoading(false);
       return;
     }
@@ -549,12 +625,13 @@ export default function ProfileSettingsForm({
       return;
     }
 
-    // Extended fields (banner, github, privacy) best-effort after username is safe
+    // Extended fields (avatar, banner, github, privacy) best-effort after username is safe
     {
       const extended = {
         email: user.email || null,
         github: github || null,
         show_donation_total: showDonationTotal,
+        avatar_url: nextAvatarUrl,
         banner_url: nextBannerUrl,
         banner_position: nextBannerUrl
           ? formatBannerPosition(bannerPos)
@@ -569,6 +646,7 @@ export default function ProfileSettingsForm({
         const optional = [
           'banner_position',
           'banner_url',
+          'avatar_url',
           'github',
           'show_donation_total',
           'email',
@@ -627,6 +705,7 @@ export default function ProfileSettingsForm({
       setLastUsernameChangeAt(nowIso);
     }
 
+    setAvatarUrl(nextAvatarUrl);
     setBannerUrl(nextBannerUrl);
     setUsername(storedName);
     setProfile((prev) => ({
@@ -634,8 +713,15 @@ export default function ProfileSettingsForm({
       ...(savedRow || {}),
       ...(verify || {}),
       username: storedName,
+      avatar_url: nextAvatarUrl,
       banner_url: nextBannerUrl,
     }));
+    setAvatarFile(null);
+    setRemoveAvatar(false);
+    setAvatarPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
     setBannerFile(null);
     setRemoveBanner(false);
     setBannerPreview((prev) => {
@@ -655,6 +741,7 @@ export default function ProfileSettingsForm({
         twitch: twitch || '',
         xHandle: xHandle || '',
         showDonationTotal,
+        avatarUrl: nextAvatarUrl,
         bannerUrl: nextBannerUrl,
         bannerPos,
       })
@@ -668,6 +755,12 @@ export default function ProfileSettingsForm({
     setEditingUsername(false);
     setUsernameChangeModalOpen(false);
     setLoading(false);
+    // Navbar avatar / username — does not rely on Realtime
+    emitProfileUpdated({
+      userId: user.id,
+      avatarUrl: nextAvatarUrl,
+      username: storedName,
+    });
     onSaved?.();
   };
 
@@ -898,6 +991,65 @@ export default function ProfileSettingsForm({
               </div>
             </div>
           </Modal>
+
+          {/* Profile picture */}
+          <div className="mb-8">
+            <label className="block text-sm font-mono tracking-widest text-neon-cyan mb-2">
+              Profile picture
+            </label>
+            <p className="text-xs text-text-muted mb-3 leading-relaxed">
+              {AVATAR_SIZE_TIPS}
+            </p>
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+              <div className="relative shrink-0">
+                <UserAvatar
+                  src={displayAvatar}
+                  name={username || user?.email || 'You'}
+                  username={username}
+                  linkProfile={false}
+                  size="xl"
+                  className="!w-24 !h-24 sm:!w-28 sm:!h-28 ring-2 ring-neon-cyan/30"
+                />
+                {displayAvatar && (
+                  <button
+                    type="button"
+                    onClick={clearAvatar}
+                    className="absolute -top-1 -right-1 inline-flex h-7 w-7 items-center justify-center rounded-full border border-cyber-border bg-cyber-bg text-text-secondary hover:text-white shadow"
+                    aria-label="Remove profile picture"
+                    title="Remove"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              <div className="min-w-0 flex-1 space-y-2">
+                <label
+                  htmlFor="profile-avatar"
+                  className="inline-flex items-center gap-2 cursor-pointer rounded-lg border border-cyber-border bg-cyber-surface px-4 py-2.5 text-sm font-semibold text-text-secondary hover:border-neon-cyan hover:text-neon-cyan transition-colors"
+                >
+                  <ImagePlus className="w-4 h-4" aria-hidden />
+                  {displayAvatar ? 'Replace photo' : 'Choose photo'}
+                  <input
+                    id="profile-avatar"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    onChange={onAvatarPick}
+                  />
+                </label>
+                {avatarFile && (
+                  <p className="text-xs text-neon-cyan truncate max-w-xs">
+                    {avatarFile.name}
+                  </p>
+                )}
+                {removeAvatar && !avatarFile && (
+                  <p className="text-xs text-text-muted">
+                    Photo will be removed when you save.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
 
           {/* Profile banner */}
           <div className="mb-8">

@@ -108,7 +108,7 @@ const ONBOARDING_STEPS = [
   {
     step: '01',
     title: 'Create a profile',
-    desc: 'Sign in and set a username so contributions can be credited publicly.',
+    desc: 'Sign in, accept the Terms and Community Guidelines, and set a username so contributions can be credited publicly.',
     cta: { label: 'Open account', to: '/account' },
     icon: UserPlus,
   },
@@ -533,6 +533,21 @@ const GetInvolved = () => {
               </span>
               <Link to="/contact" className="text-neon-cyan hover:underline">
                 Contact
+              </Link>
+              <span className="text-white/20" aria-hidden>
+                ·
+              </span>
+              <Link
+                to="/guidelines"
+                className="text-neon-cyan hover:underline"
+              >
+                Guidelines
+              </Link>
+              <span className="text-white/20" aria-hidden>
+                ·
+              </span>
+              <Link to="/terms" className="text-neon-cyan hover:underline">
+                Terms
               </Link>
               <span className="text-white/20" aria-hidden>
                 ·

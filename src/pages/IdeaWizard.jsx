@@ -48,6 +48,7 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import CharCount from '../components/ui/CharCount';
 import RelatedToSelect from '../components/ideas/RelatedToSelect';
+import IdeaAiToolsPanel from '../components/ideas/IdeaAiToolsPanel';
 import IdeaTagsField from '../components/ideas/IdeaTagsField';
 import ParentIdeaPicker from '../components/ideas/ParentIdeaPicker';
 import { serializeTags } from '../utils/ideaTags';
@@ -960,8 +961,32 @@ const IdeaWizard = () => {
           {encourage}
         </p>
 
-        <div className="flex-1 flex flex-col">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white mb-3">
+        <div className="relative flex-1 flex flex-col">
+          {/* AI tools: top-right of the wizard step area */}
+          {(step?.id === 'category' ||
+            step?.id === 'title' ||
+            step?.id === 'summary' ||
+            step?.id === 'description' ||
+            step?.kind === 'review') && (
+            <IdeaAiToolsPanel
+              formData={form}
+              setFormData={setForm}
+              user={user}
+              mode="wizard"
+              showStructure={step?.kind !== 'review'}
+              showGapFill={
+                step?.kind === 'review' ||
+                step?.id === 'description' ||
+                step?.id === 'summary'
+              }
+              onAfterStructure={() => {
+                const idx = steps.findIndex((s) => s.kind === 'review');
+                if (idx >= 0) setStepIndex(idx);
+              }}
+            />
+          )}
+
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white mb-3 pr-24 sm:pr-28">
             {step?.title}
           </h1>
 

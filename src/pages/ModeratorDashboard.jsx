@@ -23,6 +23,7 @@ import {
   Search,
   SplitSquareVertical,
   Tags,
+  BookOpen,
 } from 'lucide-react';
 
 import Card from '../components/ui/Card';
@@ -432,7 +433,14 @@ const ModeratorDashboard = () => {
               </h1>
               <p className="text-text-secondary mt-2 text-sm sm:text-base max-w-xl">
                 Basic user, idea, and report tools. Keep it light. Prefer archive
-                over hard delete when possible.
+                over hard delete when possible. Base enforcement on the published{' '}
+                <Link
+                  to="/guidelines"
+                  className="text-neon-cyan hover:underline"
+                >
+                  Community Guidelines
+                </Link>
+                .
               </p>
             </div>
             <Button
@@ -450,8 +458,22 @@ const ModeratorDashboard = () => {
             </Button>
           </div>
 
-          {/* Content queues */}
+          {/* Content queues + policy reference */}
           <div className="mt-6 flex flex-wrap gap-3">
+            <Link to="/guidelines" className="inline-flex">
+              <Button
+                type="button"
+                variant="secondary"
+                className="gap-2 min-h-[2.75rem]"
+              >
+                <BookOpen className="w-4 h-4 text-neon-green" aria-hidden />
+                Community Guidelines
+                <span className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
+                  Policy
+                </span>
+                <ExternalLink className="w-3.5 h-3.5 opacity-60" aria-hidden />
+              </Button>
+            </Link>
             <Link to="/media/edit" className="inline-flex">
               <Button
                 type="button"

@@ -105,6 +105,14 @@ export function validatePublicUsername(raw) {
   return { ok: true, value };
 }
 
+/** Escape % and _ so ilike does exact matching for usernames. */
+function escapeIlikeExact(value) {
+  return String(value || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/%/g, '\\%')
+    .replace(/_/g, '\\_');
+}
+
 /**
  * Case-insensitive availability against profiles.username.
  * @param {string} raw
@@ -117,26 +125,34 @@ export async function checkUsernameAvailability(raw, excludeUserId = null) {
     return { ok: false, available: false, message: check.message, value: check.value };
   }
 
+  // limit(1) avoids maybeSingle() errors if multiple rows ever match
   const { data, error } = await supabase
     .from('profiles')
     .select('id')
-    .ilike('username', check.value)
-    .maybeSingle();
+    .ilike('username', escapeIlikeExact(check.value))
+    .limit(1);
 
   if (error) {
-    console.warn('[checkUsernameAvailability]', error.message);
+    console.warn('[checkUsernameAvailability]', error.code || '', error.message);
+    const denied =
+      /permission|rls|policy|42501|PGRST301/i.test(
+        `${error.code || ''} ${error.message || ''}`
+      );
     return {
       ok: false,
       available: false,
-      message: 'Could not check availability. Try again.',
+      message: denied
+        ? 'Could not check availability (database permissions). Apply supabase_profiles_api_grants.sql on this project.'
+        : 'Could not check availability. Try again.',
       value: check.value,
     };
   }
 
-  if (data && excludeUserId && String(data.id) === String(excludeUserId)) {
+  const row = Array.isArray(data) ? data[0] : data;
+  if (row && excludeUserId && String(row.id) === String(excludeUserId)) {
     return { ok: true, available: true, value: check.value };
   }
-  if (data) {
+  if (row) {
     return {
       ok: false,
       available: false,

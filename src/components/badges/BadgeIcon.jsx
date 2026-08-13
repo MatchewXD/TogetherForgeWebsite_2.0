@@ -114,6 +114,40 @@ export default function BadgeIcon({
   const label = `${def.name}. ${def.description}`;
   const useImage = Boolean(imageSrc) && !imgFailed;
 
+  // Use <button> only when this control is interactive (tooltips on tap).
+  // When showTooltip is false the parent often wraps us in its own button
+  // (e.g. pin/unpin on Public Profile) — nested <button> is invalid HTML.
+  const shellClass = `${
+    fill ? 'w-full h-full rounded-none border-0 bg-transparent' : dim.box
+  } inline-flex items-center justify-center ${
+    fill ? '' : 'rounded-lg border'
+  } overflow-hidden outline-none focus-visible:ring-1 focus-visible:ring-neon-cyan/50 ${
+    fill
+      ? ''
+      : useImage
+        ? 'border-white/10 bg-black/25 p-0'
+        : tone
+  }`;
+
+  const iconContent = useImage ? (
+    <img
+      src={imageSrc}
+      alt=""
+      className={
+        fill ? 'w-full h-full object-contain scale-110 p-1' : dim.img
+      }
+      loading="lazy"
+      decoding="async"
+      onError={() => setImgFailed(true)}
+    />
+  ) : (
+    <Icon
+      className={fill ? 'w-12 h-12' : dim.icon}
+      strokeWidth={2}
+      aria-hidden
+    />
+  );
+
   return (
     <span
       ref={rootRef}
@@ -123,48 +157,25 @@ export default function BadgeIcon({
       onMouseEnter={() => showTooltip && setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
-      <button
-        type="button"
-        className={`${
-          fill ? 'w-full h-full rounded-none border-0 bg-transparent' : dim.box
-        } inline-flex items-center justify-center ${
-          fill ? '' : 'rounded-lg border'
-        } overflow-hidden outline-none focus-visible:ring-1 focus-visible:ring-neon-cyan/50 ${
-          fill
-            ? ''
-            : useImage
-              ? 'border-white/10 bg-black/25 p-0'
-              : tone
-        }`}
-        title={label}
-        aria-label={label}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (showTooltip) setOpen((v) => !v);
-        }}
-      >
-        {useImage ? (
-          <img
-            src={imageSrc}
-            alt=""
-            className={
-              fill
-                ? 'w-full h-full object-contain scale-110 p-1'
-                : dim.img
-            }
-            loading="lazy"
-            decoding="async"
-            onError={() => setImgFailed(true)}
-          />
-        ) : (
-          <Icon
-            className={fill ? 'w-12 h-12' : dim.icon}
-            strokeWidth={2}
-            aria-hidden
-          />
-        )}
-      </button>
+      {showTooltip ? (
+        <button
+          type="button"
+          className={shellClass}
+          title={label}
+          aria-label={label}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen((v) => !v);
+          }}
+        >
+          {iconContent}
+        </button>
+      ) : (
+        <span className={shellClass} title={label} aria-label={label}>
+          {iconContent}
+        </span>
+      )}
       {showTooltip && open && (
         <span
           role="tooltip"

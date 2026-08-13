@@ -13,6 +13,10 @@
 // @ts-nocheck
 import Stripe from 'https://esm.sh/stripe@14?target=deno';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno';
+import {
+  enforceRateLimit,
+  RATE_LIMITS,
+} from '../_shared/rateLimit.ts';
 
 const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
 const supabaseUrl =
@@ -48,10 +52,14 @@ function admin() {
   });
 }
 
+const META_USER_KEY = 'together_forge_user_id';
+
 async function userFromRequest(req) {
   const auth = req.headers.get('Authorization') || '';
   const token = auth.replace(/^Bearer\s+/i, '').trim();
   if (!token || !supabaseUrl) return null;
+  if (anonKey && token === anonKey) return null;
+  if (serviceKey && token === serviceKey) return null;
   const client = createClient(supabaseUrl, anonKey || serviceKey, {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
@@ -59,6 +67,26 @@ async function userFromRequest(req) {
   const { data, error } = await client.auth.getUser(token);
   if (error || !data?.user) return null;
   return data.user;
+}
+
+function metaUserId(meta) {
+  if (!meta || typeof meta !== 'object') return '';
+  return String(
+    meta[META_USER_KEY] || meta.userId || meta.user_id || ''
+  ).trim();
+}
+
+/** Customer is usable for this user only if not owned by someone else. */
+function customerAllowedForUser(customer, userId) {
+  if (!customer || customer.deleted || !userId) return false;
+  const owner = metaUserId(customer.metadata);
+  if (owner && owner !== userId) return false;
+  return true;
+}
+
+function customerOwnedByUser(customer, userId) {
+  if (!customer || !userId) return false;
+  return metaUserId(customer.metadata) === userId;
 }
 
 Deno.serve(async (req) => {
@@ -81,6 +109,13 @@ Deno.serve(async (req) => {
       return json({ error: 'Sign in to manage billing.' }, 401);
     }
 
+    const limited = enforceRateLimit(req, {
+      ...RATE_LIMITS.billingPortal,
+      userId: user.id,
+      cors,
+    });
+    if (limited) return limited;
+
     const body = await req.json().catch(() => ({}));
     let returnUrl = String(body.returnUrl || '').trim();
     if (!returnUrl.startsWith('http')) {
@@ -92,10 +127,9 @@ Deno.serve(async (req) => {
     }
 
     // Find the best Stripe customer for THIS TF user.
-    // Prefer the one that already has cards (avoid opening portal on a stale Link-only customer).
+    // Prefer stored user_id / customer metadata over loose email matching.
     const sb = admin();
     let customerId = null;
-    const META_USER_KEY = 'together_forge_user_id';
     const uid = user.id;
     const candidateIds = [];
     const push = (id) => {
@@ -137,13 +171,19 @@ Deno.serve(async (req) => {
         /* optional */
       }
     }
+    // Email is a weak signal: only include customers already owned by this user
+    // or unowned (no other TF user_id). Never open portal for another user's customer.
     if (user.email) {
       try {
         const listed = await stripe.customers.list({
           email: String(user.email).toLowerCase(),
           limit: 20,
         });
-        for (const c of listed.data || []) push(c.id);
+        for (const c of listed.data || []) {
+          if (customerAllowedForUser(c, uid) && customerOwnedByUser(c, uid)) {
+            push(c.id);
+          }
+        }
       } catch {
         /* ignore */
       }
@@ -153,7 +193,7 @@ Deno.serve(async (req) => {
     for (const id of candidateIds) {
       try {
         const c = await stripe.customers.retrieve(id);
-        if (!c || c.deleted) continue;
+        if (!customerAllowedForUser(c, uid)) continue;
         let cards = 0;
         let links = 0;
         try {
@@ -174,13 +214,8 @@ Deno.serve(async (req) => {
         } catch {
           /* ignore */
         }
-        const meta = c.metadata || {};
-        const owned =
-          meta[META_USER_KEY] === uid ||
-          meta.userId === uid ||
-          meta.user_id === uid
-            ? 5
-            : 0;
+        // Prefer customers explicitly owned via metadata; DB-linked still allowed
+        const owned = customerOwnedByUser(c, uid) ? 5 : 1;
         const score = cards * 1000 + links * 10 + owned;
         if (score > bestScore) {
           bestScore = score;

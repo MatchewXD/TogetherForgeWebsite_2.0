@@ -1,13 +1,31 @@
 -- =============================================================================
 -- Ideas: optional primary supporting image
 -- Run after base ideas schema. Safe to re-run.
+-- Staff delete policy needs is_project_staff() (defined here if tasks SQL not yet applied).
 -- =============================================================================
 
-alter table if exists ideas
+alter table if exists public.ideas
   add column if not exists image_url text;
 
-comment on column ideas.image_url is
+comment on column public.ideas.image_url is
   'Optional public URL for one supporting image (concept art, mockup, mood reference).';
+
+-- Staff helper (same definition as supabase_tasks_schema.sql; idempotent)
+create or replace function public.is_project_staff()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+      and coalesce(role, 'user') in ('admin', 'moderator', 'project_lead')
+  );
+$$;
+
+grant execute on function public.is_project_staff() to authenticated, anon;
 
 -- ---------------------------------------------------------------------------
 -- Storage: idea-images (public read; authenticated upload)

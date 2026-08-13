@@ -2,16 +2,18 @@
  * Supabase Edge Function: create Stripe Checkout Session
  *
  * Customer association (critical):
- * - Signed-in TF user → find/create Stripe Customer for THAT user_id only
- * - Guest → customer_email if provided, else Stripe creates a guest customer
+ * - Signed-in TF user → identity from verified JWT only (never body.userId)
+ * - Guest (no valid user JWT) → customer_email if provided; never attach to an account
  * - Never reuse one shared Customer across different TF accounts
  *
  * POST JSON:
  *   {
  *     amountCents, interval?, tierId?, label?, fundType?, productId?,
  *     successUrl, cancelUrl,
- *     userId?, email?, displayName?, isAnonymous?
+ *     email?, displayName?, isAnonymous?
  *   }
+ * Auth (optional for guests): Authorization: Bearer <user access token>
+ * Body userId / query userId are ignored for ownership.
  *
  * Deploy:
  *   supabase functions deploy create-checkout --no-verify-jwt
@@ -25,6 +27,10 @@
 // @ts-nocheck
 import Stripe from 'https://esm.sh/stripe@14?target=deno';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno';
+import {
+  enforceRateLimit,
+  RATE_LIMITS,
+} from '../_shared/rateLimit.ts';
 
 const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
 // Only used when explicitly requested; never required for dynamic pricing
@@ -35,6 +41,7 @@ const serviceKey =
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ??
   Deno.env.get('SERVICE_ROLE_KEY') ??
   '';
+const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 
 const stripe = new Stripe(stripeKey, {
   apiVersion: '2023-10-16',
@@ -74,6 +81,31 @@ function admin() {
   return createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+}
+
+/**
+ * Verify caller JWT. Returns the Supabase user when the Bearer token is a real
+ * user access token; null for guests / anon key / missing/invalid tokens.
+ * Never trust body.userId for identity.
+ */
+async function userFromRequest(req) {
+  const auth = req.headers.get('Authorization') || '';
+  const token = auth.replace(/^Bearer\s+/i, '').trim();
+  if (!token || !supabaseUrl) return null;
+  // Anon/service keys are not user sessions
+  if (anonKey && token === anonKey) return null;
+  if (serviceKey && token === serviceKey) return null;
+  try {
+    const client = createClient(supabaseUrl, anonKey || serviceKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data, error } = await client.auth.getUser(token);
+    if (error || !data?.user?.id) return null;
+    return data.user;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -284,6 +316,17 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Identity first so rate limit keys prefer verified user over IP.
+    const authUser = await userFromRequest(req);
+    const userId = authUser?.id ? String(authUser.id) : '';
+
+    const limited = enforceRateLimit(req, {
+      ...RATE_LIMITS.checkout,
+      userId: userId || null,
+      cors,
+    });
+    if (limited) return limited;
+
     const body = await req.json();
     const amountCents = Math.round(Number(body.amountCents));
     const interval = body.interval === 'month' ? 'month' : 'once';
@@ -306,11 +349,39 @@ Deno.serve(async (req) => {
       : '';
     const successUrl = body.successUrl;
     const cancelUrl = body.cancelUrl;
-    const userId = body.userId ? String(body.userId).slice(0, 64) : '';
+
+    // Identity: verified JWT only. Never trust body.userId / query userId.
+    if (body?.userId && String(body.userId) !== userId) {
+      console.warn(
+        '[create-checkout] ignoring untrusted body.userId',
+        String(body.userId).slice(0, 12)
+      );
+    }
+
     const displayName = body.displayName
       ? String(body.displayName).slice(0, 64)
       : '';
-    const email = body.email ? String(body.email).trim().slice(0, 254) : '';
+    // Prefer verified JWT email when signed in; body email only for guests / fallback
+    const emailFromJwt =
+      authUser?.email && String(authUser.email).includes('@')
+        ? String(authUser.email).trim().slice(0, 254)
+        : '';
+    const emailFromBody = body.email
+      ? String(body.email).trim().slice(0, 254)
+      : '';
+    const email = userId ? emailFromJwt || emailFromBody : emailFromBody;
+
+    console.log(
+      JSON.stringify({
+        tag: 'TF_CREATE_CHECKOUT',
+        step: 'identity',
+        jwtUserId: userId || null,
+        bodyUserIdIgnored: body?.userId
+          ? String(body.userId).slice(0, 36)
+          : null,
+        hasEmail: Boolean(email),
+      })
+    );
     // Default anonymous unless client opts into public credit
     const isAnonymous =
       body.isAnonymous === false || body.isAnonymous === 'false' ? false : true;
@@ -338,8 +409,8 @@ Deno.serve(async (req) => {
     const mode = interval === 'month' ? 'subscription' : 'payment';
 
     // ── Customer association ─────────────────────────────────────────────
-    // Signed-in: always attach a Customer owned by this TF user_id.
-    // Guest: optional customer_email only — never force a shared customer.
+    // Signed-in (JWT): attach a Customer owned by this TF user_id only.
+    // Guest (no JWT): optional customer_email only — never attach to an account.
     let customerId = null;
     let customerEmail = null;
 
@@ -382,17 +453,22 @@ Deno.serve(async (req) => {
         tierId,
         productId: withProductId || null,
       });
-      console.log('[create-checkout] creating session', {
-        amountCents,
-        interval,
-        fundType,
-        tierId,
-        mode,
-        userId: userId || null,
-        customerId: customerId || null,
-        guestEmail: customerEmail || null,
-        productId: withProductId || '(inline product_data)',
-      });
+      console.log(
+        JSON.stringify({
+          tag: 'TF_CREATE_CHECKOUT',
+          step: 'create_session',
+          amountCents,
+          interval,
+          fundType,
+          tierId,
+          mode,
+          userId: userId || null,
+          customerId: customerId || null,
+          guestEmail: customerEmail || null,
+          productId: withProductId || '(inline product_data)',
+          client_reference_id: userId || null,
+        })
+      );
       return stripe.checkout.sessions.create({
         mode,
         success_url: successWithSession,
@@ -401,6 +477,8 @@ Deno.serve(async (req) => {
         allow_promotion_codes: true,
         billing_address_collection: 'auto',
         metadata: sharedMeta,
+        // Stable link for webhook → My Plan / history (in addition to metadata)
+        ...(userId ? { client_reference_id: userId } : {}),
         ...customerFields,
         ...(mode === 'subscription'
           ? {
@@ -408,7 +486,11 @@ Deno.serve(async (req) => {
                 metadata: sharedMeta,
               },
             }
-          : {}),
+          : {
+              payment_intent_data: {
+                metadata: sharedMeta,
+              },
+            }),
       });
     }
 

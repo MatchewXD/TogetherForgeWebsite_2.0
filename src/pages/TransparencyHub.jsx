@@ -255,6 +255,18 @@ const GOVERNANCE_CARDS = [
       { to: '/faq', label: 'FAQ' },
     ],
   },
+  {
+    icon: Scale,
+    accent: 'text-neon-cyan',
+    title: 'Terms and policies',
+    subtitle: 'Public documents',
+    body: 'Terms of Service, Privacy Policy, and Community Guidelines are published on the site. Moderators base enforcement on the published guidelines and observable conduct.',
+    links: [
+      { to: '/terms', label: 'Terms of Service' },
+      { to: '/privacy', label: 'Privacy Policy' },
+      { to: '/guidelines', label: 'Community Guidelines' },
+    ],
+  },
 ];
 
 const phaseBadgeVariant = (phase) => {

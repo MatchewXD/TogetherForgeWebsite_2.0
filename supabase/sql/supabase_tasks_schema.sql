@@ -116,6 +116,17 @@ alter table tasks enable row level security;
 alter table task_claims enable row level security;
 alter table activity_log enable row level security;
 
+-- Table privileges for PostgREST (RLS still applies)
+grant select on table projects to anon, authenticated, service_role;
+grant insert, update, delete on table projects to authenticated, service_role;
+grant select on table tasks to anon, authenticated, service_role;
+grant insert, update, delete on table tasks to authenticated, service_role;
+grant select on table task_claims to anon, authenticated, service_role;
+grant insert, update, delete on table task_claims to authenticated, service_role;
+grant select on table activity_log to anon, authenticated, service_role;
+grant insert on table activity_log to authenticated, service_role;
+grant usage, select on all sequences in schema public to authenticated, service_role;
+
 -- Projects: public read; staff write
 drop policy if exists "Public can read projects" on projects;
 create policy "Public can read projects" on projects for select using (true);

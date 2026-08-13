@@ -41,6 +41,22 @@ export default function AccountPlanSection() {
     setLoading(true);
     setError('');
     try {
+      // One-shot recovery after Checkout return (URL or sessionStorage)
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const sid =
+          params.get('session_id') ||
+          params.get('sessionId') ||
+          sessionStorage.getItem('tf_last_checkout_session') ||
+          '';
+        if (sid.startsWith('cs_')) {
+          // Always clear so a failed sync does not spam on every visit
+          sessionStorage.removeItem('tf_last_checkout_session');
+          await billingService.syncCheckoutSession(sid);
+        }
+      } catch {
+        /* optional recovery */
+      }
       const p = await billingService.getMyPlan();
       setPlan(p);
     } catch (e) {
@@ -50,6 +66,25 @@ export default function AccountPlanSection() {
       setLoading(false);
     }
   }, []);
+
+  const handleRefreshFromStripe = async () => {
+    if (!plan?.id) {
+      setError('No plan id to refresh. Subscribe again or open Billing after checkout.');
+      return;
+    }
+    setBusy('refresh');
+    setError('');
+    setMessage('');
+    try {
+      const updated = await billingService.refreshSubscription(plan.id);
+      setPlan(updated);
+      setMessage('Plan status refreshed from Stripe.');
+    } catch (e) {
+      setError(e?.message || 'Could not refresh from Stripe.');
+    } finally {
+      setBusy(null);
+    }
+  };
 
   useEffect(() => {
     void load();
@@ -113,16 +148,36 @@ export default function AccountPlanSection() {
         <div>
           <h2 className="text-xl font-bold text-white">My Plan</h2>
         </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          className="gap-1.5"
-          onClick={() => void load()}
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          Refresh
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="gap-1.5"
+            onClick={() => void load()}
+            disabled={Boolean(busy)}
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Reload
+          </Button>
+          {plan?.id ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => void handleRefreshFromStripe()}
+              disabled={busy === 'refresh'}
+            >
+              {busy === 'refresh' ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" />
+              )}
+              Refresh from Stripe
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {error && (

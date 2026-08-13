@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import AvatarMenu from './account/AvatarMenu';
+import { onProfileUpdated } from '../utils/profileEvents';
 
 const TF_LOGO_SRC = '/images/TF_Logo_Ideas_V2.png';
 
@@ -141,7 +142,6 @@ const Navbar = () => {
   const [username, setUsername] = useState(null);
   const [mobileExploreOpen, setMobileExploreOpen] = useState(false);
   const [mobileSupportOpen, setMobileSupportOpen] = useState(false);
-  const [mobileAccountOpen, setMobileAccountOpen] = useState(false);
   const location = useLocation();
 
   // Close mobile drawer on route change
@@ -149,7 +149,6 @@ const Navbar = () => {
     setIsOpen(false);
     setMobileExploreOpen(false);
     setMobileSupportOpen(false);
-    setMobileAccountOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -210,6 +209,23 @@ const Navbar = () => {
       authSubscription = null;
     }
 
+    // Same-tab save (Edit Profile) — reliable without Realtime publication
+    const unsubProfileEvent = onProfileUpdated((detail) => {
+      if (!mounted || !detail?.userId) return;
+      setUser((prev) => {
+        if (!prev || String(prev.id) !== String(detail.userId)) return prev;
+        if (detail.avatarUrl !== undefined) {
+          setAvatarUrl(detail.avatarUrl || null);
+        }
+        if (detail.username !== undefined) {
+          setUsername(detail.username || null);
+        }
+        return prev;
+      });
+      // Also re-fetch so we pick up any server-side normalization
+      void loadProfile(detail.userId);
+    });
+
     try {
       profileChannel = supabase
         .channel('navbar-profile-avatar')
@@ -239,6 +255,11 @@ const Navbar = () => {
 
     return () => {
       mounted = false;
+      try {
+        unsubProfileEvent?.();
+      } catch {
+        /* ignore */
+      }
       try {
         authSubscription?.unsubscribe?.();
       } catch {
@@ -323,16 +344,8 @@ const Navbar = () => {
           )}
         </div>
 
-        {/* Mobile / tablet Menu Button */}
+        {/* Mobile / tablet: menu toggle, then profile (right edge) */}
         <div className="lg:hidden flex items-center gap-2">
-          {user && (
-            <AvatarMenu
-              user={user}
-              username={username}
-              avatarUrl={avatarUrl}
-              onNavigate={() => setIsOpen(false)}
-            />
-          )}
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
@@ -342,6 +355,14 @@ const Navbar = () => {
           >
             {isOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
+          {user && (
+            <AvatarMenu
+              user={user}
+              username={username}
+              avatarUrl={avatarUrl}
+              onNavigate={() => setIsOpen(false)}
+            />
+          )}
         </div>
       </div>
 
@@ -446,36 +467,6 @@ const Navbar = () => {
               >
                 <Heart className="w-4 h-4" /> JOIN THE FORGE
               </Link>
-            )}
-
-            {user && (
-              <>
-                <div className="border-t border-white/10 my-3" />
-                <button
-                  type="button"
-                  className="flex items-center justify-between py-2.5 text-left text-text-secondary"
-                  onClick={() => setMobileAccountOpen((v) => !v)}
-                  aria-expanded={mobileAccountOpen}
-                >
-                  Account menu
-                  <ChevronDown
-                    className={`w-4 h-4 transition-transform ${
-                      mobileAccountOpen ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
-                {mobileAccountOpen && (
-                  <div className="rounded-xl border border-cyber-border bg-cyber-card mb-2 overflow-hidden shadow-lg">
-                    <AvatarMenu
-                      user={user}
-                      username={username}
-                      avatarUrl={avatarUrl}
-                      variant="inline"
-                      onNavigate={() => setIsOpen(false)}
-                    />
-                  </div>
-                )}
-              </>
             )}
           </div>
         </div>
