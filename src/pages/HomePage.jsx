@@ -33,7 +33,8 @@ import ScrollProgress, {
   SectionContinueCue,
 } from '../components/ScrollProgress';
 import { getHomeCommunityStats } from '../services/communityStatsService';
-import { DISCORD_URL } from '../constants/communityLinks';
+import { DISCORD_URL, DISCORD_LABELS } from '../constants/communityLinks';
+import DiscordLink from '../components/ui/DiscordLink';
 
 const TF_LOGO_SRC = '/images/TF_Logo_Ideas_V2.png';
 const HERO_BG_SRC = '/images/Hero_Background.webp';
@@ -331,7 +332,7 @@ const HomePage = () => {
                   className="inline-flex items-center gap-1.5 hover:text-neon-purple transition-colors"
                 >
                   <MessageCircle className="w-3.5 h-3.5" />
-                  Discord
+                  {DISCORD_LABELS.join}
                 </a>
               </div>
 
@@ -563,12 +564,19 @@ const HomePage = () => {
                   </li>
                 </ul>
               </div>
-              <Button
-                className="w-full gap-2 home-hero-cta-primary"
-                onClick={() => navigate('/get-involved')}
-              >
-                Join the work <ArrowRight className="w-4 h-4" />
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button
+                  className="w-full gap-2 home-hero-cta-primary"
+                  onClick={() => navigate('/get-involved')}
+                >
+                  Join the work <ArrowRight className="w-4 h-4" />
+                </Button>
+                <DiscordLink
+                  variant="button"
+                  labelKey="join"
+                  className="w-full"
+                />
+              </div>
             </Card>
           </div>
           <SectionContinueCue />

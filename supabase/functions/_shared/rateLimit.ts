@@ -222,4 +222,12 @@ export const RATE_LIMITS = {
     message:
       'AI services are temporarily unavailable due to usage limits. Please try again later.',
   },
+  /** Private concern reports (no account; soft IP cap) */
+  concernReport: {
+    limit: 5,
+    windowMs: 15 * 60 * 1000,
+    bucket: 'concern-report',
+    message:
+      'Too many reports from this network. Please wait a bit and try again.',
+  },
 };

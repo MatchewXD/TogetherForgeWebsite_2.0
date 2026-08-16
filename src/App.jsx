@@ -55,6 +55,7 @@ import NotFound from './pages/NotFound';
 import Footer from './components/layout/Footer';
 import MfaSessionGate from './components/auth/MfaSessionGate';
 import LegalAcceptanceGate from './components/legal/LegalAcceptanceGate';
+import { ReportConcernProvider } from './context/ReportConcernContext';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import Guidelines from './pages/Guidelines';
@@ -70,6 +71,7 @@ function App() {
             <ScrollToTop />
             <MfaSessionGate>
             <LegalAcceptanceGate>
+            <ReportConcernProvider>
             <div className="min-h-screen bg-cyber-bg text-text-primary font-display flex flex-col">
                 <Navbar />
 
@@ -175,6 +177,7 @@ function App() {
                 </main>
                 <Footer />
             </div>
+            </ReportConcernProvider>
             </LegalAcceptanceGate>
             </MfaSessionGate>
         </Router>

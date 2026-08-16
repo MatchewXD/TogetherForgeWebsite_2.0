@@ -1,148 +1,371 @@
 /**
- * GetInvolved - volunteer hub for Together Forge.
- * Overview of contribution paths, task boards, recognition teaser,
- * onboarding steps, and strong CTAs.
+ * Get Involved — welcoming volunteer paths for Together Forge.
+ * Six full sections with varied layout rhythm; applications stay private.
+ *
+ * Spot illustrations: set PATH_SPOT_SRC[id] when assets exist.
+ * Layout modes adapt when art is present; empty slots take no space.
  */
 
-import { Link, useNavigate } from 'react-router-dom';
-import {
-  ArrowRight,
-  Users,
-  Hammer,
-  Video,
-  Heart,
-  Lightbulb,
-  ListTodo,
-  Award,
-  HandHeart,
-  UserPlus,
-  CheckCircle2,
-  Sparkles,
-  Layers,
-  MessageSquarePlus,
-} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 
 import Card from '../components/ui/Card';
-import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
+import Modal from '../components/ui/Modal';
 import DiscordLink from '../components/ui/DiscordLink';
-
-/** Ways people can contribute */
-const CONTRIBUTION_WAYS = [
-  {
-    icon: Hammer,
-    title: 'Game Development',
-    desc: 'Code, design, art, audio, or testing. Claim tasks on open project boards - Early is active now - and ship real work with the team.',
-    accent: 'text-neon-cyan',
-  },
-  {
-    icon: Lightbulb,
-    title: 'Ideas and Feedback',
-    desc: 'Submit game concepts, vote, and join discussions. Strong ideas move into projects with public credit.',
-    accent: 'text-neon-purple',
-  },
-  {
-    icon: Video,
-    title: 'Content Creation',
-    desc: 'Videos, thumbnails, social posts, or streams that grow the forge. Paid opportunities open when income is stable.',
-    accent: 'text-neon-magenta',
-  },
-  {
-    icon: Users,
-    title: 'Community and Moderation',
-    desc: 'Welcome newcomers, help review ideas, keep discussions healthy, and support volunteers day to day.',
-    accent: 'text-neon-cyan',
-  },
-  {
-    icon: Heart,
-    title: 'Other Skills',
-    desc: 'Writing, translation, marketing, tooling, bug reports. If you have a skill, there is a place for it.',
-    accent: 'text-neon-green',
-  },
-  {
-    icon: HandHeart,
-    title: 'Support the Studio',
-    desc: 'Support funds the tools, hosting, and operations that keep the Forge running. Every contribution is tracked and reported with full transparency.',
-    accent: 'text-neon-magenta',
-  },
-];
-
-/** Global + per-project task board entry points */
-const TASK_BOARDS = [
-  {
-    id: 'global',
-    title: 'Open Work',
-    subtitle: 'All active task boards',
-    href: '/open-work',
-    badge: 'Boards',
-    desc: 'Jump straight to any active project Task Board. Claim work, track progress, and ship wins.',
-  },
-  {
-    id: 'prototype-systems',
-    title: 'Tether',
-    subtitle: 'Early phase · open',
-    href: '/projects/prototype-systems/board',
-    badge: 'Early',
-    desc: 'A tethered crew crosses dangerous semi-procedural levels to reach a destroyed orbital station and recover an antimatter generator for their stranded colony.',
-  },
-  {
-    id: 'core-features',
-    title: 'Mid Game Ambitions',
-    subtitle: 'Mid phase · planned',
-    href: '/projects/mid',
-    badge: 'Mid',
-    desc: 'Next up after Early is completed: cooperative games at the scale of Halo, Horizon Zero Dawn, and Skyrim, with deeper systems, dynamic worlds, and stronger teamwork. Not open for claims yet.',
-  },
-  {
-    id: 'polish-playtests',
-    title: 'Stability and Polish',
-    subtitle: 'Late phase · planned',
-    href: '/projects/late',
-    badge: 'Late',
-    desc: 'Opens after Mid is completed. View plans - not open for claims yet.',
-  },
-];
-
-/** Simple volunteer onboarding */
-const ONBOARDING_STEPS = [
-  {
-    step: '01',
-    title: 'Create a profile',
-    desc: 'Sign in, accept the Terms and Community Guidelines, and set a username so contributions can be credited publicly.',
-    cta: { label: 'Open account', to: '/account' },
-    icon: UserPlus,
-  },
-  {
-    step: '02',
-    title: 'Pick a path',
-    desc: 'Submit an idea, claim a task, join Discord, or support the studio. Start small if you prefer.',
-    cta: { label: 'Browse ideas', to: '/ideas' },
-    icon: Sparkles,
-  },
-  {
-    step: '03',
-    title: 'Claim work or join a thread',
-    desc: 'Open a project workspace, take a To Do task, or add your take on an open question.',
-    cta: { label: 'View projects', to: '/projects' },
-    icon: ListTodo,
-  },
-  {
-    step: '04',
-    title: 'Ship and get credit',
-    desc: 'Complete tasks, leave progress notes, and show up on shoutouts and credits as the forge grows.',
-    cta: { label: 'How it works', to: '/how-it-works' },
-    icon: Award,
-  },
-];
+import VolunteerOfferForm from '../components/getInvolved/VolunteerOfferForm';
+import { COMMUNITY_MODERATOR_ACTIVITIES } from '../constants/volunteer';
 
 const GET_INVOLVED_BANNER_SRC = '/images/Get_Involved_Background.webp';
 
+const SPOT_BASE = '/images/spot_illustrations/Get_Involved';
+
+/**
+ * Spot art per section (from public/images/spot_illustrations/Get_Involved).
+ * String = single image; { left, right } = flank the section copy.
+ * @type {Record<string, string | { left?: string, right?: string } | null>}
+ */
+const PATH_SPOT_SRC = {
+  'game-development': `${SPOT_BASE}/Game_Development.png`,
+  'ideas-feedback': `${SPOT_BASE}/Ideas.png`,
+  'content-creation': null,
+  'community-moderation': `${SPOT_BASE}/Moderation.png`,
+  // Other Skills 2 left, Other Skills 1 right of Platform copy
+  'platform-skills': {
+    left: `${SPOT_BASE}/Other_Skills_2.png`,
+    right: `${SPOT_BASE}/Other_Skills_1.png`,
+  },
+  'support-studio': `${SPOT_BASE}/Support_The_Studio.png`,
+  recognition: `${SPOT_BASE}/Credit.png`,
+};
+
+const CONTENT_CREATORS_FOCUS = {
+  id: 'creators-youtube',
+  title: 'Content Creators Team (official YouTube)',
+  skillIds: ['video', 'marketing', 'design'],
+};
+
+/** Single styled section title (no eyebrow + h2 pair). */
+const pathHeadingClass =
+  'section-header !mb-5 !text-2xl sm:!text-3xl !font-bold !tracking-tight !normal-case !text-white ![letter-spacing:0.01em]';
+
+function scrollToId(id) {
+  const el = document.getElementById(String(id).replace(/^#/, ''));
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+const emptyFormFocus = () => ({
+  skillIds: [],
+  openNeedId: '',
+  relatedNeedTitle: '',
+  formKey: 0,
+});
+
+function PathSpot({ sectionId, src, className = '' }) {
+  if (!src) return null;
+  return (
+    <div
+      className={`w-full min-w-0 ${className}`}
+      data-spot-slot={sectionId}
+      aria-hidden="true"
+    >
+      <div className="relative w-full max-w-[22rem] sm:max-w-[26rem] mx-auto lg:max-w-none">
+        <img
+          src={src}
+          alt=""
+          className="w-full h-auto max-h-[15rem] sm:max-h-[17rem] lg:max-h-[19rem] object-contain object-center block mx-auto drop-shadow-[0_12px_28px_rgba(0,0,0,0.45)]"
+          decoding="async"
+          loading="lazy"
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Alternating path layouts.
+ * @param {'text-start'|'text-end'|'spot-end'|'spot-start'|'centered'|'wide'} layout
+ * When no spot src is set, spot-* layouts fall back to text-start / text-end
+ * so empty columns never appear.
+ */
+function PathSection({
+  id,
+  headingId,
+  title,
+  layout = 'text-start',
+  children,
+  actions,
+  after = null,
+}) {
+  const spotCfg = PATH_SPOT_SRC[id] || null;
+  const isFlanked =
+    spotCfg &&
+    typeof spotCfg === 'object' &&
+    (spotCfg.left || spotCfg.right);
+  const spotSrc =
+    typeof spotCfg === 'string' ? spotCfg : null;
+  const hasSpot = Boolean(spotSrc) || Boolean(isFlanked);
+
+  let resolved = layout;
+  if (!hasSpot) {
+    if (layout === 'spot-end') resolved = 'text-start';
+    if (layout === 'spot-start') resolved = 'text-end';
+  }
+  if (isFlanked) resolved = 'flanked';
+
+  const heading = (
+    <h2 id={headingId} className={pathHeadingClass}>
+      {title}
+    </h2>
+  );
+
+  const body = (
+    <div className="text-text-secondary text-sm sm:text-base leading-relaxed space-y-3">
+      {children}
+    </div>
+  );
+
+  const actionRow = actions ? (
+    <div className="flex flex-wrap gap-3 mt-6">{actions}</div>
+  ) : null;
+
+  let main = null;
+
+  if (resolved === 'flanked' && isFlanked) {
+    // [left art] [copy] [right art] — stacks on small screens: copy first
+    main = (
+      <div
+        className="grid lg:grid-cols-12 gap-x-8 gap-y-8 items-center"
+        data-spot-ready={id}
+      >
+        {spotCfg.left ? (
+          <PathSpot
+            sectionId={`${id}-left`}
+            src={spotCfg.left}
+            className="lg:col-span-3 order-2 lg:order-1"
+          />
+        ) : (
+          <div className="hidden lg:block lg:col-span-3" aria-hidden="true" />
+        )}
+        <div className="lg:col-span-6 min-w-0 max-w-xl mx-auto text-center order-1 lg:order-2">
+          <div className="flex justify-center">{heading}</div>
+          <div className="text-left sm:text-center">{body}</div>
+          {actions ? (
+            <div className="flex flex-wrap gap-3 mt-6 justify-center">
+              {actions}
+            </div>
+          ) : null}
+        </div>
+        {spotCfg.right ? (
+          <PathSpot
+            sectionId={`${id}-right`}
+            src={spotCfg.right}
+            className="lg:col-span-3 order-3"
+          />
+        ) : (
+          <div className="hidden lg:block lg:col-span-3" aria-hidden="true" />
+        )}
+      </div>
+    );
+  } else if (resolved === 'centered') {
+    main = (
+      <div className="max-w-2xl mx-auto text-center" data-spot-ready={id}>
+        <div className="flex justify-center">{heading}</div>
+        <div className="text-left sm:text-center">{body}</div>
+        {actions ? (
+          <div className="flex flex-wrap gap-3 mt-6 justify-center">{actions}</div>
+        ) : null}
+        {spotSrc ? (
+          <PathSpot sectionId={id} src={spotSrc} className="mt-8" />
+        ) : null}
+      </div>
+    );
+  } else if (resolved === 'wide') {
+    if (spotSrc) {
+      main = (
+        <div
+          className="grid lg:grid-cols-12 gap-x-10 gap-y-8 items-start"
+          data-spot-ready={id}
+        >
+          <div className="lg:col-span-7 min-w-0 max-w-3xl">
+            {heading}
+            {body}
+            {actionRow}
+          </div>
+          <PathSpot
+            sectionId={id}
+            src={spotSrc}
+            className="lg:col-span-5"
+          />
+        </div>
+      );
+    } else {
+      main = (
+        <div className="max-w-3xl" data-spot-ready={id}>
+          {heading}
+          {body}
+          {actionRow}
+        </div>
+      );
+    }
+  } else if (resolved === 'text-end') {
+    // Right-weighted copy; optional spot sits above on mobile, left on desktop
+    if (spotSrc) {
+      main = (
+        <div
+          className="grid lg:grid-cols-12 gap-x-10 gap-y-8 items-center"
+          data-spot-ready={id}
+        >
+          <PathSpot
+            sectionId={id}
+            src={spotSrc}
+            className="lg:col-span-5 order-2 lg:order-1"
+          />
+          <div className="lg:col-span-7 min-w-0 max-w-2xl ml-auto lg:mr-0 order-1 lg:order-2">
+            {heading}
+            {body}
+            {actionRow}
+          </div>
+        </div>
+      );
+    } else {
+      main = (
+        <div className="max-w-2xl ml-auto lg:mr-0" data-spot-ready={id}>
+          {heading}
+          {body}
+          {actionRow}
+        </div>
+      );
+    }
+  } else if (resolved === 'spot-end' && spotSrc) {
+    main = (
+      <div
+        className="grid lg:grid-cols-12 gap-x-10 gap-y-8 items-center"
+        data-spot-ready={id}
+      >
+        <div className="lg:col-span-6 xl:col-span-7 min-w-0">
+          {heading}
+          {body}
+          {actionRow}
+        </div>
+        <PathSpot
+          sectionId={id}
+          src={spotSrc}
+          className="lg:col-span-6 xl:col-span-5"
+        />
+      </div>
+    );
+  } else if (resolved === 'spot-start' && spotSrc) {
+    main = (
+      <div
+        className="grid lg:grid-cols-12 gap-x-10 gap-y-8 items-center"
+        data-spot-ready={id}
+      >
+        <PathSpot
+          sectionId={id}
+          src={spotSrc}
+          className="lg:col-span-6 xl:col-span-5 lg:order-1 order-2"
+        />
+        <div className="lg:col-span-6 xl:col-span-7 min-w-0 lg:order-2 order-1">
+          {heading}
+          {body}
+          {actionRow}
+        </div>
+      </div>
+    );
+  } else {
+    // text-start (default)
+    main = (
+      <div className="max-w-2xl" data-spot-ready={id}>
+        {heading}
+        {body}
+        {actionRow}
+      </div>
+    );
+  }
+
+  return (
+    <section id={id} aria-labelledby={headingId} className="scroll-mt-24">
+      {main}
+      {after}
+    </section>
+  );
+}
+
 const GetInvolved = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [skillModalOpen, setSkillModalOpen] = useState(false);
+  const [modModalOpen, setModModalOpen] = useState(false);
+  const [contentModalOpen, setContentModalOpen] = useState(false);
+  const [formFocus, setFormFocus] = useState(emptyFormFocus);
+
+  const openSkillModalBlank = () => {
+    setFormFocus((prev) => ({
+      skillIds: [],
+      openNeedId: '',
+      relatedNeedTitle: '',
+      formKey: prev.formKey + 1,
+    }));
+    setModModalOpen(false);
+    setContentModalOpen(false);
+    setSkillModalOpen(true);
+  };
+
+  const openContentCreatorsModal = () => {
+    setFormFocus((prev) => ({
+      skillIds: [...CONTENT_CREATORS_FOCUS.skillIds],
+      openNeedId: CONTENT_CREATORS_FOCUS.id,
+      relatedNeedTitle: CONTENT_CREATORS_FOCUS.title,
+      formKey: prev.formKey + 1,
+    }));
+    setSkillModalOpen(false);
+    setModModalOpen(false);
+    setContentModalOpen(true);
+  };
+
+  const openModModal = () => {
+    setFormFocus((prev) => ({
+      skillIds: ['moderation'],
+      openNeedId: 'mod-team',
+      relatedNeedTitle: 'Community Moderator',
+      formKey: prev.formKey + 1,
+    }));
+    setSkillModalOpen(false);
+    setContentModalOpen(false);
+    setModModalOpen(true);
+  };
+
+  const closeSkillModal = () => setSkillModalOpen(false);
+  const closeModModal = () => setModModalOpen(false);
+  const closeContentModal = () => setContentModalOpen(false);
+
+  useEffect(() => {
+    if (!location.hash) return;
+    const hashId = location.hash.replace(/^#/, '');
+    if (hashId === 'offer-skills' || hashId === 'volunteer-skills') {
+      window.setTimeout(() => openSkillModalBlank(), 50);
+      return;
+    }
+    if (hashId === 'mod-apply') {
+      window.setTimeout(() => openModModal(), 50);
+      return;
+    }
+    if (hashId === 'content-creators' || hashId === 'content-apply') {
+      window.setTimeout(() => openContentCreatorsModal(), 50);
+      return;
+    }
+    const alias = {
+      'open-needs': 'platform-skills',
+      'moderation-roles': 'community-moderation',
+      paths: 'game-development',
+    };
+    window.setTimeout(() => scrollToId(alias[hashId] || hashId), 80);
+  }, [location.hash]);
 
   return (
     <div className="min-h-screen bg-cyber-bg text-text-primary">
-      {/* Page header banner - medium height, not a full-viewport hero */}
       <header className="relative pt-20 overflow-hidden">
         <div className="absolute inset-0" aria-hidden="true">
           <img
@@ -152,13 +375,10 @@ const GetInvolved = () => {
             decoding="async"
             fetchPriority="high"
           />
-          {/* Readability: base dim + left-weighted panel + top shade */}
           <div className="absolute inset-0 bg-cyber-bg/55" />
           <div className="absolute inset-0 bg-gradient-to-r from-cyber-bg/96 via-cyber-bg/85 to-cyber-bg/35" />
           <div className="absolute inset-0 bg-gradient-to-b from-cyber-bg/70 via-cyber-bg/25 to-transparent" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgb(var(--tf-neon-cyan)/0.08)_0%,transparent_50%)]" />
         </div>
-        {/* Soft fade into page background (matches home hero) */}
         <div
           className="absolute bottom-0 inset-x-0 h-28 sm:h-32 pointer-events-none z-[5] bg-gradient-to-b from-transparent via-cyber-bg/50 to-cyber-bg"
           aria-hidden="true"
@@ -166,204 +386,311 @@ const GetInvolved = () => {
 
         <div className="container-custom relative z-10 py-8 sm:py-10 md:py-12 min-h-[16rem] sm:min-h-[18rem] md:min-h-[20rem] flex flex-col justify-center">
           <div className="max-w-2xl [text-shadow:0_1px_2px_rgb(0_0_0_/_0.9),0_2px_16px_rgb(0_0_0_/_0.55)]">
-            <div className="section-header">Volunteer hub</div>
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-3 sm:mb-4">
               Get Involved
             </h1>
             <p className="text-base sm:text-lg text-white/85 leading-relaxed max-w-xl">
-              Be part of the Forge. Ship code, art, ideas, moderation, or
-              support - there is a clear way in for every skill.
+              Together Forge is built by volunteers: game work, ideas, media,
+              community care, platform skills, and optional support. Find the
+              path that fits you.
             </p>
-
-            <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row flex-wrap gap-3">
-              <Button
-                size="lg"
-                className="gap-2 w-full sm:w-auto"
-                onClick={() => navigate('/ideas/submit')}
-              >
-                <Lightbulb className="w-4 h-4" />
-                Submit Idea
-              </Button>
-              <Button
-                size="lg"
-                variant="secondary"
-                className="gap-2 w-full sm:w-auto"
-                onClick={() => navigate('/projects')}
-              >
-                <ListTodo className="w-4 h-4" />
-                Browse Tasks
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="gap-2 w-full sm:w-auto"
-                onClick={() => navigate('/donate')}
-              >
-                <Heart className="w-4 h-4" />
-                Donate
-              </Button>
-              <DiscordLink
-                variant="button"
-                labelKey="join"
-                className="w-full sm:w-auto"
-              />
-            </div>
+            <p className="mt-3 text-sm text-white/70 leading-relaxed max-w-xl">
+              Paid opportunities will open later once studio income is stable.
+              For now, contributions are volunteer with public credit where the
+              product supports it.
+            </p>
           </div>
         </div>
       </header>
 
-      <div className="container-custom relative z-10 py-12 md:py-16 space-y-16 md:space-y-20">
-        {/* ---------- Ways to contribute ---------- */}
-        <section aria-labelledby="ways-heading">
-          <div className="max-w-2xl mb-8">
-            <div className="section-header">Contribution paths</div>
-            <h2
-              id="ways-heading"
-              className="text-2xl sm:text-3xl font-bold text-white"
-            >
-              How you can help
+      <div className="container-custom relative z-10 py-14 md:py-20 space-y-20 md:space-y-28">
+        {/* 1 — text start (spot-end when art exists) */}
+        <PathSection
+          id="game-development"
+          headingId="game-dev-heading"
+          title="Game Development"
+          layout="spot-end"
+          actions={
+            <>
+              <Button
+                type="button"
+                className="gap-2"
+                onClick={() => navigate('/open-work')}
+              >
+                Open Work
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="gap-2"
+                onClick={() => navigate('/projects')}
+              >
+                Projects
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </>
+          }
+        >
+          <p>
+            Help build the games: code, design, art, audio, testing, and more
+            on live project boards. Completed work earns public credit on
+            contributor profiles and project spaces.
+          </p>
+        </PathSection>
+
+        {/* 2 — text end (spot-start when art exists) */}
+        <PathSection
+          id="ideas-feedback"
+          headingId="ideas-heading"
+          title="Ideas & Feedback"
+          layout="spot-start"
+          actions={
+            <>
+              <Button
+                type="button"
+                className="gap-2"
+                onClick={() => navigate('/ideas')}
+              >
+                Ideas
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="gap-2"
+                onClick={() => navigate('/ideas/submit')}
+              >
+                Submit idea
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </>
+          }
+        >
+          <p>
+            Share game concepts, vote, and join the conversation. Strong ideas
+            can grow into real project work, with credit that stays with the
+            people who brought them forward.
+          </p>
+        </PathSection>
+
+        {/* 3 — Content Creation: two inviting paths */}
+        <section
+          id="content-creation"
+          aria-labelledby="content-heading"
+          className="scroll-mt-24"
+        >
+          <div className="max-w-3xl mb-10 md:mb-12">
+            <h2 id="content-heading" className={pathHeadingClass}>
+              Content Creation
             </h2>
-            <p className="text-text-secondary mt-2 text-sm sm:text-base">
-              Pick one path or mix several. No corporate resume required. Just
-              show up and ship.
+            <p className="text-text-secondary text-sm sm:text-base leading-relaxed">
+              Media is one of the best ways to help Together Forge grow. You can
+              share from the community, or join the team that makes our official
+              channel content.
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
-            {CONTRIBUTION_WAYS.map((way) => {
-              const Icon = way.icon;
-              return (
-                <Card
-                  key={way.title}
-                  className="bg-cyber-card/80 h-full flex flex-col"
-                >
-                  <div
-                    className={`w-11 h-11 mb-4 rounded-xl bg-cyber-surface border border-cyber-border flex items-center justify-center ${way.accent}`}
-                  >
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">
-                    {way.title}
-                  </h3>
-                  <p className="text-sm text-text-secondary leading-relaxed flex-1">
-                    {way.desc}
-                  </p>
-                </Card>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* ---------- Task boards ---------- */}
-        <section aria-labelledby="boards-heading">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
-            <div className="max-w-2xl">
-              <div className="section-header">Task boards</div>
-              <h2
-                id="boards-heading"
-                className="text-2xl sm:text-3xl font-bold text-white"
-              >
-                Jump into open work
-              </h2>
-              <p className="text-text-secondary mt-2 text-sm sm:text-base">
-                Global directory plus per-project workspaces with To Do, In
-                Progress, and Completed columns. Claim a task and start.
+          <div className="grid md:grid-cols-2 gap-10 md:gap-12 lg:gap-16">
+            <div className="min-w-0 space-y-4">
+              <h3 className="text-lg sm:text-xl font-semibold text-white tracking-tight">
+                Community Showcase
+              </h3>
+              <p className="text-text-secondary text-sm sm:text-base leading-relaxed">
+                A public home for Together Forge related media from anyone in
+                the community. Share work that celebrates the forge and helps
+                others discover it:
               </p>
+              <ul className="text-sm sm:text-[15px] text-text-secondary leading-relaxed space-y-2 list-disc pl-5 marker:text-neon-cyan/80">
+                <li>YouTube videos about Together Forge</li>
+                <li>Clips of community events, playtests, or collab sessions</li>
+                <li>
+                  Character art, idea illustrations, or other Together Forge
+                  related images
+                </li>
+              </ul>
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Button
+                  type="button"
+                  className="gap-2"
+                  onClick={() => navigate('/showcase')}
+                >
+                  Browse Showcase
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="gap-2"
+                  onClick={() => navigate('/showcase/submit')}
+                >
+                  Submit media
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
-            <Button
-              variant="secondary"
-              className="gap-2 self-start sm:self-auto shrink-0"
-              onClick={() => navigate('/projects')}
-            >
-              <Layers className="w-4 h-4" />
-              All projects
-            </Button>
+
+            <div className="min-w-0 space-y-4">
+              <h3 className="text-lg sm:text-xl font-semibold text-white tracking-tight">
+                Content Creators Team
+              </h3>
+              <p className="text-text-secondary text-sm sm:text-base leading-relaxed">
+                A select team that plans and produces official Together Forge
+                YouTube videos. Right now the focus is foundational pieces:
+                what Together Forge is, what we are about, how we plan to make a
+                difference,
+                and how the system works.
+              </p>
+              <p className="text-text-secondary text-sm sm:text-base leading-relaxed">
+                Later the same team will cover trailers, progress updates,
+                donation and runway updates, volunteer shoutouts, project
+                status, and more. Volunteer help earns public credit for now;
+                this becomes a paid role when the studio can support it.
+              </p>
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Button
+                  type="button"
+                  className="gap-2"
+                  onClick={() => openContentCreatorsModal()}
+                >
+                  Apply to join the team
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="gap-2"
+                  onClick={() => navigate('/media')}
+                >
+                  Media hub
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-4 md:gap-5">
-            {TASK_BOARDS.map((board) => (
-              <Link
-                key={board.id}
-                to={board.href}
-                className="group block focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-cyber-bg rounded-xl"
-              >
-                <Card className="bg-cyber-card/80 h-full border-cyber-border group-hover:border-neon-cyan/50 group-hover:shadow-neon-glow transition-all">
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div>
-                      <div className="text-xs font-mono tracking-widest text-text-muted uppercase mb-1">
-                        {board.subtitle}
-                      </div>
-                      <h3 className="text-lg font-bold text-white group-hover:text-neon-cyan transition-colors">
-                        {board.title}
-                      </h3>
-                    </div>
-                    <Badge
-                      variant={
-                        board.badge === 'Early'
-                          ? 'neon'
-                          : board.badge === 'Mid'
-                            ? 'purple'
-                            : 'default'
-                      }
-                    >
-                      {board.badge}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-text-secondary leading-relaxed mb-4">
-                    {board.desc}
-                  </p>
-                  <span className="inline-flex items-center gap-1 text-xs font-mono tracking-widest text-neon-cyan">
-                    Open board
-                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition" />
-                  </span>
-                </Card>
-              </Link>
-            ))}
-          </div>
+          {PATH_SPOT_SRC['content-creation'] ? (
+            <PathSpot
+              sectionId="content-creation"
+              src={PATH_SPOT_SRC['content-creation']}
+              className="mt-12 max-w-md mx-auto"
+            />
+          ) : null}
         </section>
 
-        {/* ---------- Recognition teaser ---------- */}
-        <section aria-labelledby="credits-heading">
-          <Card className="bg-cyber-card/80 border-neon-purple/30 overflow-hidden relative">
+        {/* 4 — Community Moderator activities + apply */}
+        <PathSection
+          id="community-moderation"
+          headingId="mod-heading"
+          title="Community & Moderation"
+          layout="wide"
+          actions={
+            <Button
+              type="button"
+              className="gap-2"
+              onClick={() => openModModal()}
+            >
+              Apply
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          }
+        >
+          <p>
+            Community Moderators help keep Together Forge welcoming, fair, and
+            useful. They can:
+          </p>
+          <ul className="space-y-2.5 list-disc pl-5 marker:text-neon-cyan/80">
+            {COMMUNITY_MODERATOR_ACTIVITIES.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </PathSection>
+
+        {/* 5 — centered breathing room */}
+        <PathSection
+          id="platform-skills"
+          headingId="skills-heading"
+          title="Platform & Other Skills"
+          layout="centered"
+          actions={
+            <Button
+              type="button"
+              className="gap-2"
+              onClick={() => openSkillModalBlank()}
+            >
+              Volunteer Your Skills
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          }
+        >
+          <p>
+            Flexible help beyond a single game board: documentation,
+            translations, tooling, testing, design, marketing assets, outreach,
+            and more. Share what you can offer in a short private form. This is
+            volunteer help, not a paid job listing.
+          </p>
+        </PathSection>
+
+        {/* 6 — text end for variety */}
+        <PathSection
+          id="support-studio"
+          headingId="support-heading"
+          title="Support the Studio"
+          layout="text-end"
+          actions={
+            <>
+              <Button
+                type="button"
+                className="gap-2"
+                onClick={() => navigate('/donate')}
+              >
+                Donate
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="gap-2"
+                onClick={() => navigate('/transparency')}
+              >
+                Transparency
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </>
+          }
+        >
+          <p>
+            Optional financial support helps cover tools, hosting, and
+            operations. Totals and spending stay transparent. Studio support is
+            separate from AI token purchases, and giving is never required to
+            contribute or belong here.
+          </p>
+        </PathSection>
+
+        {/* Recognition */}
+        <section aria-labelledby="credits-heading" className="scroll-mt-24">
+          <Card className="bg-cyber-card/80 border-neon-purple/30 overflow-hidden relative p-6 sm:p-8 md:p-10">
             <div
               className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_right,rgba(192,132,252,0.08)_0%,transparent_60%)]"
               aria-hidden="true"
             />
-            <div className="relative grid md:grid-cols-5 gap-8 items-center">
-              <div className="md:col-span-3">
-                <div className="section-header mb-2">Recognition</div>
-                <h2
-                  id="credits-heading"
-                  className="text-2xl sm:text-3xl font-bold text-white mb-3"
-                >
-                  Credits that follow the work
+            <div className="relative grid lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+              <div className="lg:col-span-7 min-w-0 max-w-2xl">
+                <h2 id="credits-heading" className={pathHeadingClass}>
+                  Credit that follows the work
                 </h2>
-                <p className="text-text-secondary text-sm sm:text-base leading-relaxed mb-4">
-                  Contributors show up on project shoutouts, task history, and
-                  future game credits. Profiles track what you ship so
-                  effort is never anonymous busywork.
+                <p className="text-text-secondary text-sm sm:text-base leading-relaxed mb-6">
+                  Public credit lives on contributor profiles, completed work,
+                  and project shoutouts. When you ship something, the site is
+                  built to keep your name with it.
                 </p>
-                <ul className="space-y-2 text-sm text-text-muted mb-6">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-neon-cyan shrink-0" />
-                    Task claim and completion credit
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-neon-cyan shrink-0" />
-                    Workspace shoutouts for big wins
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-neon-cyan shrink-0" />
-                    Transparent progress anyone can follow
-                  </li>
-                </ul>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Button
                     variant="secondary"
                     className="gap-2"
-                    onClick={() => navigate('/transparency')}
+                    onClick={() => navigate('/contributors')}
                   >
-                    Transparency Hub
+                    Contributors
                   </Button>
                   <Button
                     variant="ghost"
@@ -375,192 +702,111 @@ const GetInvolved = () => {
                   </Button>
                 </div>
               </div>
-              <div className="md:col-span-2 flex justify-center md:justify-end">
-                <div className="w-full max-w-xs rounded-2xl border border-cyber-border bg-cyber-surface/80 p-6 text-center">
-                  <Award className="w-10 h-10 text-neon-purple mx-auto mb-3" />
-                  <div className="font-mono text-xs tracking-widest text-text-muted uppercase mb-2">
-                    Coming online
-                  </div>
-                  <p className="text-sm text-text-secondary">
-                    Full contributor leaderboards and public credit pages roll
-                    out as task claiming stabilizes.
-                  </p>
-                </div>
-              </div>
+              <PathSpot
+                sectionId="recognition"
+                src={PATH_SPOT_SRC.recognition}
+                className="lg:col-span-5"
+              />
             </div>
           </Card>
         </section>
 
-        {/* ---------- Onboarding steps ---------- */}
-        <section aria-labelledby="onboard-heading">
-          <div className="max-w-2xl mb-8">
-            <div className="section-header">Onboarding</div>
-            <h2
-              id="onboard-heading"
-              className="text-2xl sm:text-3xl font-bold text-white"
-            >
-              Four steps to start
-            </h2>
-            <p className="text-text-secondary mt-2 text-sm sm:text-base">
-              A short path from new account to first contribution.
-            </p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-4 md:gap-5">
-            {ONBOARDING_STEPS.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Card
-                  key={item.step}
-                  className="bg-cyber-card/80 h-full flex flex-col"
-                >
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-xl bg-neon-cyan/10 border border-neon-cyan/20 flex items-center justify-center shrink-0">
-                      <span className="font-mono text-lg font-bold text-neon-cyan">
-                        {item.step}
-                      </span>
-                    </div>
-                    <div className="min-w-0 pt-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Icon className="w-4 h-4 text-neon-cyan shrink-0" />
-                        <h3 className="text-lg font-semibold text-white">
-                          {item.title}
-                        </h3>
-                      </div>
-                      <p className="text-sm text-text-secondary leading-relaxed">
-                        {item.desc}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-auto pt-2">
-                    <Link
-                      to={item.cta.to}
-                      className="inline-flex items-center gap-1.5 text-sm font-mono tracking-widest text-neon-cyan hover:underline"
-                    >
-                      {item.cta.label}
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* ---------- Platform feedback (medium-low visibility) ---------- */}
-        <section aria-labelledby="platform-suggest-heading">
-          <Card className="bg-cyber-card/80 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-            <div className="w-11 h-11 rounded-xl bg-cyber-surface border border-cyber-border flex items-center justify-center text-neon-cyan shrink-0">
-              <MessageSquarePlus className="w-5 h-5" />
-            </div>
+        {/* Discord */}
+        <section
+          id="community"
+          aria-labelledby="community-heading"
+          className="scroll-mt-24"
+        >
+          <Card className="bg-cyber-card/80 p-6 sm:p-8 md:p-10 flex flex-col md:flex-row md:items-center gap-6 border-neon-cyan/20">
             <div className="min-w-0 flex-1">
               <h2
-                id="platform-suggest-heading"
-                className="text-lg font-semibold text-white"
+                id="community-heading"
+                className={`${pathHeadingClass} !mb-3`}
               >
-                Platform suggestions
+                Coordinate on Discord when you are ready
               </h2>
-              <p className="text-sm text-text-secondary mt-1 leading-relaxed">
-                Small feedback channel for the site itself — task board, auth,
-                payments, and more. Separate from game ideas.
+              <p className="text-sm sm:text-base text-text-secondary leading-relaxed">
+                The site is the public home for each path and for private
+                applications. Discord is where day-to-day coordination and chat
+                continue, not a wall before you can start.
               </p>
             </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="gap-2 shrink-0 self-start sm:self-auto"
-              onClick={() => navigate('/suggestions')}
-            >
-              View / submit
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Button>
+            <DiscordLink
+              variant="button"
+              labelKey="join"
+              className="shrink-0 self-start md:self-auto"
+            />
           </Card>
         </section>
-
-        {/* ---------- Closing CTAs ---------- */}
-        <section
-          id="join"
-          className="relative rounded-2xl border border-cyber-border bg-cyber-surface/60 overflow-hidden"
-        >
-          <div
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,249,255,0.08)_0%,transparent_65%)]"
-            aria-hidden="true"
-          />
-          <div className="relative px-6 py-12 md:px-12 md:py-16 text-center max-w-3xl mx-auto">
-            <div className="section-header justify-center mx-auto">Ready?</div>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-              Pick a door and walk in
-            </h2>
-            <p className="text-text-secondary text-sm sm:text-base mb-8 leading-relaxed">
-              Submit an idea, claim a task, or support the studio. The forge
-              grows one contribution at a time.
-            </p>
-            <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3">
-              <Button
-                size="lg"
-                className="gap-2 w-full sm:w-auto"
-                onClick={() => navigate('/ideas/submit')}
-              >
-                <Lightbulb className="w-4 h-4" />
-                Submit Idea
-              </Button>
-              <Button
-                size="lg"
-                variant="secondary"
-                className="gap-2 w-full sm:w-auto"
-                onClick={() => navigate('/projects')}
-              >
-                <ListTodo className="w-4 h-4" />
-                Browse Tasks
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="gap-2 w-full sm:w-auto"
-                onClick={() => navigate('/donate')}
-              >
-                <Heart className="w-4 h-4" />
-                Donate
-              </Button>
-            </div>
-            <p className="mt-6 text-xs font-mono tracking-widest text-text-muted flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-              <span>Questions?</span>
-              <Link to="/faq" className="text-neon-cyan hover:underline">
-                FAQ
-              </Link>
-              <span className="text-white/20" aria-hidden>
-                ·
-              </span>
-              <Link to="/contact" className="text-neon-cyan hover:underline">
-                Contact
-              </Link>
-              <span className="text-white/20" aria-hidden>
-                ·
-              </span>
-              <Link
-                to="/guidelines"
-                className="text-neon-cyan hover:underline"
-              >
-                Guidelines
-              </Link>
-              <span className="text-white/20" aria-hidden>
-                ·
-              </span>
-              <Link to="/terms" className="text-neon-cyan hover:underline">
-                Terms
-              </Link>
-              <span className="text-white/20" aria-hidden>
-                ·
-              </span>
-              <DiscordLink
-                variant="link"
-                labelKey="chat"
-                className="text-xs font-mono tracking-widest text-neon-cyan hover:text-white"
-              />
-            </p>
-          </div>
-        </section>
       </div>
+
+      <Modal
+        isOpen={skillModalOpen}
+        onClose={closeSkillModal}
+        title="Volunteer Your Skills"
+        size="lg"
+      >
+        <VolunteerOfferForm
+          key={`skill-${formFocus.formKey}`}
+          mode="skill_offer"
+          defaultOpenNeedId={formFocus.openNeedId}
+          relatedNeedTitle={formFocus.relatedNeedTitle}
+          defaultSkillIds={formFocus.skillIds}
+          formId="volunteer-offer-modal"
+          variant="plain"
+          onDone={closeSkillModal}
+          onCancel={closeSkillModal}
+        />
+      </Modal>
+
+      <Modal
+        isOpen={contentModalOpen}
+        onClose={closeContentModal}
+        title="Content Creators Team"
+        size="lg"
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-text-secondary leading-relaxed">
+            Private application for the official Together Forge YouTube team.
+            Coordinators review quietly.
+          </p>
+          <VolunteerOfferForm
+            key={`content-${formFocus.formKey}`}
+            mode="skill_offer"
+            defaultOpenNeedId={formFocus.openNeedId}
+            relatedNeedTitle={formFocus.relatedNeedTitle}
+            defaultSkillIds={formFocus.skillIds}
+            formId="content-creators-modal"
+            variant="plain"
+            onDone={closeContentModal}
+            onCancel={closeContentModal}
+          />
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={modModalOpen}
+        onClose={closeModModal}
+        title="Community Moderator application"
+        size="lg"
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-text-secondary leading-relaxed">
+            Apply to help as a Community Moderator. Reviewed privately.
+          </p>
+          <VolunteerOfferForm
+            key={`mod-${formFocus.formKey}`}
+            mode="moderation_role"
+            defaultSkillIds={['moderation']}
+            defaultOpenNeedId={formFocus.openNeedId || 'mod-team'}
+            relatedNeedTitle={formFocus.relatedNeedTitle}
+            formId="mod-application-modal"
+            variant="plain"
+            onDone={closeModModal}
+            onCancel={closeModModal}
+          />
+        </div>
+      </Modal>
     </div>
   );
 };

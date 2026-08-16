@@ -4,8 +4,10 @@ import { MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Buttons';
 import { DISCORD_URL } from '../constants/communityLinks';
+import { useReportConcern } from '../context/ReportConcernContext';
 
 const Contact = () => {
+  const { openReportConcern } = useReportConcern();
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [formData, setFormData] = useState({
@@ -165,6 +167,24 @@ const Contact = () => {
               </button>
             </form>
           )}
+        </div>
+
+        {/* Quiet secondary path — community / moderation concerns */}
+        <div className="mt-10 pt-8 border-t border-white/10 text-center space-y-2">
+          <p className="text-xs font-mono tracking-widest text-text-muted uppercase">
+            Community concerns
+          </p>
+          <p className="text-sm text-text-muted max-w-md mx-auto leading-relaxed">
+            Need to share a private concern about moderation or community
+            behavior? You can do so without using the form above.
+          </p>
+          <button
+            type="button"
+            onClick={() => openReportConcern()}
+            className="text-sm text-text-secondary hover:text-neon-cyan transition-colors underline-offset-4 hover:underline"
+          >
+            Report a concern
+          </button>
         </div>
 
         <div className="text-center mt-12 text-text-muted text-sm">

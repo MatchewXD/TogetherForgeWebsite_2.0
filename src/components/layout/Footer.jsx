@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom';
 import DiscordLink from '../ui/DiscordLink';
+import { useReportConcern } from '../../context/ReportConcernContext';
 
 const Footer = () => {
+  const { openReportConcern } = useReportConcern();
+
   return (
     <footer className="border-t border-white/10 bg-cyber-surface py-12 text-sm">
       <div className="container-custom max-w-7xl mx-auto px-6">
@@ -117,6 +120,13 @@ const Footer = () => {
               >
                 GUIDELINES
               </Link>
+              <button
+                type="button"
+                onClick={() => openReportConcern()}
+                className="hover:text-neon-cyan transition-colors uppercase tracking-widest font-mono text-[10px] text-text-muted/90"
+              >
+                Report a concern
+              </button>
             </div>
             <div className="mt-3 text-[10px] opacity-60">
               © 2026 Together Forge. All Rights Reserved.

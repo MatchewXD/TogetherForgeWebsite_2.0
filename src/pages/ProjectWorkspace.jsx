@@ -2744,7 +2744,7 @@ const ProjectWorkspace = () => {
               <a
                 href={DISCORD_URL}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="underline text-neon-cyan hover:text-white"
               >
                 Discord
