@@ -53,6 +53,12 @@ export const ACCOUNT_SECTIONS = [
     group: 'billing',
   },
   {
+    id: 'forge-marks',
+    label: 'Forge Marks',
+    description: 'Donation Marks and Community Awards',
+    group: 'billing',
+  },
+  {
     id: 'preferences',
     label: 'Preferences',
     description: 'Notifications and site options',
@@ -70,7 +76,7 @@ export const ACCOUNT_SECTION_GROUPS = [
   {
     id: 'billing',
     label: 'Billing',
-    sectionIds: ['plan', 'billing', 'ai-tokens'],
+    sectionIds: ['plan', 'billing', 'ai-tokens', 'forge-marks'],
   },
   {
     id: 'preferences',

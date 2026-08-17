@@ -37,11 +37,14 @@ import {
   getPublicRecentDonations,
 } from '../services/donationsService';
 import { billingService } from '../services/billingService';
+import { badgesService } from '../services/badgesService';
 import { supabase } from '../lib/supabase';
 import {
   ONCE_TIERS,
   MONTH_TIERS,
 } from '../constants/supportPlans';
+import { ensureUserProfile } from '../utils/ensureUserProfile';
+import { onProfileUpdated } from '../utils/profileEvents';
 
 const SUPPORT_BANNER_SRC = '/images/Support_Page.webp';
 
@@ -142,39 +145,133 @@ const SupportPage = () => {
   const [authUser, setAuthUser] = useState(null);
   const [authUsername, setAuthUsername] = useState(null);
   const [authAvatarUrl, setAuthAvatarUrl] = useState(null);
+  const [authProfileReady, setAuthProfileReady] = useState(false);
 
   const stripeReady = useMemo(() => isStripeConfigured(), []);
   const tiers = interval === 'month' ? MONTH_TIERS : ONCE_TIERS;
 
   useEffect(() => {
     let mounted = true;
-    (async () => {
+    let authSubscription = null;
+
+    const pickUsername = (profile, user) => {
+      const fromProfile = String(profile?.username || '').trim();
+      if (fromProfile) return fromProfile;
+      const meta = user?.user_metadata || {};
+      const fromMeta = String(
+        meta.username || meta.preferred_username || meta.user_name || ''
+      ).trim();
+      return fromMeta || null;
+    };
+
+    const pickAvatar = (profile, user) => {
+      const fromProfile = String(profile?.avatar_url || '').trim();
+      if (fromProfile) return fromProfile;
+      const meta = user?.user_metadata || {};
+      const fromMeta = String(
+        meta.avatar_url || meta.picture || meta.avatar || ''
+      ).trim();
+      return fromMeta || null;
+    };
+
+    const loadProfileForUser = async (user) => {
+      if (!mounted) return;
+      if (!user?.id) {
+        setAuthUser(null);
+        setAuthUsername(null);
+        setAuthAvatarUrl(null);
+        setAuthProfileReady(true);
+        return;
+      }
+      setAuthUser(user);
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!mounted) return;
-        setAuthUser(user || null);
-        if (user?.id) {
-          const { data: profile } = await supabase
+        // Match Account/Navbar: ensure row exists, then read username + avatar
+        let profile =
+          (await ensureUserProfile(user.id, { email: user.email })) || null;
+        if (!profile) {
+          const { data } = await supabase
             .from('profiles')
             .select('username, avatar_url')
             .eq('id', user.id)
             .maybeSingle();
-          if (mounted) {
-            setAuthUsername(profile?.username || null);
-            setAuthAvatarUrl(profile?.avatar_url || null);
-          }
-        } else if (mounted) {
+          profile = data || null;
+        }
+        if (!mounted) return;
+        setAuthUsername(pickUsername(profile, user));
+        setAuthAvatarUrl(pickAvatar(profile, user));
+      } catch (e) {
+        console.warn('[Donations] profile load', e?.message || e);
+        if (!mounted) return;
+        setAuthUsername(pickUsername(null, user));
+        setAuthAvatarUrl(pickAvatar(null, user));
+      } finally {
+        if (mounted) setAuthProfileReady(true);
+      }
+    };
+
+    const applySession = (session) => {
+      const user = session?.user || null;
+      if (!user) {
+        if (mounted) {
+          setAuthUser(null);
           setAuthUsername(null);
           setAuthAvatarUrl(null);
+          setAuthProfileReady(true);
         }
-      } catch {
-        /* ignore */
+        return;
       }
-    })();
+      if (mounted) setAuthProfileReady(false);
+      void loadProfileForUser(user);
+    };
+
+    supabase.auth
+      .getSession()
+      .then((res) => applySession(res?.data?.session))
+      .catch(() => {
+        if (mounted) {
+          setAuthUser(null);
+          setAuthUsername(null);
+          setAuthAvatarUrl(null);
+          setAuthProfileReady(true);
+        }
+      });
+
+    try {
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+        applySession(session);
+      });
+      authSubscription = data?.subscription || null;
+    } catch {
+      authSubscription = null;
+    }
+
+    const unsubProfile = onProfileUpdated((detail) => {
+      if (!mounted || !detail?.userId) return;
+      setAuthUser((prev) => {
+        if (!prev || String(prev.id) !== String(detail.userId)) return prev;
+        if (detail.username !== undefined) {
+          setAuthUsername(
+            detail.username ? String(detail.username).trim() : null
+          );
+        }
+        if (detail.avatarUrl !== undefined) {
+          setAuthAvatarUrl(detail.avatarUrl || null);
+        }
+        return prev;
+      });
+      // Re-fetch so server-normalized values win
+      void supabase.auth.getSession().then((res) => {
+        const u = res?.data?.session?.user;
+        if (u && String(u.id) === String(detail.userId)) {
+          void loadProfileForUser(u);
+        }
+      });
+    });
+
     return () => {
       mounted = false;
+      authSubscription?.unsubscribe?.();
+      unsubProfile?.();
     };
   }, []);
 
@@ -251,6 +348,7 @@ const SupportPage = () => {
               } catch {
                 /* ignore */
               }
+              await badgesService.syncMyBadges();
             }
           }
         }
@@ -486,6 +584,7 @@ const SupportPage = () => {
             username={authUsername}
             avatarUrl={authAvatarUrl}
             displayName={authUsername}
+            profileLoading={Boolean(authUser) && !authProfileReady}
           />
 
           {!stripeReady && (

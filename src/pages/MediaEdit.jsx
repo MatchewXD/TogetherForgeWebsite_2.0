@@ -33,6 +33,12 @@ import {
   restoreOfficialVideo,
   deleteOfficialVideo,
 } from '../services/officialMediaService';
+import OfficialMediaContributorsEditor from '../components/media/OfficialMediaContributorsEditor';
+import {
+  syncOfficialMediaCreditTitles,
+  listOfficialMediaCreditsByVideoIds,
+  ensureOfficialMediaCredit,
+} from '../services/contributorsService';
 import {
   parseYoutubeId,
   youtubeWatchUrl,
@@ -92,6 +98,7 @@ function formatDate(iso) {
 const MediaEdit = () => {
   const { isModerator, loading: roleLoading } = useIsModerator();
   const [videos, setVideos] = useState([]);
+  const [creditsByVideo, setCreditsByVideo] = useState({});
   const [showArchived, setShowArchived] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -101,6 +108,7 @@ const MediaEdit = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [draftCredits, setDraftCredits] = useState([]);
   const [saving, setSaving] = useState(false);
 
   const flash = (text, ok = false) => {
@@ -116,6 +124,10 @@ const MediaEdit = () => {
         includeArchived: showArchived,
       });
       setVideos(rows || []);
+      const credits = await listOfficialMediaCreditsByVideoIds(
+        (rows || []).map((v) => v.id)
+      );
+      setCreditsByVideo(credits || {});
     } catch (err) {
       console.error('[MediaEdit]', err);
       if (err?.code === 'TABLE_MISSING') {
@@ -135,6 +147,7 @@ const MediaEdit = () => {
   const openCreate = () => {
     setEditingId(null);
     setForm(emptyForm());
+    setDraftCredits([]);
     setShowForm(true);
     setMessage('');
   };
@@ -142,6 +155,7 @@ const MediaEdit = () => {
   const openEdit = (v) => {
     setEditingId(v.id);
     setForm(formFromVideo(v));
+    setDraftCredits([]);
     setShowForm(true);
     setMessage('');
   };
@@ -150,6 +164,7 @@ const MediaEdit = () => {
     setShowForm(false);
     setEditingId(null);
     setForm(emptyForm());
+    setDraftCredits([]);
   };
 
   const handleSave = async (e) => {
@@ -178,12 +193,49 @@ const MediaEdit = () => {
       };
       if (editingId) {
         await updateOfficialVideo(editingId, payload);
+        if (payload.title) {
+          void syncOfficialMediaCreditTitles(editingId, payload.title);
+        }
         flash('Video updated.', true);
+        closeForm();
       } else {
-        await createOfficialVideo(payload);
-        flash('Video added.', true);
+        const created = await createOfficialVideo(payload);
+        const pending = draftCredits.filter((p) => p?.userId);
+        let credited = 0;
+        let creditFailed = 0;
+        if (created?.id && pending.length) {
+          const results = await Promise.allSettled(
+            pending.map((p) =>
+              ensureOfficialMediaCredit({
+                videoId: created.id,
+                videoTitle: payload.title,
+                userId: p.userId,
+                username: p.username,
+                displayName: p.displayName || p.username,
+              })
+            )
+          );
+          credited = results.filter((r) => r.status === 'fulfilled').length;
+          creditFailed = results.length - credited;
+        }
+        if (creditFailed > 0 && created?.id) {
+          flash(
+            `Video added. ${credited} credited; ${creditFailed} could not be saved. You can retry below.`,
+            false
+          );
+          setEditingId(created.id);
+          setForm(formFromVideo(created));
+          setDraftCredits([]);
+        } else {
+          flash(
+            credited > 0
+              ? `Video added and ${credited} contributor${credited === 1 ? '' : 's'} credited.`
+              : 'Video added.',
+            true
+          );
+          closeForm();
+        }
       }
-      closeForm();
       await load();
     } catch (err) {
       console.error('[MediaEdit] save', err);
@@ -297,7 +349,8 @@ const MediaEdit = () => {
               Official Media
             </h1>
             <p className="text-sm text-text-secondary mt-2 max-w-lg leading-relaxed">
-              Add, edit, publish, or archive studio videos. Only published
+              Add, edit, publish, or archive studio videos. Credit volunteers
+              on each item — names stay in the public memorial. Only published
               videos appear on /media. Community content stays on Showcase.
             </p>
           </div>
@@ -478,6 +531,12 @@ const MediaEdit = () => {
                 </Button>
               </div>
             </form>
+            <OfficialMediaContributorsEditor
+              videoId={editingId}
+              videoTitle={form.title}
+              draftPeople={draftCredits}
+              onDraftPeopleChange={setDraftCredits}
+            />
           </Card>
         )}
 
@@ -565,6 +624,15 @@ const MediaEdit = () => {
                         {v.description && (
                           <p className="mt-1 text-sm text-text-secondary line-clamp-2">
                             {v.description}
+                          </p>
+                        )}
+                        {(creditsByVideo[v.id] || []).length > 0 && (
+                          <p className="mt-1.5 text-xs text-text-muted truncate">
+                            Credited:{' '}
+                            {(creditsByVideo[v.id] || [])
+                              .map((p) => p.displayName || p.username)
+                              .filter(Boolean)
+                              .join(', ')}
                           </p>
                         )}
                         <div className="mt-3 flex flex-wrap gap-2">

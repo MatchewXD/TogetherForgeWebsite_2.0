@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import DiscordLink from '../ui/DiscordLink';
 import { useReportConcern } from '../../context/ReportConcernContext';
+import { SHOW_RELEASED_GAMES } from '../../constants/featureFlags';
 
 const Footer = () => {
   const { openReportConcern } = useReportConcern();
@@ -55,12 +56,14 @@ const Footer = () => {
             >
               ABOUT
             </Link>
-            <Link
-              to="/released"
-              className="hover:text-neon-cyan transition-colors"
-            >
-              RELEASED
-            </Link>
+            {SHOW_RELEASED_GAMES ? (
+              <Link
+                to="/released"
+                className="hover:text-neon-cyan transition-colors"
+              >
+                RELEASED
+              </Link>
+            ) : null}
             <Link
               to="/contributors"
               className="hover:text-neon-cyan transition-colors"

@@ -91,17 +91,30 @@ export async function fulfillTokenPurchase(sb, opts) {
 
   if (!userId) return { ok: false, error: 'userId required' };
   const pack = getTokenPack(packId);
-  if (!pack) return { ok: false, error: `Unknown pack: ${packId}` };
-
-  // Always grant current pack scale (50k tokens / $1). Never trust stale body amounts.
-  const tokens = pack.tokens;
-  const priceCents = amountCents > 0 ? amountCents : pack.priceCents;
-  /** Legacy pre-scale pack sizes — if a row still has these, top up to current pack.tokens */
-  const LEGACY_PACK_TOKENS: Record<string, number> = {
-    starter: 250,
-    builder: 700,
-    studio: 1600,
+  // Canonical published sizes — never grant the legacy 250 / 700 / 1600 scale.
+  const CANONICAL_TOKENS: Record<string, number> = {
+    starter: 250_000,
+    builder: 600_000,
+    studio: 1_250_000,
   };
+  const tokensFromPack = pack?.tokens || 0;
+  const tokensFromId = CANONICAL_TOKENS[packId] || 0;
+  const tokensFromCents =
+    amountCents >= 2500
+      ? 1_250_000
+      : amountCents >= 1200
+        ? 600_000
+        : amountCents >= 500
+          ? 250_000
+          : 0;
+  const tokens = Math.max(tokensFromPack, tokensFromId, tokensFromCents);
+  if (!tokens) {
+    return { ok: false, error: pack ? 'Could not resolve pack size' : `Unknown pack: ${packId}` };
+  }
+  const packLabel = pack?.label || (packId ? packId : 'Token');
+  const resolvedPackId = pack?.id || packId || 'starter';
+  const priceCents =
+    amountCents > 0 ? amountCents : pack?.priceCents || 0;
   const idempotencyKey = sessionId
     ? `purchase:session:${sessionId}`
     : paymentIntent
@@ -109,11 +122,11 @@ export async function fulfillTokenPurchase(sb, opts) {
       : null;
   const scaleFixKey = idempotencyKey
     ? `${idempotencyKey}:scale50k`
-    : `purchase:scale50k:${userId}:${pack.id}:${tokens}`;
+    : `purchase:scale50k:${userId}:${resolvedPackId}:${tokens}`;
 
   const purchasePayload = {
     user_id: userId,
-    pack_id: pack.id,
+    pack_id: resolvedPackId,
     tokens_granted: tokens,
     amount_cents: priceCents,
     currency: 'usd',
@@ -121,7 +134,7 @@ export async function fulfillTokenPurchase(sb, opts) {
     stripe_session_id: sessionId,
     stripe_payment_intent: paymentIntent,
     stripe_customer_id: customerId,
-    label: `${pack.label} AI Tokens`,
+    label: `${packLabel} AI Tokens`,
     completed_at: new Date().toISOString(),
   };
 
@@ -184,9 +197,9 @@ export async function fulfillTokenPurchase(sb, opts) {
       .update({
         tokens_granted: tokens,
         amount_cents: priceCents,
-        pack_id: pack.id,
+        pack_id: resolvedPackId,
         status: 'completed',
-        label: `${pack.label} AI Tokens`,
+        label: `${packLabel} AI Tokens`,
         completed_at: new Date().toISOString(),
         stripe_payment_intent: paymentIntent,
         stripe_customer_id: customerId,
@@ -194,13 +207,40 @@ export async function fulfillTokenPurchase(sb, opts) {
       .eq('id', purchaseId);
   }
 
+  // Prefer SQL grant (canonical size + top-up if a prior credit was 250/700/1600)
+  const { data: granted, error: grantErr } = await sb.rpc(
+    'grant_ai_token_pack_purchase',
+    {
+      p_user_id: userId,
+      p_pack_id: resolvedPackId,
+      p_amount_cents: priceCents || null,
+      p_stripe_session_id: sessionId,
+      p_stripe_payment_intent: paymentIntent,
+      p_stripe_customer_id: customerId,
+      p_purchase_id: purchaseId,
+    }
+  );
+
+  if (!grantErr && granted && granted.ok !== false) {
+    return {
+      ok: true,
+      purchaseId,
+      tokens: Number(granted.tokens) || tokens,
+      ledgerId: granted.ledger_id || null,
+      duplicate: Boolean(granted.duplicate),
+    };
+  }
+  if (grantErr) {
+    console.warn('[aiTokenEconomy] grant rpc', grantErr.message);
+  }
+
   const { data: ledger, error: creditErr } = await sb.rpc('credit_ai_tokens', {
     p_user_id: userId,
     p_tokens: tokens,
     p_entry_type: 'purchase',
     p_status: 'success',
-    p_prompt_summary: `${pack.label} pack purchase`,
-    p_pack_id: pack.id,
+    p_prompt_summary: `${packLabel} pack purchase`,
+    p_pack_id: resolvedPackId,
     p_purchase_id: purchaseId,
     p_source: 'stripe',
     p_source_ref: sessionId || paymentIntent || null,
@@ -208,7 +248,7 @@ export async function fulfillTokenPurchase(sb, opts) {
     p_stripe_payment_intent: paymentIntent,
     p_idempotency_key: idempotencyKey,
     p_meta: {
-      pack_id: pack.id,
+      pack_id: resolvedPackId,
       amount_cents: priceCents,
       tokens,
     },
@@ -219,38 +259,17 @@ export async function fulfillTokenPurchase(sb, opts) {
     return { ok: false, error: creditErr.message };
   }
 
-  // Detect duplicate credit via idempotency
   let duplicate = false;
   const creditedDisplay = Number(ledger?.tokens_display) || 0;
-  if (idempotencyKey && ledger?.id && creditedDisplay === tokens) {
-    const { data: purch } = purchaseId
-      ? await sb
-          .from('ai_token_purchases')
-          .select('status, tokens_granted')
-          .eq('id', purchaseId)
-          .maybeSingle()
-      : { data: null };
-    if (purch?.status === 'completed') {
-      duplicate = true;
-    }
-  }
-
-  // Self-heal: original credit used legacy pack size (e.g. 250) — credit the delta once
-  const legacy = LEGACY_PACK_TOKENS[pack.id];
-  if (
-    ledger &&
-    legacy &&
-    Number(ledger.tokens_display) === legacy &&
-    tokens > legacy
-  ) {
-    const delta = tokens - legacy;
+  if (creditedDisplay > 0 && creditedDisplay < tokens) {
+    const delta = tokens - creditedDisplay;
     const { error: fixErr } = await sb.rpc('credit_ai_tokens', {
       p_user_id: userId,
       p_tokens: delta,
       p_entry_type: 'adjustment',
       p_status: 'success',
-      p_prompt_summary: `${pack.label} pack scale correction (+${delta.toLocaleString()} tokens)`,
-      p_pack_id: pack.id,
+      p_prompt_summary: `${packLabel} pack scale correction (+${delta.toLocaleString()} tokens)`,
+      p_pack_id: resolvedPackId,
       p_purchase_id: purchaseId,
       p_source: 'scale_migration',
       p_source_ref: sessionId || paymentIntent || null,
@@ -258,19 +277,17 @@ export async function fulfillTokenPurchase(sb, opts) {
       p_stripe_payment_intent: paymentIntent,
       p_idempotency_key: scaleFixKey,
       p_meta: {
-        pack_id: pack.id,
-        from_tokens: legacy,
+        pack_id: resolvedPackId,
+        from_tokens: creditedDisplay,
         to_tokens: tokens,
         scale_migration: '50k_per_usd',
       },
     });
     if (fixErr) {
       console.warn('[aiTokenEconomy] scale top-up', fixErr.message);
-    } else {
-      // Prefer rewriting the original purchase ledger line via SQL migration;
-      // top-up keeps balance correct even if immutability blocks edits.
-      duplicate = false;
     }
+  } else if (idempotencyKey && ledger?.id && creditedDisplay === tokens) {
+    duplicate = true;
   }
 
   return {

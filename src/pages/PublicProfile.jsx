@@ -1,6 +1,6 @@
 /**
  * Profile page at /u/:username (and /profile/:username).
- * Contribution credit surface: ideas, completed tasks, active claims, support.
+ * Contribution credit surface: ideas, completed tasks, official media, support.
  */
 
 import { useEffect, useState } from 'react';
@@ -15,6 +15,8 @@ import {
   Heart,
   Hammer,
   Award,
+  Film,
+  Hexagon,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -46,7 +48,17 @@ import {
   fetchOwnProfileShell,
 } from '../utils/publicProfileLookup';
 import { badgesService } from '../services/badgesService';
+import { sortBadgesByCatalog } from '../constants/badges';
 import BadgeIcon from '../components/badges/BadgeIcon';
+import { listUserOfficialMediaCredits } from '../services/contributorsService';
+import { fetchPublicForgeMarksProfile } from '../services/forgeMarksService';
+import {
+  formatForgeMarks,
+  resolveForgeAwardTier,
+  sortAwardTotalsByTier,
+} from '../utils/forgeMarks';
+import ForgeMarksHoverHint from '../components/awards/ForgeMarksHoverHint';
+import { AwardTierIcon } from '../components/awards/awardIcons';
 
 const chip = (text) =>
   (text || '')
@@ -111,6 +123,8 @@ const PublicProfile = () => {
   const [completedTasks, setCompletedTasks] = useState([]);
   const [activeClaims, setActiveClaims] = useState([]);
   const [support, setSupport] = useState(null);
+  const [officialMediaCredits, setOfficialMediaCredits] = useState([]);
+  const [forgeMarks, setForgeMarks] = useState(null);
   const [earnedBadges, setEarnedBadges] = useState([]);
   const [pinnedBadgeKey, setPinnedBadgeKey] = useState(null);
   const [pinBusy, setPinBusy] = useState(false);
@@ -152,6 +166,8 @@ const PublicProfile = () => {
       if (error || !data) {
         setNotFound(true);
         setProfile(null);
+        setOfficialMediaCredits([]);
+        setForgeMarks(null);
         setLoadError(error?.message || null);
         // Help the signed-in viewer understand their own account state
         const {
@@ -171,6 +187,8 @@ const PublicProfile = () => {
       if (data.moderation_status === 'banned') {
         setNotFound(true);
         setProfile(null);
+        setOfficialMediaCredits([]);
+        setForgeMarks(null);
         setLoading(false);
         return;
       }
@@ -200,6 +218,8 @@ const PublicProfile = () => {
         completedListRes,
         activeListRes,
         supportRes,
+        officialMediaRes,
+        forgeMarksRes,
       ] = await Promise.all([
         supabase
           .from('ideas')
@@ -238,6 +258,8 @@ const PublicProfile = () => {
         supabase.rpc('get_public_profile_support', {
           p_user_id: data.id,
         }),
+        listUserOfficialMediaCredits(data.id),
+        fetchPublicForgeMarksProfile(data.id).catch(() => null),
       ]);
 
       if (!mounted) return;
@@ -284,6 +306,11 @@ const PublicProfile = () => {
         setSupport(null);
       }
 
+      setOfficialMediaCredits(
+        Array.isArray(officialMediaRes) ? officialMediaRes : []
+      );
+      setForgeMarks(forgeMarksRes && !forgeMarksRes.missing ? forgeMarksRes : null);
+
       // Badges: owner soft-sync then load collection
       try {
         const {
@@ -297,7 +324,7 @@ const PublicProfile = () => {
       }
       const badgePack = await badgesService.getPublicUserBadges(data.id);
       if (!mounted) return;
-      setEarnedBadges(badgePack.badges || []);
+      setEarnedBadges(sortBadgesByCatalog(badgePack.badges || []));
       setPinnedBadgeKey(badgePack.pinnedBadgeKey || null);
 
       setLoading(false);
@@ -556,7 +583,13 @@ const PublicProfile = () => {
         </div>
 
         {/* Contribution stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div
+          className={`grid grid-cols-1 sm:grid-cols-3 ${
+            forgeMarks && (forgeMarks.lifetimeEarned > 0 || isOwn)
+              ? 'lg:grid-cols-4'
+              : ''
+          } gap-4 mb-8`}
+        >
           <Card className="bg-cyber-card/80 text-center py-5 border-neon-cyan/20">
             <Lightbulb className="w-5 h-5 text-neon-cyan mx-auto mb-2" />
             <div className="text-2xl font-mono font-bold text-neon-cyan">
@@ -584,6 +617,19 @@ const PublicProfile = () => {
               Active claims
             </div>
           </Card>
+          {forgeMarks && (forgeMarks.lifetimeEarned > 0 || isOwn) && (
+            <Card className="bg-cyber-card/80 text-center py-5 border-forge-gold/25">
+              <ForgeMarksHoverHint className="w-full">
+                <Hexagon className="w-5 h-5 text-forge-gold mx-auto mb-2" />
+                <div className="text-2xl font-mono font-bold text-forge-gold">
+                  {formatForgeMarks(forgeMarks.balance)}
+                </div>
+                <div className="text-xs font-mono tracking-widest text-text-muted uppercase mt-1">
+                  Forge Marks
+                </div>
+              </ForgeMarksHoverHint>
+            </Card>
+          )}
         </div>
 
         {/* Two balanced columns */}
@@ -960,6 +1006,138 @@ const PublicProfile = () => {
                       </div>
                     </li>
                   ))}
+                </ul>
+              </Card>
+            )}
+
+            {forgeMarks?.awards?.length > 0 && (
+              <Card className="bg-cyber-card border border-cyber-border border-l-2 border-l-forge-gold/50">
+                <SectionLabel tone="gold">COMMUNITY AWARDS</SectionLabel>
+                {forgeMarks.totalsByTier?.length > 0 && (
+                  <p className="text-[11px] font-mono text-text-muted mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {sortAwardTotalsByTier(forgeMarks.totalsByTier).map((t) => {
+                      const tier = resolveForgeAwardTier(
+                        t.awardTier || t.awardName
+                      );
+                      return (
+                        <span
+                          key={t.awardTier || t.awardName}
+                          className="inline-flex items-center gap-1"
+                        >
+                          {tier && (
+                            <AwardTierIcon
+                              tierId={tier.id}
+                              className="w-3.5 h-3.5"
+                              alt=""
+                            />
+                          )}
+                          {t.awardName} ×{t.awardCount}
+                        </span>
+                      );
+                    })}
+                  </p>
+                )}
+                <ul className={scrollCardBody}>
+                  {forgeMarks.awards.map((a) => {
+                    const href = a.targetUrl || null;
+                    const tier = resolveForgeAwardTier(
+                      a.awardTier || a.awardName
+                    );
+                    const inner = (
+                      <>
+                        {tier ? (
+                          <AwardTierIcon
+                            tierId={tier.id}
+                            className={
+                              tier.id === 'masterwork'
+                                ? 'w-6 h-6 shrink-0 mt-0.5'
+                                : 'w-5 h-5 shrink-0 mt-0.5'
+                            }
+                            alt=""
+                          />
+                        ) : (
+                          <Award className="w-3.5 h-3.5 text-forge-gold shrink-0 mt-0.5" />
+                        )}
+                        <div className="min-w-0">
+                          <div className="text-sm text-white truncate group-hover:text-neon-cyan">
+                            {a.awardName}
+                            {a.targetType === 'idea'
+                              ? ' · Idea'
+                              : a.targetType === 'showcase'
+                                ? ' · Showcase'
+                                : ''}
+                          </div>
+                          <div className="text-[11px] font-mono text-text-muted mt-0.5">
+                            {a.createdAt
+                              ? new Date(a.createdAt).toLocaleDateString(
+                                  undefined,
+                                  {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                  }
+                                )
+                              : ''}
+                            {a.giverUsername ? ` · from ${a.giverUsername}` : ''}
+                            {href ? ' · View post' : ''}
+                          </div>
+                        </div>
+                      </>
+                    );
+                    const rowClass = 'flex items-start gap-2 min-w-0';
+                    return (
+                      <li key={a.id} className="py-2.5 first:pt-0">
+                        {href && href.startsWith('/') ? (
+                          <Link to={href} className={`${rowClass} group`}>
+                            {inner}
+                          </Link>
+                        ) : href ? (
+                          <a
+                            href={href}
+                            className={`${rowClass} group`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {inner}
+                          </a>
+                        ) : (
+                          <div className={rowClass}>{inner}</div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Card>
+            )}
+
+            {officialMediaCredits.length > 0 && (
+              <Card className="bg-cyber-card border border-cyber-border border-l-2 border-l-neon-cyan/50">
+                <SectionLabel tone="cyan">OFFICIAL MEDIA</SectionLabel>
+                <ul className={scrollCardBody}>
+                  {officialMediaCredits.map((row) => {
+                    const title =
+                      row.projectTitleSnapshot ||
+                      row.roleLabel ||
+                      'Official Media';
+                    return (
+                      <li key={row.id} className="py-2.5 first:pt-0">
+                        <Link
+                          to="/media"
+                          className="flex items-start gap-2 min-w-0 group"
+                        >
+                          <Film className="w-3.5 h-3.5 text-neon-cyan shrink-0 mt-0.5" />
+                          <div className="min-w-0">
+                            <div className="text-sm text-white group-hover:text-neon-cyan transition-colors truncate">
+                              {title}
+                            </div>
+                            <div className="text-[11px] font-mono text-text-muted mt-0.5">
+                              {row.subcategory || 'Video'} · public credit
+                            </div>
+                          </div>
+                        </Link>
+                      </li>
+                    );
+                  })}
                 </ul>
               </Card>
             )}

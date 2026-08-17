@@ -19,9 +19,11 @@ const Badges = () => {
             Badges
           </h1>
           <p className="text-text-secondary mt-3 text-sm max-w-2xl leading-relaxed">
-            Earn status for support and shipped work. Pin one badge on your
+            Earn status for first steps, impact on posts, giving back,
+            collaboration, support, and shipped work. Pin one badge on your
             profile so it appears next to your name across the site. Your full
-            collection lives on your public profile.
+            collection lives on your public profile. Thresholds are listed on
+            each badge — no hidden multipliers.
           </p>
           <p className="text-xs text-text-muted mt-3 font-mono">
             <Link to="/donate" className="text-neon-cyan hover:underline">

@@ -22,6 +22,9 @@ import {
   recordLocalSupportEvent,
   validateAmountCents,
 } from '../services/supportService';
+import { billingService } from '../services/billingService';
+import { badgesService } from '../services/badgesService';
+import { supabase } from '../lib/supabase';
 
 const PRESETS = [25, 50, 100, 250];
 
@@ -57,6 +60,32 @@ const SupportRunway = () => {
         type: 'success',
         text: 'Thank you for supporting the runway. This is separate from studio project funds.',
       });
+
+      let cancelled = false;
+      (async () => {
+        const sessionId =
+          searchParams.get('session_id') ||
+          searchParams.get('sessionId') ||
+          '';
+        if (!sessionId.startsWith('cs_')) return;
+        try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          if (cancelled || !session?.user?.id) return;
+          const sync = await billingService.syncCheckoutSession(sessionId);
+          if (!sync.ok) {
+            console.warn('[SupportRunway] sync-checkout', sync.error);
+            return;
+          }
+          await badgesService.syncMyBadges();
+        } catch (e) {
+          console.warn('[SupportRunway] sync-checkout', e?.message || e);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
     } else if (status === 'cancel') {
       sessionStorage.removeItem('tf_pending_runway');
       setBanner({

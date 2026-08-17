@@ -17,6 +17,7 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import { useIsModerator } from '../hooks/useIsModerator';
 import { phaseImageSrc, phaseImageAlt } from '../utils/phaseImages';
+import { SHOW_RELEASED_GAMES } from '../constants/featureFlags';
 
 /** Phase cards: keep existing destination routes. */
 const PHASES = [
@@ -395,15 +396,17 @@ const Projects = () => {
           </Link>
         </section>
 
-        {/* 5. Released catalog + closing */}
+        {/* 5. Released catalog (when public) + closing */}
         <div className="mt-10 mb-4 text-center space-y-3">
-          <Link
-            to="/released"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-neon-cyan hover:text-white"
-          >
-            Released Games
-            <ArrowRight className="w-4 h-4" />
-          </Link>
+          {SHOW_RELEASED_GAMES ? (
+            <Link
+              to="/released"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-neon-cyan hover:text-white"
+            >
+              Released Games
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          ) : null}
           <p className="text-xs font-mono tracking-widest text-text-muted">
             More projects will appear here as the forge grows.
           </p>

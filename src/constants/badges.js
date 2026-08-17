@@ -3,7 +3,7 @@
  * Keys must match public.sync_user_badges grants in supabase_badges.sql.
  */
 
-/** @typedef {'status'|'donation'|'tasks'} BadgeCategory */
+/** @typedef {'status'|'donation'|'tasks'|'starter'|'impact'|'giving'|'collaboration'} BadgeCategory */
 
 /**
  * @typedef {object} BadgeDef
@@ -20,6 +20,37 @@ export const DONATION_THRESHOLDS_DOLLARS = [
 ];
 
 export const TASK_THRESHOLDS = [1, 5, 10, 25, 50, 75, 100, 150, 200, 250];
+
+/**
+ * Published recognition thresholds. Keep in sync with
+ * supabase/sql/supabase_badges_recognition.sql.
+ * Counts only; no hidden multipliers.
+ */
+export const BADGE_THRESHOLDS = {
+  /** Comments shorter than this do not count as feedback. */
+  meaningfulCommentChars: 20,
+  discussionStarterComments: 10,
+  deepDiscussionComments: 25,
+  wellReceivedVotes: 15,
+  wellReceivedAwards: 3,
+  wellReceivedShowcaseLikes: 15,
+  communityFavoriteAwards: 8,
+  recognizedAwards: 5,
+  respectedAwards: 15,
+  distinguishedAwards: 40,
+  talkOfTheForgeComments: 25,
+  talkOfTheForgeAwards: 5,
+  /** Matches idea heat “Hot”. */
+  viralIdeaVotes: 100,
+  generousMarks: 1000,
+  patronMarks: 5000,
+  commentatorComments: 10,
+  activeVoiceComments: 50,
+  supporterAwardsGiven: 1,
+  supporterComments: 10,
+  enthusiastAwardsGiven: 5,
+  enthusiastComments: 25,
+};
 
 /** One-time custom amount → support tier_id */
 export function mapCustomDonationTier(amountCents) {
@@ -199,6 +230,201 @@ export const BADGE_CATALOG = [
     icon: count >= 100 ? 'rocket' : count >= 25 ? 'flag' : 'check',
     threshold: count,
   })),
+  {
+    key: 'starter_first_idea',
+    category: 'starter',
+    name: 'First Idea',
+    description: 'Submit your first public idea (not a draft).',
+    icon: 'lightbulb',
+    threshold: 1,
+  },
+  {
+    key: 'starter_showcase',
+    category: 'starter',
+    name: 'Showcase',
+    description: 'Submit your first Community Showcase post.',
+    icon: 'image',
+    threshold: 1,
+  },
+  {
+    key: 'starter_first_feedback',
+    category: 'starter',
+    name: 'First Feedback',
+    description: `Leave a meaningful comment (at least ${BADGE_THRESHOLDS.meaningfulCommentChars} characters) on someone else's idea.`,
+    icon: 'message',
+    threshold: 1,
+  },
+  {
+    key: 'starter_task_claimed',
+    category: 'starter',
+    name: 'Task Claimed',
+    description: 'Claim your first project task.',
+    icon: 'flag',
+    threshold: 1,
+  },
+  {
+    key: 'starter_early_supporter',
+    category: 'starter',
+    name: 'Early Supporter',
+    description:
+      'Make a completed donation or hold a studio subscription while any official project is in Early phase. Permanent once earned.',
+    icon: 'heart',
+    threshold: null,
+  },
+  {
+    key: 'impact_discussion_starter',
+    category: 'impact',
+    name: 'Discussion Starter',
+    description: `One of your ideas receives ${BADGE_THRESHOLDS.discussionStarterComments}+ comments from other people.`,
+    icon: 'megaphone',
+    threshold: BADGE_THRESHOLDS.discussionStarterComments,
+  },
+  {
+    key: 'impact_well_received',
+    category: 'impact',
+    name: 'Well Received',
+    description: `One of your ideas reaches ${BADGE_THRESHOLDS.wellReceivedVotes}+ votes or ${BADGE_THRESHOLDS.wellReceivedAwards}+ awards, or one Showcase post reaches ${BADGE_THRESHOLDS.wellReceivedShowcaseLikes}+ likes or ${BADGE_THRESHOLDS.wellReceivedAwards}+ awards.`,
+    icon: 'spark',
+    threshold: BADGE_THRESHOLDS.wellReceivedVotes,
+  },
+  {
+    key: 'impact_deep_discussion',
+    category: 'impact',
+    name: 'Deep Discussion',
+    description: `One of your ideas receives ${BADGE_THRESHOLDS.deepDiscussionComments}+ comments from other people.`,
+    icon: 'messages',
+    threshold: BADGE_THRESHOLDS.deepDiscussionComments,
+  },
+  {
+    key: 'impact_community_favorite',
+    category: 'impact',
+    name: 'Community Favorite',
+    description: `One of your posts receives ${BADGE_THRESHOLDS.communityFavoriteAwards}+ community awards, or a Masterwork.`,
+    icon: 'crown',
+    threshold: BADGE_THRESHOLDS.communityFavoriteAwards,
+  },
+  {
+    key: 'impact_awarded_idea',
+    category: 'impact',
+    name: 'Awarded Idea',
+    description: 'One of your ideas receives at least one community award (Spark or higher).',
+    icon: 'star',
+    threshold: 1,
+  },
+  {
+    key: 'impact_recognized',
+    category: 'impact',
+    name: 'Recognized',
+    description: `Receive ${BADGE_THRESHOLDS.recognizedAwards}+ community awards across all of your posts.`,
+    icon: 'trophy',
+    threshold: BADGE_THRESHOLDS.recognizedAwards,
+  },
+  {
+    key: 'impact_respected',
+    category: 'impact',
+    name: 'Respected',
+    description: `Receive ${BADGE_THRESHOLDS.respectedAwards}+ community awards across all of your posts.`,
+    icon: 'gem',
+    threshold: BADGE_THRESHOLDS.respectedAwards,
+  },
+  {
+    key: 'impact_distinguished',
+    category: 'impact',
+    name: 'Distinguished',
+    description: `Receive ${BADGE_THRESHOLDS.distinguishedAwards}+ community awards across all of your posts.`,
+    icon: 'crown',
+    threshold: BADGE_THRESHOLDS.distinguishedAwards,
+  },
+  {
+    key: 'impact_talk_of_the_forge',
+    category: 'impact',
+    name: 'Talk of the Forge',
+    description: `One idea reaches ${BADGE_THRESHOLDS.talkOfTheForgeComments}+ comments from others and ${BADGE_THRESHOLDS.talkOfTheForgeAwards}+ community awards.`,
+    icon: 'megaphone',
+    threshold: null,
+  },
+  {
+    key: 'impact_viral_idea',
+    category: 'impact',
+    name: 'Viral Idea',
+    description: `One idea reaches ${BADGE_THRESHOLDS.viralIdeaVotes}+ votes (the same bar as Hot).`,
+    icon: 'rocket',
+    threshold: BADGE_THRESHOLDS.viralIdeaVotes,
+  },
+  {
+    key: 'giving_first_spark',
+    category: 'giving',
+    name: 'First Spark Given',
+    description: 'Place your first community award on someone else’s post.',
+    icon: 'spark',
+    threshold: 1,
+  },
+  {
+    key: 'giving_generous',
+    category: 'giving',
+    name: 'Generous',
+    description: `Spend ${BADGE_THRESHOLDS.generousMarks.toLocaleString()} Forge Marks placing community awards.`,
+    icon: 'gift',
+    threshold: BADGE_THRESHOLDS.generousMarks,
+  },
+  {
+    key: 'giving_patron',
+    category: 'giving',
+    name: 'Patron',
+    description: `Spend ${BADGE_THRESHOLDS.patronMarks.toLocaleString()} Forge Marks placing community awards.`,
+    icon: 'gem',
+    threshold: BADGE_THRESHOLDS.patronMarks,
+  },
+  {
+    key: 'giving_commentator',
+    category: 'giving',
+    name: 'Commentator',
+    description: `Leave ${BADGE_THRESHOLDS.commentatorComments}+ meaningful comments (${BADGE_THRESHOLDS.meaningfulCommentChars}+ characters each).`,
+    icon: 'message',
+    threshold: BADGE_THRESHOLDS.commentatorComments,
+  },
+  {
+    key: 'giving_active_voice',
+    category: 'giving',
+    name: 'Active Voice',
+    description: `Leave ${BADGE_THRESHOLDS.activeVoiceComments}+ meaningful comments.`,
+    icon: 'megaphone',
+    threshold: BADGE_THRESHOLDS.activeVoiceComments,
+  },
+  {
+    key: 'giving_supporter',
+    category: 'giving',
+    name: 'Supporter',
+    description: `Give at least one community award and leave ${BADGE_THRESHOLDS.supporterComments}+ meaningful comments.`,
+    icon: 'heart',
+    threshold: null,
+  },
+  {
+    key: 'giving_enthusiast',
+    category: 'giving',
+    name: 'Enthusiast',
+    description: `Give ${BADGE_THRESHOLDS.enthusiastAwardsGiven}+ community awards and leave ${BADGE_THRESHOLDS.enthusiastComments}+ meaningful comments.`,
+    icon: 'flame',
+    threshold: null,
+  },
+  {
+    key: 'collab_joined_force',
+    category: 'collaboration',
+    name: 'Joined Force',
+    description:
+      'Claim a task on a project where at least one other person has also claimed work or holds a public credit.',
+    icon: 'handshake',
+    threshold: null,
+  },
+  {
+    key: 'collab_shared_victory',
+    category: 'collaboration',
+    name: 'Shared Victory',
+    description:
+      'Complete a task on a released project that at least one other person also shipped or is credited on.',
+    icon: 'users',
+    threshold: null,
+  },
 ];
 
 const BY_KEY = Object.fromEntries(BADGE_CATALOG.map((b) => [b.key, b]));
@@ -209,9 +435,21 @@ export function getBadgeDef(key) {
 }
 
 export function listCatalogByCategory() {
-  const order = ['status', 'donation', 'tasks'];
+  const order = [
+    'status',
+    'starter',
+    'impact',
+    'giving',
+    'collaboration',
+    'donation',
+    'tasks',
+  ];
   const labels = {
     status: 'Status',
+    starter: 'Starter',
+    impact: 'Impact',
+    giving: 'Giving & Engagement',
+    collaboration: 'Collaboration',
     donation: 'Donation milestones',
     tasks: 'Tasks shipped',
   };
@@ -222,13 +460,42 @@ export function listCatalogByCategory() {
   }));
 }
 
+/** Stable display order matching the public catalog. */
+export function sortBadgesByCatalog(badges = []) {
+  const order = new Map(BADGE_CATALOG.map((b, i) => [b.key, i]));
+  return [...(badges || [])].sort((a, b) => {
+    const ia = order.has(a?.key) ? order.get(a.key) : 999;
+    const ib = order.has(b?.key) ? order.get(b.key) : 999;
+    if (ia !== ib) return ia - ib;
+    return String(a?.name || '').localeCompare(String(b?.name || ''));
+  });
+}
+
 /** Keys that sync_user_badges would grant for given totals (for tests). */
 export function expectedBadgeKeys({
   totalCents = 0,
   tasksCompleted = 0,
   hasActiveSub = false,
   hasShippedGame = false,
+  publicIdeaCount = 0,
+  showcaseSubmissions = 0,
+  meaningfulFeedbackOnOthers = 0,
+  taskClaims = 0,
+  isEarlySupporter = false,
+  maxIdeaCommentsByOthers = 0,
+  maxIdeaVotes = 0,
+  maxIdeaAwards = 0,
+  maxIdeaMasterworks = 0,
+  maxShowcaseLikes = 0,
+  maxShowcaseAwards = 0,
+  awardsReceived = 0,
+  awardsGiven = 0,
+  marksSpentOnAwards = 0,
+  meaningfulComments = 0,
+  hasJoinedForce = false,
+  hasSharedVictory = false,
 } = {}) {
+  const t = BADGE_THRESHOLDS;
   const keys = [];
   if (totalCents > 0) keys.push('status_donor');
   if (hasActiveSub) keys.push('status_active_subscriber');
@@ -236,8 +503,74 @@ export function expectedBadgeKeys({
   for (const d of DONATION_THRESHOLDS_DOLLARS) {
     if (totalCents >= d * 100) keys.push(`donation_${d}`);
   }
-  for (const t of TASK_THRESHOLDS) {
-    if (tasksCompleted >= t) keys.push(`tasks_${t}`);
+  for (const n of TASK_THRESHOLDS) {
+    if (tasksCompleted >= n) keys.push(`tasks_${n}`);
   }
+
+  if (publicIdeaCount >= 1) keys.push('starter_first_idea');
+  if (showcaseSubmissions >= 1) keys.push('starter_showcase');
+  if (meaningfulFeedbackOnOthers >= 1) keys.push('starter_first_feedback');
+  if (taskClaims >= 1) keys.push('starter_task_claimed');
+  if (isEarlySupporter) keys.push('starter_early_supporter');
+
+  if (maxIdeaCommentsByOthers >= t.discussionStarterComments) {
+    keys.push('impact_discussion_starter');
+  }
+  if (
+    maxIdeaVotes >= t.wellReceivedVotes ||
+    maxIdeaAwards >= t.wellReceivedAwards ||
+    maxShowcaseLikes >= t.wellReceivedShowcaseLikes ||
+    maxShowcaseAwards >= t.wellReceivedAwards
+  ) {
+    keys.push('impact_well_received');
+  }
+  if (maxIdeaCommentsByOthers >= t.deepDiscussionComments) {
+    keys.push('impact_deep_discussion');
+  }
+  if (
+    maxIdeaAwards >= t.communityFavoriteAwards ||
+    maxShowcaseAwards >= t.communityFavoriteAwards ||
+    maxIdeaMasterworks >= 1
+  ) {
+    keys.push('impact_community_favorite');
+  }
+  if (maxIdeaAwards >= 1) keys.push('impact_awarded_idea');
+  if (awardsReceived >= t.recognizedAwards) keys.push('impact_recognized');
+  if (awardsReceived >= t.respectedAwards) keys.push('impact_respected');
+  if (awardsReceived >= t.distinguishedAwards) {
+    keys.push('impact_distinguished');
+  }
+  if (
+    maxIdeaCommentsByOthers >= t.talkOfTheForgeComments &&
+    maxIdeaAwards >= t.talkOfTheForgeAwards
+  ) {
+    keys.push('impact_talk_of_the_forge');
+  }
+  if (maxIdeaVotes >= t.viralIdeaVotes) keys.push('impact_viral_idea');
+
+  if (awardsGiven >= 1) keys.push('giving_first_spark');
+  if (marksSpentOnAwards >= t.generousMarks) keys.push('giving_generous');
+  if (marksSpentOnAwards >= t.patronMarks) keys.push('giving_patron');
+  if (meaningfulComments >= t.commentatorComments) {
+    keys.push('giving_commentator');
+  }
+  if (meaningfulComments >= t.activeVoiceComments) {
+    keys.push('giving_active_voice');
+  }
+  if (
+    awardsGiven >= t.supporterAwardsGiven &&
+    meaningfulComments >= t.supporterComments
+  ) {
+    keys.push('giving_supporter');
+  }
+  if (
+    awardsGiven >= t.enthusiastAwardsGiven &&
+    meaningfulComments >= t.enthusiastComments
+  ) {
+    keys.push('giving_enthusiast');
+  }
+
+  if (hasJoinedForce) keys.push('collab_joined_force');
+  if (hasSharedVictory) keys.push('collab_shared_victory');
   return keys;
 }

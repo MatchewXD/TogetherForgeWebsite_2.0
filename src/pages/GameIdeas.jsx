@@ -19,7 +19,8 @@ import {
 import { supabase } from '../lib/supabase';
 import { ideasService, ideaMatchesProject } from '../services/ideasService';
 import {
-  deriveIdeaStatus,
+  getIdeaVoteHeat,
+  getPublicIdeaLabel,
   parseTags,
   resolveLinkDisplayName,
 } from '../utils/ideaStatus';
@@ -31,6 +32,7 @@ import DiscordLink from '../components/ui/DiscordLink';
 import LoadingScreen from '../components/ui/LoadingScreen';
 import TagPicker from '../components/ideas/TagPicker';
 import { slugifyTag } from '../utils/ideaTags';
+import { listForgeAwardsForTargets } from '../services/forgeMarksService';
 
 const CATEGORIES = [
   'Full Game Idea',
@@ -46,16 +48,13 @@ const CATEGORIES = [
   'Other',
 ];
 
-/** Status filter options - values must match deriveIdeaStatus() */
-const STATUS_OPTIONS = [
-  { value: 'all', label: 'All statuses' },
-  { value: 'Proposed', label: 'Proposed - new / under 5 votes' },
+/** Heat / TF-engagement filters. First option is the control label. */
+const FILTER_OPTIONS = [
+  { value: 'all', label: 'Filters' },
   { value: 'UnderReview', label: 'Under Review' },
-  { value: 'Promising', label: 'Promising - 5–14 votes' },
-  { value: 'Hot', label: 'Hot - 15+ votes' },
-  { value: 'Linked', label: 'Linked to project' },
-  { value: 'Adopted', label: 'Adopted' },
-  { value: 'Archived', label: 'Archived' },
+  { value: 'Promising', label: 'Promising' },
+  { value: 'Hot', label: 'Hot' },
+  { value: 'Adopted', label: 'Adopted by Together Forge' },
 ];
 
 const PAGE_SIZE = 12;
@@ -100,9 +99,12 @@ const GameIdeas = () => {
   );
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
-  const [statusFilter, setStatusFilter] = useState(
-    () => searchParams.get('status') || 'all'
-  );
+  const [statusFilter, setStatusFilter] = useState(() => {
+    const raw = searchParams.get('status') || 'all';
+    if (raw === 'Proposed' || raw === 'Archived' || raw === 'Open') return 'all';
+    if (raw === 'Linked') return 'all';
+    return raw;
+  });
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
 
@@ -113,6 +115,7 @@ const GameIdeas = () => {
   const [selectedProject, setSelectedProject] = useState(null);
 
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [awardsByIdea, setAwardsByIdea] = useState({});
 
   useEffect(() => {
     userVotesRef.current = userVotes;
@@ -312,8 +315,6 @@ const GameIdeas = () => {
       const summary = (idea.summary || '').toLowerCase();
       const tags = parseTags(idea.tags);
       const tagsLower = tags.map((t) => t.toLowerCase());
-      const status = deriveIdeaStatus(idea);
-
       const matchesSearch =
         !q ||
         title.includes(q) ||
@@ -330,31 +331,30 @@ const GameIdeas = () => {
         selectedTagLower.length === 0 ||
         selectedTagLower.some((t) => tagsLower.includes(t));
 
-      // Exact status key: Proposed | UnderReview | Promising | Hot | Linked | Adopted | Archived
-      // "Open" kept as alias for Proposed for old query strings
-      const matchesStatus =
-        statusFilter === 'all' ||
-        status === statusFilter ||
-        (statusFilter === 'Open' && status === 'Proposed');
+      let matchesFilter = true;
+      if (statusFilter === 'Adopted') {
+        matchesFilter = getPublicIdeaLabel(idea) === 'Adopted';
+      } else if (statusFilter === 'UnderReview') {
+        matchesFilter = getPublicIdeaLabel(idea) === 'UnderReview';
+      } else if (statusFilter === 'Promising' || statusFilter === 'Hot') {
+        matchesFilter = getIdeaVoteHeat(idea) === statusFilter;
+      }
 
-      return matchesSearch && matchesCategory && matchesTags && matchesStatus;
+      return matchesSearch && matchesCategory && matchesTags && matchesFilter;
     });
 
-    // Feed: community = all (or unlinked-only optional); together = project-linked
-    if (feedMode === 'together') {
-      if (selectedProject) {
-        const keys = [
-          selectedProject.id,
-          selectedProject.slug,
-          selectedProject.title,
-        ].filter(Boolean);
-        list = list.filter((i) => ideaMatchesProject(i, keys));
-      } else {
-        // All ideas that have any project link
-        list = list.filter(
-          (i) => i.project_id || i.projectId || i.project_slug
-        );
-      }
+    // Dedicated Projects filter (any feed)
+    if (selectedProject) {
+      const keys = [
+        selectedProject.id,
+        selectedProject.slug,
+        selectedProject.title,
+      ].filter(Boolean);
+      list = list.filter((i) => ideaMatchesProject(i, keys));
+    } else if (feedMode === 'together') {
+      list = list.filter(
+        (i) => i.project_id || i.projectId || i.project_slug
+      );
     }
 
     list = [...list].sort((a, b) => {
@@ -390,6 +390,25 @@ const GameIdeas = () => {
     [filteredIdeas, visibleCount]
   );
   const hasMore = visibleCount < filteredIdeas.length;
+
+  const visibleIdeaIds = useMemo(
+    () => visibleIdeas.map((i) => String(i.id)).filter(Boolean),
+    [visibleIdeas]
+  );
+
+  useEffect(() => {
+    let mounted = true;
+    if (!visibleIdeaIds.length) {
+      setAwardsByIdea({});
+      return undefined;
+    }
+    listForgeAwardsForTargets('idea', visibleIdeaIds).then((grouped) => {
+      if (mounted) setAwardsByIdea(grouped || {});
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [visibleIdeaIds]);
 
   const submitHref = selectedProject
     ? `/ideas/submit?project=${encodeURIComponent(
@@ -444,10 +463,9 @@ const GameIdeas = () => {
           title: name || slug || key,
         }
       );
-      // Soft-scroll to project chips
       window.setTimeout(() => {
         document
-          .getElementById('ideas-project-picker')
+          .getElementById('ideas-project-filter')
           ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 50);
     },
@@ -541,6 +559,7 @@ const GameIdeas = () => {
     setSelectedCategories([]);
     setSelectedTags([]);
     setStatusFilter('all');
+    setSelectedProject(null);
     setSortMode('newest');
     setCategoryOpen(false);
     setTagOpen(false);
@@ -551,6 +570,7 @@ const GameIdeas = () => {
     selectedCategories.length +
     selectedTags.length +
     (statusFilter !== 'all' ? 1 : 0) +
+    (selectedProject ? 1 : 0) +
     (searchTerm.trim() ? 1 : 0);
 
   return (
@@ -694,14 +714,53 @@ const GameIdeas = () => {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className={controlClass}
-              aria-label="Filter by status"
-              title="Proposed/Promising/Hot are vote-based heat; Under Review / Adopted / Archived are workflow; Linked has project_id"
+              aria-label="Filters"
             >
-              {STATUS_OPTIONS.map((opt) => (
+              {FILTER_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
               ))}
+            </select>
+
+            <select
+              value={
+                selectedProject
+                  ? String(selectedProject.slug || selectedProject.id || '')
+                  : ''
+              }
+              onChange={(e) => {
+                const val = e.target.value;
+                if (!val) {
+                  setSelectedProject(null);
+                  return;
+                }
+                const match = projects.find(
+                  (p) =>
+                    String(p.slug) === val ||
+                    String(p.id) === val
+                );
+                setSelectedProject(
+                  match || { id: val, slug: val, title: val }
+                );
+              }}
+              className={controlClass}
+              id="ideas-project-filter"
+              aria-label="Projects"
+            >
+              <option value="">Projects</option>
+              {projects.map((p) => {
+                const value = String(p.slug || p.id);
+                const label =
+                  resolveLinkDisplayName(p.slug || p.id, p.title) ||
+                  p.title ||
+                  value;
+                return (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                );
+              })}
             </select>
 
             {/* Category multi-select */}
@@ -963,6 +1022,7 @@ const GameIdeas = () => {
                     commentCount={idea.commentCount || 0}
                     showTags
                     className="h-full"
+                    awards={awardsByIdea[String(idea.id)] || []}
                   />
                 );
               })}

@@ -111,7 +111,7 @@ alter table if exists project_contributions
   add column if not exists username_snapshot text;
 
 comment on column project_contributions.source_key is
-  'Stable idempotency key, e.g. task-claim:{id}, showcase:{id}, manual:{id}';
+  'Stable idempotency key, e.g. task-claim:{id}, showcase:{id}, official-media:{videoId}:{userId}, manual:{id}';
 comment on column project_contributions.project_title_snapshot is
   'Project title at credit time — survives project rename/delete';
 comment on column project_contributions.username_snapshot is

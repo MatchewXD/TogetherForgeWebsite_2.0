@@ -98,13 +98,17 @@ $ordered = @(
   "supabase/sql/supabase_billing_table_grants.sql",
   "supabase/sql/supabase_subscription_renewal_credit.sql",
   "supabase/sql/supabase_donation_project_attribution.sql",
+  "supabase/sql/supabase_forge_marks.sql",
+  "supabase/sql/supabase_forge_marks_awards.sql",
 
   # 5. Badges + MFA + legal acceptance + AI tokens
   "supabase/sql/supabase_badges.sql",
+  "supabase/sql/supabase_badges_recognition.sql",
   "supabase/sql/supabase_mfa_recovery_codes.sql",
   "supabase/sql/supabase_legal_acceptance.sql",
   "supabase/sql/supabase_ai_tokens.sql",
   "supabase/sql/supabase_ai_tokens_scale_50k.sql",
+  "supabase/sql/supabase_ai_token_pack_grants.sql",
   "supabase/sql/supabase_ai_platform_enable_staging.sql",
   "supabase/sql/supabase_volunteer_applications.sql"
 )

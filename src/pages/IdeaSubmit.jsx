@@ -1558,7 +1558,6 @@ const IdeaSubmit = () => {
 
               <div className="rounded-xl border border-neon-cyan/25 bg-cyber-surface/60 p-5 sm:p-6 space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="neon">Proposed</Badge>
                   {formData.category && (
                     <Badge variant="default">{formData.category}</Badge>
                   )}

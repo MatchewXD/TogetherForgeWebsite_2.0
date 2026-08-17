@@ -95,19 +95,24 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 41. `supabase_billing_account.sql` — My Plan / Billing RPCs + own-row RLS  
 42. `supabase_subscription_renewal_credit.sql` — subscription credit identity columns  
 43. `supabase_donation_project_attribution.sql` — attach studio donations to active project  
+43b. `supabase_forge_marks.sql` — Forge Marks balances, award ledger, donation grant trigger  
+43c. `supabase_forge_marks_awards.sql` — Spark/Hammer/Anvil/Masterwork placement on posts  
 
 ### 5. Badges + MFA + legal acceptance + AI tokens
 
 44. `supabase_badges.sql` — `user_badges`, pin, sync RPCs, triggers  
+44b. `supabase_badges_recognition.sql` — Starter / Impact / Giving / Collaboration families  
 45. `supabase_mfa_recovery_codes.sql` — hashed MFA recovery codes (Edge Function only)  
 46. `supabase_legal_acceptance.sql` — `profiles` Terms + Community Guidelines version columns  
 47. `supabase_ai_tokens.sql` — AI token balances, immutable ledger, purchases, generation log, caps  
 48. `supabase_ai_tokens_scale_50k.sql` — one-time migrate legacy pack sizes (250/700/1600 → 250k/600k/1.25M)  
+48b. `supabase_ai_token_pack_grants.sql` — canonical pack grants + top-up under-credited purchases  
 
 ### After apply (optional cleanup)
 
 ```sql
 -- Only useful after real users exist; empty staging is a no-op
+-- Re-run after supabase_badges_recognition.sql so existing users get new families
 select public.backfill_all_user_badges();
 ```
 
@@ -187,13 +192,17 @@ supabase db query --linked -f supabase/sql/supabase_donations_public_feed.sql
 supabase db query --linked -f supabase/sql/supabase_billing_account.sql
 supabase db query --linked -f supabase/sql/supabase_subscription_renewal_credit.sql
 supabase db query --linked -f supabase/sql/supabase_donation_project_attribution.sql
+supabase db query --linked -f supabase/sql/supabase_forge_marks.sql
+supabase db query --linked -f supabase/sql/supabase_forge_marks_awards.sql
 
 # 5. Badges + MFA
 supabase db query --linked -f supabase/sql/supabase_badges.sql
+supabase db query --linked -f supabase/sql/supabase_badges_recognition.sql
 supabase db query --linked -f supabase/sql/supabase_mfa_recovery_codes.sql
 supabase db query --linked -f supabase/sql/supabase_legal_acceptance.sql
 supabase db query --linked -f supabase/sql/supabase_ai_tokens.sql
 supabase db query --linked -f supabase/sql/supabase_ai_tokens_scale_50k.sql
+supabase db query --linked -f supabase/sql/supabase_ai_token_pack_grants.sql
 ```
 
 **Optional on staging only:**
@@ -225,6 +234,8 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_project_contributions.sql` | Public credits per project |
 | `supabase_contributions_memorial.sql` | Permanent credits ledger + triggers |
 | `supabase_donation_project_attribution.sql` | Studio donations → active project |
+| `supabase_forge_marks.sql` | Forge Marks balances, award ledger, donation grants |
+| `supabase_forge_marks_awards.sql` | Spark/Hammer/Anvil/Masterwork placement on posts |
 | `supabase_task_hierarchy.sql` | parent_task_id, max 3 levels |
 | `supabase_task_claim_hierarchy_rules.sql` | Claim leaf Medium/Small only |
 | `supabase_helpers_join_dedupe.sql` | Join approve → helper append |
@@ -249,10 +260,12 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_project_github.sql` | Project GitHub URL / meta |
 | `supabase_public_profile_support.sql` | Public profile GitHub + support total |
 | `supabase_badges.sql` | Badges + pin + sync |
+| `supabase_badges_recognition.sql` | Starter / Impact / Giving / Collaboration auto-grants |
 | `supabase_mfa_recovery_codes.sql` | MFA recovery codes table |
 | `supabase_legal_acceptance.sql` | Terms + Guidelines acceptance columns on profiles |
 | `supabase_ai_tokens.sql` | AI token balance, ledger, packs purchases, spend caps |
 | `supabase_ai_tokens_scale_50k.sql` | Migrate old pack token amounts to 50k/$1 scale |
+| `supabase_ai_token_pack_grants.sql` | Canonical pack grants + top-up under-credited purchases |
 | `supabase_identity_gate_github.sql` | GitHub for identity gate |
 | `supabase_task_dependencies.sql` | Task blocked-by edges |
 | `supabase_task_scope_requests.sql` | Scope help requests |

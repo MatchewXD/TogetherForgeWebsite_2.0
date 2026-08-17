@@ -7,8 +7,11 @@ import {
   getBadgeDef,
   getBadgeImageSrc,
   BADGE_CATALOG,
+  BADGE_THRESHOLDS,
   DONATION_THRESHOLDS_DOLLARS,
   TASK_THRESHOLDS,
+  listCatalogByCategory,
+  sortBadgesByCatalog,
 } from '../constants/badges';
 
 describe('mapCustomDonationTier', () => {
@@ -84,6 +87,84 @@ describe('expectedBadgeKeys', () => {
       'status_game_shipper'
     );
   });
+
+  it('grants starter family from first actions', () => {
+    const keys = expectedBadgeKeys({
+      publicIdeaCount: 1,
+      showcaseSubmissions: 1,
+      meaningfulFeedbackOnOthers: 1,
+      taskClaims: 1,
+      isEarlySupporter: true,
+    });
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        'starter_first_idea',
+        'starter_showcase',
+        'starter_first_feedback',
+        'starter_task_claimed',
+        'starter_early_supporter',
+      ])
+    );
+  });
+
+  it('grants impact badges from transparent post and account totals', () => {
+    const keys = expectedBadgeKeys({
+      maxIdeaCommentsByOthers: 25,
+      maxIdeaVotes: 100,
+      maxIdeaAwards: 8,
+      maxIdeaMasterworks: 1,
+      awardsReceived: 40,
+    });
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        'impact_discussion_starter',
+        'impact_well_received',
+        'impact_deep_discussion',
+        'impact_community_favorite',
+        'impact_awarded_idea',
+        'impact_recognized',
+        'impact_respected',
+        'impact_distinguished',
+        'impact_talk_of_the_forge',
+        'impact_viral_idea',
+      ])
+    );
+    expect(
+      expectedBadgeKeys({ maxIdeaAwards: 1 })
+    ).toContain('impact_awarded_idea');
+    expect(
+      expectedBadgeKeys({ maxIdeaCommentsByOthers: 9 })
+    ).not.toContain('impact_discussion_starter');
+  });
+
+  it('grants giving badges from Marks spent and comment volume', () => {
+    const keys = expectedBadgeKeys({
+      awardsGiven: 5,
+      marksSpentOnAwards: 5000,
+      meaningfulComments: 50,
+    });
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        'giving_first_spark',
+        'giving_generous',
+        'giving_patron',
+        'giving_commentator',
+        'giving_active_voice',
+        'giving_supporter',
+        'giving_enthusiast',
+      ])
+    );
+  });
+
+  it('grants collaboration badges only when the flags are true', () => {
+    expect(expectedBadgeKeys({ hasJoinedForce: true })).toContain(
+      'collab_joined_force'
+    );
+    expect(expectedBadgeKeys({ hasSharedVictory: true })).toContain(
+      'collab_shared_victory'
+    );
+    expect(expectedBadgeKeys({})).not.toContain('collab_joined_force');
+  });
 });
 
 describe('catalog', () => {
@@ -97,6 +178,42 @@ describe('catalog', () => {
       expect(getBadgeDef(`tasks_${t}`)).toBeTruthy();
     }
     expect(getBadgeDef('status_game_shipper')?.name).toBe('Game Shipper');
+    expect(getBadgeDef('starter_first_idea')?.name).toBe('First Idea');
+    expect(getBadgeDef('impact_viral_idea')?.threshold).toBe(
+      BADGE_THRESHOLDS.viralIdeaVotes
+    );
+    expect(getBadgeDef('giving_generous')?.threshold).toBe(
+      BADGE_THRESHOLDS.generousMarks
+    );
+    expect(getBadgeDef('collab_shared_victory')?.category).toBe(
+      'collaboration'
+    );
+  });
+
+  it('lists the new families on the public catalog page', () => {
+    const labels = listCatalogByCategory().map((s) => s.label);
+    expect(labels).toEqual([
+      'Status',
+      'Starter',
+      'Impact',
+      'Giving & Engagement',
+      'Collaboration',
+      'Donation milestones',
+      'Tasks shipped',
+    ]);
+  });
+
+  it('sorts earned badges in catalog order', () => {
+    const sorted = sortBadgesByCatalog([
+      { key: 'giving_first_spark', name: 'First Spark Given' },
+      { key: 'status_donor', name: 'Donor' },
+      { key: 'starter_first_idea', name: 'First Idea' },
+    ]);
+    expect(sorted.map((b) => b.key)).toEqual([
+      'status_donor',
+      'starter_first_idea',
+      'giving_first_spark',
+    ]);
   });
 });
 

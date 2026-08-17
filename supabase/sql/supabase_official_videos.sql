@@ -35,6 +35,10 @@ create index if not exists idx_official_videos_staff_list
 comment on table official_videos is
   'Official Together Forge videos for /media. Not community Showcase content.';
 
+-- Volunteer credits for a video are memorial rows on project_contributions
+-- (source_key = official-media:{official_videos.id}:{profiles.id}).
+-- No FK: deleting a video must not erase public credit.
+
 -- ---------------------------------------------------------------------------
 -- updated_at touch
 -- ---------------------------------------------------------------------------
@@ -93,6 +97,14 @@ create policy "Staff can delete official videos"
   on official_videos for delete
   to authenticated
   using (public.is_project_staff());
+
+-- Table privileges (RLS still decides which rows). Missing GRANTs →
+-- PostgREST "permission denied for table official_videos".
+grant usage on schema public to anon, authenticated, service_role;
+grant select on table public.official_videos to anon, authenticated, service_role;
+grant insert, update, delete on table public.official_videos to authenticated, service_role;
+
+notify pgrst, 'reload schema';
 
 -- ---------------------------------------------------------------------------
 -- Demo seed (only if table empty) — replace youtube_id with real TF videos later.

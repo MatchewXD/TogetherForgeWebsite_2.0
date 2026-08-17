@@ -4,9 +4,14 @@
  * Workflow statuses (stored on ideas.status):
  *   Draft | Proposed | UnderReview | Adopted | Archived
  *
- * Heat / listing chips (derived when not terminal/linked):
- *   Open | Promising | Hot | Linked
+ * Public labels: only Under Review and Adopted (when TF engages).
+ * Vote heat (filters only, not default badges): Promising 50–99, Hot 100+.
  */
+
+/** Promising = 50–99 votes */
+export const PROMISING_MIN_VOTES = 50;
+/** Hot = 100+ votes */
+export const HOT_MIN_VOTES = 100;
 
 export const WORKFLOW_STATUSES = [
   'Draft',
@@ -67,8 +72,31 @@ export function getWorkflowStatus(idea) {
 }
 
 /**
- * Derive listing/detail chip status.
- * Priority: Archived > Adopted > Linked > UnderReview > vote heat > Proposed
+ * Vote-heat bucket for filters. Not shown as a default public badge.
+ * @returns {'Hot'|'Promising'|null}
+ */
+export function getIdeaVoteHeat(idea) {
+  const votes = Math.max(0, Number(idea?.votes) || 0);
+  if (votes >= HOT_MIN_VOTES) return 'Hot';
+  if (votes >= PROMISING_MIN_VOTES) return 'Promising';
+  return null;
+}
+
+/**
+ * Public badge: only when Together Forge has engaged.
+ * @returns {'Adopted'|'UnderReview'|null}
+ */
+export function getPublicIdeaLabel(idea) {
+  if (!idea) return null;
+  const workflow = getWorkflowStatus(idea);
+  if (workflow === 'Adopted') return 'Adopted';
+  if (workflow === 'UnderReview') return 'UnderReview';
+  return null;
+}
+
+/**
+ * Derive listing/filter status (not always shown on cards).
+ * Priority: Adopted > UnderReview > vote heat > Proposed
  */
 export function deriveIdeaStatus(idea) {
   const workflow = getWorkflowStatus(idea);
@@ -76,22 +104,16 @@ export function deriveIdeaStatus(idea) {
   if (workflow === 'Draft') return 'Draft';
   if (workflow === 'Archived') return 'Archived';
   if (workflow === 'Adopted') return 'Adopted';
-
-  if (idea?.project_id || idea?.projectId || idea?.project_slug) {
-    return 'Linked';
-  }
-
   if (workflow === 'UnderReview') return 'UnderReview';
 
-  // Explicit raw heat statuses (legacy)
+  const heat = getIdeaVoteHeat(idea);
+  if (heat) return heat;
+
   const raw = idea?.status && String(idea.status).trim();
-  if (raw && ['Open', 'Promising', 'Hot', 'Linked'].includes(raw)) {
+  if (raw && ['Open', 'Promising', 'Hot'].includes(raw)) {
     return raw;
   }
 
-  const votes = idea?.votes || 0;
-  if (votes >= 15) return 'Hot';
-  if (votes >= 5) return 'Promising';
   return 'Proposed';
 }
 
@@ -134,7 +156,8 @@ export function statusChipClasses(status) {
 }
 
 export function statusLabel(status) {
-  return STATUS_LABELS[status] || status || 'Proposed';
+  if (!status) return '';
+  return STATUS_LABELS[status] || status;
 }
 
 export function getIdeaProjectKey(idea) {

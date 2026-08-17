@@ -22,6 +22,13 @@ import {
   isDemoContributorsEnabled,
   injectDemoAllContributors,
 } from '../data/demoAllContributors';
+import {
+  OFFICIAL_MEDIA_SOURCE_PREFIX,
+  officialMediaSourceKey,
+  officialMediaSourcePrefix,
+  parseOfficialMediaSourceKey,
+  groupOfficialMediaCreditsByVideo,
+} from '../utils/officialMediaCredit';
 
 // re-export helpers for pages
 export { isProjectInDevelopment, isProjectCompleted };
@@ -256,6 +263,254 @@ export async function ensureShowcaseMarketingCredit(post) {
     sourceKey: postId ? `showcase:${postId}` : null,
     projectTitle,
   });
+}
+
+const OFFICIAL_MEDIA_ROLE = 'Official Media';
+const OFFICIAL_MEDIA_SUB = 'Video';
+
+/**
+ * Permanent Marketing / Video credit for helping make an official media item.
+ * Idempotent per video + user (source_key official-media:{videoId}:{userId}).
+ */
+export async function ensureOfficialMediaCredit({
+  videoId,
+  videoTitle = null,
+  userId,
+  username = null,
+  displayName = null,
+} = {}) {
+  const vid = String(videoId || '').trim();
+  const uid = String(userId || '').trim();
+  if (!vid || !uid) {
+    throw new Error('Video and user are required to credit a contributor.');
+  }
+
+  const sourceKey = officialMediaSourceKey(vid, uid);
+  const id = await ensureMemorialCredit({
+    projectId: null,
+    userId: uid,
+    displayName: displayName || username || null,
+    username: username || null,
+    category: 'marketing',
+    subcategory: OFFICIAL_MEDIA_SUB,
+    roleLabel: OFFICIAL_MEDIA_ROLE,
+    sourceKey,
+    projectTitle: String(videoTitle || '').trim() || 'Official Media',
+  });
+
+  if (!id) {
+    throw new Error(
+      'Could not save credit. Confirm supabase_contributions_memorial.sql is applied.'
+    );
+  }
+  return id;
+}
+
+/**
+ * Hide public credit for a memorial row (staff correction).
+ * Soft-archive — the row stays; re-adding the same user restores it.
+ */
+export async function hideOfficialMediaCredit(contributionId) {
+  const id = String(contributionId || '').trim();
+  if (!id) throw new Error('Credit id is required.');
+  const { error } = await supabase
+    .from('project_contributions')
+    .update({ archived_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
+  return true;
+}
+
+/**
+ * Keep video-title snapshots in sync when staff rename a media item.
+ */
+export async function syncOfficialMediaCreditTitles(videoId, videoTitle) {
+  const prefix = officialMediaSourcePrefix(videoId);
+  const title = String(videoTitle || '').trim();
+  if (!prefix || !title) return false;
+  try {
+    const { error } = await supabase
+      .from('project_contributions')
+      .update({ project_title_snapshot: title })
+      .like('source_key', `${prefix}%`);
+    if (error) {
+      console.warn('[contributors] syncOfficialMediaCreditTitles', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('[contributors] syncOfficialMediaCreditTitles', err);
+    return false;
+  }
+}
+
+async function queryMemorialBySourcePrefix(prefix) {
+  if (!prefix) return [];
+  try {
+    let { data, error } = await supabase
+      .from('project_contributions')
+      .select(CONTRIB_SELECT)
+      .like('source_key', `${prefix}%`)
+      .is('archived_at', null)
+      .order('created_at', { ascending: true });
+
+    if (
+      error &&
+      /column|schema cache|could not find/i.test(error.message || '')
+    ) {
+      ({ data, error } = await supabase
+        .from('project_contributions')
+        .select(CONTRIB_SELECT_BASIC)
+        .like('source_key', `${prefix}%`)
+        .order('created_at', { ascending: true }));
+    }
+
+    if (error) {
+      if (/does not exist|relation/i.test(error.message || '')) return [];
+      console.warn('[contributors] official media credits', error);
+      return [];
+    }
+    return (data || []).map(mapContribRow).filter(Boolean);
+  } catch (err) {
+    console.warn('[contributors] official media credits', err);
+    return [];
+  }
+}
+
+/** Credited people for one official media item (public + staff). */
+export async function listOfficialMediaCredits(videoId) {
+  const prefix = officialMediaSourcePrefix(videoId);
+  return queryMemorialBySourcePrefix(prefix);
+}
+
+/**
+ * Batch load credits for many official videos.
+ * @returns {Promise<Record<string, ReturnType<typeof mapContribRow>[]>>}
+ */
+export async function listOfficialMediaCreditsByVideoIds(videoIds = []) {
+  const ids = [...new Set((videoIds || []).map((id) => String(id || '').trim()).filter(Boolean))];
+  if (!ids.length) return {};
+
+  try {
+    let { data, error } = await supabase
+      .from('project_contributions')
+      .select(CONTRIB_SELECT)
+      .like('source_key', `${OFFICIAL_MEDIA_SOURCE_PREFIX}%`)
+      .is('archived_at', null)
+      .order('created_at', { ascending: true });
+
+    if (
+      error &&
+      /column|schema cache|could not find/i.test(error.message || '')
+    ) {
+      ({ data, error } = await supabase
+        .from('project_contributions')
+        .select(CONTRIB_SELECT_BASIC)
+        .like('source_key', `${OFFICIAL_MEDIA_SOURCE_PREFIX}%`)
+        .order('created_at', { ascending: true }));
+    }
+
+    if (error) {
+      if (/does not exist|relation/i.test(error.message || '')) return {};
+      console.warn('[contributors] listOfficialMediaCreditsByVideoIds', error);
+      return {};
+    }
+
+    const idSet = new Set(ids);
+    const mapped = (data || [])
+      .map(mapContribRow)
+      .filter((row) => {
+        if (!row) return false;
+        const parsed = parseOfficialMediaSourceKey(row.sourceKey);
+        return parsed && idSet.has(parsed.videoId);
+      });
+
+    const grouped = groupOfficialMediaCreditsByVideo(mapped);
+    for (const id of ids) {
+      if (!grouped[id]) grouped[id] = [];
+    }
+    return grouped;
+  } catch (err) {
+    console.warn('[contributors] listOfficialMediaCreditsByVideoIds', err);
+    return {};
+  }
+}
+
+/** A user's official media credits for their public profile. */
+export async function listUserOfficialMediaCredits(userId) {
+  const uid = String(userId || '').trim();
+  if (!uid) return [];
+  try {
+    let { data, error } = await supabase
+      .from('project_contributions')
+      .select(CONTRIB_SELECT)
+      .eq('user_id', uid)
+      .like('source_key', `${OFFICIAL_MEDIA_SOURCE_PREFIX}%`)
+      .is('archived_at', null)
+      .order('created_at', { ascending: false });
+
+    if (
+      error &&
+      /column|schema cache|could not find/i.test(error.message || '')
+    ) {
+      ({ data, error } = await supabase
+        .from('project_contributions')
+        .select(CONTRIB_SELECT_BASIC)
+        .eq('user_id', uid)
+        .like('source_key', `${OFFICIAL_MEDIA_SOURCE_PREFIX}%`)
+        .order('created_at', { ascending: false }));
+    }
+
+    if (error) {
+      if (/does not exist|relation/i.test(error.message || '')) return [];
+      console.warn('[contributors] listUserOfficialMediaCredits', error);
+      return [];
+    }
+    return (data || []).map(mapContribRow).filter(Boolean);
+  } catch (err) {
+    console.warn('[contributors] listUserOfficialMediaCredits', err);
+    return [];
+  }
+}
+
+/**
+ * Staff username search for attaching an existing account as a media contributor.
+ */
+export async function searchProfilesForCredit(query, { excludeIds = [], limit = 8 } = {}) {
+  const q = String(query || '')
+    .trim()
+    .replace(/[%_]/g, '');
+  if (q.length < 2) return [];
+  const blocked = new Set((excludeIds || []).map((id) => String(id)));
+
+  try {
+    let req = supabase
+      .from('profiles')
+      .select('id, username, avatar_url, pinned_badge_key')
+      .ilike('username', `%${q}%`)
+      .not('username', 'is', null)
+      .order('username', { ascending: true })
+      .limit(Math.max(limit + blocked.size, limit));
+
+    const { data, error } = await req;
+    if (error) {
+      console.warn('[contributors] searchProfilesForCredit', error);
+      return [];
+    }
+
+    return (data || [])
+      .filter((p) => p?.id && p?.username && !blocked.has(String(p.id)))
+      .slice(0, limit)
+      .map((p) => ({
+        id: p.id,
+        username: p.username,
+        avatarUrl: p.avatar_url || null,
+        pinnedBadgeKey: p.pinned_badge_key || null,
+      }));
+  } catch (err) {
+    console.warn('[contributors] searchProfilesForCredit', err);
+    return [];
+  }
 }
 
 /**
@@ -1118,6 +1373,13 @@ export const contributorsService = {
   listAllContributorsGrouped,
   ensureMemorialCredit,
   ensureShowcaseMarketingCredit,
+  ensureOfficialMediaCredit,
+  hideOfficialMediaCredit,
+  syncOfficialMediaCreditTitles,
+  listOfficialMediaCredits,
+  listOfficialMediaCreditsByVideoIds,
+  listUserOfficialMediaCredits,
+  searchProfilesForCredit,
   resolveProjectByTag,
   formatUsdFromCents,
 };

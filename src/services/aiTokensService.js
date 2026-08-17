@@ -93,7 +93,8 @@ export async function fetchAiTokenStatus() {
           disabledMessage: platformEnabled
             ? null
             : data.disabledMessage || AI_SERVICES_DISABLED_MESSAGE,
-          packs: Array.isArray(data.packs) ? data.packs : AI_TOKEN_PACKS,
+          // Always the published 50k/$1 packs — never a stale Edge list (250/700/1600)
+          packs: AI_TOKEN_PACKS,
           tokensPerUsd: data.tokensPerUsd || 50_000,
           caps: data.caps || null,
           signedIn: Boolean(data.signedIn),

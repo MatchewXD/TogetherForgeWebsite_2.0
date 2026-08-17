@@ -163,7 +163,7 @@ const ProjectContributors = () => {
             {title}
           </h1>
           <p className="text-text-secondary max-w-2xl leading-relaxed">
-            Everyone who helped this project — a permanent credit record. When
+            Everyone who helped this project: a permanent credit record. When
             the project completes, these names stay here and on All
             Contributors.
           </p>

@@ -18,6 +18,7 @@ import {
   isProjectInDevelopment,
 } from '../services/projectsService';
 import { MID_PHASE_DEFAULTS } from '../utils/phasePageContent';
+import { SHOW_RELEASED_GAMES } from '../constants/featureFlags';
 
 function projectHref(p) {
   return `/projects/${p.slug || p.id}`;
@@ -300,26 +301,35 @@ const ProjectsMid = () => {
               {completedProjects.length === 0 ? (
                 <Card className="bg-cyber-card/60 border-cyber-border border-dashed p-5 sm:p-6 space-y-3">
                   <p className="text-sm text-text-muted leading-relaxed">
-                    {c.completedEmptyMessage ||
-                      'Finished Mid work will be listed here with release links and full credits. The Released Games pages will expand this further.'}
+                    {SHOW_RELEASED_GAMES
+                      ? c.completedEmptyMessage ||
+                        'Finished Mid work will be listed here with release links and full credits. The Released Games pages will expand this further.'
+                      : 'Finished Mid work will be listed here with release links and full credits once projects ship.'}
                   </p>
-                  <Link
-                    to="/released"
-                    className="inline-flex text-xs font-mono tracking-widest text-neon-cyan hover:text-white"
-                  >
-                    View Released Games →
-                  </Link>
+                  {SHOW_RELEASED_GAMES ? (
+                    <Link
+                      to="/released"
+                      className="inline-flex text-xs font-mono tracking-widest text-neon-cyan hover:text-white"
+                    >
+                      View Released Games →
+                    </Link>
+                  ) : null}
                 </Card>
               ) : (
                 <Card className="bg-cyber-card/60 border-cyber-border p-5 sm:p-6 space-y-4">
                   <p className="text-sm text-text-muted leading-relaxed">
-                    Finished Mid work listed here. Full catalog on{' '}
-                    <Link
-                      to="/released"
-                      className="text-neon-cyan hover:text-white"
-                    >
-                      Released Games
-                    </Link>
+                    Finished Mid work listed here
+                    {SHOW_RELEASED_GAMES ? (
+                      <>
+                        . Full catalog on{' '}
+                        <Link
+                          to="/released"
+                          className="text-neon-cyan hover:text-white"
+                        >
+                          Released Games
+                        </Link>
+                      </>
+                    ) : null}
                     .
                   </p>
                   <ul className="space-y-4">

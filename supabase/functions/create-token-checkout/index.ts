@@ -15,7 +15,11 @@
 import Stripe from 'https://esm.sh/stripe@14?target=deno';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno';
 import { enforceRateLimit, RATE_LIMITS } from '../_shared/rateLimit.ts';
-import { getTokenPack } from '../_shared/aiTokenPacks.ts';
+import {
+  getTokenPack,
+  stripePackProductDescription,
+  stripePackProductName,
+} from '../_shared/aiTokenPacks.ts';
 
 const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
 const supabaseUrl =
@@ -229,11 +233,12 @@ Deno.serve(async (req) => {
             currency: 'usd',
             unit_amount: pack.priceCents,
             product_data: {
-              name: `Together Forge AI Tokens — ${pack.label}`,
-              description: `${pack.tokens.toLocaleString()} AI tokens for Idea tools and related features.`,
+              name: stripePackProductName(pack),
+              description: stripePackProductDescription(pack),
               metadata: {
                 checkoutKind: 'ai_tokens',
                 packId: pack.id,
+                tokens: String(pack.tokens),
               },
             },
           },

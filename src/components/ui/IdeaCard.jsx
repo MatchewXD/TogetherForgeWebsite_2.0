@@ -4,16 +4,14 @@ import Badge from './Badge';
 import UserAvatar from './UserAvatar';
 import UserNameWithBadge from '../badges/UserNameWithBadge';
 import {
-  deriveIdeaStatus,
-  getIdeaProjectKey,
-  isStudioStageKey,
-  resolveLinkDisplayName,
+  getPublicIdeaLabel,
   parseTags,
   statusChipClasses,
   statusLabel,
 } from '../../utils/ideaStatus';
 import { getIdeaImageUrl } from '../../services/ideasService';
 import { ideaHasParent } from '../../utils/ideaRelations';
+import CommunityAwardStrip from '../awards/CommunityAwardStrip';
 
 /**
  * Shared idea listing card for GameIdeas + Project Workspace.
@@ -26,32 +24,26 @@ import { ideaHasParent } from '../../utils/ideaRelations';
 const IdeaCard = ({
   idea,
   voted = false,
-  isOwn = false,
+  isOwn: _isOwn = false,
   voting = false,
   onVote,
   onOpen,
-  /** Resolved project/game display name when linked */
-  projectName = null,
-  /** Slug/id used when clicking the link target chip */
-  projectSlug = null,
-  /** Called when the project/game chip is clicked (stopPropagation applied) */
-  onProjectClick,
+  /** Kept for callers that still pass project chip props */
+  projectName: _projectName = null,
+  projectSlug: _projectSlug = null,
+  onProjectClick: _onProjectClick,
   commentCount,
   showTags = true,
   className = '',
+  awards = [],
 }) => {
-  const status = deriveIdeaStatus(idea);
-  const isLinked = status === 'Linked';
+  const publicLabel = getPublicIdeaLabel(idea);
   const creatorUsername = idea.creator?.username || null;
   const creatorName =
     creatorUsername || idea.submitter || 'Community';
   const avatarSrc =
     idea.creator?.avatar_url || idea.creator?.avatarUrl || null;
   const tags = showTags ? parseTags(idea.tags).slice(0, 4) : [];
-  const projectKey = getIdeaProjectKey(idea);
-  const linkedLabel =
-    resolveLinkDisplayName(projectKey, projectName) || projectName || null;
-  const linkIsStage = isStudioStageKey(projectKey);
   const comments =
     typeof commentCount === 'number'
       ? commentCount
@@ -65,55 +57,21 @@ const IdeaCard = ({
 
   const open = () => onOpen?.(idea.id);
 
-  const handleProjectChip = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (onProjectClick) {
-      onProjectClick({
-        slug: projectSlug || projectKey,
-        name: linkedLabel,
-        key: projectKey,
-        isStage: linkIsStage,
-      });
-    }
-  };
-
-  const statusChip = isLinked ? (
-    <button
-      type="button"
-      onClick={handleProjectChip}
-      title={
-        onProjectClick
-          ? `View ideas for ${linkedLabel || 'link'}`
-          : linkedLabel || 'Linked'
-      }
-      className={`inline-flex items-center max-w-full gap-1 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-mono tracking-wide border transition-colors ${statusChipClasses(
-        'Linked'
-      )}`}
-    >
-      <span className="opacity-80 shrink-0">Linked</span>
-      {linkedLabel && (
-        <>
-          <span className="opacity-80 shrink-0">·</span>
-          <span className="truncate font-medium">{linkedLabel}</span>
-        </>
-      )}
-    </button>
-  ) : (
+  const statusChip = publicLabel ? (
     <span
       className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-mono tracking-wide border ${statusChipClasses(
-        status
+        publicLabel
       )}`}
     >
-      {statusLabel(status)}
+      {statusLabel(publicLabel)}
     </span>
-  );
+  ) : null;
 
   return (
     <Card
       interactive
       variant="subtle"
-      className={`transition-colors group p-4 sm:p-5 ${className}`}
+      className={`transition-colors group p-4 sm:p-5 h-full flex flex-col ${className}`}
       onClick={open}
       role="link"
       tabIndex={0}
@@ -124,23 +82,27 @@ const IdeaCard = ({
         }
       }}
     >
-      {/* Header: category + status on one row (no absolute / reserved column) */}
-      <div className="flex flex-wrap items-center gap-2 mb-2.5">
+      {/* Header: category left, awards immediately left of Adopted / Under Review */}
+      <div className="flex items-center gap-2 mb-2.5 min-w-0">
         {category && (
-          <Badge variant="default" className="!normal-case tracking-wide">
+          <Badge variant="default" className="!normal-case tracking-wide shrink-0">
             {category}
           </Badge>
         )}
+        <div className="flex-1 min-w-0" />
         <div
-          className="ml-auto max-w-[min(100%,14rem)] shrink-0"
+          className="flex items-center gap-2 min-w-0 shrink-0"
           onClick={(e) => e.stopPropagation()}
         >
+          {awards?.length > 0 && (
+            <CommunityAwardStrip awards={awards} compact />
+          )}
           {statusChip}
         </div>
       </div>
 
-      {/* Body: text left, optional image right */}
-      <div className="flex gap-3 sm:gap-4 items-start min-w-0">
+      {/* Body: text left, optional image right — grows so footer stays at bottom */}
+      <div className="flex gap-3 sm:gap-4 items-start min-w-0 flex-1">
         <div className="min-w-0 flex-1">
           <h2 className="text-lg sm:text-xl font-bold text-white mb-1.5 group-hover:text-neon-cyan transition-colors leading-snug">
             {idea.title}
@@ -198,8 +160,9 @@ const IdeaCard = ({
         )}
       </div>
 
-      {/* Footer: vote + meta in one compact row (no left empty column) */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-mono text-text-muted pt-1">
+      <div className="mt-auto pt-3">
+      {/* Footer: always pinned to the bottom of the card */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-mono text-text-muted">
         <div
           className="shrink-0"
           onClick={(e) => e.stopPropagation()}
@@ -285,6 +248,7 @@ const IdeaCard = ({
           <MessageCircle className="w-3.5 h-3.5" />
           <span className="tabular-nums">{comments}</span>
         </span>
+      </div>
       </div>
     </Card>
   );

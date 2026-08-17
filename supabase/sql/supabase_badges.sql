@@ -2,6 +2,8 @@
 -- Badge / achievement system
 -- Prerequisites: profiles, donations, stripe_subscriptions (optional), task_claims
 -- Safe to re-run.
+-- Starter / Impact / Giving / Collaboration families:
+--   supabase_badges_recognition.sql (run after this file).
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------

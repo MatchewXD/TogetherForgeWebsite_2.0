@@ -435,7 +435,20 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Badge refresh (optional RPC)
+    // Marks + badges (SQL trigger also grants; unique donation_id makes this safe)
+    if (donationId) {
+      try {
+        const { error: marksErr } = await sb.rpc(
+          'grant_forge_marks_from_donation',
+          { p_donation_id: donationId }
+        );
+        if (marksErr) {
+          console.warn('[sync-checkout] forge marks', marksErr.message);
+        }
+      } catch (e) {
+        console.warn('[sync-checkout] forge marks', e?.message || e);
+      }
+    }
     try {
       await sb.rpc('sync_user_badges', { p_user_id: user.id });
     } catch {

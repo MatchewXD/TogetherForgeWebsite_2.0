@@ -9,6 +9,7 @@ import {
 import { supabase } from '../lib/supabase';
 import AvatarMenu from './account/AvatarMenu';
 import { onProfileUpdated } from '../utils/profileEvents';
+import { SHOW_RELEASED_GAMES } from '../constants/featureFlags';
 
 const TF_LOGO_SRC = '/images/TF_Logo_Ideas_V2.png';
 
@@ -26,7 +27,9 @@ const EXPLORE_LINKS = [
   { to: '/how-it-works', label: 'How It Works' },
   { to: '/education', label: 'Education' },
   { to: '/demos', label: 'Mechanic Lab' },
-  { to: '/released', label: 'Released Games' },
+  ...(SHOW_RELEASED_GAMES
+    ? [{ to: '/released', label: 'Released Games' }]
+    : []),
   { to: '/contributors', label: 'Contributors' },
   { to: '/badges', label: 'Badges' },
   { to: '/showcase', label: 'Showcase' },

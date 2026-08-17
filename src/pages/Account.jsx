@@ -24,6 +24,7 @@ import {
   ExternalLink,
   Pencil,
   Sparkles,
+  Hexagon,
 } from 'lucide-react';
 
 import { supabase } from '../lib/supabase';
@@ -69,6 +70,7 @@ import {
 import AccountPlanSection from '../components/account/AccountPlanSection';
 import AccountBillingSection from '../components/account/AccountBillingSection';
 import AccountAiTokensSection from '../components/account/AccountAiTokensSection';
+import AccountForgeMarksSection from '../components/account/AccountForgeMarksSection';
 import AccountMfaSection from '../components/account/AccountMfaSection';
 
 const SSO_FLASH_KEY = 'tf_sso_flash';
@@ -110,10 +112,57 @@ const SECTION_ICONS = {
   plan: CreditCard,
   billing: CreditCard,
   'ai-tokens': Sparkles,
+  'forge-marks': Hexagon,
   preferences: Bell,
   privacy: Eye,
   danger: AlertTriangle,
 };
+
+function LegalAgreeCheckbox({ checked, onChange, className = '' }) {
+  return (
+    <label
+      className={`flex items-start gap-3 cursor-pointer text-sm text-text-secondary leading-relaxed ${className}`}
+    >
+      <input
+        type="checkbox"
+        className="mt-1 accent-neon-cyan shrink-0"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        required
+      />
+      <span>
+        I agree to the{' '}
+        <Link
+          to="/terms"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-neon-cyan hover:underline"
+        >
+          Terms of Service
+        </Link>{' '}
+        and{' '}
+        <Link
+          to="/guidelines"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-neon-cyan hover:underline"
+        >
+          Community Guidelines
+        </Link>
+        . See also our{' '}
+        <Link
+          to="/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-neon-cyan hover:underline"
+        >
+          Privacy Policy
+        </Link>
+        .
+      </span>
+    </label>
+  );
+}
 
 function AccountLogin({ onAuthed, initialMode = 'login' }) {
   const [mode, setMode] = useState(initialMode); // login | register | forgot
@@ -144,6 +193,7 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
       }
       if (params.get('signup') === '1' || params.get('register') === '1') {
         setMode('register');
+        setShowEmailForm(true);
       }
 
       // OAuth / SSO failures land here without a session (e.g. cancelled,
@@ -357,47 +407,6 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
 
           {mode !== 'forgot' && (
             <>
-              {mode === 'register' && (
-                <label className="flex items-start gap-3 cursor-pointer text-sm text-text-secondary leading-relaxed mb-5">
-                  <input
-                    type="checkbox"
-                    className="mt-1 accent-neon-cyan shrink-0"
-                    checked={legalAgreed}
-                    onChange={(e) => setLegalAgreed(e.target.checked)}
-                    required
-                  />
-                  <span>
-                    I agree to the{' '}
-                    <Link
-                      to="/terms"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-neon-cyan hover:underline"
-                    >
-                      Terms of Service
-                    </Link>{' '}
-                    and{' '}
-                    <Link
-                      to="/guidelines"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-neon-cyan hover:underline"
-                    >
-                      Community Guidelines
-                    </Link>
-                    . See also our{' '}
-                    <Link
-                      to="/privacy"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-neon-cyan hover:underline"
-                    >
-                      Privacy Policy
-                    </Link>
-                    .
-                  </span>
-                </label>
-              )}
               <OAuthSignInButtons
                 mode={mode === 'register' ? 'register' : 'login'}
                 disabled={loading}
@@ -564,6 +573,12 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
                   )}
                 </div>
               )}
+              {mode === 'register' && (
+                <LegalAgreeCheckbox
+                  checked={legalAgreed}
+                  onChange={setLegalAgreed}
+                />
+              )}
               <button
                 type="submit"
                 disabled={
@@ -607,11 +622,13 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
                 type="button"
                 className="text-xs text-neon-cyan hover:underline"
                 onClick={() => {
-                  setMode(mode === 'login' ? 'register' : 'login');
+                  const next = mode === 'login' ? 'register' : 'login';
+                  setMode(next);
                   setMessage('');
                   setMessageOk(false);
                   setUsernameError('');
                   setLegalAgreed(false);
+                  if (next === 'register') setShowEmailForm(true);
                 }}
               >
                 {mode === 'login'
@@ -1286,6 +1303,9 @@ const Account = () => {
     }
     if (section === 'ai-tokens') {
       return <AccountAiTokensSection />;
+    }
+    if (section === 'forge-marks') {
+      return <AccountForgeMarksSection />;
     }
     if (section === 'preferences') {
       return (

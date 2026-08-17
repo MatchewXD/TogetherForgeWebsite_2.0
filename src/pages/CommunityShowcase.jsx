@@ -48,6 +48,10 @@ import {
   resolveOfficialProjectLabel,
 } from '../services/showcaseService';
 import { loadRelatedProjectOptions } from '../utils/relatedToOptions';
+import CommunityAwardStrip from '../components/awards/CommunityAwardStrip';
+import PlaceCommunityAward from '../components/awards/PlaceCommunityAward';
+import AwardNotesSection from '../components/awards/AwardNotesSection';
+import { listForgeAwardsForTargets } from '../services/forgeMarksService';
 
 const TYPE_ICONS = {
   video: Film,
@@ -104,6 +108,8 @@ function ShowcaseCard({
   userId = null,
   onProjectFilter,
   officialProjects = [],
+  awards = [],
+  onAwarded,
 }) {
   const thumb = showcaseThumb(item);
   const href = showcaseHref(item);
@@ -130,6 +136,8 @@ function ShowcaseCard({
   const [linkPreview, setLinkPreview] = useState(null);
   const likes = Math.max(0, Number(item.likes) || 0);
   const canPersistLike = isShowcasePostUuid(item.id) && !item._isDemo;
+  const receiverId = item.creatorUserId || item.creator?.id || null;
+  const canAward = canPersistLike && Boolean(receiverId);
 
   const host =
     (isLinkCard &&
@@ -211,7 +219,10 @@ function ShowcaseCard({
   );
 
   return (
-    <Card className="p-0 overflow-hidden h-full flex flex-col group">
+    <Card
+      id={canAward ? `showcase-${item.id}` : undefined}
+      className="p-0 overflow-hidden h-full flex flex-col group"
+    >
       {href ? (
         <a
           href={href}
@@ -306,6 +317,8 @@ function ShowcaseCard({
         ) : (
           <div className="flex-1" />
         )}
+        <CommunityAwardStrip awards={awards} compact className="mt-3" />
+        <AwardNotesSection awards={awards} embedded />
       </div>
 
       {/* Footer: open/watch left, fire like right (matches idea cards) */}
@@ -332,6 +345,18 @@ function ShowcaseCard({
           <span />
         )}
 
+        <div className="flex items-center gap-2 shrink-0 flex-nowrap">
+        {canAward && (
+          <PlaceCommunityAward
+            targetType="showcase"
+            targetId={String(item.id)}
+            targetTitle={item.title || 'this post'}
+            receiverId={receiverId}
+            viewerId={userId}
+            awards={awards}
+            onPlaced={onAwarded}
+          />
+        )}
         <button
           type="button"
           onClick={() => onLike?.(item)}
@@ -379,6 +404,7 @@ function ShowcaseCard({
             {likes}
           </span>
         </button>
+        </div>
       </div>
     </Card>
   );
@@ -397,6 +423,7 @@ const CommunityShowcase = () => {
   const [likedIds, setLikedIds] = useState(() => new Set());
   const [busyLikeId, setBusyLikeId] = useState(null);
   const [likeMessage, setLikeMessage] = useState('');
+  const [awardsByPost, setAwardsByPost] = useState({});
   const likeBusyRef = useRef(false);
 
   const load = useCallback(async () => {
@@ -419,6 +446,35 @@ const CommunityShowcase = () => {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    let mounted = true;
+    const ids = posts
+      .filter((p) => isShowcasePostUuid(p.id) && !p._isDemo)
+      .map((p) => String(p.id));
+    if (!ids.length) {
+      setAwardsByPost({});
+      return undefined;
+    }
+    listForgeAwardsForTargets('showcase', ids).then((grouped) => {
+      if (mounted) setAwardsByPost(grouped || {});
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [posts]);
+
+  useEffect(() => {
+    const hash = String(window.location.hash || '').replace(/^#/, '');
+    if (!hash.startsWith('showcase-') || loading) return undefined;
+    const t = window.setTimeout(() => {
+      document.getElementById(hash)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [loading, posts, awardsByPost]);
 
   // Auth + which posts this user already liked
   useEffect(() => {
@@ -851,6 +907,15 @@ const CommunityShowcase = () => {
                       userId={userId}
                       onProjectFilter={selectProject}
                       officialProjects={officialProjects}
+                      awards={awardsByPost[String(item.id)] || []}
+                      onAwarded={(placed) => {
+                        if (!placed) return;
+                        const key = String(item.id);
+                        setAwardsByPost((prev) => ({
+                          ...prev,
+                          [key]: [...(prev[key] || []), placed],
+                        }));
+                      }}
                     />
                   </li>
                 ))}

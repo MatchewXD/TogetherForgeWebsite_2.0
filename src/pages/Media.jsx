@@ -23,10 +23,13 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
 import Modal from '../components/ui/Modal';
+import ProfileLink from '../components/ui/ProfileLink';
+import UserNameWithBadge from '../components/badges/UserNameWithBadge';
 import { useIsModerator } from '../hooks/useIsModerator';
 import {
   listPublishedOfficialVideos,
 } from '../services/officialMediaService';
+import { listOfficialMediaCreditsByVideoIds } from '../services/contributorsService';
 import {
   youtubeWatchUrl,
   youtubeEmbedUrl,
@@ -68,6 +71,30 @@ function thumbnailAlt(video) {
   return `Thumbnail: ${title}`;
 }
 
+function creditName(person) {
+  return person?.displayName || person?.username || 'Contributor';
+}
+
+function OfficialMediaCreditNames({ people, className = '' }) {
+  if (!people?.length) return null;
+  return (
+    <p className={className}>
+      <span className="text-text-muted">With </span>
+      {people.map((person, i) => (
+        <span key={person.id || person.userId || `${creditName(person)}-${i}`}>
+          {i > 0 ? ', ' : ''}
+          <ProfileLink
+            username={person.username}
+            className="text-text-secondary hover:text-neon-cyan"
+          >
+            {creditName(person)}
+          </ProfileLink>
+        </span>
+      ))}
+    </p>
+  );
+}
+
 function VideoCardSkeleton() {
   return (
     <li aria-hidden="true">
@@ -91,6 +118,7 @@ const focusRing =
 const Media = () => {
   const { isModerator } = useIsModerator();
   const [videos, setVideos] = useState([]);
+  const [creditsByVideo, setCreditsByVideo] = useState({});
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState(null);
   /** null = all published videos */
@@ -104,10 +132,18 @@ const Media = () => {
       setLoading(true);
       try {
         const rows = await listPublishedOfficialVideos();
-        if (mounted) setVideos(Array.isArray(rows) ? rows : []);
+        const list = Array.isArray(rows) ? rows : [];
+        if (mounted) setVideos(list);
+        const credits = await listOfficialMediaCreditsByVideoIds(
+          list.map((v) => v.id)
+        );
+        if (mounted) setCreditsByVideo(credits || {});
       } catch (err) {
         console.warn('[Media] load videos', err);
-        if (mounted) setVideos([]);
+        if (mounted) {
+          setVideos([]);
+          setCreditsByVideo({});
+        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -476,6 +512,10 @@ const Media = () => {
                           ) : (
                             <div className="flex-1" />
                           )}
+                          <OfficialMediaCreditNames
+                            people={creditsByVideo[video.id] || []}
+                            className="mt-3 text-xs leading-relaxed"
+                          />
                           <div className="mt-4 flex flex-wrap gap-2">
                             <Button
                               type="button"
@@ -568,6 +608,28 @@ const Media = () => {
               <p className="text-sm text-text-secondary leading-relaxed">
                 {active.description}
               </p>
+            )}
+            {(creditsByVideo[active?.id] || []).length > 0 && (
+              <div>
+                <p className="text-[10px] font-mono tracking-widest text-text-muted uppercase mb-1.5">
+                  Contributors
+                </p>
+                <ul className="flex flex-wrap gap-x-3 gap-y-1 list-none p-0 m-0">
+                  {(creditsByVideo[active.id] || []).map((person) => (
+                    <li
+                      key={person.id || person.userId}
+                      className="text-sm text-text-secondary"
+                    >
+                      <UserNameWithBadge
+                        username={person.username}
+                        displayName={creditName(person)}
+                        pinnedBadgeKey={person.pinnedBadgeKey}
+                        linkClassName="text-text-secondary hover:text-neon-cyan"
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
             <a
               href={youtubeWatchUrl(active?.youtubeId)}

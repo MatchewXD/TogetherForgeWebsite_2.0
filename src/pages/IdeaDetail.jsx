@@ -33,8 +33,7 @@ import {
 import { getParentIdeaId } from '../utils/ideaRelations';
 import { tasksService } from '../services/tasksService';
 import {
-  deriveIdeaStatus,
-  getWorkflowStatus,
+  getPublicIdeaLabel,
   extractIdeaFeatures,
   extractIdeaNotes,
   extractIdeaTextSections,
@@ -42,7 +41,6 @@ import {
   parseTags,
   statusChipClasses,
   statusLabel,
-  getProjectDisplayName,
   isStudioStageKey,
   resolveLinkDisplayName,
 } from '../utils/ideaStatus';
@@ -51,6 +49,10 @@ import {
   buildGuidedDisplayItems,
   GUIDED_GRID_CLASS,
 } from '../utils/guidedLayout';
+import CommunityAwardStrip from '../components/awards/CommunityAwardStrip';
+import PlaceCommunityAward from '../components/awards/PlaceCommunityAward';
+import AwardNotesSection from '../components/awards/AwardNotesSection';
+import { listForgeAwardsForTargets } from '../services/forgeMarksService';
 
 const IdeaDetail = () => {
   const { id } = useParams();
@@ -71,6 +73,7 @@ const IdeaDetail = () => {
   const [linkedProject, setLinkedProject] = useState(null);
   const [parentIdea, setParentIdea] = useState(null);
   const [childIdeas, setChildIdeas] = useState([]);
+  const [awards, setAwards] = useState([]);
   const voteBusyRef = useRef(false);
 
   const ideaId = Number.parseInt(String(id), 10);
@@ -232,6 +235,20 @@ const IdeaDetail = () => {
     };
   }, [ideaId]);
 
+  useEffect(() => {
+    if (!Number.isFinite(ideaId)) {
+      setAwards([]);
+      return undefined;
+    }
+    let mounted = true;
+    listForgeAwardsForTargets('idea', [String(ideaId)]).then((grouped) => {
+      if (mounted) setAwards(grouped[String(ideaId)] || []);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [ideaId]);
+
   // Resolve project_id → workspace
   useEffect(() => {
     let cancelled = false;
@@ -323,6 +340,11 @@ const IdeaDetail = () => {
     };
   }, [ideaId, idea?.id, idea?.parent_idea_id, idea?.parentIdeaId]);
 
+  const publicLabel = useMemo(
+    () => getPublicIdeaLabel(idea),
+    [idea]
+  );
+
   const projectPath = useMemo(() => {
     if (!linkedProject?.slug) return null;
     // Stages open the public hub (not a project workspace)
@@ -339,15 +361,6 @@ const IdeaDetail = () => {
   const tags = useMemo(() => parseTags(idea?.tags), [idea?.tags]);
   const supportingImageUrl = useMemo(
     () => getIdeaImageUrl(idea),
-    [idea]
-  );
-
-  const chipStatus = useMemo(
-    () => (idea ? deriveIdeaStatus(idea) : 'Proposed'),
-    [idea]
-  );
-  const workflowStatus = useMemo(
-    () => (idea ? getWorkflowStatus(idea) : 'Proposed'),
     [idea]
   );
 
@@ -552,36 +565,13 @@ const IdeaDetail = () => {
                 {idea.category}
               </Badge>
             )}
-            <span
-              className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono tracking-wide border ${statusChipClasses(
-                workflowStatus
-              )}`}
-            >
-              {statusLabel(workflowStatus)}
-            </span>
-            {(chipStatus === 'Hot' || chipStatus === 'Promising') && (
+            {publicLabel && (
               <span
                 className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono tracking-wide border ${statusChipClasses(
-                  chipStatus
+                  publicLabel
                 )}`}
               >
-                {statusLabel(chipStatus)}
-              </span>
-            )}
-            {/* One badge: Linked · Early Game / Linked · Tether */}
-            {(chipStatus === 'Linked' || linkedProject) && (
-              <span
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono tracking-wide border ${statusChipClasses(
-                  'Linked'
-                )}`}
-              >
-                <span className="opacity-90">Linked</span>
-                {linkedProject?.title && (
-                  <>
-                    <span className="opacity-70">·</span>
-                    <span className="font-medium">{linkedProject.title}</span>
-                  </>
-                )}
+                {statusLabel(publicLabel)}
               </span>
             )}
           </div>
@@ -596,8 +586,22 @@ const IdeaDetail = () => {
               </p>
             </div>
 
-            {/* Vote + owner actions */}
-            <div className="flex sm:flex-col items-center gap-2 shrink-0">
+            {/* Award + vote + owner actions */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {idea.user_id && !isDraftIdea(idea) && (
+                <PlaceCommunityAward
+                  targetType="idea"
+                  targetId={String(idea.id || ideaId)}
+                  targetTitle={idea.title || 'this idea'}
+                  receiverId={idea.user_id}
+                  viewerId={user?.id || null}
+                  awards={awards}
+                  onPlaced={(placed) => {
+                    if (!placed) return;
+                    setAwards((prev) => [...prev, placed]);
+                  }}
+                />
+              )}
               <Button
                 variant="secondary"
                 size="sm"
@@ -631,6 +635,10 @@ const IdeaDetail = () => {
                 </Link>
               )}
             </div>
+          </div>
+
+          <div className="mt-5">
+            <CommunityAwardStrip awards={awards} compact />
           </div>
 
           <div className="mt-5 flex flex-wrap items-center gap-4 text-sm text-neon-cyan min-w-0">
@@ -909,6 +917,8 @@ const IdeaDetail = () => {
             )}
           </section>
         )}
+
+        <AwardNotesSection awards={awards} />
 
         {/* Discussion */}
         <section className="border-t border-white/10 pt-10">

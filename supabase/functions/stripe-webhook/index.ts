@@ -142,6 +142,21 @@ async function syncUserBadges(userId: string | null | undefined) {
   }
 }
 
+/** Idempotent: SQL trigger also grants; unique donation_id makes this safe. */
+async function grantForgeMarksForDonation(donationId: unknown) {
+  if (donationId == null || donationId === '') return;
+  try {
+    const { error } = await admin().rpc('grant_forge_marks_from_donation', {
+      p_donation_id: donationId,
+    });
+    if (error) {
+      console.warn('[stripe-webhook] forge marks', error.message);
+    }
+  } catch (e) {
+    console.warn('[stripe-webhook] forge marks', e?.message || e);
+  }
+}
+
 function fundTypeFromMeta(meta: Record<string, string> | null | undefined) {
   return meta?.fundType === 'runway' ? 'runway' : 'studio';
 }
@@ -811,6 +826,11 @@ async function handleCheckoutCompleted(
       console.warn('[stripe-webhook] mirror contribution', e?.message);
     }
     try {
+      await grantForgeMarksForDonation(result.id);
+    } catch (e) {
+      console.warn('[stripe-webhook] forge marks', e?.message);
+    }
+    try {
       await syncUserBadges(userId);
     } catch (e) {
       console.warn('[stripe-webhook] badges after checkout', e?.message);
@@ -972,6 +992,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice, eventId: string) {
   const result = await upsertDonation(row);
   if (result?.inserted || result?.updated) {
     await mirrorDonationContribution(row);
+    await grantForgeMarksForDonation(result.id);
     await syncUserBadges(credit.userId);
   }
   return { ...result, recognition: true, is_anonymous: credit.isAnonymous };

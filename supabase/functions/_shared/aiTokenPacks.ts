@@ -73,6 +73,19 @@ export const AI_IDEA_FIELD_LIMITS: Record<string, number> = {
   tags_combined: 480,
 };
 
+/** Always en-US so Stripe line items match the Account cards (250,000 not 250). */
+export function formatTokenCount(n: number): string {
+  return Math.max(0, Math.round(Number(n) || 0)).toLocaleString('en-US');
+}
+
+export function stripePackProductName(pack: AiTokenPack): string {
+  return `${pack.label}: ${formatTokenCount(pack.tokens)} AI tokens`;
+}
+
+export function stripePackProductDescription(pack: AiTokenPack): string {
+  return `${formatTokenCount(pack.tokens)} AI tokens for Idea tools. One-time purchase. Never expires while the platform is active.`;
+}
+
 export function getTokenPack(packId: string | null | undefined): AiTokenPack | null {
   const id = String(packId || '').toLowerCase().trim();
   return AI_TOKEN_PACKS.find((p) => p.id === id) || null;

@@ -15,6 +15,7 @@ import UserAvatar from '../ui/UserAvatar';
  * @param {string|null} [props.username]
  * @param {string|null} [props.avatarUrl]
  * @param {string|null} [props.displayName] - label next to avatar (defaults to username)
+ * @param {boolean} [props.profileLoading] - signed-in profile still loading
  * @param {string} [props.className]
  * @param {'full'|'compact'} [props.variant='full']
  */
@@ -25,6 +26,7 @@ const DonationCreditChoice = ({
   username = null,
   avatarUrl = null,
   displayName = null,
+  profileLoading = false,
   className = '',
   variant = 'full',
 }) => {
@@ -91,13 +93,36 @@ const DonationCreditChoice = ({
                   <UserAvatar
                     src={avatarUrl}
                     name={nameLabel}
-                    username={username}
+                    username={username || nameLabel}
                     linkProfile={false}
                     size="sm"
                     className="!w-8 !h-8 shrink-0"
                   />
                   <span className="font-semibold text-white text-sm truncate">
                     {nameLabel}
+                  </span>
+                </>
+              ) : isSignedIn && profileLoading ? (
+                <>
+                  <span
+                    className="inline-flex h-8 w-8 shrink-0 rounded-full border border-cyber-border bg-cyber-bg/60 animate-pulse"
+                    aria-hidden
+                  />
+                  <span className="text-sm text-text-muted truncate">
+                    Loading your profile…
+                  </span>
+                </>
+              ) : isSignedIn ? (
+                <>
+                  <UserAvatar
+                    src={avatarUrl}
+                    name="You"
+                    linkProfile={false}
+                    size="sm"
+                    className="!w-8 !h-8 shrink-0"
+                  />
+                  <span className="text-sm text-text-muted italic truncate">
+                    Username needed
                   </span>
                 </>
               ) : (
@@ -167,7 +192,7 @@ const DonationCreditChoice = ({
         </p>
       )}
 
-      {showName && isSignedIn && !canName && (
+      {showName && isSignedIn && !canName && !profileLoading && (
         <p className="mt-3 text-xs sm:text-sm text-forge-gold leading-relaxed flex items-start gap-2">
           <User className="w-3.5 h-3.5 shrink-0 mt-0.5" aria-hidden />
           <span>

@@ -14,6 +14,16 @@ import {
   Rocket,
   Star,
   Ship,
+  Lightbulb,
+  MessageCircle,
+  MessagesSquare,
+  Megaphone,
+  Trophy,
+  Gift,
+  Flame,
+  Handshake,
+  Users,
+  Image,
 } from 'lucide-react';
 import { getBadgeDef, getBadgeImageSrc } from '../../constants/badges';
 
@@ -28,12 +38,26 @@ const ICONS = {
   rocket: Rocket,
   star: Star,
   ship: Ship,
+  lightbulb: Lightbulb,
+  message: MessageCircle,
+  messages: MessagesSquare,
+  megaphone: Megaphone,
+  trophy: Trophy,
+  gift: Gift,
+  flame: Flame,
+  handshake: Handshake,
+  users: Users,
+  image: Image,
 };
 
 const CATEGORY_TONE = {
   status: 'border-neon-cyan/40 text-neon-cyan bg-neon-cyan/10',
   donation: 'border-forge-gold/40 text-forge-gold bg-forge-gold/10',
   tasks: 'border-neon-magenta/40 text-neon-magenta bg-neon-magenta/10',
+  starter: 'border-neon-green/40 text-neon-green bg-neon-green/10',
+  impact: 'border-neon-purple/40 text-neon-purple bg-neon-purple/10',
+  giving: 'border-forge-gold/40 text-forge-gold bg-forge-gold/10',
+  collaboration: 'border-neon-cyan/40 text-neon-cyan bg-neon-cyan/10',
 };
 
 /**
