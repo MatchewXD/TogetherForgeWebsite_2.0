@@ -220,38 +220,61 @@ describe('catalog', () => {
 describe('getBadgeImageSrc', () => {
   it('maps existing status and donor art', () => {
     expect(getBadgeImageSrc('status_donor')).toBe(
-      '/images/Badges/Donator.png'
+      '/images/Badges/Donor/Donator.png'
     );
     expect(getBadgeImageSrc('status_active_subscriber')).toBe(
       '/images/Badges/Active_Subscriber.png'
     );
     expect(getBadgeImageSrc('donation_10')).toBe(
-      '/images/Badges/10_donor.png'
+      '/images/Badges/Donor/10_donor.png'
     );
     expect(getBadgeImageSrc('donation_500')).toBe(
-      '/images/Badges/500_donor.png'
+      '/images/Badges/Donor/500_donor.png'
     );
     expect(getBadgeImageSrc('donation_1000')).toBe(
-      '/images/Badges/1000_donor.png'
+      '/images/Badges/Donor/1000_donor.png'
     );
     expect(getBadgeImageSrc('donation_100000')).toBe(
-      '/images/Badges/100000_donor.png'
+      '/images/Badges/Donor/100000_donor.png'
     );
   });
 
   it('maps task milestone art', () => {
     expect(getBadgeImageSrc('tasks_1')).toBe(
-      '/images/Badges/first_Ship.png'
+      '/images/Badges/Tasks/first_Ship.png'
     );
-    expect(getBadgeImageSrc('tasks_5')).toBe('/images/Badges/5_tasks.png');
+    expect(getBadgeImageSrc('tasks_5')).toBe(
+      '/images/Badges/Tasks/5_tasks.png'
+    );
     expect(getBadgeImageSrc('tasks_250')).toBe(
-      '/images/Badges/250_tasks.png'
+      '/images/Badges/Tasks/250_tasks.png'
     );
   });
 
   it('maps game shipper art', () => {
     expect(getBadgeImageSrc('status_game_shipper')).toBe(
       '/images/Badges/game_shipper.png'
+    );
+  });
+
+  it('maps starter, impact, and engagement folder art', () => {
+    expect(getBadgeImageSrc('starter_first_idea')).toBe(
+      '/images/Badges/Starter/First_Idea.png'
+    );
+    expect(getBadgeImageSrc('impact_discussion_starter')).toBe(
+      '/images/Badges/Impact/Discussion_Starter.png'
+    );
+    expect(getBadgeImageSrc('impact_well_received')).toBe(
+      '/images/Badges/Impact/Well_Recieved.png'
+    );
+    expect(getBadgeImageSrc('giving_first_spark')).toBe(
+      '/images/Badges/Engagement/First_Spark_Given.png'
+    );
+    expect(getBadgeImageSrc('giving_active_voice')).toBe(
+      '/images/Badges/Engagement/Aactive_Voice.png'
+    );
+    expect(getBadgeImageSrc('collab_joined_force')).toBe(
+      '/images/Badges/Engagement/Joined_Force.png'
     );
   });
 });

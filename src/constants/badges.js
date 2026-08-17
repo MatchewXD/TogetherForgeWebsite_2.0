@@ -119,42 +119,69 @@ function formatDollar(n) {
 
 /**
  * Custom art under public/images/Badges/.
- * Explicit map when filenames differ (case / naming).
- * Conventions (auto-resolved if not listed):
- *   donation_N → {N}_donor.png
- *   tasks_N    → {N}_tasks.png  (except First Ship → first_Ship.png)
+ * Folders: Donor, Tasks, Starter, Impact, Engagement.
+ * Status art that is not a donor milestone stays in Badges/.
+ * Filenames keep the on-disk spelling (including existing typos).
  */
 export const BADGE_IMAGE_DIR = '/images/Badges';
 
-/** @type {Record<string, string>} key → filename in BADGE_IMAGE_DIR */
+/** @type {Record<string, string>} key → path under BADGE_IMAGE_DIR */
 export const BADGE_IMAGE_FILES = {
   status_active_subscriber: 'Active_Subscriber.png',
-  status_donor: 'Donator.png',
+  status_donor: 'Donor/Donator.png',
   status_game_shipper: 'game_shipper.png',
 
-  donation_10: '10_donor.png',
-  donation_50: '50_donor.png',
-  donation_100: '100_donor.png',
-  donation_250: '250_donor.png',
-  donation_500: '500_donor.png',
-  donation_1000: '1000_donor.png',
-  donation_2500: '2500_donor.png',
-  donation_5000: '5000_donor.png',
-  donation_10000: '10000_donor.png',
-  donation_25000: '25000_donor.png',
-  donation_50000: '50000_donor.png',
-  donation_100000: '100000_donor.png',
+  donation_10: 'Donor/10_donor.png',
+  donation_50: 'Donor/50_donor.png',
+  donation_100: 'Donor/100_donor.png',
+  donation_250: 'Donor/250_donor.png',
+  donation_500: 'Donor/500_donor.png',
+  donation_1000: 'Donor/1000_donor.png',
+  donation_2500: 'Donor/2500_donor.png',
+  donation_5000: 'Donor/5000_donor.png',
+  donation_10000: 'Donor/10000_donor.png',
+  donation_25000: 'Donor/25000_donor.png',
+  donation_50000: 'Donor/50000_donor.png',
+  donation_100000: 'Donor/100000_donor.png',
 
-  tasks_1: 'first_Ship.png',
-  tasks_5: '5_tasks.png',
-  tasks_10: '10_tasks.png',
-  tasks_25: '25_tasks.png',
-  tasks_50: '50_tasks.png',
-  tasks_75: '75_tasks.png',
-  tasks_100: '100_tasks.png',
-  tasks_150: '150_tasks.png',
-  tasks_200: '200_tasks.png',
-  tasks_250: '250_tasks.png',
+  tasks_1: 'Tasks/first_Ship.png',
+  tasks_5: 'Tasks/5_tasks.png',
+  tasks_10: 'Tasks/10_tasks.png',
+  tasks_25: 'Tasks/25_tasks.png',
+  tasks_50: 'Tasks/50_tasks.png',
+  tasks_75: 'Tasks/75_tasks.png',
+  tasks_100: 'Tasks/100_tasks.png',
+  tasks_150: 'Tasks/150_tasks.png',
+  tasks_200: 'Tasks/200_tasks.png',
+  tasks_250: 'Tasks/250_tasks.png',
+
+  starter_first_idea: 'Starter/First_Idea.png',
+  starter_showcase: 'Starter/Showcase.png',
+  starter_first_feedback: 'Starter/First_Feedback.png',
+  starter_task_claimed: 'Starter/Task_Claimed.png',
+  starter_early_supporter: 'Starter/Early_Supporter.png',
+
+  impact_discussion_starter: 'Impact/Discussion_Starter.png',
+  impact_well_received: 'Impact/Well_Recieved.png',
+  impact_deep_discussion: 'Impact/Deep_Discussion.png',
+  impact_community_favorite: 'Impact/Community_Favorite.png',
+  impact_awarded_idea: 'Impact/Awarded_Idea.png',
+  impact_recognized: 'Impact/Recognized.png',
+  impact_respected: 'Impact/Respected.png',
+  impact_distinguished: 'Impact/Distinguished.png',
+  impact_talk_of_the_forge: 'Impact/Talk_Of_The_Forge.png',
+  impact_viral_idea: 'Impact/Viral_Idea.png',
+
+  giving_first_spark: 'Engagement/First_Spark_Given.png',
+  giving_generous: 'Engagement/Generous.png',
+  giving_patron: 'Engagement/Patron.png',
+  giving_commentator: 'Engagement/Commentator.png',
+  giving_active_voice: 'Engagement/Aactive_Voice.png',
+  giving_supporter: 'Engagement/Supporter.png',
+  giving_enthusiast: 'Engagement/Enthusiast.png',
+
+  collab_joined_force: 'Engagement/Joined_Force.png',
+  collab_shared_victory: 'Engagement/Shared_Victory.png',
 };
 
 /**
@@ -172,14 +199,14 @@ export function getBadgeImageSrc(key) {
 
   const donationMatch = /^donation_(\d+)$/.exec(k);
   if (donationMatch) {
-    return `${BADGE_IMAGE_DIR}/${donationMatch[1]}_donor.png`;
+    return `${BADGE_IMAGE_DIR}/Donor/${donationMatch[1]}_donor.png`;
   }
   const taskMatch = /^tasks_(\d+)$/.exec(k);
   if (taskMatch) {
     if (taskMatch[1] === '1') {
-      return `${BADGE_IMAGE_DIR}/first_Ship.png`;
+      return `${BADGE_IMAGE_DIR}/Tasks/first_Ship.png`;
     }
-    return `${BADGE_IMAGE_DIR}/${taskMatch[1]}_tasks.png`;
+    return `${BADGE_IMAGE_DIR}/Tasks/${taskMatch[1]}_tasks.png`;
   }
   return null;
 }
@@ -198,7 +225,7 @@ export const BADGE_CATALOG = [
     key: 'status_donor',
     category: 'status',
     name: 'Donor',
-    description: 'Make at least one completed donation (one-time or subscription payment).',
+    description: 'Make at least one completed donation.',
     icon: 'heart',
     threshold: null,
   },
@@ -207,7 +234,7 @@ export const BADGE_CATALOG = [
     category: 'status',
     name: 'Game Shipper',
     description:
-      'Be credited on a project when it reaches Released / Completed (task claims, contributions, or used ideas).',
+      'Be credited on a project when it reaches Released.',
     icon: 'ship',
     threshold: null,
   },
@@ -215,7 +242,7 @@ export const BADGE_CATALOG = [
     key: `donation_${dollars}`,
     category: /** @type {BadgeCategory} */ ('donation'),
     name: `$${formatDollar(dollars)} Donor`,
-    description: `Donate a lifetime total of $${formatDollar(dollars)} or more (all completed gifts).`,
+    description: `Donate a lifetime total of $${formatDollar(dollars)} or more.`,
     icon: dollars >= 10000 ? 'crown' : dollars >= 1000 ? 'gem' : 'coin',
     threshold: dollars * 100,
   })),
@@ -234,7 +261,7 @@ export const BADGE_CATALOG = [
     key: 'starter_first_idea',
     category: 'starter',
     name: 'First Idea',
-    description: 'Submit your first public idea (not a draft).',
+    description: 'Submit your first public idea.',
     icon: 'lightbulb',
     threshold: 1,
   },
@@ -250,7 +277,7 @@ export const BADGE_CATALOG = [
     key: 'starter_first_feedback',
     category: 'starter',
     name: 'First Feedback',
-    description: `Leave a meaningful comment (at least ${BADGE_THRESHOLDS.meaningfulCommentChars} characters) on someone else's idea.`,
+    description: "Leave a meaningful comment on someone else's idea.",
     icon: 'message',
     threshold: 1,
   },
@@ -307,7 +334,7 @@ export const BADGE_CATALOG = [
     key: 'impact_awarded_idea',
     category: 'impact',
     name: 'Awarded Idea',
-    description: 'One of your ideas receives at least one community award (Spark or higher).',
+    description: 'One of your ideas receives at least one community award.',
     icon: 'star',
     threshold: 1,
   },
@@ -347,7 +374,7 @@ export const BADGE_CATALOG = [
     key: 'impact_viral_idea',
     category: 'impact',
     name: 'Viral Idea',
-    description: `One idea reaches ${BADGE_THRESHOLDS.viralIdeaVotes}+ votes (the same bar as Hot).`,
+    description: `One idea reaches ${BADGE_THRESHOLDS.viralIdeaVotes}+ votes.`,
     icon: 'rocket',
     threshold: BADGE_THRESHOLDS.viralIdeaVotes,
   },
@@ -379,7 +406,7 @@ export const BADGE_CATALOG = [
     key: 'giving_commentator',
     category: 'giving',
     name: 'Commentator',
-    description: `Leave ${BADGE_THRESHOLDS.commentatorComments}+ meaningful comments (${BADGE_THRESHOLDS.meaningfulCommentChars}+ characters each).`,
+    description: `Leave ${BADGE_THRESHOLDS.commentatorComments}+ meaningful comments.`,
     icon: 'message',
     threshold: BADGE_THRESHOLDS.commentatorComments,
   },
