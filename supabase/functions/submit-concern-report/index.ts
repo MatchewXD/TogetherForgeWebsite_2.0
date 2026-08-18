@@ -1,16 +1,13 @@
 /**
  * Private community / moderation concern reports.
- * Emails REPORTS_EMAIL and always FOUNDER_EMAIL. Not stored in public tables.
+ * Always tries to persist to concern_reports. Emails staff when configured.
  *
  * POST JSON:
  *   whatHappened, whereHappened (discord|website|both),
  *   reference?, contact?, website? (honeypot)
  *
- * Secrets (supabase secrets set / supabase/.env):
- *   REPORTS_EMAIL          — primary staff inbox
- *   FOUNDER_EMAIL          — always receives a copy
- *   RESEND_API_KEY         — Resend API key for sending mail
- *   REPORTS_FROM_EMAIL     — optional verified From (default Resend onboarding)
+ * Secrets (optional for email):
+ *   REPORTS_EMAIL, FOUNDER_EMAIL, RESEND_API_KEY, REPORTS_FROM_EMAIL
  *
  * Deploy: supabase functions deploy submit-concern-report --no-verify-jwt
  */
@@ -223,6 +220,40 @@ async function sendReportEmails(report) {
   return { ok: true };
 }
 
+async function persistReport(report) {
+  const url = Deno.env.get('SUPABASE_URL') || Deno.env.get('SB_URL') || '';
+  const key =
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ||
+    Deno.env.get('SERVICE_ROLE_KEY') ||
+    '';
+  if (!url || !key) {
+    return { saved: false, reason: 'no_service_role' };
+  }
+  try {
+    const { createClient } = await import(
+      'https://esm.sh/@supabase/supabase-js@2?target=deno'
+    );
+    const sb = createClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { error } = await sb.from('concern_reports').insert({
+      what_happened: report.whatHappened,
+      where_happened: report.whereHappened,
+      reference: report.reference,
+      contact: report.contact,
+      status: 'new',
+    });
+    if (error) {
+      console.error('[submit-concern-report] persist', error.message);
+      return { saved: false, reason: error.message };
+    }
+    return { saved: true };
+  } catch (e) {
+    console.error('[submit-concern-report] persist', e?.message || e);
+    return { saved: false, reason: String(e?.message || e) };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: cors });
@@ -248,12 +279,19 @@ Deno.serve(async (req) => {
     }
     if (v.error) return json({ error: v.error }, 400);
 
+    const saved = await persistReport(v.report);
     const sent = await sendReportEmails(v.report);
-    if (!sent.ok) {
-      return json({ error: sent.error || 'Could not send report.' }, 503);
+    if (saved.saved || sent.ok) {
+      return json({ ok: true, emailed: Boolean(sent.ok), stored: Boolean(saved.saved) });
     }
-
-    return json({ ok: true });
+    return json(
+      {
+        error:
+          sent.error ||
+          'Could not send report. Please try again later.',
+      },
+      503
+    );
   } catch (e) {
     console.error('[submit-concern-report]', e?.message || e);
     return json({ error: 'Could not send report. Please try again later.' }, 500);

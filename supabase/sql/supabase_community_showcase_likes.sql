@@ -91,6 +91,12 @@ create policy "Users can remove own showcase likes"
   to authenticated
   using (auth.uid() = user_id);
 
+grant usage on schema public to anon, authenticated, service_role;
+grant select on table public.community_showcase_likes
+  to anon, authenticated, service_role;
+grant insert, delete on table public.community_showcase_likes
+  to authenticated, service_role;
+
 -- Backfill denormalized counts (if likes rows already exist)
 update community_showcase_posts p
 set likes = coalesce((
@@ -98,3 +104,5 @@ set likes = coalesce((
   from community_showcase_likes l
   where l.post_id = p.id
 ), 0);
+
+notify pgrst, 'reload schema';

@@ -21,6 +21,7 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
 import RunwayTransparency from '../components/ui/RunwayTransparency';
+import FundContributorsCard from '../components/support/FundContributorsCard';
 import { supabase } from '../lib/supabase';
 import foundersThoughtsService from '../services/foundersThoughtsService';
 
@@ -242,13 +243,12 @@ const FoundersThoughts = () => {
 
         <div className="container-custom relative z-10 py-10 sm:py-12 md:py-14 min-h-[16rem] sm:min-h-[18rem] md:min-h-[20rem] flex flex-col justify-center">
           <div className="max-w-3xl [text-shadow:0_1px_2px_rgb(0_0_0_/_0.9),0_2px_16px_rgb(0_0_0_/_0.55)]">
-            <div className="flex flex-wrap items-center gap-3 mb-4">
-              <div className="section-header mb-0">Founders Thoughts</div>
+            <div className="flex flex-wrap items-end gap-3 mb-4">
+              <h1 className="section-header dashboard-page-title !mb-0 !text-3xl sm:!text-4xl !font-bold !tracking-tight !normal-case">
+                Founders Thoughts
+              </h1>
               <Badge variant="purple">Personal</Badge>
             </div>
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-4">
-              Founders Thoughts
-            </h1>
             <p className="text-lg sm:text-xl text-white/85 leading-relaxed">
               Why Together Forge exists, how founder pay works, why transparency
               matters, and the long-term vision. Like a note if it resonates.
@@ -296,11 +296,15 @@ const FoundersThoughts = () => {
         {!fromDb && !loading && (
           <Card className="bg-cyber-surface/60 border-dashed border-amber-500/30">
             <p className="text-sm text-text-secondary leading-relaxed">
-              Showing local copies of these notes. Run{' '}
+              {/permission denied/i.test(loadError || '')
+                ? 'These notes loaded from a local copy because the database denied read access. Re-run '
+                : 'Showing local copies of these notes. Run '}
               <code className="text-neon-cyan font-mono text-xs">
                 supabase/sql/supabase_founders_thoughts.sql
               </code>{' '}
-              in Supabase so likes persist for everyone.
+              {/permission denied/i.test(loadError || '')
+                ? 'in Supabase to grant public read and enable likes.'
+                : 'in Supabase so likes persist for everyone.'}
               {loadError ? (
                 <span className="block mt-2 text-text-muted text-xs font-mono">
                   {loadError}
@@ -333,7 +337,7 @@ const FoundersThoughts = () => {
               <article
                 key={thought.slug || thought.id}
                 id={thought.slug}
-                className="scroll-mt-24"
+                className="scroll-mt-24 space-y-6"
                 aria-labelledby={`${thought.slug}-title`}
               >
                 <Card className="bg-cyber-card/80">
@@ -425,32 +429,10 @@ const FoundersThoughts = () => {
                       </Button>
                     </div>
                   )}
-
-                  {/* Footer like strip for longer notes */}
-                  <div className="mt-8 pt-5 border-t border-cyber-border flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-xs text-text-muted font-mono tracking-widest uppercase">
-                      {thought.likes === 1
-                        ? '1 like'
-                        : `${thought.likes} likes`}
-                      {!user ? ' · sign in to like' : ''}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => handleLike(thought)}
-                      disabled={busy}
-                      className={`inline-flex items-center gap-2 text-sm transition-colors ${
-                        liked
-                          ? 'text-neon-magenta'
-                          : 'text-text-muted hover:text-neon-magenta'
-                      }`}
-                    >
-                      <Heart
-                        className={`w-4 h-4 ${liked ? 'fill-current' : ''}`}
-                      />
-                      {liked ? 'You liked this' : 'Like this note'}
-                    </button>
-                  </div>
                 </Card>
+                {thought.slug === 'founder-compensation' ? (
+                  <FundContributorsCard fundType="runway" />
+                ) : null}
               </article>
             );
           })}

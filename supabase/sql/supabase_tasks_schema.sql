@@ -8,7 +8,7 @@
 -- 0. Profiles: ensure role column exists (used by useIsModerator + RLS)
 -- ---------------------------------------------------------------------------
 alter table if exists profiles add column if not exists role text default 'user';
--- Roles: user | contributor | project_lead | moderator | admin
+-- Roles: user | moderator | founder (legacy: contributor | project_lead | admin)
 
 -- ---------------------------------------------------------------------------
 -- 1. Projects (workspace hubs; slug matches /projects/:id routes)
@@ -92,7 +92,7 @@ create index if not exists idx_activity_project on activity_log (project_id, cre
 create index if not exists idx_activity_created on activity_log (created_at desc);
 
 -- ---------------------------------------------------------------------------
--- 5. Helper: staff check for RLS (admin / moderator / project_lead)
+-- 5. Helper: staff check for RLS (admin / moderator / project_lead / founder)
 -- ---------------------------------------------------------------------------
 create or replace function public.is_project_staff()
 returns boolean
@@ -104,7 +104,7 @@ as $$
   select exists (
     select 1 from profiles
     where id = auth.uid()
-      and coalesce(role, 'user') in ('admin', 'moderator', 'project_lead')
+      and coalesce(role, 'user') in ('admin', 'moderator', 'project_lead', 'founder')
   );
 $$;
 

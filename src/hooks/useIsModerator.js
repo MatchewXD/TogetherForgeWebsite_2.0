@@ -1,7 +1,8 @@
 import { useStaffRole } from './useStaffRole';
 
 /**
- * Back-compat: true when user is moderator, admin, or project_lead.
+ * Back-compat: true when user can open the Moderator Dashboard
+ * (founder | moderator | admin | project_lead).
  */
 export function useIsModerator() {
   const { isModerator, loading } = useStaffRole();

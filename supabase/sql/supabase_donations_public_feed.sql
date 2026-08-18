@@ -3,8 +3,8 @@
 --
 -- Adds:
 --   - get_public_support_summary()  → includes MRR + all-time totals
---   - get_public_recent_donations(n) → last N anonymized studio payments
--- No names, emails, or Stripe IDs are returned to the client.
+--   - get_public_recent_donations(n, fund) → last N payments for studio or runway
+-- Names/avatars only when is_anonymous = false. Emails and Stripe IDs stay off the wire.
 
 -- Ensure columns exist (idempotent)
 create table if not exists donations (
@@ -75,9 +75,14 @@ $$;
 grant execute on function get_public_support_summary() to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- Recent donations (anonymized feed for Support page)
+-- Recent donations (studio or runway). Names only when not anonymous.
 -- ---------------------------------------------------------------------------
-create or replace function get_public_recent_donations(limit_n integer default 12)
+drop function if exists public.get_public_recent_donations(integer);
+
+create or replace function get_public_recent_donations(
+  limit_n integer default 12,
+  p_fund_type text default 'studio'
+)
 returns json
 language sql
 stable
@@ -112,7 +117,7 @@ as $$
           end as display_name
         from donations d
         left join profiles p on p.id = d.user_id
-        where coalesce(d.fund_type, 'studio') = 'studio'
+        where coalesce(d.fund_type, 'studio') = coalesce(nullif(trim(p_fund_type), ''), 'studio')
           and coalesce(d.status, 'completed') in ('completed', 'paid', 'succeeded')
           and coalesce(d.amount_cents, d.amount * 100, 0) > 0
         order by d.created_at desc nulls last
@@ -123,9 +128,90 @@ as $$
   );
 $$;
 
-grant execute on function get_public_recent_donations(integer) to anon, authenticated;
+grant execute on function get_public_recent_donations(integer, text)
+  to anon, authenticated;
 
 comment on function get_public_support_summary is
   'Anonymized studio totals + MRR for Support and Transparency pages.';
-comment on function get_public_recent_donations is
-  'Last N studio payments for Recent support: time + optional username/avatar (no amounts shown in UI).';
+comment on function get_public_recent_donations(integer, text) is
+  'Last N completed payments for studio or runway. Username/avatar only when not anonymous.';
+
+-- ---------------------------------------------------------------------------
+-- Unique public supporters for one fund (studio or runway). No anonymous rows.
+-- ---------------------------------------------------------------------------
+create or replace function get_public_fund_contributors(
+  p_fund_type text default 'studio'
+)
+returns json
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with named as (
+    select
+      d.user_id,
+      coalesce(
+        nullif(trim(p.username), ''),
+        nullif(trim(d.display_name), '')
+      ) as display_name,
+      nullif(trim(p.username), '') as username,
+      p.avatar_url,
+      d.created_at,
+      coalesce(
+        case when d.user_id is not null then 'u:' || d.user_id::text end,
+        'n:' || lower(trim(coalesce(
+          nullif(trim(p.username), ''),
+          nullif(trim(d.display_name), ''),
+          ''
+        )))
+      ) as person_key
+    from public.donations d
+    left join public.profiles p on p.id = d.user_id
+    where coalesce(d.fund_type, 'studio') =
+      coalesce(nullif(trim(p_fund_type), ''), 'studio')
+      and coalesce(d.status, 'completed') in ('completed', 'paid', 'succeeded')
+      and coalesce(d.amount_cents, d.amount * 100, 0) > 0
+      and coalesce(d.is_anonymous, true) = false
+  ),
+  keyed as (
+    select *
+    from named
+    where display_name is not null
+      and person_key is not null
+      and person_key <> 'n:'
+  ),
+  first_seen as (
+    select distinct on (person_key)
+      person_key,
+      display_name,
+      username,
+      avatar_url,
+      created_at as first_at
+    from keyed
+    order by person_key, created_at asc nulls last
+  )
+  select coalesce(
+    (
+      select json_agg(row_to_json(t))
+      from (
+        select
+          display_name,
+          username,
+          avatar_url,
+          first_at
+        from first_seen
+        order by lower(display_name)
+      ) t
+    ),
+    '[]'::json
+  );
+$$;
+
+grant execute on function get_public_fund_contributors(text)
+  to anon, authenticated;
+
+comment on function get_public_fund_contributors(text) is
+  'Unique opted-in supporters for studio or runway. No anonymous rows, no duplicates.';
+
+notify pgrst, 'reload schema';

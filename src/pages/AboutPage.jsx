@@ -212,6 +212,16 @@ const AboutPage = () => {
                     </div>
                 </section>
 
+                <p className="text-sm text-text-muted text-center max-w-2xl mx-auto">
+                    Read the founder&apos;s notes on why this studio was created{' '}
+                    <Link
+                        to="/founders-thoughts"
+                        className="text-text-secondary hover:text-neon-cyan transition-colors"
+                    >
+                        → Founders Thoughts
+                    </Link>
+                </p>
+
                 <section className="pt-12 border-t border-white/10 text-center">
                     <div className="max-w-2xl mx-auto">
                         <h2 className="text-5xl font-bold tracking-tight text-white mb-6">Want to help build this?</h2>

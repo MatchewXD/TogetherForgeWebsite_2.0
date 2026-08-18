@@ -42,14 +42,27 @@ const ReportBug = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [submittedId, setSubmittedId] = useState(null);
+  const [screenshotSkipped, setScreenshotSkipped] = useState(false);
 
   useEffect(() => {
+    let mounted = true;
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
       const u = session?.user || null;
       setUser(u);
       if (u?.email) setReporterEmail(u.email);
     });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      const u = session?.user || null;
+      setUser(u);
+      if (u?.email) setReporterEmail((prev) => prev || u.email);
+    });
     setBrowserInfo(detectBrowserOsOption());
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -94,6 +107,7 @@ const ReportBug = () => {
         screenshot
       );
       setSubmittedId(bug.id);
+      setScreenshotSkipped(Boolean(bug.screenshotSkipped));
     } catch (err) {
       setError(err.message || 'Could not submit bug report.');
     } finally {
@@ -125,7 +139,9 @@ const ReportBug = () => {
               account, then return here to submit.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-1">
-              <Link to="/profile">
+              <Link
+                to={`/account?next=${encodeURIComponent('/bugs/report')}`}
+              >
                 <Button className="w-full sm:w-auto">Log in / Join</Button>
               </Link>
               <Link to="/bugs">
@@ -146,12 +162,19 @@ const ReportBug = () => {
               tracker. Status starts as{' '}
               <Badge variant="default">Reported</Badge>.
             </p>
+            {screenshotSkipped && (
+              <p className="text-sm text-text-muted max-w-md mx-auto">
+                The screenshot could not be uploaded. The written report was
+                still saved.
+              </p>
+            )}
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
               <Button onClick={() => navigate('/bugs')}>View bug tracker</Button>
               <Button
                 variant="secondary"
                 onClick={() => {
                   setSubmittedId(null);
+                  setScreenshotSkipped(false);
                   setTitle('');
                   setDescription('');
                   setSteps('');
@@ -166,7 +189,7 @@ const ReportBug = () => {
             </div>
           </Card>
         ) : user ? (
-          <Card className="bg-cyber-card/80">
+          <div className="rounded-2xl border border-cyber-border bg-cyber-surface/80 p-6 sm:p-8">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="flex items-center gap-2 text-neon-cyan mb-2">
                 <Bug className="w-5 h-5" />
@@ -330,7 +353,7 @@ const ReportBug = () => {
                 )}
               </Button>
             </form>
-          </Card>
+          </div>
         ) : null}
       </div>
     </div>

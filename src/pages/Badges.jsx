@@ -23,7 +23,7 @@ const Badges = () => {
             collaboration, support, and shipped work. Pin one badge on your
             profile so it appears next to your name across the site. Your full
             collection lives on your public profile. Thresholds are listed on
-            each badge — no hidden multipliers.
+            each badge.
           </p>
           <p className="text-xs text-text-muted mt-3 font-mono">
             <Link to="/donate" className="text-neon-cyan hover:underline">
@@ -52,7 +52,7 @@ const Badges = () => {
                 <li key={b.key}>
                   <Card className="bg-cyber-card/80 p-3 sm:p-4 h-full border border-white/10 hover:border-white/20 transition-colors">
                     <div className="flex items-center gap-3 sm:gap-4 min-h-[6.5rem]">
-                      <div className="shrink-0 w-[7.5rem] h-[7.5rem] sm:w-36 sm:h-36 rounded-xl border border-white/10 bg-black/35 overflow-hidden">
+                      <div className="shrink-0 w-[7.5rem] h-[7.5rem] sm:w-36 sm:h-36">
                         <BadgeIcon def={b} fill showTooltip={false} />
                       </div>
                       <div className="min-w-0 flex-1 py-1">

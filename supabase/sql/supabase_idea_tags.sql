@@ -217,6 +217,12 @@ order by usage_count desc, lower(name) asc;
 
 grant select on public.idea_tags_public to anon, authenticated;
 
+-- Table grants (RLS still applies). Missing GRANTs show as
+-- "permission denied for table idea_tags" even for staff.
+grant usage on schema public to anon, authenticated, service_role;
+grant select on table public.idea_tags to anon, authenticated, service_role;
+grant insert, update, delete on table public.idea_tags to authenticated, service_role;
+
 -- -----------------------------------------------------------------------------
 -- Ensure tag (create suggested if missing) — used when ideas save
 -- -----------------------------------------------------------------------------
@@ -734,3 +740,5 @@ on conflict (slug) do update
 
 -- Backfill usage from existing ideas
 select public.recompute_idea_tag_usage();
+
+notify pgrst, 'reload schema';

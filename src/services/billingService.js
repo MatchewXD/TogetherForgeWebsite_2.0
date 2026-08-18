@@ -107,6 +107,47 @@ export function mapPlan(raw) {
   };
 }
 
+/**
+ * What the charge was for (studio vs runway vs tokens).
+ * Exported for tests.
+ */
+export function purposeLabelFromPayment(row) {
+  if (!row) return 'Studio Support';
+  const fund = String(row.fund_type || row.fundType || '').toLowerCase();
+  const tier = String(row.tier_id || row.tierId || '').toLowerCase();
+  const label = String(
+    row.tier_label || row.tierLabel || row.label || ''
+  ).toLowerCase();
+  const source = String(row.source || row.checkout_kind || '').toLowerCase();
+
+  if (
+    fund === 'runway' ||
+    tier === 'runway' ||
+    source === 'runway' ||
+    /\brunway\b/.test(label)
+  ) {
+    return 'Runway Support';
+  }
+  if (
+    fund === 'ai_tokens' ||
+    fund === 'ai_token' ||
+    source === 'ai_tokens' ||
+    source === 'ai_token' ||
+    /token/.test(tier) ||
+    /ai\s*token|\btoken pack\b/.test(label)
+  ) {
+    return 'AI Tokens';
+  }
+  if (fund && fund !== 'studio') {
+    return fund
+      .split(/[_\s-]+/)
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  }
+  return 'Studio Support';
+}
+
 /** Exported for unit tests + transaction history shape */
 export function mapHistoryRow(row) {
   if (!row) return null;
@@ -132,7 +173,62 @@ export function mapHistoryRow(row) {
     status: row.status || 'completed',
     tierLabel: row.tier_label || row.tierLabel || null,
     interval: row.interval || 'once',
+    fundType: row.fund_type || row.fundType || 'studio',
+    purposeLabel: purposeLabelFromPayment(row),
   };
+}
+
+function mapTokenPurchaseRow(p) {
+  if (!p) return null;
+  const status = String(p.status || '').toLowerCase();
+  if (status === 'pending' || status === 'cancelled' || status === 'canceled') {
+    return null;
+  }
+  const pack = String(p.pack_id || p.packId || '').trim();
+  const packNote = pack
+    ? pack.charAt(0).toUpperCase() + pack.slice(1)
+    : '';
+  return mapHistoryRow({
+    id: `token-${p.id}`,
+    created_at: p.completed_at || p.completedAt || p.created_at || p.createdAt,
+    amount_cents: p.amount_cents ?? p.amountCents,
+    currency: p.currency || 'usd',
+    payment_kind: 'one_time',
+    status: p.status || 'completed',
+    fund_type: 'ai_tokens',
+    tier_id: pack || 'ai_tokens',
+    tier_label: p.label || (packNote ? `AI Tokens (${packNote})` : 'AI Tokens'),
+    interval: 'once',
+  });
+}
+
+async function mergeHistoryWithTokenPurchases(donations, limit = 30) {
+  const cap = Math.min(Math.max(Number(limit) || 30, 1), 100);
+  let tokens = [];
+  try {
+    const { data, error } = await supabase.rpc('get_my_ai_token_purchases', {
+      p_limit: cap,
+    });
+    if (!error) {
+      const rows = Array.isArray(data) ? data : [];
+      tokens = rows.map(mapTokenPurchaseRow).filter(Boolean);
+    }
+  } catch {
+    tokens = [];
+  }
+  const seen = new Set();
+  const merged = [...(donations || []), ...tokens]
+    .filter((row) => {
+      if (!row?.id || seen.has(String(row.id))) return false;
+      seen.add(String(row.id));
+      return true;
+    })
+    .sort((a, b) => {
+      const ta = Date.parse(a.createdAt || '') || 0;
+      const tb = Date.parse(b.createdAt || '') || 0;
+      return tb - ta;
+    });
+  return merged.slice(0, cap);
 }
 
 /**
@@ -527,7 +623,8 @@ export const billingService = {
       });
       if (error) throw error;
       const rows = Array.isArray(data) ? data : [];
-      return rows.map(mapHistoryRow).filter(Boolean);
+      const donations = rows.map(mapHistoryRow).filter(Boolean);
+      return mergeHistoryWithTokenPurchases(donations, limit);
     } catch (err) {
       if (/function|schema cache|does not exist/i.test(String(err?.message))) {
         const {
@@ -537,7 +634,7 @@ export const billingService = {
         const { data, error: e2 } = await supabase
           .from('donations')
           .select(
-            'id, created_at, amount_cents, amount, currency, interval, status, tier_label, payment_kind, stripe_subscription_id'
+            'id, created_at, amount_cents, amount, currency, interval, status, tier_label, tier_id, fund_type, payment_kind, stripe_subscription_id'
           )
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
@@ -551,12 +648,13 @@ export const billingService = {
           console.warn('[billing] getMyHistory', e2);
           return [];
         }
-        return (data || []).map((r) =>
+        const donations = (data || []).map((r) =>
           mapHistoryRow({
             ...r,
             is_subscription_charge: Boolean(r.stripe_subscription_id),
           })
         );
+        return mergeHistoryWithTokenPurchases(donations, limit);
       }
       console.warn('[billing] getMyHistory', err);
       return [];

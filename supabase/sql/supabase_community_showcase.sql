@@ -131,6 +131,14 @@ create policy "Staff can delete showcase posts"
   to authenticated
   using (public.is_project_staff());
 
+-- Table grants (RLS still applies). Missing GRANTs show as
+-- "permission denied for table community_showcase_posts".
+grant usage on schema public to anon, authenticated, service_role;
+grant select on table public.community_showcase_posts
+  to anon, authenticated, service_role;
+grant insert, update, delete on table public.community_showcase_posts
+  to authenticated, service_role;
+
 -- ---------------------------------------------------------------------------
 -- Optional demo seed (approved) — only if table empty
 -- ---------------------------------------------------------------------------
@@ -202,3 +210,5 @@ begin
   where content_type in ('art', 'article')
     and url is null;
 end $$;
+
+notify pgrst, 'reload schema';

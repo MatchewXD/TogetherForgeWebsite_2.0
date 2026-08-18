@@ -35,7 +35,7 @@ export const LOCAL_THOUGHTS = [
     content: [
       'As founder, I want Together Forge to be extremely successful. I want it to completely outcompete companies that put profits or ideologies over people. Because of this, I refuse to drain profits the way many CEOs do.',
       'Right now I work a normal 40-50 hour job while spending another 40+ hours building Together Forge. I will not use donations to cover my living expenses. I will only draw a living wage from Together Forge once the company is generating enough revenue to pay all employees (including myself) a wage that can comfortably support a family of five. Anything beyond that is unnecessary. I have no interest in the bloated executive compensation seen at places like Bungie.',
-      'I created a separate option for people who want to support my personal runway directly. Donations to my living expenses go into a trust. Once there is enough to cover one full year, I will quit my day job and focus 100% on Together Forge. As more donations come in they will extend that runway. When Together Forge itself can pay living wages, I will switch to company pay and move any remaining trust funds into Together Forge as a direct donation.',
+      'I created a separate option for people who want to support my personal runway directly. Donations to my living expenses are kept completely separate from studio funds. Once there is enough to cover one full year, I will quit my day job and focus 100% on Together Forge. As more donations come in they will extend that runway. When Together Forge itself can pay living wages, I will switch to company pay and move any remaining personal runway funds into Together Forge as a direct donation.',
     ].join('\n\n'),
     likes: 0,
     localOnly: true,

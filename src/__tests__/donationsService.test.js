@@ -13,6 +13,7 @@ vi.mock('../lib/supabase', () => ({
 import {
   getPublicSupportSummary,
   getPublicRecentDonations,
+  uniqueContributorsFromLocal,
   formatTimeAgo,
   formatUsdFromCents,
 } from '../services/donationsService';
@@ -137,5 +138,37 @@ describe('donationsService format helpers', () => {
   it('formatTimeAgo for recent', () => {
     const now = new Date().toISOString();
     expect(formatTimeAgo(now)).toMatch(/Just now|minute|hour/i);
+  });
+});
+
+describe('uniqueContributorsFromLocal', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('dedupes named supporters and skips anonymous', () => {
+    localStorage.setItem(
+      'tf_runway_donations',
+      JSON.stringify([
+        { username: 'alice', isAnonymous: false, timestamp: '2026-01-01' },
+        { username: 'Alice', isAnonymous: false, timestamp: '2026-02-01' },
+        { username: 'bob', isAnonymous: true },
+        { isAnonymous: true },
+        { username: 'cara', isAnonymous: false },
+      ])
+    );
+    const items = uniqueContributorsFromLocal('runway');
+    expect(items.map((p) => p.username)).toEqual(['alice', 'cara']);
+  });
+
+  it('does not mix runway and studio ledgers', () => {
+    localStorage.setItem(
+      'tf_donations',
+      JSON.stringify([{ username: 'studio_only', isAnonymous: false }])
+    );
+    expect(uniqueContributorsFromLocal('runway')).toEqual([]);
+    expect(uniqueContributorsFromLocal('studio')[0].username).toBe(
+      'studio_only'
+    );
   });
 });

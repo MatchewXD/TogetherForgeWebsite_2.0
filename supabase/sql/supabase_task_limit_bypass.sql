@@ -5,7 +5,7 @@
 -- =============================================================================
 -- Who bypasses progressive claim limits, claim cooldown, submit 24h cap,
 -- submit cooldown, and the short post-claim hold before submit:
---   • profiles.role in ('admin', 'moderator', 'project_lead')
+--   • profiles.role in ('admin', 'moderator', 'project_lead', 'founder')
 --   • OR profiles.task_limit_bypass = true  (staff-only flag for test accounts)
 -- Normal users are unchanged. Identity gate + fake-work restrictions still apply.
 -- =============================================================================
@@ -30,7 +30,7 @@ as $$
   select coalesce((
     select
       coalesce(p.task_limit_bypass, false)
-      or coalesce(p.role, 'user') in ('admin', 'moderator', 'project_lead')
+      or coalesce(p.role, 'user') in ('admin', 'moderator', 'project_lead', 'founder')
     from public.profiles p
     where p.id = p_user_id
   ), false);

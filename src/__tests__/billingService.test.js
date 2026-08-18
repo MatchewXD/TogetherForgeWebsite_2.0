@@ -24,6 +24,7 @@ import {
   billingService,
   mapPlan,
   mapHistoryRow,
+  purposeLabelFromPayment,
 } from '../services/billingService';
 
 describe('mapPlan', () => {
@@ -98,6 +99,21 @@ describe('mapHistoryRow', () => {
       interval: 'month',
     });
     expect(row.paymentKind).toBe('subscription_payment');
+  });
+
+  it('labels purpose from fund type', () => {
+    expect(
+      purposeLabelFromPayment({ fund_type: 'studio' })
+    ).toBe('Studio Support');
+    expect(
+      purposeLabelFromPayment({ fund_type: 'runway' })
+    ).toBe('Runway Support');
+    expect(
+      purposeLabelFromPayment({ fund_type: 'ai_tokens', pack_id: 'builder' })
+    ).toBe('AI Tokens');
+    expect(mapHistoryRow({ id: 4, fund_type: 'runway' }).purposeLabel).toBe(
+      'Runway Support'
+    );
   });
 });
 

@@ -1,6 +1,8 @@
 -- Together Forge: basic moderation columns + content reports
 -- Run in Supabase SQL Editor. Safe to re-run.
--- Staff roles (profiles.role): moderator | admin | project_lead
+-- Staff roles (profiles.role): user | moderator | founder
+-- Legacy staff values still honored: admin | project_lead
+-- Role assignment is Founder-only (see supabase_role_management.sql).
 
 -- ---------------------------------------------------------------------------
 -- Profiles: moderation status
@@ -52,7 +54,9 @@ as $$
   select exists (
     select 1 from profiles p
     where p.id = auth.uid()
-      and p.role in ('moderator', 'admin', 'project_lead')
+      and coalesce(p.role, 'user') in (
+        'moderator', 'admin', 'project_lead', 'founder'
+      )
   );
 $$;
 
@@ -75,6 +79,15 @@ create policy "Staff can update reports"
   to authenticated
   using (public.is_staff());
 
+-- Table grants (RLS still applies). Missing GRANTs show as
+-- "permission denied for table content_reports" and the dashboard
+-- used to report the table as missing.
+grant usage on schema public to anon, authenticated, service_role;
+grant execute on function public.is_staff() to anon, authenticated, service_role;
+grant select, insert on table public.content_reports
+  to authenticated, service_role;
+grant update on table public.content_reports to authenticated, service_role;
+
 -- Profiles: staff can read all profiles (for mod dashboard)
 drop policy if exists "Staff can read all profiles" on profiles;
 create policy "Staff can read all profiles"
@@ -82,8 +95,8 @@ create policy "Staff can read all profiles"
   to authenticated
   using (public.is_staff() or auth.uid() = id);
 
--- Profiles: staff can update moderation fields (and role only if admin ideally;
--- for simplicity staff can update moderation_status / note)
+-- Profiles: staff can update moderation fields. Role changes are blocked
+-- by prevent_direct_role_change() and go through set_user_role() instead.
 drop policy if exists "Staff can moderate profiles" on profiles;
 create policy "Staff can moderate profiles"
   on profiles for update
@@ -122,3 +135,5 @@ end $$;
 
 comment on table content_reports is
   'User or staff reports of ideas/users/comments. Moderators resolve from dashboard.';
+
+notify pgrst, 'reload schema';

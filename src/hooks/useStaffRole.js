@@ -1,12 +1,14 @@
 /**
  * Current user's staff role from profiles.role.
- * Roles: user | contributor | project_lead | moderator | admin
+ * Product roles: user | moderator | founder
+ * Legacy staff values still honored: admin | project_lead | contributor
  */
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
 export function useStaffRole() {
   const [role, setRole] = useState('user');
+  const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,6 +22,7 @@ export function useStaffRole() {
         if (!user) {
           if (mounted) {
             setRole('user');
+            setUserId(null);
             setLoading(false);
           }
           return;
@@ -34,9 +37,13 @@ export function useStaffRole() {
         if (mounted) {
           const r = String(profile?.role || 'user').trim() || 'user';
           setRole(r);
+          setUserId(user.id);
         }
       } catch {
-        if (mounted) setRole('user');
+        if (mounted) {
+          setRole('user');
+          setUserId(null);
+        }
       }
       if (mounted) setLoading(false);
     };
@@ -63,21 +70,27 @@ export function useStaffRole() {
     };
   }, []);
 
+  const isFounder = role === 'founder';
   const isAdmin = role === 'admin';
   const isModeratorRole = role === 'moderator';
   const isProjectLead = role === 'project_lead' || isAdmin;
   // Staff who can moderate tasks / use mod dashboard
   const isModerator =
-    isAdmin || isModeratorRole || role === 'project_lead';
+    isFounder || isAdmin || isModeratorRole || role === 'project_lead';
+  // Avatar / nav: only Moderator and Founder see the dashboard link
+  const canSeeModeratorDashboard = isModeratorRole || isFounder;
 
   return {
     role,
+    userId,
     loading,
     isAdmin,
+    isFounder,
     isModerator,
     isModeratorRole,
     isProjectLead,
     isStaff: isModerator,
+    canSeeModeratorDashboard,
   };
 }
 

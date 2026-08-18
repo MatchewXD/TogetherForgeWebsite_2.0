@@ -1,7 +1,8 @@
 /**
  * Basic moderation helpers for Moderator Dashboard.
- * Requires staff role (moderator | admin | project_lead) and
+ * Requires staff role (founder | moderator | admin | project_lead) and
  * supabase/sql/supabase_moderation.sql for full RLS + content_reports.
+ * Role changes: supabase/sql/supabase_role_management.sql (Founder only).
  */
 
 import { supabase } from '../lib/supabase';
@@ -10,6 +11,27 @@ import { WORKFLOW_STATUSES } from '../utils/ideaStatus';
 export { WORKFLOW_STATUSES };
 export const MODERATION_STATUSES = ['active', 'suspended', 'banned'];
 export const REPORT_STATUSES = ['pending', 'reviewing', 'resolved', 'dismissed'];
+/** Roles a Founder can assign from Role Management. Founder is SQL-only. */
+export const ASSIGNABLE_ROLES = ['user', 'moderator'];
+
+export function roleLabel(role) {
+  switch (String(role || 'user').trim()) {
+    case 'user':
+      return 'User';
+    case 'moderator':
+      return 'Moderator';
+    case 'founder':
+      return 'Founder';
+    case 'admin':
+      return 'Admin';
+    case 'project_lead':
+      return 'Project lead';
+    case 'contributor':
+      return 'Contributor';
+    default:
+      return String(role || 'User');
+  }
+}
 
 /** PostgREST / Postgres when a table was never migrated or not in schema cache */
 function isMissingTableError(error, tableHint = '') {
@@ -30,6 +52,7 @@ export const moderationService = {
   WORKFLOW_STATUSES,
   MODERATION_STATUSES,
   REPORT_STATUSES,
+  ASSIGNABLE_ROLES,
 
   /**
    * List profiles for moderation (newest first).
@@ -99,6 +122,82 @@ export const moderationService = {
 
     if (error) throw error;
     return data;
+  },
+
+  /**
+   * Founder-only. Sets profiles.role via set_user_role() and writes the audit log.
+   */
+  async setUserRole(userId, role) {
+    if (!userId) throw new Error('Missing user id');
+    const next = String(role || '').trim();
+    if (!ASSIGNABLE_ROLES.includes(next)) {
+      throw new Error(`Invalid role: ${role}`);
+    }
+
+    const { data, error } = await supabase.rpc('set_user_role', {
+      p_user_id: userId,
+      p_new_role: next,
+    });
+
+    if (error) {
+      if (isMissingTableError(error, 'role_change_log') || /set_user_role/i.test(error.message || '')) {
+        const msg = String(error.message || '');
+        if (/could not find the function|schema cache|does not exist/i.test(msg)) {
+          throw new Error(
+            'Role Management is not set up yet. Run supabase/sql/supabase_role_management.sql in the Supabase SQL Editor, then refresh.'
+          );
+        }
+      }
+      throw error;
+    }
+    return data;
+  },
+
+  /**
+   * Founder-only audit of role changes.
+   */
+  async listRoleChanges({ limit = 40 } = {}) {
+    const { data, error } = await supabase
+      .from('role_change_log')
+      .select(
+        'id, user_id, changed_by, old_role, new_role, created_at'
+      )
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      if (isMissingTableError(error, 'role_change_log')) {
+        return { entries: [], tableMissing: true };
+      }
+      throw error;
+    }
+
+    const rows = data || [];
+    const ids = [
+      ...new Set(
+        rows.flatMap((r) => [r.user_id, r.changed_by].filter(Boolean))
+      ),
+    ];
+
+    let names = {};
+    if (ids.length) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .in('id', ids);
+      for (const p of profiles || []) {
+        names[p.id] = p.username || null;
+      }
+    }
+
+    return {
+      tableMissing: false,
+      entries: rows.map((r) => ({
+        ...r,
+        username: names[r.user_id] || null,
+        changed_by_username: names[r.changed_by] || null,
+      })),
+    };
   },
 
   /**

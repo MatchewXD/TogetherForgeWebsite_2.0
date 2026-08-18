@@ -678,6 +678,13 @@ a.cyber-card:focus-visible,
     transform: translateX(-50%);
 }
 
+/* Larger page title using the section-header treatment (Dashboard) */
+.section-header.dashboard-page-title::after {
+    width: 7.5rem;
+    height: 3px;
+    bottom: -10px;
+}
+
 /* Status / HUD style labels */
 .status-bar {
     font-family: var(--font-display);

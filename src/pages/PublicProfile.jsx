@@ -484,9 +484,12 @@ const PublicProfile = () => {
   }
 
   const isOwn = viewerId && profile.id === viewerId;
-  const memberYear = profile.joined_at
-    ? new Date(profile.joined_at).getFullYear()
-    : null;
+  const memberSince = (() => {
+    if (!profile.joined_at) return null;
+    const d = new Date(profile.joined_at);
+    if (!Number.isFinite(d.getTime())) return null;
+    return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  })();
 
   const githubHref = normalizeGithubHref(profile.github);
   const youtubeHref = normalizeYoutubeHref(profile.youtube);
@@ -494,6 +497,9 @@ const PublicProfile = () => {
   const xHref = normalizeXHref(profile.x_handle);
   const hasSocial =
     profile.discord || githubHref || youtubeHref || twitchHref || xHref;
+  const showForgeMarksCard = Boolean(
+    forgeMarks && (forgeMarks.lifetimeEarned > 0 || isOwn)
+  );
 
   return (
     <div className="pt-20 min-h-screen bg-cyber-bg text-text-primary">
@@ -502,10 +508,10 @@ const PublicProfile = () => {
         aria-hidden="true"
       />
 
-      <div className="container-custom relative z-10 py-12 max-w-5xl">
+      <div className="container-custom relative z-10 pt-4 sm:pt-5 pb-12 max-w-5xl">
         {/* Banner + identity */}
         <div className="relative mb-8">
-          <div className="h-40 sm:h-48 md:h-52 w-full rounded-xl overflow-hidden bg-cyber-surface border border-cyber-border">
+          <div className="relative h-48 sm:h-56 md:h-64 w-full rounded-xl overflow-hidden bg-cyber-surface border border-cyber-border">
             {profile.banner_url ? (
               <img
                 src={profile.banner_url}
@@ -523,71 +529,61 @@ const PublicProfile = () => {
                 aria-hidden
               />
             )}
+            <div
+              className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent"
+              aria-hidden
+            />
           </div>
-          <div className="-mt-14 sm:-mt-16 ml-4 sm:ml-6 relative z-10 flex flex-col sm:flex-row sm:items-end gap-4">
+          <div className="-mt-20 sm:-mt-24 ml-4 sm:ml-6 relative z-10 flex flex-col sm:flex-row sm:items-center gap-4">
             <UserAvatar
               src={profile.avatar_url}
               name={profile.username}
               username={profile.username}
               linkProfile={false}
               size="xl"
-              className="!w-28 !h-28 ring-4 ring-cyber-bg"
+              className="!w-28 !h-28 ring-4 ring-cyber-bg shadow-[0_8px_24px_rgba(0,0,0,0.75)]"
               borderClass="border-0"
               alt={`${profile.username}'s avatar`}
             />
-            <div className="mb-1 sm:mb-2 flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white truncate drop-shadow-[0_2px_6px_rgba(0,0,0,0.85)]">
-                  {profile.username}
-                </h1>
-                {pinnedBadgeKey ? (
-                  <BadgeIcon badgeKey={pinnedBadgeKey} size="xl" />
-                ) : null}
-                {isOwn && (
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-widest bg-neon-cyan text-cyber-bg border-2 border-neon-cyan shadow-[0_2px_10px_rgba(0,0,0,0.65)]">
-                    You
-                  </span>
-                )}
-                {support?.isSupporter &&
-                  !earnedBadges.some((b) => b.key === 'status_donor') && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-widest bg-cyber-bg text-semantic-achievement border-2 border-semantic-achievement shadow-[0_2px_12px_rgba(0,0,0,0.75)] ring-1 ring-black/40">
-                    <Heart className="w-3 h-3 fill-semantic-achievement/30" />
-                    Supporter
-                  </span>
+            <div className="flex-1 min-w-0">
+              <div className="inline-flex max-w-full flex-col gap-1.5 rounded-xl bg-cyber-bg px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white truncate">
+                    {profile.username}
+                  </h1>
+                  {pinnedBadgeKey ? (
+                    <span className="drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)]">
+                      <BadgeIcon badgeKey={pinnedBadgeKey} size="xl" />
+                    </span>
+                  ) : null}
+                  {isOwn && (
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-widest bg-neon-cyan text-cyber-bg border-2 border-neon-cyan shadow-[0_2px_10px_rgba(0,0,0,0.65)]">
+                      You
+                    </span>
+                  )}
+                  {support?.isSupporter &&
+                    !earnedBadges.some((b) => b.key === 'status_donor') && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-widest bg-cyber-bg text-semantic-achievement border-2 border-semantic-achievement shadow-[0_2px_12px_rgba(0,0,0,0.75)] ring-1 ring-black/40">
+                      <Heart className="w-3 h-3 fill-semantic-achievement/30" />
+                      Supporter
+                    </span>
+                  )}
+                </div>
+                {memberSince && (
+                  <p className="text-xs text-text-muted font-mono inline-flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-neon-purple" />
+                    Member since {memberSince}
+                  </p>
                 )}
               </div>
-              {memberYear && (
-                <p className="text-xs text-text-muted font-mono mt-1.5 inline-flex items-center gap-1.5 rounded-md bg-cyber-bg/90 border border-cyber-border px-2 py-0.5 shadow-sm">
-                  <Calendar className="w-3.5 h-3.5 text-neon-purple" />
-                  Member since {memberYear}
-                </p>
-              )}
             </div>
-            {isOwn && (
-              <div className="self-start sm:self-auto flex flex-wrap gap-2">
-                <Link
-                  to="/dashboard"
-                  className="inline-flex items-center justify-center px-4 py-2 text-sm rounded-lg border border-neon-purple/40 bg-neon-purple/10 text-neon-purple hover:border-neon-purple transition-colors"
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  to="/account/profile"
-                  className="inline-flex items-center justify-center px-4 py-2 text-sm rounded-lg border border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan hover:border-neon-cyan transition-colors"
-                >
-                  Edit profile
-                </Link>
-              </div>
-            )}
           </div>
         </div>
 
         {/* Contribution stats */}
         <div
           className={`grid grid-cols-1 sm:grid-cols-3 ${
-            forgeMarks && (forgeMarks.lifetimeEarned > 0 || isOwn)
-              ? 'lg:grid-cols-4'
-              : ''
+            showForgeMarksCard ? 'lg:grid-cols-4' : ''
           } gap-4 mb-8`}
         >
           <Card className="bg-cyber-card/80 text-center py-5 border-neon-cyan/20">
@@ -617,18 +613,36 @@ const PublicProfile = () => {
               Active claims
             </div>
           </Card>
-          {forgeMarks && (forgeMarks.lifetimeEarned > 0 || isOwn) && (
-            <Card className="bg-cyber-card/80 text-center py-5 border-forge-gold/25">
-              <ForgeMarksHoverHint className="w-full">
-                <Hexagon className="w-5 h-5 text-forge-gold mx-auto mb-2" />
-                <div className="text-2xl font-mono font-bold text-forge-gold">
-                  {formatForgeMarks(forgeMarks.balance)}
+          {showForgeMarksCard && (
+            <div className="relative h-full">
+              {isOwn && (
+                <div className="absolute bottom-full right-0 mb-2 flex flex-wrap justify-end gap-2">
+                  <Link
+                    to="/dashboard"
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm rounded-lg border border-neon-purple/40 bg-neon-purple/10 text-neon-purple hover:border-neon-purple transition-colors"
+                  >
+                    Dashboard
+                  </Link>
+                  <Link
+                    to="/account/profile"
+                    className="inline-flex items-center justify-center px-4 py-2 text-sm rounded-lg border border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan hover:border-neon-cyan transition-colors"
+                  >
+                    Edit profile
+                  </Link>
                 </div>
-                <div className="text-xs font-mono tracking-widest text-text-muted uppercase mt-1">
-                  Forge Marks
-                </div>
-              </ForgeMarksHoverHint>
-            </Card>
+              )}
+              <Card className="bg-cyber-card/80 text-center py-5 border-forge-gold/25 h-full">
+                <ForgeMarksHoverHint className="w-full">
+                  <Hexagon className="w-5 h-5 text-forge-gold mx-auto mb-2" />
+                  <div className="text-2xl font-mono font-bold text-forge-gold">
+                    {formatForgeMarks(forgeMarks.balance)}
+                  </div>
+                  <div className="text-xs font-mono tracking-widest text-text-muted uppercase mt-1">
+                    Forge Marks
+                  </div>
+                </ForgeMarksHoverHint>
+              </Card>
+            </div>
           )}
         </div>
 

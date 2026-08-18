@@ -143,7 +143,7 @@ Together Forge will be so successful that it renders the old models obsolete. An
 
 Right now I work a normal 40-50 hour job while spending another 40+ hours building Together Forge. I will not use donations to cover my living expenses. I will only draw a living wage from Together Forge once the company is generating enough revenue to pay all employees (including myself) a wage that can comfortably support a family of five. Anything beyond that is unnecessary. I have no interest in the bloated executive compensation seen at places like Bungie.
 
-I created a separate option for people who want to support my personal runway directly. Donations to my living expenses go into a trust. Once there is enough to cover one full year, I will quit my day job and focus 100% on Together Forge. As more donations come in they will extend that runway. When Together Forge itself can pay living wages, I will switch to company pay and move any remaining trust funds into Together Forge as a direct donation.$c$
+I created a separate option for people who want to support my personal runway directly. Donations to my living expenses are kept completely separate from studio funds. Once there is enough to cover one full year, I will quit my day job and focus 100% on Together Forge. As more donations come in they will extend that runway. When Together Forge itself can pay living wages, I will switch to company pay and move any remaining personal runway funds into Together Forge as a direct donation.$c$
 ),
 (
   'why-transparency-matters',
@@ -179,7 +179,20 @@ set likes = coalesce((
   where l.thought_id = t.id
 ), 0);
 
+-- Table privileges for PostgREST (RLS still applies). Missing GRANTs
+-- show as "permission denied for table founders_thoughts" and the page
+-- falls back to local copies.
+grant usage on schema public to anon, authenticated, service_role;
+grant select on table public.founders_thoughts
+  to anon, authenticated, service_role;
+grant select on table public.founders_thought_likes
+  to anon, authenticated, service_role;
+grant insert, delete on table public.founders_thought_likes
+  to authenticated, service_role;
+
 comment on table founders_thoughts is
   'Public founder notes. likes is denormalized count of founders_thought_likes rows.';
 comment on table founders_thought_likes is
   'Per-user likes on founders_thoughts. Unique (thought_id, user_id).';
+
+notify pgrst, 'reload schema';

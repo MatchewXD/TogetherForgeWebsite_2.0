@@ -80,33 +80,24 @@ export async function getPublicSupportSummary() {
 }
 
 /**
- * Recent studio donations for social proof (UI shows name/avatar/time only).
+ * Recent donations for social proof, scoped to studio or runway.
+ * Named supporters may show amount in UI; anonymous show a name only.
  * @param {number} [limit=12]
- * @returns {Promise<{
- *   items: Array<{
- *     amountCents: number,
- *     createdAt: string,
- *     isRecurring: boolean,
- *     isAnonymous: boolean,
- *     username: string|null,
- *     avatarUrl: string|null,
- *     label: string
- *   }>,
- *   source: 'supabase'|'local'|'empty',
- *   error: string|null
- * }>}
+ * @param {{ fundType?: 'studio'|'runway' }} [opts]
  */
-export async function getPublicRecentDonations(limit = 12) {
+export async function getPublicRecentDonations(limit = 12, opts = {}) {
   const lim = Math.min(Math.max(Number(limit) || 12, 1), 20);
+  const fundType = opts.fundType === 'runway' ? 'runway' : 'studio';
 
   try {
     const { data, error } = await supabase.rpc('get_public_recent_donations', {
       limit_n: lim,
+      p_fund_type: fundType,
     });
 
     if (error) {
       console.warn('[donations] recent RPC failed', error.message);
-      const local = recentFromLocalStorage(lim);
+      const local = recentFromLocalStorage(lim, fundType);
       return {
         items: local,
         source: local.length ? 'local' : 'empty',
@@ -118,7 +109,7 @@ export async function getPublicRecentDonations(limit = 12) {
     const items = rows.map(mapRecentRow).filter(Boolean);
 
     if (items.length === 0) {
-      const local = recentFromLocalStorage(lim);
+      const local = recentFromLocalStorage(lim, fundType);
       if (local.length) {
         return { items: local, source: 'local', error: null };
       }
@@ -131,7 +122,7 @@ export async function getPublicRecentDonations(limit = 12) {
     };
   } catch (e) {
     console.error('[donations] getPublicRecentDonations', e);
-    const local = recentFromLocalStorage(lim);
+    const local = recentFromLocalStorage(lim, fundType);
     return {
       items: local,
       source: local.length ? 'local' : 'empty',
@@ -276,8 +267,93 @@ function sumFromLocalStorage() {
   };
 }
 
-function recentFromLocalStorage(limit) {
-  const studio = readLocalList('tf_donations');
+/**
+ * Unique opted-in supporters for one fund (studio or runway).
+ * @param {'studio'|'runway'} [fundType]
+ */
+export async function getPublicFundContributors(fundType = 'studio') {
+  const fund = fundType === 'runway' ? 'runway' : 'studio';
+  try {
+    const { data, error } = await supabase.rpc(
+      'get_public_fund_contributors',
+      { p_fund_type: fund }
+    );
+    if (error) {
+      console.warn('[donations] fund contributors RPC failed', error.message);
+      const local = uniqueContributorsFromLocal(fund);
+      return {
+        items: local,
+        source: local.length ? 'local' : 'empty',
+        error: error.message,
+      };
+    }
+    const rows = Array.isArray(data) ? data : [];
+    const items = rows.map(mapContributorRow).filter(Boolean);
+    if (items.length === 0) {
+      const local = uniqueContributorsFromLocal(fund);
+      if (local.length) {
+        return { items: local, source: 'local', error: null };
+      }
+    }
+    return { items, source: 'supabase', error: null };
+  } catch (e) {
+    const local = uniqueContributorsFromLocal(fund);
+    return {
+      items: local,
+      source: local.length ? 'local' : 'empty',
+      error: e?.message || 'Failed to load contributors',
+    };
+  }
+}
+
+function mapContributorRow(row) {
+  if (!row) return null;
+  const username = String(row.username || '').trim() || null;
+  const displayName =
+    String(row.display_name || row.displayName || username || '').trim() ||
+    null;
+  if (!displayName && !username) return null;
+  return {
+    username,
+    displayName: displayName || username,
+    avatarUrl: row.avatar_url || row.avatarUrl || null,
+    firstAt: row.first_at || row.firstAt || null,
+  };
+}
+
+/** Unique named supporters from the local device ledger (opt-in only). */
+export function uniqueContributorsFromLocal(fundType = 'studio') {
+  const list = readLocalList(
+    fundType === 'runway' ? 'tf_runway_donations' : 'tf_donations'
+  );
+  const seen = new Set();
+  const out = [];
+  for (const d of list) {
+    if (d.isAnonymous === true) continue;
+    const username = d.username ? String(d.username).trim() : null;
+    if (!username) continue;
+    const key = username.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      username,
+      displayName: username,
+      avatarUrl: d.avatarUrl || null,
+      firstAt: d.timestamp || null,
+    });
+  }
+  out.sort((a, b) =>
+    String(a.displayName || '').localeCompare(String(b.displayName || ''), undefined, {
+      sensitivity: 'base',
+    })
+  );
+  return out;
+}
+
+function recentFromLocalStorage(limit, fundType = 'studio') {
+  const studio = readLocalList(
+    fundType === 'runway' ? 'tf_runway_donations' : 'tf_donations'
+  );
   return studio.slice(0, limit).map((d) => {
     const amountCents =
       Number(d.amountCents) || Math.round((Number(d.amount) || 0) * 100);
@@ -336,6 +412,8 @@ export function formatUsdFromCents(cents) {
 export default {
   getPublicSupportSummary,
   getPublicRecentDonations,
+  getPublicFundContributors,
+  uniqueContributorsFromLocal,
   formatTimeAgo,
   formatUsdFromCents,
 };

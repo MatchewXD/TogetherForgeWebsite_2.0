@@ -123,6 +123,12 @@ const Footer = () => {
               >
                 GUIDELINES
               </Link>
+              <Link
+                to="/founders-thoughts"
+                className="hover:text-neon-cyan transition-colors"
+              >
+                FOUNDERS THOUGHTS
+              </Link>
               <button
                 type="button"
                 onClick={() => openReportConcern()}

@@ -7,7 +7,14 @@ import { createPortal } from 'react-dom';
  * such as .cyber-card — critical on mobile mid-page forms).
  * Escape closes; initial focus moves to the first field or close control.
  */
-const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
+const Modal = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  size = 'md',
+  framed = true,
+}) => {
   const titleId = useId();
   const closeRef = useRef(null);
   const panelRef = useRef(null);
@@ -118,7 +125,9 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`cyber-card w-full ${sizeClasses[size] || sizeClasses.md} max-h-[min(90dvh,40rem)] flex flex-col rounded-2xl border border-neon-cyan/30 shadow-2xl bg-cyber-card pointer-events-auto`}
+        className={`${
+          framed ? 'cyber-card' : 'rounded-2xl bg-cyber-bg'
+        } w-full ${sizeClasses[size] || sizeClasses.md} max-h-[min(90dvh,40rem)] flex flex-col rounded-2xl border border-neon-cyan/30 shadow-2xl pointer-events-auto`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-cyber-border px-6 py-4 shrink-0">

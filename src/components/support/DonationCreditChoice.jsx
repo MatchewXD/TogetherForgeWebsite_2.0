@@ -17,6 +17,7 @@ import UserAvatar from '../ui/UserAvatar';
  * @param {string|null} [props.displayName] - label next to avatar (defaults to username)
  * @param {boolean} [props.profileLoading] - signed-in profile still loading
  * @param {string} [props.className]
+ * @param {string} [props.description]
  * @param {'full'|'compact'} [props.variant='full']
  */
 const DonationCreditChoice = ({
@@ -28,6 +29,7 @@ const DonationCreditChoice = ({
   displayName = null,
   profileLoading = false,
   className = '',
+  description = '',
   variant = 'full',
 }) => {
   const showName = Boolean(wantPublicCredit);
@@ -50,13 +52,13 @@ const DonationCreditChoice = ({
         Would you like public credit for this donation?
       </p>
       <p className="text-xs sm:text-sm text-text-muted mb-4 leading-relaxed">
-        Amount stays private. Named credit appears on the active projects
-        Contributor page and on All Contributors page.
+        {description ||
+          'Named credit shows your name and amount on the recent contributions list. Choose anonymous to appear as Anonymous, without an amount. Studio Contributors lists stay separate from Runway.'}
       </p>
 
       <div
         className={`grid gap-2 ${
-          variant === 'full' ? 'sm:grid-cols-2' : 'grid-cols-1'
+          variant === 'full' ? 'grid-cols-2' : 'grid-cols-1'
         }`}
       >
         <button

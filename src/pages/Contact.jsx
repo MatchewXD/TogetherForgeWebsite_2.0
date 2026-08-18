@@ -6,6 +6,10 @@ import Button from '../components/ui/Buttons';
 import { DISCORD_URL } from '../constants/communityLinks';
 import { useReportConcern } from '../context/ReportConcernContext';
 
+const NAME_MAX = 80;
+const EMAIL_MAX = 254;
+const MESSAGE_MAX = 2000;
+
 const Contact = () => {
   const { openReportConcern } = useReportConcern();
   const [user, setUser] = useState(null);
@@ -49,11 +53,20 @@ const Contact = () => {
       setError('Sign in to send a message.');
       return;
     }
+    const name = String(formData.name || '').trim().slice(0, NAME_MAX);
+    const email = String(formData.email || '').trim().slice(0, EMAIL_MAX);
+    const message = String(formData.message || '').trim().slice(0, MESSAGE_MAX);
+    if (!message) {
+      setError('Please enter a message.');
+      return;
+    }
     const submissions = JSON.parse(
       localStorage.getItem('tf_contact_messages') || '[]'
     );
     submissions.push({
-      ...formData,
+      name,
+      email,
+      message,
       userId: user.id,
       timestamp: Date.now(),
     });
@@ -121,11 +134,15 @@ const Contact = () => {
                 <input
                   type="text"
                   required
+                  maxLength={NAME_MAX}
                   className="w-full bg-cyber-surface border border-white/20 p-4 text-white focus:border-neon-cyan outline-none"
                   placeholder="Your name"
                   value={formData.name}
                   onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
+                    setFormData({
+                      ...formData,
+                      name: e.target.value.slice(0, NAME_MAX),
+                    })
                   }
                 />
               </div>
@@ -136,11 +153,15 @@ const Contact = () => {
                 <input
                   type="email"
                   required
+                  maxLength={EMAIL_MAX}
                   className="w-full bg-cyber-surface border border-white/20 p-4 text-white focus:border-neon-cyan outline-none"
                   placeholder="your@email.com"
                   value={formData.email}
                   onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
+                    setFormData({
+                      ...formData,
+                      email: e.target.value.slice(0, EMAIL_MAX),
+                    })
                   }
                 />
               </div>
@@ -151,13 +172,20 @@ const Contact = () => {
                 <textarea
                   rows="8"
                   required
+                  maxLength={MESSAGE_MAX}
                   className="w-full bg-cyber-surface border border-white/20 p-4 text-white focus:border-neon-cyan outline-none"
                   placeholder="Your message..."
                   value={formData.message}
                   onChange={(e) =>
-                    setFormData({ ...formData, message: e.target.value })
+                    setFormData({
+                      ...formData,
+                      message: e.target.value.slice(0, MESSAGE_MAX),
+                    })
                   }
                 />
+                <p className="mt-1.5 text-[11px] font-mono text-text-muted">
+                  {formData.message.length}/{MESSAGE_MAX}
+                </p>
               </div>
               <button
                 type="submit"

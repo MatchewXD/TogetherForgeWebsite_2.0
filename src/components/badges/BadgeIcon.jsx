@@ -51,13 +51,13 @@ const ICONS = {
 };
 
 const CATEGORY_TONE = {
-  status: 'border-neon-cyan/40 text-neon-cyan bg-neon-cyan/10',
-  donation: 'border-forge-gold/40 text-forge-gold bg-forge-gold/10',
-  tasks: 'border-neon-magenta/40 text-neon-magenta bg-neon-magenta/10',
-  starter: 'border-neon-green/40 text-neon-green bg-neon-green/10',
-  impact: 'border-neon-purple/40 text-neon-purple bg-neon-purple/10',
-  giving: 'border-forge-gold/40 text-forge-gold bg-forge-gold/10',
-  collaboration: 'border-neon-cyan/40 text-neon-cyan bg-neon-cyan/10',
+  status: 'text-neon-cyan',
+  donation: 'text-forge-gold',
+  tasks: 'text-neon-magenta',
+  starter: 'text-neon-green',
+  impact: 'text-neon-purple',
+  giving: 'text-forge-gold',
+  collaboration: 'text-neon-cyan',
 };
 
 /**
@@ -142,15 +142,9 @@ export default function BadgeIcon({
   // When showTooltip is false the parent often wraps us in its own button
   // (e.g. pin/unpin on Public Profile) — nested <button> is invalid HTML.
   const shellClass = `${
-    fill ? 'w-full h-full rounded-none border-0 bg-transparent' : dim.box
-  } inline-flex items-center justify-center ${
-    fill ? '' : 'rounded-lg border'
-  } overflow-hidden outline-none focus-visible:ring-1 focus-visible:ring-neon-cyan/50 ${
-    fill
-      ? ''
-      : useImage
-        ? 'border-white/10 bg-black/25 p-0'
-        : tone
+    fill ? 'w-full h-full' : dim.box
+  } inline-flex items-center justify-center border-0 bg-transparent overflow-visible outline-none focus-visible:ring-1 focus-visible:ring-neon-cyan/50 ${
+    useImage ? '' : tone
   }`;
 
   const iconContent = useImage ? (

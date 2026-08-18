@@ -102,6 +102,8 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 
 44. `supabase_badges.sql` — `user_badges`, pin, sync RPCs, triggers  
 44b. `supabase_badges_recognition.sql` — Starter / Impact / Giving / Collaboration families  
+44c. `supabase_concern_reports.sql` — private Report a concern inbox  
+44d. `supabase_role_management.sql` — Founder role, Founder-only `set_user_role()`, role change audit  
 45. `supabase_mfa_recovery_codes.sql` — hashed MFA recovery codes (Edge Function only)  
 46. `supabase_legal_acceptance.sql` — `profiles` Terms + Community Guidelines version columns  
 47. `supabase_ai_tokens.sql` — AI token balances, immutable ledger, purchases, generation log, caps  
@@ -272,6 +274,7 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_parent_ready_for_review.sql` | Parent ready when children complete |
 | `supabase_page_content.sql` | Phase hub editable content |
 | `supabase_moderation.sql` | Staff roles + content reports |
+| `supabase_role_management.sql` | Founder role + Role Management RPC / audit log |
 | `supabase_founders_thoughts.sql` | Founders Thoughts + likes |
 | `supabase_donations_stripe.sql` | Stripe donation columns + summary |
 | `supabase_donations_public_feed.sql` | MRR + recent feed RPCs |

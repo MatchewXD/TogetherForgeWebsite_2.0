@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 
 import Card from '../components/ui/Card';
@@ -386,7 +386,7 @@ const GetInvolved = () => {
 
         <div className="container-custom relative z-10 py-8 sm:py-10 md:py-12 min-h-[16rem] sm:min-h-[18rem] md:min-h-[20rem] flex flex-col justify-center">
           <div className="max-w-2xl [text-shadow:0_1px_2px_rgb(0_0_0_/_0.9),0_2px_16px_rgb(0_0_0_/_0.55)]">
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-3 sm:mb-4">
+            <h1 className="section-header dashboard-page-title !mb-4 !text-3xl sm:!text-4xl !font-bold !tracking-tight !normal-case">
               Get Involved
             </h1>
             <p className="text-base sm:text-lg text-white/85 leading-relaxed max-w-xl">
@@ -738,6 +738,16 @@ const GetInvolved = () => {
             />
           </Card>
         </section>
+
+        <p className="text-sm text-text-muted text-center">
+          Want to understand why this exists?{' '}
+          <Link
+            to="/founders-thoughts"
+            className="text-text-secondary hover:text-neon-cyan transition-colors"
+          >
+            → Founders Thoughts
+          </Link>
+        </p>
       </div>
 
       <Modal

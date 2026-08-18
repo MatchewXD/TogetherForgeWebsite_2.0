@@ -281,6 +281,7 @@ export default function AccountBillingSection() {
                 <tr>
                   <th className="px-3 py-2 font-medium">Date</th>
                   <th className="px-3 py-2 font-medium">Type</th>
+                  <th className="px-3 py-2 font-medium">Purpose</th>
                   <th className="px-3 py-2 font-medium">Amount</th>
                   <th className="px-3 py-2 font-medium">Status</th>
                 </tr>
@@ -301,6 +302,9 @@ export default function AccountBillingSection() {
                       >
                         {row.kindLabel}
                       </span>
+                    </td>
+                    <td className="px-3 py-2 text-white">
+                      {row.purposeLabel || 'Studio Support'}
                     </td>
                     <td className="px-3 py-2 font-mono text-white tabular-nums">
                       {row.amountLabel}

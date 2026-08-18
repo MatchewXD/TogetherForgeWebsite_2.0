@@ -17,7 +17,7 @@ as $$
   select exists (
     select 1 from profiles p
     where p.id = auth.uid()
-      and coalesce(p.role, 'user') in ('moderator', 'admin', 'project_lead')
+      and coalesce(p.role, 'user') in ('moderator', 'admin', 'project_lead', 'founder')
   );
 $$;
 

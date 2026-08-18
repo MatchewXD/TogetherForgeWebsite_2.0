@@ -20,6 +20,7 @@ import {
 import Modal from '../ui/Modal';
 import Button from '../ui/Buttons';
 import UserAvatar from '../ui/UserAvatar';
+import AvatarCropModal from './AvatarCropModal';
 import { emitProfileUpdated } from '../../utils/profileEvents';
 
 function snapshotFields({
@@ -60,7 +61,7 @@ function snapshotFields({
 }
 
 const BANNER_MAX_BYTES = 5 * 1024 * 1024; // 5MB
-const AVATAR_MAX_BYTES = 2 * 1024 * 1024; // 2MB
+const AVATAR_MAX_BYTES = 8 * 1024 * 1024; // 8MB source; we crop to a small JPEG
 const BANNER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const BANNER_BUCKET = 'avatars';
 
@@ -69,7 +70,7 @@ const BANNER_SIZE_TIPS =
   'Recommended size: 1500 x 500 px (3:1 landscape). Larger images are fine; drag the preview to choose which part shows. JPEG, PNG, or WebP · max 5MB.';
 
 const AVATAR_SIZE_TIPS =
-  'Square works best (e.g. 400×400). JPEG, PNG, or WebP · max 2MB. Shown next to your name across the site.';
+  'After you choose a photo you can zoom and crop to the circle. JPEG, PNG, or WebP · max 8MB.';
 
 /** Tag chips (comma-separated string) — must live outside parent to keep hooks stable */
 function TagInput({ label, value, onChange }) {
@@ -178,6 +179,8 @@ export default function ProfileSettingsForm({
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [removeAvatar, setRemoveAvatar] = useState(false);
+  const [avatarCropSrc, setAvatarCropSrc] = useState(null);
+  const [avatarCropName, setAvatarCropName] = useState('avatar.jpg');
   const [bannerUrl, setBannerUrl] = useState(null);
   const [bannerFile, setBannerFile] = useState(null);
   const [bannerPreview, setBannerPreview] = useState(null);
@@ -342,6 +345,12 @@ export default function ProfileSettingsForm({
     };
   }, [avatarPreview]);
 
+  useEffect(() => {
+    return () => {
+      if (avatarCropSrc) URL.revokeObjectURL(avatarCropSrc);
+    };
+  }, [avatarCropSrc]);
+
   const displayAvatar = avatarPreview || (!removeAvatar && avatarUrl ? avatarUrl : null);
 
   const onAvatarPick = useCallback((e) => {
@@ -353,16 +362,38 @@ export default function ProfileSettingsForm({
       return;
     }
     if (file.size > AVATAR_MAX_BYTES) {
-      setMessage('Profile picture must be under 2MB.');
+      setMessage('Profile picture must be under 8MB.');
       return;
     }
     setMessage('');
+    setAvatarCropName(file.name || 'avatar.jpg');
+    setAvatarCropSrc((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  }, []);
+
+  const cancelAvatarCrop = useCallback(() => {
+    setAvatarCropSrc((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setAvatarCropName('avatar.jpg');
+  }, []);
+
+  const applyAvatarCrop = useCallback((file) => {
+    if (!file) return;
     setRemoveAvatar(false);
     setAvatarFile(file);
     setAvatarPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return URL.createObjectURL(file);
     });
+    setAvatarCropSrc((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setAvatarCropName('avatar.jpg');
   }, []);
 
   const clearAvatar = useCallback(() => {
@@ -991,6 +1022,13 @@ export default function ProfileSettingsForm({
               </div>
             </div>
           </Modal>
+
+          <AvatarCropModal
+            imageSrc={avatarCropSrc}
+            fileName={avatarCropName}
+            onCancel={cancelAvatarCrop}
+            onApply={applyAvatarCrop}
+          />
 
           {/* Profile picture */}
           <div className="mb-8">

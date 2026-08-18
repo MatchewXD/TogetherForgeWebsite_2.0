@@ -25,10 +25,10 @@ import {
   isStripeConfigured,
   recordLocalSupportEvent,
   validateAmountCents,
-  getCheckoutApiUrl,
 } from '../services/supportService';
 import SupportTotals from '../components/support/SupportTotals';
 import RecentDonationsList from '../components/support/RecentDonationsList';
+import FundContributorsCard from '../components/support/FundContributorsCard';
 import DonationCreditChoice, {
   resolveDonationCredit,
 } from '../components/support/DonationCreditChoice';
@@ -766,50 +766,11 @@ const SupportPage = () => {
           items={recentDonations}
           loading={socialLoading}
           source={recentSource}
+          title="Recent contributions"
+          emptyBody="Your studio support can be the first on this list. Named gifts show name and amount. Private gifts show as Anonymous."
         />
 
-        {/* Dev-friendly single test button (same credit path as real tiers) */}
-        {import.meta.env.DEV && (
-          <Card className="bg-cyber-card/80 border-neon-purple/30">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <div className="text-xs font-mono tracking-widest text-neon-purple uppercase mb-1">
-                  Local Stripe test
-                </div>
-                <p className="text-sm text-text-secondary">
-                  One-click $5 Checkout via Supabase Edge Function. Uses the same
-                  public credit choice as the buttons above. API:{' '}
-                  <code className="text-xs text-neon-cyan font-mono break-all">
-                    {getCheckoutApiUrl() || '(not set)'}
-                  </code>
-                </p>
-              </div>
-              <Button
-                className="shrink-0 gap-2"
-                disabled={!!busyKey}
-                onClick={() =>
-                  runCheckout({
-                    amount: 5,
-                    tierId: 'test',
-                    label: 'Together Forge Support (test)',
-                  })
-                }
-              >
-                {busyKey?.startsWith('test_') ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Redirecting...
-                  </>
-                ) : (
-                  <>
-                    <Heart className="w-4 h-4" />
-                    Pay $5 test
-                  </>
-                )}
-              </Button>
-            </div>
-          </Card>
-        )}
+        <FundContributorsCard fundType="studio" />
 
         {/* Funds use + important notes (single card) */}
         <Card className="bg-cyber-card/80 border-l-4 border-l-forge-gold border-cyber-border">

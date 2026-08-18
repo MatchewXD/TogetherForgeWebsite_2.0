@@ -1,6 +1,6 @@
 /**
- * Recent support feed for Donate page.
- * Compact per-supporter cards: avatar, username, when — never amounts.
+ * Recent support feed for Studio Support and Runway Support.
+ * Named (opt-in) cards show name + amount. Private cards show a name only.
  */
 
 import { Link } from 'react-router-dom';
@@ -8,7 +8,10 @@ import { Heart, Repeat, Sparkles } from 'lucide-react';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import UserAvatar from '../ui/UserAvatar';
-import { formatTimeAgo } from '../../services/donationsService';
+import {
+  formatTimeAgo,
+  formatUsdFromCents,
+} from '../../services/donationsService';
 import { publicProfilePath } from '../../utils/profileLinks';
 
 function SupporterCard({ item, index }) {
@@ -68,6 +71,12 @@ function SupporterCard({ item, index }) {
         {avatar}
         <div className="min-w-0 w-full flex flex-col items-center gap-1.5 flex-1 justify-center">
           {nameEl}
+          {!isAnon && item.amountCents > 0 && (
+            <p className="text-sm font-mono font-semibold text-neon-cyan tabular-nums">
+              {formatUsdFromCents(item.amountCents)}
+              {item.isRecurring ? '/mo' : ''}
+            </p>
+          )}
           {item.isRecurring && (
             <Badge variant="purple" className="!text-[10px] !normal-case">
               Monthly
@@ -86,17 +95,29 @@ const RecentDonationsList = ({
   items = [],
   loading = false,
   source = 'empty',
+  title = 'Recent contributions',
+  headingId = 'recent-support-heading',
+  emptyTitle = 'No public support yet',
+  emptyBody = 'Your contribution can be the first on this list. Start small. Every dollar helps ship real work.',
+  showCreditNote = true,
+  className = '',
 }) => {
   return (
-    <section aria-labelledby="recent-support-heading">
-      <div className="mb-6 flex justify-center">
+    <section aria-labelledby={headingId} className={className}>
+      <div className={`${showCreditNote ? 'mb-4' : 'mb-6'} flex justify-center`}>
         <h2
-          id="recent-support-heading"
-          className="section-header section-header--centered !mb-4 !text-3xl sm:!text-4xl !font-bold !tracking-tight !normal-case !text-neon-cyan"
+          id={headingId}
+          className="section-header section-header--centered !mb-2 !text-2xl sm:!text-3xl !font-bold !tracking-tight !normal-case !text-neon-cyan"
         >
-          Thank you for Donating!
+          {title}
         </h2>
       </div>
+      {showCreditNote ? (
+        <p className="text-center text-sm text-text-secondary mb-6 max-w-lg mx-auto">
+          Named supporters opted in to public credit. Private gifts show as
+          Anonymous, without an amount.
+        </p>
+      ) : null}
 
       {loading && (
         <Card className="bg-cyber-card/80 px-5 py-12 text-center text-sm text-text-muted font-mono tracking-widest uppercase">
@@ -107,10 +128,9 @@ const RecentDonationsList = ({
       {!loading && items.length === 0 && (
         <Card className="bg-cyber-card/80 px-5 py-12 text-center">
           <Sparkles className="w-8 h-8 text-neon-cyan/50 mx-auto mb-3" />
-          <p className="text-white font-medium mb-1">No public support yet</p>
+          <p className="text-white font-medium mb-1">{emptyTitle}</p>
           <p className="text-sm text-text-secondary max-w-sm mx-auto">
-            Your contribution can be the first on this list. Start small. Every
-            dollar helps ship real work.
+            {emptyBody}
           </p>
         </Card>
       )}

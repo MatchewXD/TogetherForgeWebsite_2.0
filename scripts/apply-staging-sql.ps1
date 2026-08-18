@@ -110,7 +110,9 @@ $ordered = @(
   "supabase/sql/supabase_ai_tokens_scale_50k.sql",
   "supabase/sql/supabase_ai_token_pack_grants.sql",
   "supabase/sql/supabase_ai_platform_enable_staging.sql",
-  "supabase/sql/supabase_volunteer_applications.sql"
+  "supabase/sql/supabase_volunteer_applications.sql",
+  "supabase/sql/supabase_concern_reports.sql",
+  "supabase/sql/supabase_role_management.sql"
 )
 
 # Resume: skip files until AFTER StartAfter (that file is treated as already done)

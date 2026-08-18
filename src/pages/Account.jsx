@@ -75,6 +75,14 @@ import AccountMfaSection from '../components/account/AccountMfaSection';
 
 const SSO_FLASH_KEY = 'tf_sso_flash';
 
+function safeNextPath(raw) {
+  const s = String(raw || '').trim();
+  if (!s.startsWith('/') || s.startsWith('//') || s.includes('://')) {
+    return null;
+  }
+  return s;
+}
+
 function stashSsoFlash(payload) {
   try {
     if (!payload?.message) return;
@@ -341,7 +349,10 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
               /* gate will re-prompt if profile columns missing */
             }
             onAuthed?.(data.user);
-            navigate('/dashboard', { replace: true });
+            const next = safeNextPath(
+              new URLSearchParams(window.location.search).get('next')
+            );
+            navigate(next || '/dashboard', { replace: true });
           } else {
             localStorage.setItem('pending_confirmation_email', form.email);
             navigate('/confirm-email', { replace: true });
@@ -363,7 +374,10 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
         }
         onAuthed?.(data.user);
         // MFA challenge (if enrolled) is handled by MfaSessionGate at app root
-        navigate('/dashboard', { replace: true });
+        const next = safeNextPath(
+          new URLSearchParams(window.location.search).get('next')
+        );
+        navigate(next || '/dashboard', { replace: true });
       }
     } catch (err) {
       setMessage(err.message || 'Authentication failed');
@@ -1213,6 +1227,14 @@ const Account = () => {
     () => ACCOUNT_SECTIONS.find((s) => s.id === section) || ACCOUNT_SECTIONS[0],
     [section]
   );
+
+  // After login from a deep link (e.g. Report a Bug)
+  if (authReady && user && profile?.username) {
+    const next = safeNextPath(
+      new URLSearchParams(location.search).get('next')
+    );
+    if (next) return <Navigate to={next} replace />;
+  }
 
   // /account → Edit Profile when signed in (and username is set)
   if (authReady && user && !resolvedSection && profile?.username) {

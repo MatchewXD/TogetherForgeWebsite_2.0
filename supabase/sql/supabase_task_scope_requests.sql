@@ -46,6 +46,12 @@ create index if not exists idx_task_scope_task
 
 alter table public.task_scope_requests enable row level security;
 
+-- Table grants (RLS still applies). Missing GRANTs look like
+-- "permission denied" and the dashboard reports the table as missing.
+grant usage on schema public to anon, authenticated, service_role;
+grant select on table public.task_scope_requests to anon, authenticated, service_role;
+grant insert, update on table public.task_scope_requests to authenticated, service_role;
+
 drop policy if exists "Public can read scope requests" on public.task_scope_requests;
 create policy "Public can read scope requests"
   on public.task_scope_requests for select
@@ -282,3 +288,5 @@ end;
 $$;
 
 grant execute on function public.cancel_task_scope_request(uuid) to authenticated;
+
+notify pgrst, 'reload schema';

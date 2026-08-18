@@ -26,7 +26,7 @@ import {
 import useStaffRole from '../../hooks/useStaffRole';
 
 export default function IdeaTagsAdminPanel() {
-  const { isAdmin, isModerator } = useStaffRole();
+  const { isAdmin, isFounder, isModerator } = useStaffRole();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -354,7 +354,7 @@ export default function IdeaTagsAdminPanel() {
                           <Merge className="w-3 h-3" />
                           Merge
                         </button>
-                        {isAdmin && (
+                        {(isAdmin || isFounder) && (
                           <button
                             type="button"
                             disabled={busy}

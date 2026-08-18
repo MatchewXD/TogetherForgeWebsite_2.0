@@ -74,7 +74,7 @@ function showcaseStatusLabel(status) {
 
 /** Equal-height dashboard panels; body scrolls when content overflows. */
 const DASH_PANEL =
-  'h-[22rem] sm:h-96 flex flex-col overflow-hidden min-h-0';
+  'h-[26rem] sm:h-[32rem] flex flex-col overflow-hidden min-h-0';
 const DASH_PANEL_BODY =
   'dashboard-panel-scroll flex-1 min-h-0 overflow-y-auto overscroll-contain';
 
@@ -327,9 +327,8 @@ const Dashboard = () => {
       <div className="pt-20 min-h-screen">
         <div className="border-b border-white/10 bg-cyber-surface py-16">
           <div className="container-custom">
-            <div className="section-header">DASHBOARD</div>
-            <h1 className="text-5xl font-bold tracking-tight text-white">
-              My Dashboard
+            <h1 className="section-header dashboard-page-title !mb-0 !text-3xl sm:!text-5xl !font-bold !tracking-[0.14em]">
+              DASHBOARD
             </h1>
           </div>
         </div>
@@ -383,17 +382,13 @@ const Dashboard = () => {
         className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(168,85,247,0.06)_0%,transparent_45%),radial-gradient(ellipse_at_top_right,rgba(0,249,255,0.05)_0%,transparent_40%),radial-gradient(ellipse_at_bottom,rgba(255,0,128,0.04)_0%,transparent_45%)]"
         aria-hidden
       />
-      <div className="border-b border-white/10 bg-cyber-surface/90 py-12 sm:py-16 relative">
+      <div className="border-b border-white/10 bg-cyber-surface/90 py-10 sm:py-12 relative">
         <div className="container-custom">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
             <div>
-              <div className="section-header text-neon-purple">DASHBOARD</div>
-              <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white">
-                My Dashboard
+              <h1 className="section-header dashboard-page-title text-neon-purple !mb-0 !text-3xl sm:!text-5xl !font-bold !tracking-[0.14em]">
+                DASHBOARD
               </h1>
-              <p className="text-text-secondary mt-2 text-sm max-w-xl">
-                Private workspace: active work, requests, and shortcuts.
-              </p>
             </div>
 
             {!loading && user && (
@@ -437,7 +432,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="container-custom relative z-10 py-10 max-w-6xl space-y-8">
+      <div className="container-custom relative z-10 py-10 max-w-7xl space-y-8">
         {error && (
           <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300 flex items-start gap-2">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />

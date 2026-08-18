@@ -1,7 +1,8 @@
 /**
  * Basic Moderator Dashboard (staff only).
  * Users, idea moderation, content reports / pending queue.
- * Access: useIsModerator (moderator | admin | project_lead).
+ * Access: staff (founder | moderator | admin | project_lead).
+ * Role Management tab is Founder-only.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -24,6 +25,7 @@ import {
   SplitSquareVertical,
   Tags,
   BookOpen,
+  UserCog,
 } from 'lucide-react';
 
 import Card from '../components/ui/Card';
@@ -33,10 +35,12 @@ import Modal from '../components/ui/Modal';
 import UserAvatar from '../components/ui/UserAvatar';
 import TaskCategoryBadge from '../components/ui/TaskCategoryBadge';
 import LoadingScreen from '../components/ui/LoadingScreen';
-import useIsModerator from '../hooks/useIsModerator';
+import useStaffRole from '../hooks/useStaffRole';
 import moderationService, {
   WORKFLOW_STATUSES,
   MODERATION_STATUSES,
+  ASSIGNABLE_ROLES,
+  roleLabel,
 } from '../services/moderationService';
 import { tasksService } from '../services/tasksService';
 import { STATUS_LABELS, displayProjectTitle } from '../utils/ideaStatus';
@@ -51,6 +55,9 @@ const TABS = [
   { id: 'restrictions', label: 'Claim restrict', icon: Ban },
   { id: 'reports', label: 'Reports', icon: Flag },
 ];
+
+const ROLES_TAB = { id: 'roles', label: 'Role Management', icon: UserCog };
+const ALL_TABS = [...TABS, ROLES_TAB];
 
 const SCOPE_RESOLUTION_LABELS = {
   breakdown: 'Broken into sub-tasks',
@@ -79,6 +86,21 @@ const formatDate = (iso) => {
   }
 };
 
+const formatDateTime = (iso) => {
+  if (!iso) return 'n/a';
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  } catch {
+    return 'n/a';
+  }
+};
+
 function joinTime(u) {
   const t = Date.parse(u?.joined_at || u?.created_at || '');
   return Number.isFinite(t) ? t : 0;
@@ -92,20 +114,31 @@ function ideaTime(idea) {
 const ModeratorDashboard = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isModerator, loading: roleLoading } = useIsModerator();
+  const {
+    isModerator,
+    isFounder,
+    userId,
+    loading: roleLoading,
+  } = useStaffRole();
+
+  const visibleTabs = useMemo(
+    () => (isFounder ? ALL_TABS : TABS),
+    [isFounder]
+  );
 
   const initialTab = searchParams.get('tab');
   const [tab, setTab] = useState(
-    TABS.some((t) => t.id === initialTab) ? initialTab : 'users'
+    ALL_TABS.some((t) => t.id === initialTab) ? initialTab : 'users'
   );
 
-  // Deep-link: /moderator?tab=scope
+  // Deep-link: /moderator?tab=scope. Only follow the URL, never
+  // overwrite a click while searchParams is still stale.
   useEffect(() => {
+    if (roleLoading) return;
     const t = searchParams.get('tab');
-    if (t && TABS.some((x) => x.id === t) && t !== tab) {
-      setTab(t);
-    }
-  }, [searchParams, tab]);
+    const next = visibleTabs.some((x) => x.id === t) ? t : 'users';
+    setTab((cur) => (cur === next ? cur : next));
+  }, [searchParams, visibleTabs, roleLoading]);
   const [users, setUsers] = useState([]);
   const [ideas, setIdeas] = useState([]);
   const [reports, setReports] = useState([]);
@@ -136,6 +169,9 @@ const ModeratorDashboard = () => {
   const [userRoleFilter, setUserRoleFilter] = useState('all');
   const [userStatusFilter, setUserStatusFilter] = useState('all');
   const [userSort, setUserSort] = useState('newest');
+  const [roleSearch, setRoleSearch] = useState('');
+  const [roleLog, setRoleLog] = useState([]);
+  const [roleLogMissing, setRoleLogMissing] = useState(false);
 
   // Ideas filters / sort
   const [ideaSearch, setIdeaSearch] = useState('');
@@ -190,9 +226,19 @@ const ModeratorDashboard = () => {
       setReportsMissing(!!r.tableMissing);
     } else {
       setReports([]);
-      setReportsMissing(true);
-      console.warn('[ModeratorDashboard] reports', results[2].reason);
-      // Do not treat missing reports table as a hard page error
+      const reason = results[2].reason;
+      console.warn('[ModeratorDashboard] reports', reason);
+      const missing =
+        reason?.code === 'PGRST205' ||
+        reason?.code === '42P01' ||
+        (/does not exist|schema cache|Could not find the table/i.test(
+          reason?.message || ''
+        ) &&
+          !/permission denied/i.test(reason?.message || ''));
+      setReportsMissing(missing);
+      if (!missing && reason?.message) {
+        errs.push(reason.message);
+      }
     }
 
     if (results[3].status === 'fulfilled') {
@@ -211,9 +257,10 @@ const ModeratorDashboard = () => {
       console.warn('[ModeratorDashboard] scope', reason);
       const missing =
         reason?.code === 'SCOPE_TABLE_MISSING' ||
-        /task_scope_requests|Scope requests are not set up|does not exist|schema cache/i.test(
+        (/Scope requests are not set up|does not exist|schema cache/i.test(
           reason?.message || ''
-        );
+        ) &&
+          !/permission denied/i.test(reason?.message || ''));
       setScopeMissing(missing);
       setScopeLoadError(
         missing
@@ -249,9 +296,25 @@ const ModeratorDashboard = () => {
       );
     }
 
+    if (isFounder) {
+      try {
+        const log = await moderationService.listRoleChanges({ limit: 50 });
+        setRoleLog(log.entries || []);
+        setRoleLogMissing(!!log.tableMissing);
+      } catch (e) {
+        setRoleLog([]);
+        setRoleLogMissing(false);
+        console.error('[ModeratorDashboard] role log', e);
+        errs.push(e?.message || 'Could not load role change log');
+      }
+    } else {
+      setRoleLog([]);
+      setRoleLogMissing(false);
+    }
+
     if (errs.length) setError(errs.join(' · '));
     setLoading(false);
-  }, [isModerator, scopeStatusFilter]);
+  }, [isModerator, isFounder, scopeStatusFilter]);
 
   useEffect(() => {
     if (!roleLoading && isModerator) load();
@@ -315,6 +378,23 @@ const ModeratorDashboard = () => {
     });
     return list;
   }, [users, userSearch, userRoleFilter, userStatusFilter, userSort]);
+
+  const filteredRoleUsers = useMemo(() => {
+    const q = roleSearch.trim().toLowerCase();
+    const list = q
+      ? users.filter((u) => {
+          const hay = `${u.username || ''} ${u.email || ''} ${u.id || ''}`.toLowerCase();
+          return hay.includes(q);
+        })
+      : users;
+    return [...list].sort((a, b) =>
+      String(a.username || '').localeCompare(String(b.username || ''), undefined, {
+        sensitivity: 'base',
+      })
+    );
+  }, [users, roleSearch]);
+
+
 
   const filteredIdeas = useMemo(() => {
     const q = ideaSearch.trim().toLowerCase();
@@ -390,8 +470,8 @@ const ModeratorDashboard = () => {
             <Shield className="w-10 h-10 text-text-muted mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-white mb-2">Staff only</h1>
             <p className="text-sm text-text-secondary mb-6 leading-relaxed">
-              This dashboard is for moderators, admins, and project leads.
-              If you need access, contact a site admin to set your profile role.
+              This dashboard is for moderators.
+              If you need access, contact the site owner.
             </p>
             <Button variant="secondary" onClick={() => navigate('/')}>
               Back home
@@ -510,7 +590,7 @@ const ModeratorDashboard = () => {
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2" role="tablist">
-            {TABS.map((t) => {
+            {visibleTabs.map((t) => {
               const Icon = t.icon;
               const active = tab === t.id;
               return (
@@ -521,10 +601,7 @@ const ModeratorDashboard = () => {
                   aria-selected={active}
                   onClick={() => {
                     setTab(t.id);
-                    setSearchParams(
-                      t.id === 'users' ? {} : { tab: t.id },
-                      { replace: true }
-                    );
+                    setSearchParams({ tab: t.id }, { replace: true });
                   }}
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-mono tracking-widest uppercase border transition-colors ${
                     active
@@ -986,7 +1063,9 @@ const ModeratorDashboard = () => {
                           <span className="font-semibold text-white truncate">
                             {u.username || 'Unnamed'}
                           </span>
-                          <Badge variant="default">{u.role || 'user'}</Badge>
+                          <Badge variant="default">
+                            {roleLabel(u.role || 'user')}
+                          </Badge>
                           {status !== 'active' && (
                             <Badge
                               variant={
@@ -1558,14 +1637,186 @@ const ModeratorDashboard = () => {
           </section>
         )}
 
-        <Card className="bg-cyber-surface/50 border-dashed text-xs text-text-muted leading-relaxed">
-          Tip: set <code className="text-neon-cyan">profiles.role</code> to{' '}
-          <code className="text-neon-cyan">moderator</code>,{' '}
-          <code className="text-neon-cyan">admin</code>, or{' '}
-          <code className="text-neon-cyan">project_lead</code> for staff access.
-          Apply <code className="text-neon-cyan">supabase/sql/supabase_moderation.sql</code> for
-          ban/suspend columns, report queue, and staff RLS.
-        </Card>
+        {/* ---------- Role Management (Founder only) ---------- */}
+        {tab === 'roles' && isFounder && (
+          <section aria-labelledby="roles-heading">
+            <div className="mb-4">
+              <h2
+                id="roles-heading"
+                className="text-xl sm:text-2xl font-bold text-white tracking-tight"
+              >
+                Role Management
+              </h2>
+              <p className="text-sm text-text-secondary mt-1 max-w-xl">
+                Change a user&apos;s role. Only a Founder can do this. There
+                can be one Founder.
+              </p>
+              <p className="text-xs font-mono text-text-muted mt-1">
+                Showing {filteredRoleUsers.length}
+                {filteredRoleUsers.length !== users.length
+                  ? ` of ${users.length}`
+                  : ''}
+              </p>
+            </div>
+
+            <Card className="bg-cyber-card/80 mb-4 p-4 sm:p-5">
+              <label className={filterLabel} htmlFor="mod-role-search">
+                Search
+              </label>
+              <div className="relative max-w-md">
+                <Search
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none"
+                  aria-hidden
+                />
+                <input
+                  id="mod-role-search"
+                  type="search"
+                  className={`${filterControl} pl-9`}
+                  placeholder="Username, email, id…"
+                  value={roleSearch}
+                  onChange={(e) => setRoleSearch(e.target.value)}
+                />
+              </div>
+            </Card>
+
+            <div className="space-y-3">
+              {users.length === 0 && !loading && (
+                <Card className="bg-cyber-card/80 text-sm text-text-muted">
+                  No profiles found (or staff read policy not applied yet).
+                </Card>
+              )}
+              {users.length > 0 && filteredRoleUsers.length === 0 && !loading && (
+                <Card className="bg-cyber-card/80 text-sm text-text-muted">
+                  No users match this search.
+                </Card>
+              )}
+              {filteredRoleUsers.map((u) => {
+                const current = String(u.role || 'user');
+                const busy = busyKey === `role-${u.id}`;
+                const isSelf = u.id === userId;
+                const locked = isSelf || current === 'founder';
+                const extraOption = !ASSIGNABLE_ROLES.includes(current);
+                return (
+                  <Card
+                    key={u.id}
+                    className="bg-cyber-card/80 flex flex-col sm:flex-row sm:items-center gap-4"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <UserAvatar
+                        src={u.avatar_url}
+                        name={u.username || 'User'}
+                        size="lg"
+                      />
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-white truncate">
+                            {u.username || 'Unnamed'}
+                          </span>
+                          <Badge variant="default">{roleLabel(current)}</Badge>
+                        </div>
+                        <p className="text-xs font-mono text-text-muted mt-1 truncate">
+                          {u.id?.slice(0, 8)}… · joined{' '}
+                          {formatDate(u.joined_at || u.created_at)}
+                          {isSelf ? ' · you' : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <label className="sr-only" htmlFor={`mod-role-${u.id}`}>
+                        Role for {u.username || 'user'}
+                      </label>
+                      <select
+                        id={`mod-role-${u.id}`}
+                        key={`${u.id}-${current}`}
+                        className={filterControl + ' w-auto min-w-[10rem]'}
+                        value={current}
+                        disabled={busy || locked}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          if (next === current) return;
+                          setConfirmDialog({
+                            title: 'Change role',
+                            message: `Set ${u.username || 'this user'} from ${roleLabel(current)} to ${roleLabel(next)}?`,
+                            confirmLabel: 'Change role',
+                            onConfirm: () =>
+                              runAction(
+                                `role-${u.id}`,
+                                () =>
+                                  moderationService.setUserRole(u.id, next),
+                                `${u.username || 'User'} is now ${roleLabel(next)}`
+                              ),
+                          });
+                        }}
+                      >
+                        {extraOption && (
+                          <option value={current}>{roleLabel(current)}</option>
+                        )}
+                        {ASSIGNABLE_ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {roleLabel(r)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+
+            <div className="mt-10">
+              <h3 className="text-lg font-bold text-white tracking-tight">
+                Role changes
+              </h3>
+              <p className="text-sm text-text-secondary mt-1 mb-4">
+                Who changed a role, and when.
+              </p>
+
+              {roleLogMissing && (
+                <Card className="bg-semantic-warning/10 border-semantic-warning/40">
+                  <p className="text-sm text-text-secondary leading-relaxed">
+                    Role audit log is not installed yet. Run{' '}
+                    <code className="text-neon-cyan text-xs">
+                      supabase/sql/supabase_role_management.sql
+                    </code>{' '}
+                    in the Supabase SQL Editor, then click Refresh.
+                  </p>
+                </Card>
+              )}
+
+              {!roleLogMissing && roleLog.length === 0 && !loading && (
+                <Card className="bg-cyber-card/80 text-sm text-text-muted">
+                  No role changes recorded yet.
+                </Card>
+              )}
+
+              {!roleLogMissing && roleLog.length > 0 && (
+                <div className="space-y-2">
+                  {roleLog.map((entry) => (
+                    <Card
+                      key={entry.id}
+                      className="bg-cyber-card/80 py-3 px-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+                    >
+                      <p className="text-sm text-text-secondary">
+                        <span className="text-white font-medium">
+                          {entry.changed_by_username || 'Founder'}
+                        </span>{' '}
+                        set{' '}
+                        <span className="text-white font-medium">
+                          {entry.username || 'a user'}
+                        </span>{' '}
+                        from {roleLabel(entry.old_role)} to{' '}
+                        {roleLabel(entry.new_role)}
+                      </p>
+                      <p className="text-xs font-mono text-text-muted shrink-0">
+                        {formatDateTime(entry.created_at)}
+                      </p>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
       </div>
 
       <Modal

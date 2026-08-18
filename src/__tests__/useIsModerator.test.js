@@ -91,6 +91,18 @@ describe('useIsModerator hook', () => {
         expect(result.current.isModerator).toBe(true);
     });
 
+    it('returns true for founder role', async () => {
+        mockProfileRole('founder');
+
+        const { result } = renderHook(() => useIsModerator());
+
+        await waitFor(() => {
+            expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.isModerator).toBe(true);
+    });
+
     it('returns false for regular user role', async () => {
         mockProfileRole('user');
 

@@ -35,10 +35,8 @@ function isMissingTableError(error) {
 function missingTableMessage(error) {
   const detail = error?.message || error?.code || '';
   return (
-    'Bug tracker table is missing on this Supabase project. ' +
-    'Open SQL Editor for project lbstantgrrrupzeasndg, run the FULL file ' +
-    'supabase/sql/supabase_bug_reports.sql, then run: ' +
-    "select to_regclass('public.bug_reports'); - it must return public.bug_reports. " +
+    'Bug tracker is not set up on this database yet. Apply ' +
+    'supabase/sql/supabase_bug_reports.sql in the SQL Editor, then try again. ' +
     (detail ? `(API: ${detail})` : '')
   );
 }
@@ -235,8 +233,15 @@ export const bugReportsService = {
     }
 
     let screenshotUrl = null;
+    let screenshotSkipped = false;
     if (screenshotFile) {
-      screenshotUrl = await this.uploadScreenshot(screenshotFile);
+      try {
+        screenshotUrl = await this.uploadScreenshot(screenshotFile);
+      } catch (shotErr) {
+        console.warn('[bugReports] screenshot skipped', shotErr?.message || shotErr);
+        screenshotUrl = null;
+        screenshotSkipped = true;
+      }
     }
 
     const title = String(payload.title || '').trim();
@@ -279,7 +284,7 @@ export const bugReportsService = {
       }
       throw error;
     }
-    return mapBugRow(data);
+    return { ...mapBugRow(data), screenshotSkipped };
   },
 
   /** Staff only: change triage status */

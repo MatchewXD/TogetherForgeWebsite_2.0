@@ -32,6 +32,7 @@ export function ReportConcernProvider({ children }) {
         onClose={closeReportConcern}
         title="Report a concern"
         size="lg"
+        framed={false}
       >
         <ReportConcernForm
           key={open ? 'open' : 'closed'}

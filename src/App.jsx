@@ -16,6 +16,7 @@ import EducationApprenticeship from './pages/EducationApprenticeship';
 import FAQ from './pages/FAQ';
 import BugTracker from './pages/BugTracker';
 import ReportBug from './pages/ReportBug';
+import ReportConcern from './pages/ReportConcern';
 import PlatformSuggestions from './pages/PlatformSuggestions';
 import Donations from './pages/Donations';
 import Contact from './pages/Contact';
@@ -135,6 +136,14 @@ function App() {
                         <Route path="/bugs" element={<BugTracker />} />
                         <Route path="/bugs/report" element={<ReportBug />} />
                         <Route path="/report-bug" element={<ReportBug />} />
+                        <Route
+                          path="/report-a-concern"
+                          element={<ReportConcern />}
+                        />
+                        <Route
+                          path="/report-concern"
+                          element={<ReportConcern />}
+                        />
                         <Route
                           path="/suggestions"
                           element={<PlatformSuggestions />}

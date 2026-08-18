@@ -11,9 +11,7 @@ import {
   Settings,
   CreditCard,
   Shield,
-  Crown,
   LogOut,
-  Hammer,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import UserAvatar from '../ui/UserAvatar';
@@ -41,7 +39,7 @@ export default function AvatarMenu({
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const navigate = useNavigate();
-  const { isAdmin, isModeratorRole, isProjectLead } = useStaffRole();
+  const { canSeeModeratorDashboard } = useStaffRole();
 
   const displayName =
     (username && String(username).trim()) ||
@@ -170,38 +168,14 @@ export default function AvatarMenu({
         </Link>
       </div>
 
-      {/* Role tools — only for relevant roles */}
-      {(isModeratorRole || isProjectLead || isAdmin) && (
+      {/* Staff — Moderator and Founder only */}
+      {canSeeModeratorDashboard && (
         <div className="border-t border-cyber-border/60 py-1.5 px-1">
           <p className={sectionLabel}>Staff</p>
-          {(isModeratorRole || isAdmin) && (
-            <Link to="/moderator" className={linkClass} onClick={() => go()}>
-              <Shield className="w-4 h-4 shrink-0 text-semantic-warning" />
-              Moderator Dashboard
-            </Link>
-          )}
-          {isProjectLead && (
-            <Link
-              to="/moderator"
-              className={linkClass}
-              onClick={() => go()}
-              title="Project Lead tools live on the Moderator Dashboard"
-            >
-              <Hammer className="w-4 h-4 shrink-0 text-neon-cyan" />
-              Project Lead tools
-            </Link>
-          )}
-          {isAdmin && (
-            <Link
-              to="/moderator"
-              className={linkClass}
-              onClick={() => go()}
-              title="Admin moderation and site tools"
-            >
-              <Crown className="w-4 h-4 shrink-0 text-forge-gold" />
-              Admin options
-            </Link>
-          )}
+          <Link to="/moderator" className={linkClass} onClick={() => go()}>
+            <Shield className="w-4 h-4 shrink-0 text-semantic-warning" />
+            Moderator Dashboard
+          </Link>
         </div>
       )}
 

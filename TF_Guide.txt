@@ -3,205 +3,177 @@ This is a text document of a one page website app that Vera made to help me keep
 Together Forge – Completion Tracker
 Private progress guide
 
-Define and launch Content Creators Team / Volunteers roles, onboarding, and credit loop
+Updated checklist for current reality. Legal / business work can proceed in parallel with the Final Website & System Pass (run on Staging first) and scalability checks while waiting on LLC approval. Deployment prep lives in P7. Use Mark phase complete when every item in this phase is done.
 
 
-Community & Moderation: Define five clear roles — Welcome/Onboarding Helper, Idea Reviewer, Discussion Moderator, Volunteer Coordinator, Website/Content Moderator (site reports, showcase moderation, content flags, website-side moderation). Public role cards + self-nomination live on Get Involved.
+Legal / Business: Decide entity structure: Big Picture Collective LLC (parent) owns Together Forge LLC
 
 
-Community & Moderation: Create a simple application or self-nomination form on the Get Involved page (shared private intake with Offer Your Skills; type moderation_role). DONE on page; keep process small/trusted.
+Legal / Business: Form Big Picture Collective LLC in Washington (filed, waiting for approval + UBI)
 
 
-Community & Moderation: Write short role descriptions and a lightweight code-of-conduct reminder (Guidelines link on Get Involved). DONE for public descriptions.
+Legal / Business: Form Together Forge LLC (owned by Big Picture Collective LLC) once parent UBI is available
 
 
-Community & Moderation: Set up private Discord channels or a shared tracker for active moderators and helpers (optional DISCORD_VOLUNTEER_WEBHOOK_URL + volunteer_applications table).
+Legal / Business: Obtain EIN for Big Picture Collective LLC
 
 
-Community & Moderation: Give moderators/helpers access to the tools they need (idea review queue, report flags, welcome scripts, showcase moderation, website flags).
+Legal / Business: Obtain EIN for Together Forge LLC
 
 
-Community & Moderation: Credit active moderators on the site (profile badges or a “Community Team” section).
+Legal / Business: Create simple Operating Agreements for both LLCs
 
 
-Community & Moderation: Start with a small trusted group, then open applications once the process is stable. (Product stance on Get Involved copy.)
+Legal / Business: Open dedicated business bank account(s)
 
 
-Other Skills: Expand Get Involved with flexible “Offer Your Skills” form (handle, Discord and/or email, skill multi-select + Other, description, time commitment, optional portfolio). DONE on page.
+Legal / Business: Trademark search for “Together Forge”
 
 
-Other Skills: Route skill submissions into a private review queue (volunteer_applications table + Edge Function submit-volunteer-application; Discord webhook preferred when secret set). Submissions are not public.
+Legal / Business: File federal trademark application for “Together Forge” (goal: application in process before public launch)
 
 
-Other Skills: Match people to actual current needs (documentation, translations, marketing assets, tooling, testing/bug reports) via Open Needs + coordinator follow-up.
+Staging Pass – Global: Site loads cleanly on desktop and mobile
 
 
-Other Skills: Keep a public “Open Needs” list on Get Involved (not Discord-only) with short descriptions and “I’m interested” → pre-fills Offer Your Skills. DONE for initial list; update content as priorities change.
+Staging Pass – Global: Navigation (all main links) works
 
 
-Other Skills: Credit every contribution in the same system used for marketing/showcase posts (ongoing).
+Staging Pass – Global: Footer links work
 
 
-Content Creation: Link the Content Creation card to Community Showcase submit (+ Media / Creators Team interest via Open Needs). Content Creators Team = official Together Forge YouTube videos (channel, playlists, planned videos); volunteer + public credit for now.
+Staging Pass – Global: Auth — sign up, login, logout, password reset
 
 
-Content Creation: Clarify that paid opportunities open later once income is stable; for now volunteer with public credit. DONE in Get Involved hero + Content path.
+Staging Pass – Global: Profile creation / username choice
 
 
-Content Creation: Ensure the submission form and Showcase page are live before promoting this card heavily. (Showcase submit route exists; keep quality bar in moderation.)
+Staging Pass – Global: MFA flow (if enabled)
 
 
-Get Involved Page: Rewrite the hero/intro copy so it feels more like Together Forge and removes the current dash-heavy summary. DONE.
+Staging Pass – Global: “Report a concern” footer link + form submits privately
 
 
-Get Involved Page: Six actionable contribution paths (Game Development → Open Work/Projects, Ideas & Feedback → Ideas, Content Creation → Showcase + Creators Team note, Community & Moderation → five roles + apply, Platform & Other Skills → Open Needs + form, Support → Donate/Transparency). DONE.
+Staging Pass – Home: Hero and main CTAs work
 
 
-Get Involved Page: Prominent public Open Needs section with “I’m interested” actions. DONE (content list in src/constants/volunteer.js).
+Staging Pass – Home: Key sections render correctly
 
 
-Get Involved Page: Offer Your Skills form + private review queue routing. DONE (page + SQL + Edge Function).
+Staging Pass – About / How it Works / Guidelines / FAQ / Contact: Content displays; links and any forms work
 
 
-Get Involved Page: Five Community & Moderation role descriptions + self-nomination form. DONE.
+Staging Pass – Get Involved: Six sections render correctly
 
 
-Get Involved Page: Task boards = Open Work + Tether only (claimable). Mid/Late demoted from this section. DONE.
+Staging Pass – Get Involved: Spot illustrations and layout look good
 
 
-Get Involved Page: Recognition links to Contributors; remove “Coming online”. DONE.
+Staging Pass – Get Involved: Community roles + Apply flow works
 
 
-Get Involved Page: Onboarding steps point to real destinations (account, paths, open work, contributors). DONE.
+Staging Pass – Get Involved: Volunteer Your Skills modal opens, pre-fills when appropriate, and submits
 
 
-Get Involved Page: Discord / join community CTA mid-page (coordination), not forced hero. DONE.
+Staging Pass – Get Involved: Content Creation section correctly explains Showcase vs Official team
 
 
-Get Involved Page: Volunteer-focused; honest note on paid opportunities later. DONE.
+Staging Pass – Get Involved: Discord CTA works
 
 
-Get Involved Page: Every major path has a clear next action. DONE.
+Staging Pass – Ideas: List, filters (including Filters / Projects / Adopted by Together Forge), and sorting
 
-Remaining in this block: Discord private channels/tracker ops, staff tool access, Community Team credit badges, ongoing matching & credit systems.
 
-Mark phase complete when remaining ops items are finished.
+Staging Pass – Ideas: Submit idea flow
 
 
-P5
-Badge & Recognition System
-0/21 items
+Staging Pass – Ideas: Idea detail page
 
-Not started
-Official definition of badges, Forge Marks, and profile achievement records. Reference this section when implementing recognition on profiles, posts, and donations. Sits after Community Infrastructure (P4) so Get Involved and credit work can point here.
 
+Staging Pass – Ideas: Awards placement (Spark → Masterwork) + Marks deduction
 
-Badges: Design data model for badges, Forge Marks balances, award ledger, and profile achievement records
 
+Staging Pass – Ideas: Award notes section (collapsed, scrollable, correct user display)
 
-Forge Marks: Grant Marks only from completed donations at base rate $1 = 100 Marks, with progressive bonus tiers ($1–24: 100/$, $25–49: 110/$, $50–99: 120/$, $100–249: 130/$, $250–499: 140/$, $500+: 150/$)
 
+Staging Pass – Ideas: No unwanted default status badges (only Under Review / Adopted when applicable)
 
-Forge Marks: Enforce rules — never expire, cannot withdraw as cash, cannot transfer between users
 
+Staging Pass – Projects / Open Work / Tether: Project list and detail pages
 
-Community Awards: Implement placing Spark (100), Hammer (200), Anvil (500), and Masterwork (1,000) Marks on posts; awards are permanent and cannot be removed by the giver
 
+Staging Pass – Projects / Open Work / Tether: Task boards, claiming, status changes
 
-Community Awards: Optional short custom message on Anvil and Masterwork awards
 
+Staging Pass – Projects / Open Work / Tether: Credit / contribution display
 
-Profile Achievement Record: Permanently log every received award with type/name, date, link to original post, and running totals by award tier
 
+Staging Pass – Showcase: Browse and submit flows
 
-Status Badges: Active Subscriber · Donor — implement earn conditions and profile display
 
+Staging Pass – Showcase: Awards on Showcase items if supported
 
-Donation Milestone Badges: Lifetime totals at $10, $50, $100, $250, $500, $1,000, $2,500, $5,000, $10,000, $25,000, $50,000, $100,000 Donor
 
+Staging Pass – Support / Donations: Donation flows
 
-Tasks Shipped Badges: First Ship, then 5, 10, 25, 50, 75, 100, 150, 200, 250 Tasks Shipped
 
+Staging Pass – Support / Donations: Marks are granted correctly after a successful donation (test on Staging)
 
-Project Contribution Badges: Game Shipper — implement earn condition and display
 
+Staging Pass – Support / Donations: Transparency / totals display
 
-Starter Badges: First Idea · Showcase · First Feedback · Task Claimed · Early Supporter
 
+Staging Pass – Profiles & Badges: Public profile shows Marks, award history, badges
 
-Impact Badges (single post): Discussion Starter · Well Received · Deep Discussion · Community Favorite · Awarded Idea
 
+Staging Pass – Profiles & Badges: Hover tooltip on Forge Marks works
 
-Impact Badges (account-level): Recognized · Respected · Distinguished
 
+Staging Pass – Profiles & Badges: Badge display and pinned badge
 
-Impact Badges (stretch): Talk of the Forge · Viral Idea
 
+Staging Pass – Media / Official Content: Official media items display
 
-Giving & Engagement Volume Badges: First Spark Given · Generous · Patron · Commentator · Active Voice · Supporter · Enthusiast
 
+Staging Pass – Media / Official Content: Contributor credit on official media works
 
-Collaboration Badges: Joined Force · Shared Victory
 
+Staging Pass – Auth-gated & Admin: Moderator / staff tools still function
 
-Badge icons: Flat geometric minimalist vector style — medium black outlines, warm amber/orange and soft teal accents, clean simple shapes, transparent background, centered, no text; simpler for lower-effort, richer layering for higher-strive
 
+Staging Pass – Auth-gated & Admin: Any admin-only pages are properly protected
 
-Badges UI: Show earned badges and award history on user profiles; show Marks balance where users can place awards
 
+Staging Pass – Payments & Safety: Stripe test keys work on Staging
 
-Badges UI: Award placement flow on posts is clear, shows cost, confirms spend, and updates profile + post immediately
 
+Staging Pass – Payments & Safety: Webhooks are received and processed
 
-Badges: Wire auto-grant triggers for milestone, starter, task-shipped, and engagement badges; keep system simple and transparent (no hidden multipliers or temporary boosts)
 
+Staging Pass – Payments & Safety: No secrets visible in client
 
-Badges: End-to-end test donation → Marks credit → place award → profile record + post display; verify permanence and edge cases (insufficient Marks, already awarded, etc.)
 
-0 of 21 items complete
-Mark phase complete
+Staging Pass – Payments & Safety: Error states are clean (failed payment, insufficient Marks, etc.)
 
-P6
-Pre-Deployment Legal & Business
-0/11 items
 
-Not started
-Launch blockers: complete these before public go-live so the project has proper legal protection and a clean business structure. Full trademark registration can take months — filing and having the application in process is the pre-launch goal.
+Staging Pass – Mobile: Key flows usable on a real phone or good emulator
 
 
-Business Formation: Decide on legal entity type (recommended: LLC)
+Scalability & Load Readiness: Review Supabase plan limits and upgrade path for expected traffic
 
 
-Business Formation: Form the legal entity in the appropriate state
+Scalability & Load Readiness: Confirm connection pooling / rate limits / basic monitoring on Supabase
 
 
-Business Formation: Obtain an EIN from the IRS
+Scalability & Load Readiness: Run controlled load / stress tests on key API and database paths
 
 
-Business Formation: Open a dedicated business bank account
+Scalability & Load Readiness: Document findings and any needed indexes, caching, or query improvements
 
 
-Business Formation: Create basic operating agreement / founding documents and keep them on file
+Scalability & Load Readiness: Payment systems safety review (Stripe keys, webhook security, no secret leakage)
 
-
-Business Formation: Record the official business name and any DBAs if needed
-
-
-Trademark – “Together Forge”: Conduct a thorough trademark search (USPTO and common-law)
-
-
-Trademark – “Together Forge”: File a federal trademark application for “Together Forge” (and any needed logo mark)
-
-
-Trademark – “Together Forge”: Track application status and respond to any USPTO office actions
-
-
-Trademark – “Together Forge”: Budget for filing fees and, if needed, attorney assistance
-
-
-Trademark – “Together Forge”: Note — full registration takes months; the goal before launch is to have the application filed and in process
-
-0 of 11 items complete
+2 of 56 items complete
 Mark phase complete
 
 P7
@@ -209,23 +181,25 @@ Deployment
 0/6 items
 
 Not started
-
-Confirm hosting, production env vars, secrets, database, live Stripe keys
-
-
-Domain, SSL, DNS
+Deployment prep after legal/readiness work. Soft launch then public go-live only when P6 blockers and this list are ready. Use Mark phase complete when every item is done.
 
 
-CI/CD pipeline
+Deployment Prep: Confirm hosting (Vercel or current), production env, database, live Stripe keys
 
 
-Monitoring, error tracking, analytics, backups
+Deployment Prep: Domain, SSL, DNS
 
 
-Staging environment
+Deployment Prep: CI/CD pipeline
 
 
-Soft launch then public go-live + post-deploy smoke tests
+Deployment Prep: Monitoring, error tracking, analytics, backups
+
+
+Deployment Prep: Staging environment still isolated and healthy
+
+
+Deployment Prep: Soft launch then public go-live + post-deploy smoke tests
 
 0 of 6 items complete
 Mark phase complete
@@ -235,8 +209,10 @@ YouTube Channel
 0/8 items
 
 Not started
+Official videos are produced by the Content Creators Team (see Community Infrastructure). Volunteer + public credit until paid opportunities open.
 
-Create channel with matching branding and strong About section
+
+Create channel with matching branding and strong About section (Content Creators Team owns production)
 
 
 Set up playlists

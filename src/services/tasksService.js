@@ -44,7 +44,12 @@ export const TRUSTED_SUBMIT_LIMIT_24H = 12;
  * Roles that skip Task Board claim/submit velocity limits (server + client).
  * Keep in sync with public.user_bypasses_task_limits() / is_project_staff().
  */
-export const TASK_LIMIT_BYPASS_ROLES = ['admin', 'moderator', 'project_lead'];
+export const TASK_LIMIT_BYPASS_ROLES = [
+  'admin',
+  'moderator',
+  'project_lead',
+  'founder',
+];
 
 /**
  * Soft claim ceiling used when staff/test bypass is active (not progressive trust).
@@ -1301,9 +1306,8 @@ export const tasksService = {
     if (error) {
       const msg = error.message || '';
       if (
-        /task_scope_requests|does not exist|schema cache|Could not find the table/i.test(
-          msg
-        )
+        /does not exist|schema cache|Could not find the table/i.test(msg) &&
+        !/permission denied/i.test(msg)
       ) {
         const err = new Error(
           'Scope requests are not set up yet. Run supabase/sql/supabase_task_scope_requests.sql in Supabase.'
