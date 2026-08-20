@@ -337,7 +337,7 @@ const FoundersThoughts = () => {
               <article
                 key={thought.slug || thought.id}
                 id={thought.slug}
-                className="scroll-mt-24 space-y-6"
+                className="scroll-mt-24"
                 aria-labelledby={`${thought.slug}-title`}
               >
                 <Card className="bg-cyber-card/80">
@@ -430,9 +430,6 @@ const FoundersThoughts = () => {
                     </div>
                   )}
                 </Card>
-                {thought.slug === 'founder-compensation' ? (
-                  <FundContributorsCard fundType="runway" />
-                ) : null}
               </article>
             );
           })}
@@ -448,6 +445,8 @@ const FoundersThoughts = () => {
             </Button>
           }
         />
+
+        <FundContributorsCard fundType="runway" />
 
         {/* Closing */}
         <Card className="bg-cyber-surface/60 text-center py-8 px-6">

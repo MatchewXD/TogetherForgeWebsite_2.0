@@ -26,6 +26,7 @@ import {
   Tags,
   BookOpen,
   UserCog,
+  ScrollText,
 } from 'lucide-react';
 
 import Card from '../components/ui/Card';
@@ -46,11 +47,13 @@ import { tasksService } from '../services/tasksService';
 import { STATUS_LABELS, displayProjectTitle } from '../utils/ideaStatus';
 import { listShowcaseForModeration } from '../services/showcaseService';
 import IdeaTagsAdminPanel from '../components/ideas/IdeaTagsAdminPanel';
+import DecisionLogsManager from '../components/transparency/DecisionLogsManager';
 
 const TABS = [
   { id: 'users', label: 'Users', icon: Users },
   { id: 'ideas', label: 'Ideas', icon: Lightbulb },
   { id: 'tags', label: 'Tags', icon: Tags },
+  { id: 'decisions', label: 'Decision logs', icon: ScrollText },
   { id: 'scope', label: 'Scope help', icon: SplitSquareVertical },
   { id: 'restrictions', label: 'Claim restrict', icon: Ban },
   { id: 'reports', label: 'Reports', icon: Flag },
@@ -1177,6 +1180,31 @@ const ModeratorDashboard = () => {
         {tab === 'tags' && (
           <section aria-labelledby="tags-heading">
             <IdeaTagsAdminPanel />
+          </section>
+        )}
+
+        {tab === 'decisions' && (
+          <section aria-labelledby="decisions-heading">
+            <div className="mb-4">
+              <h2
+                id="decisions-heading"
+                className="text-xl sm:text-2xl font-bold text-white tracking-tight"
+              >
+                Decision logs
+              </h2>
+              <p className="text-sm text-text-secondary mt-1 max-w-xl">
+                Public notes on the Transparency Hub. Archive to hide an entry
+                without deleting it.
+              </p>
+              <Link
+                to="/transparency#decisions"
+                className="inline-flex items-center gap-1 text-xs font-mono tracking-widest text-neon-cyan hover:underline mt-2"
+              >
+                View public list
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+            <DecisionLogsManager userId={userId} />
           </section>
         )}
 

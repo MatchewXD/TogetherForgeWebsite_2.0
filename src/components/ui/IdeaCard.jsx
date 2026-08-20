@@ -198,6 +198,11 @@ const IdeaCard = ({
               }`}
               strokeWidth={voted ? 2.25 : 2}
             />
+            {voted ? (
+              <span className="text-[10px] font-mono uppercase tracking-wider text-orange-400">
+                Voted
+              </span>
+            ) : null}
             <span
               className={`tabular-nums min-w-[1rem] text-center ${
                 voted ? 'text-orange-400' : 'text-text-secondary'

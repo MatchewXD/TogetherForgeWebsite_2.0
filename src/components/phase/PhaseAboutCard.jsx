@@ -80,18 +80,22 @@ const PhaseAboutCard = ({
           </div>
 
           <div className="space-y-4 text-sm sm:text-base leading-relaxed">
-            {paras.map((p, i) => (
-              <p
-                key={p.slice(0, 48)}
-                className={
-                  i === 0
-                    ? 'text-white font-medium'
-                    : 'text-text-secondary'
-                }
-              >
-                {p}
-              </p>
-            ))}
+            {paras.map((p, i) => {
+              const leadGrey = phase === 'mid';
+              const isLead = i === 0;
+              const className = leadGrey
+                ? isLead
+                  ? 'text-text-secondary'
+                  : 'text-white'
+                : isLead
+                  ? 'text-white font-medium'
+                  : 'text-text-secondary';
+              return (
+                <p key={p.slice(0, 48)} className={className}>
+                  {p}
+                </p>
+              );
+            })}
           </div>
         </div>
       </Card>

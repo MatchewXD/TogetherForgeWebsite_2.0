@@ -45,6 +45,7 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 4. `supabase_profiles_banner.sql` — banner_url + avatar/banner storage policies  
 5. `supabase_public_profile_support.sql` — GitHub field, donation-total opt-in, public support RPC  
 6. `supabase_votes_rls.sql` — idea votes RLS + unique index  
+6b. `supabase_anti_abuse.sql` — rate limits, delayed public vote/like counts, spam checks  
 7. `supabase_ideas_guided.sql` — guided fields + status  
 8. `supabase_ideas_project_id.sql` — `ideas.project_id`  
 9. `supabase_idea_parent.sql` — related ideas parent link  
@@ -253,6 +254,8 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_subscription_renewal_credit.sql` | Subscription credit fields |
 | `supabase_billing_account.sql` | My Plan + Billing RPCs |
 | `supabase_votes_rls.sql` | Idea votes RLS |
+| `supabase_anti_abuse.sql` | Rate limits + delayed public counts |
+| `supabase_decision_logs.sql` | Staff-managed Transparency decision logs |
 | `supabase_claim_limit.sql` | **Superseded** by anti-hoarding |
 | `supabase_claim_anti_hoarding.sql` | Claim limits, cooldown, join requests |
 | `supabase_claim_auto_release.sql` | Idle + hard-max auto-release |

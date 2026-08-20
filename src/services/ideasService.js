@@ -5,6 +5,11 @@ import {
   humanizeParentLinkError,
   normalizeParentIdeaId,
 } from '../utils/ideaRelations';
+import {
+  asUserError,
+  humanizeAbuseError,
+  isMissingRpcError,
+} from '../utils/abuseErrors';
 
 /** Optional supporting image on ideas */
 export const IDEA_IMAGE_BUCKET = 'idea-images';
@@ -55,10 +60,27 @@ export function buildProfileMap(profiles = []) {
   );
 }
 
+/** Public-facing vote total (delayed / bucketed when the column exists). */
+export function displayIdeaVotes(idea) {
+  if (!idea) return 0;
+  const raw =
+    idea.votes_public != null && idea.votes_public !== ''
+      ? idea.votes_public
+      : idea.votes;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/** Replace raw `votes` with the public figure so listings cannot leak exact counts. */
+export function mapPublicIdeaMetrics(idea) {
+  if (!idea) return idea;
+  return { ...idea, votes: displayIdeaVotes(idea) };
+}
+
 /** Attach creator profiles to idea rows. */
 export function attachCreators(ideas = [], profileMap = {}) {
   return (ideas || []).map((idea) => ({
-    ...idea,
+    ...mapPublicIdeaMetrics(idea),
     creator: idea.user_id
       ? profileMap[idea.user_id] || mapProfile(null, 'Member')
       : null,
@@ -325,7 +347,7 @@ export function buildSafeIdeaPayload(raw = {}) {
     summary: asText(raw.summary),
     description,
     category: asText(raw.category) || 'Idea',
-    votes: typeof raw.votes === 'number' ? raw.votes : 0,
+    votes: 0,
     tags: asText(raw.tags),
     // Mirror optional guided fields into legacy flat columns when present
     twitch_integration: asText(
@@ -600,15 +622,15 @@ export const ideasService = {
     if (error) throw error;
     if (!data) return null;
 
-    let idea = data;
+    let idea = mapPublicIdeaMetrics(data);
     if (data.user_id) {
       const profileMap = await this.getProfilesByIds([data.user_id]);
       idea = {
-        ...data,
+        ...idea,
         creator: profileMap[data.user_id] || mapProfile(null, 'Member'),
       };
     } else {
-      idea = { ...data, creator: null };
+      idea = { ...idea, creator: null };
     }
 
     const parentId = getParentIdeaId(idea);
@@ -707,7 +729,7 @@ export const ideasService = {
     try {
       let query = supabase
         .from('ideas')
-        .select('id, title, summary, category, user_id, parent_idea_id, created_at, status, votes')
+        .select('id, title, summary, category, user_id, parent_idea_id, created_at, status, votes, votes_public')
         .is('parent_idea_id', null)
         .order('votes', { ascending: false })
         .limit(limit * 2);
@@ -716,7 +738,17 @@ export const ideasService = {
         query = query.ilike('title', `%${search}%`);
       }
 
-      const { data, error } = await query;
+      let { data, error } = await query;
+      if (error && /votes_public/i.test(String(error.message || ''))) {
+        query = supabase
+          .from('ideas')
+          .select('id, title, summary, category, user_id, parent_idea_id, created_at, status, votes')
+          .is('parent_idea_id', null)
+          .order('votes', { ascending: false })
+          .limit(limit * 2);
+        if (search) query = query.ilike('title', `%${search}%`);
+        ({ data, error } = await query);
+      }
       if (error) throw error;
 
       let list = filterPublicIdeas(data || []);
@@ -1113,10 +1145,9 @@ export const ideasService = {
             lastErr = retry.error;
           }
         }
-        throw new Error(
-          humanizeParentLinkError(lastErr) ||
-            lastErr.message ||
-            'Failed to update draft'
+        throw asUserError(
+          lastErr,
+          humanizeParentLinkError(lastErr) || 'Failed to update draft'
         );
       }
       if (!data) {
@@ -1516,6 +1547,10 @@ export const ideasService = {
       return { data, error };
     };
 
+    payload.votes = 0;
+    delete payload.votes_public;
+    delete payload.votes_public_at;
+
     let data = null;
     let error = null;
     let meta = {
@@ -1576,9 +1611,9 @@ export const ideasService = {
     }
 
     if (error) {
-      console.error('[ideasService.createIdea] failed', error, payload);
-      throw new Error(
-        humanizeParentLinkError(error) || error.message || 'Failed to create idea'
+      throw asUserError(
+        error,
+        humanizeParentLinkError(error) || 'Failed to create idea'
       );
     }
 
@@ -1633,26 +1668,28 @@ export const ideasService = {
   },
 
   /**
-   * Count votes for an idea from the votes table.
+   * Public vote total for an idea (delayed column when present).
    */
   async getIdeaVoteCount(ideaId) {
     const id = this._toIdeaId(ideaId);
-    const { count, error } = await supabase
-      .from('votes')
-      .select('id', { count: 'exact', head: true })
-      .eq('idea_id', id);
+    let { data, error } = await supabase
+      .from('ideas')
+      .select('votes, votes_public')
+      .eq('id', id)
+      .maybeSingle();
 
-    if (error) {
-      console.warn('[votes] getIdeaVoteCount failed', error);
-      // Fallback: denormalized column
-      const { data } = await supabase
+    if (error && /votes_public/i.test(String(error.message || ''))) {
+      ({ data, error } = await supabase
         .from('ideas')
         .select('votes')
         .eq('id', id)
-        .maybeSingle();
-      return Math.max(0, Number(data?.votes) || 0);
+        .maybeSingle());
     }
-    return Math.max(0, typeof count === 'number' ? count : 0);
+
+    if (error) {
+      return 0;
+    }
+    return displayIdeaVotes(data || {});
   },
 
   /**
@@ -1709,9 +1746,17 @@ export const ideasService = {
     if (!userId) throw new Error('You must be signed in to vote.');
     const id = this._toIdeaId(ideaId);
 
-    console.log('[votes] toggle start', { ideaId: id, userId });
+    const rpc = await supabase.rpc('toggle_idea_vote', { p_idea_id: id });
+    if (!rpc.error && rpc.data && typeof rpc.data === 'object') {
+      return {
+        voted: Boolean(rpc.data.voted),
+        votes: Math.max(0, Number(rpc.data.votes) || 0),
+      };
+    }
+    if (rpc.error && !isMissingRpcError(rpc.error)) {
+      throw asUserError(rpc.error, 'Could not update vote.');
+    }
 
-    // 1) current state
     const { data: existing, error: findError } = await supabase
       .from('votes')
       .select('id')
@@ -1720,61 +1765,56 @@ export const ideasService = {
       .maybeSingle();
 
     if (findError && findError.code !== 'PGRST116') {
-      console.error('[votes] find existing failed', findError);
-      throw findError;
+      throw asUserError(findError, 'Could not update vote.');
     }
 
     const hadVote = !!existing;
-    console.log('[votes] hadVote', hadVote, existing);
 
-    // 2) mutate
     if (hadVote) {
       const { error: delError } = await supabase
         .from('votes')
         .delete()
         .eq('idea_id', id)
         .eq('user_id', userId);
-      if (delError) {
-        console.error('[votes] delete failed', delError);
-        throw delError;
-      }
-      console.log('[votes] deleted vote row');
+      if (delError) throw asUserError(delError, 'Could not update vote.');
     } else {
       const { error: insError } = await supabase
         .from('votes')
         .insert([{ idea_id: id, user_id: userId }]);
       if (insError) {
-        // Duplicate: treat as already voted (unique index)
         if (
           insError.code === '23505' ||
           /duplicate|unique/i.test(insError.message || '')
         ) {
-          console.warn('[votes] insert duplicate - already voted');
+          /* already voted */
         } else {
-          console.error('[votes] insert failed', insError);
-          throw insError;
+          throw asUserError(insError, 'Could not update vote.');
         }
-      } else {
-        console.log('[votes] inserted vote row');
       }
     }
 
-    // 3) re-read truth from server
     const [voted, votes] = await Promise.all([
       this.userHasVoted(id, userId),
       this.getIdeaVoteCount(id),
     ]);
 
-    // Best-effort denormalized count (trigger should also do this)
-    try {
-      await supabase.from('ideas').update({ votes }).eq('id', id);
-    } catch (e) {
-      console.warn('[votes] ideas.votes update skipped', e);
-    }
+    return { voted: !!voted, votes: Math.max(0, votes || 0) };
+  },
 
-    const result = { voted: !!voted, votes: Math.max(0, votes || 0) };
-    console.log('[votes] toggle result', result);
-    return result;
+  async postComment({ ideaId, userId, content, parentId = null }) {
+    if (!userId) throw new Error('You must be signed in to comment.');
+    const text = String(content || '').trim();
+    if (text.length < 2) throw new Error('Comment is too short.');
+    const id = this._toIdeaId(ideaId);
+    const row = {
+      idea_id: id,
+      user_id: userId,
+      content: text.slice(0, 4000),
+    };
+    if (parentId != null) row.parent_id = parentId;
+    const { error } = await supabase.from('comments').insert(row);
+    if (error) throw asUserError(error, 'Could not post comment.');
+    return true;
   },
 
   /** @deprecated use toggleVote - kept for call sites during transition */

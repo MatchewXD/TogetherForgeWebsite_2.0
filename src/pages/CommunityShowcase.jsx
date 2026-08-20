@@ -48,6 +48,10 @@ import {
   resolveOfficialProjectLabel,
 } from '../services/showcaseService';
 import { loadRelatedProjectOptions } from '../utils/relatedToOptions';
+import {
+  optimisticPublicCount,
+  reconcilePublicCount,
+} from '../utils/publicCounts';
 import CommunityAwardStrip from '../components/awards/CommunityAwardStrip';
 import PlaceCommunityAward from '../components/awards/PlaceCommunityAward';
 import AwardNotesSection from '../components/awards/AwardNotesSection';
@@ -396,6 +400,11 @@ function ShowcaseCard({
               aria-hidden
             />
           )}
+          {liked ? (
+            <span className="text-[10px] font-mono uppercase tracking-wider text-orange-400">
+              Liked
+            </span>
+          ) : null}
           <span
             className={`tabular-nums min-w-[1rem] text-center text-xs ${
               liked ? 'text-orange-400' : 'text-text-secondary'
@@ -557,7 +566,7 @@ const CommunityShowcase = () => {
           p.id === item.id
             ? {
                 ...p,
-                likes: Math.max(0, prevLikes + (prevLiked ? -1 : 1)),
+                likes: optimisticPublicCount(prevLikes, !prevLiked),
               }
             : p
         )
@@ -572,7 +581,11 @@ const CommunityShowcase = () => {
           return next;
         });
         setPosts((list) =>
-          list.map((p) => (p.id === item.id ? { ...p, likes } : p))
+          list.map((p) =>
+            p.id === item.id
+              ? { ...p, likes: reconcilePublicCount(prevLikes, likes) }
+              : p
+          )
         );
       } catch (err) {
         // Revert

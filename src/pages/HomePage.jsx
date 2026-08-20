@@ -8,29 +8,33 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import {
   ArrowRight,
-  ChevronDown,
   Play,
   MessageCircle,
   Hammer,
   Users,
-  Heart,
   Sparkles,
   Eye,
   Shield,
   Globe,
+  Lightbulb,
+  MessageSquare,
+  Layers,
+  Award,
+  Film,
+  Wrench,
 } from 'lucide-react';
 
 import Button from '../components/ui/Buttons';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
-import ProjectCard from '../components/ui/ProjectCard';
-import StatWidget from '../components/ui/StatWidget';
+import { phaseImageSrc, phaseImageAlt } from '../utils/phaseImages';
+import { EARLY_PHASE_DEFAULTS } from '../utils/phasePageContent';
 import ActivityItem from '../components/ui/ActivityItem';
 import ScrollProgress, {
   SectionContinueCue,
+  HeroContinueCue,
 } from '../components/ScrollProgress';
 import { getHomeCommunityStats } from '../services/communityStatsService';
 import { DISCORD_URL, DISCORD_LABELS } from '../constants/communityLinks';
@@ -39,102 +43,126 @@ import DiscordLink from '../components/ui/DiscordLink';
 const TF_LOGO_SRC = '/images/TF_Logo_Ideas_V2.png';
 const HERO_BG_SRC = '/images/Hero_Background.webp';
 
-const MISSION_BLURBS = [
-  'Together Forge is a community-first independent game studio. We organize and support games built collaboratively by gamers, streamers, and volunteers. Transparent development, fair progression, and real connection.',
-  'Most large game companies have stopped experimenting. They reduce risk, simplify systems, and ship safer versions of what already worked. We exist to go the other direction.',
+const sectionTitleClass =
+  'section-header dashboard-page-title !mb-4 !text-3xl sm:!text-4xl !font-bold !tracking-tight !normal-case';
+
+const HOW_IT_WORKS_STEPS = [
+  { title: 'Share an idea or offer a skill', icon: Lightbulb },
+  { title: 'Discuss and refine in public', icon: MessageSquare },
+  { title: 'Official projects select from the strongest ideas', icon: Layers },
+  { title: 'Claim tasks and build together', icon: Hammer },
+  { title: 'Get public credit, then ship', icon: Award },
 ];
 
-const VALUES = [
+const INVOLVE_PATHS = [
   {
-    icon: Users,
-    title: 'By the Community',
-    desc: 'Games designed and built collaboratively. No corporate agendas. Just real teamwork and shared ownership. Our goal is to become the most capable game-making force in the world through people, not investors.',
-    accent: 'text-neon-cyan',
-    iconBorder: 'border-neon-cyan/30',
-    featured: false,
+    title: 'Game Development',
+    icon: Hammer,
+    body: 'Claim real tasks on live project boards. Code, art, audio, design, testing, and more. Completed work receives public credit.',
   },
   {
-    icon: Heart,
-    title: 'For the Community',
-    desc: 'Experiences that bring people together: streamers with audiences, friends uniting for challenges, and large-scale collaboration that creates real connection.',
-    accent: 'text-neon-purple',
-    iconBorder: 'border-neon-purple/30',
-    featured: false,
+    title: 'Ideas',
+    icon: Lightbulb,
+    body: 'Share game concepts, mechanics, and improvements. The community discusses them in the open. Strong ideas can move into official projects.',
   },
   {
+    title: 'Content Creation',
+    icon: Film,
+    body: 'Help grow the studio through media. Share community work in the Showcase or apply to join the official Content Creators Team.',
+  },
+  {
+    title: 'Community & Moderation',
     icon: Shield,
-    title: 'Transparent & Fair',
-    desc: 'Open development and public progress. Money that comes in goes back into making better games and supporting the community, never into shareholders or excessive executive pay.',
-    accent: 'text-semantic-success',
-    iconBorder: 'border-semantic-success/30',
-    featured: false,
+    body: 'Help keep the spaces welcoming and useful. Greet new people, surface good ideas, and support healthy discussion.',
   },
   {
-    icon: Sparkles,
-    title: 'Early Game Focus',
-    desc: 'Start with focused multiplayer prototypes that prove the systems and generate real support. Then scale into bigger, more ambitious community-driven projects.',
-    accent: 'text-semantic-achievement',
-    iconBorder: 'border-semantic-achievement/35',
-    featured: true,
+    title: 'Other Skills & Support',
+    icon: Wrench,
+    body: 'Documentation, tooling, translations, design help, and optional financial support are also open.',
   },
 ];
 
-const FEATURED_PROJECTS = [
+const TRUST_VISIBLE = [
+  { label: 'Public finances', icon: Eye },
+  { label: 'Decision logs', icon: Layers },
+  { label: 'Credits', icon: Award },
+  { label: 'Founder compensation rules', icon: Shield },
+];
+
+const PATH_FORWARD = [
   {
-    id: 'prototype-systems',
-    title: 'Tether',
+    id: 'early',
     phase: 'Early',
-    status: 'active',
-    description:
-      'A tethered crew crosses dangerous semi-procedural levels to reach a destroyed orbital station. Linked by a shared energy tether, players coordinate movement, collect resources for their stranded colony, and recover an antimatter generator so the colony can survive on its own.',
-    // Live stats only when real data is wired; omit or set numbers from the board
-    tasksCompleted: 12,
-    activeVolunteers: 8,
-    href: '/projects/prototype-systems',
-    ctaLabel: 'View Project',
+    title: 'Early Game Foundation',
+    href: '/projects/early',
+    linkLabel: 'Explore Early Game',
+    paragraphs: EARLY_PHASE_DEFAULTS.aboutParagraphs,
   },
   {
-    id: 'core-features',
-    title: 'Mid Game Ambitions',
+    id: 'mid',
     phase: 'Mid',
-    status: 'planned',
-    description:
-      'Next up after Early is completed: cooperative games at the scale of Halo, Horizon Zero Dawn, and Skyrim, with deeper systems, dynamic worlds, and stronger teamwork. Not open for claims yet.',
+    title: 'Mid Game Ambitions',
     href: '/projects/mid',
-    ctaLabel: 'View Plans',
-    statusNote: 'after Early is completed',
+    linkLabel: 'Explore Mid Game',
+    paragraphs: [
+      'Mid Game is where we take the foundation built in Early and aim much higher.',
+      'In Mid we build substantial cooperative games with deeper systems, stronger teamwork, and higher ambition, still driven by a lean core team and a growing community. This is the first major step toward becoming one of the most capable game-making forces in the world through community power rather than investors or agendas.',
+    ],
   },
   {
-    id: 'polish-playtests',
-    title: 'Magnum Opus',
+    id: 'late',
     phase: 'Late',
-    status: 'planned',
-    description:
-      'Opens only after Mid is completed: polish, optimization, and wider playtests. Not open for claims yet.',
+    title: 'Late Game Masterpiece',
     href: '/projects/late',
-    ctaLabel: 'View Plans',
-    statusNote: 'after Mid is completed',
+    linkLabel: 'Explore Late Game',
+    paragraphs: [
+      'Late Game is the highest ambition of Together Forge.',
+      'After Early Game proves the model and Mid Game proves we can deliver substantial cooperative titles, Late Game is where we attempt to make the best MMORPG in the world. Not a clone of systems that already feel safe and familiar, but a new foundation: cooperative combat, evolving world-level threats, a story that the entire player base shapes together, and deep support for both creators and fighters.',
+      'Once this scale of game is established and successful, Together Forge will be positioned to expand far beyond a single title. That growth will come from community power, not from investors or political agendas.',
+      'This stage only opens when the Forge has earned it through earlier success.',
+    ],
   },
 ];
 
 const STAT_META = [
-  { key: 'volunteers', label: 'Volunteers', icon: '👥', tone: 'live' },
-  { key: 'ideasSubmitted', label: 'Ideas Submitted', icon: '💡', tone: 'default' },
   {
-    key: 'activeProjects',
-    label: 'Active Projects',
-    icon: '⚒️',
-    tone: 'achievement',
+    key: 'members',
+    label: 'Members',
+    iconSrc: '/images/community-pulse/Members.png',
+    accent: 'cyan',
   },
-  { key: 'tasksClaimed', label: 'Tasks Claimed', icon: '✅', tone: 'success' },
+  {
+    key: 'ideasSubmitted',
+    label: 'Ideas Submitted',
+    iconSrc: '/images/community-pulse/Ideas_Submitted.png',
+    accent: 'gold',
+  },
+  {
+    key: 'supporters',
+    label: 'Supporters',
+    iconSrc: '/images/community-pulse/Supporters.png',
+    accent: 'magenta',
+  },
+  {
+    key: 'tasksCompleted',
+    label: 'Tasks Completed',
+    iconSrc: '/images/community-pulse/Contributions.png',
+    accent: 'purple',
+  },
 ];
 
 const EMPTY_STATS = {
-  volunteers: 0,
+  members: 0,
   ideasSubmitted: 0,
-  activeProjects: 0,
-  tasksClaimed: 0,
+  supporters: 0,
+  tasksCompleted: 0,
 };
+
+function formatPulseValue(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '0';
+  return n.toLocaleString('en-US');
+}
 
 const RECENT_ACTIVITY = [
   {
@@ -182,10 +210,10 @@ const HomePage = () => {
         const live = await getHomeCommunityStats();
         if (!cancelled && live) {
           setCommunityStats({
-            volunteers: live.volunteers ?? 0,
+            members: live.members ?? 0,
             ideasSubmitted: live.ideasSubmitted ?? 0,
-            activeProjects: live.activeProjects ?? 0,
-            tasksClaimed: live.tasksClaimed ?? 0,
+            supporters: live.supporters ?? 0,
+            tasksCompleted: live.tasksCompleted ?? 0,
           });
         }
       } catch (err) {
@@ -200,26 +228,12 @@ const HomePage = () => {
     };
   }, []);
 
-  const handleViewProject = (project) => {
-    if (!project) return;
-    // Active: live workspace. Planned Mid/Late: phase overview only (not a claim board).
-    if (project.href) {
-      navigate(project.href);
-      return;
-    }
-    if (project.status === 'planned') {
-      const phase = String(project.phase || '').toLowerCase();
-      if (phase === 'mid' || phase === 'late') {
-        navigate(`/projects/${phase}`);
-        return;
-      }
-    }
-    if (project.id != null) navigate(`/projects/${project.id}`);
-  };
+
 
   return (
     <div className="home-page bg-cyber-bg text-text-primary">
       <ScrollProgress />
+      <HeroContinueCue targetId="mission" />
 
       {/* ================================================================
           HERO - Tier 1: logo-led, cinematic, sparse
@@ -235,7 +249,7 @@ const HomePage = () => {
             fetchPriority="high"
           />
           {/* Readability scrim - keeps logo + copy legible */}
-          <div className="home-hero-bg-scrim absolute inset-0 bg-cyber-bg/55" />
+          <div className="home-hero-bg-scrim absolute inset-0" />
           <div className="home-hero-atmosphere absolute inset-0" />
           <div className="home-hero-vignette absolute inset-0" />
           {/* Classic: light grid on top of image; Forge nearly hides it via CSS */}
@@ -244,7 +258,12 @@ const HomePage = () => {
 
         <div className="relative z-10 flex-1 flex items-center justify-center pt-24 pb-28 sm:pb-32">
           <div className="container-custom text-center px-6 w-full">
-            <div className="max-w-3xl mx-auto">
+            <div className="max-w-3xl mx-auto relative">
+              <div
+                className="pointer-events-none absolute -inset-x-6 sm:-inset-x-12 -inset-y-4 sm:-inset-y-8 rounded-[2rem] bg-cyber-bg/60 blur-2xl"
+                aria-hidden="true"
+              />
+              <div className="relative [text-shadow:0_1px_2px_rgb(0_0_0_/_0.95),0_6px_22px_rgb(0_0_0_/_0.75)]">
               {/* Focal emblem */}
               <div className="flex justify-center mb-8 sm:mb-10">
                 <div className="home-hero-logo-wrap relative w-36 h-36 sm:w-44 sm:h-44 md:w-52 md:h-52">
@@ -264,26 +283,26 @@ const HomePage = () => {
                 </div>
               </div>
 
-              <div className="flex justify-center mb-6 sm:mb-8">
-                <div className="home-hero-status status-bar text-xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-neon-cyan animate-pulse" />
-                  LIVE // COMMUNITY FORGE // v0.4
-                </div>
-              </div>
-
               <h1 className="home-hero-title font-mono text-4xl sm:text-5xl md:text-6xl lg:text-7xl leading-[0.98] tracking-tight font-bold text-white mb-5">
                 Together{' '}
                 <span className="home-hero-accent text-neon-purple">Forge</span>
               </h1>
 
-              <p className="max-w-xl mx-auto text-lg sm:text-xl text-text-secondary mb-5 tracking-tight font-medium">
+              <p className="max-w-xl mx-auto text-lg sm:text-xl text-white mb-8 tracking-tight font-medium">
                 By the Community, For the Community
               </p>
 
-              <div className="max-w-xl mx-auto text-sm text-text-muted mb-10 sm:mb-12 leading-relaxed space-y-3">
-                {MISSION_BLURBS.map((para) => (
-                  <p key={para.slice(0, 40)}>{para}</p>
-                ))}
+              <div className="max-w-xl mx-auto mb-10 sm:mb-12 space-y-4">
+                <p className="text-xl sm:text-2xl md:text-[1.65rem] font-semibold text-white leading-snug tracking-tight">
+                  No investors.
+                  <br />
+                  No third-party ownership.
+                  <br />
+                  No ideological agendas.
+                </p>
+                <p className="text-base sm:text-lg text-white/90 leading-relaxed">
+                  Just game development driven by the people who actually care.
+                </p>
               </div>
 
               {/* One clear primary; supporting actions quieter */}
@@ -307,7 +326,7 @@ const HomePage = () => {
                 </Button>
               </div>
 
-              <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-12 text-xs sm:text-sm font-mono tracking-widest text-text-muted">
+              <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-12 text-xs sm:text-sm font-mono tracking-widest text-white/80">
                 <button
                   type="button"
                   onClick={() => navigate('/ideas/submit')}
@@ -336,28 +355,14 @@ const HomePage = () => {
                 </a>
               </div>
 
-              <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-[10px] font-mono tracking-[0.22em] text-text-muted/70">
+              <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-[10px] font-mono tracking-[0.22em] text-white/70 mb-6 sm:mb-8">
                 <span>COMMUNITY SUPPORTED</span>
                 <span>NO VENTURE CAPITAL</span>
                 <span>TRANSPARENT DEV</span>
               </div>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="absolute bottom-5 sm:bottom-7 inset-x-0 z-20 flex justify-center pointer-events-none">
-          <motion.a
-            href="#mission"
-            animate={{ y: [0, 6, 0] }}
-            transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-            className="pointer-events-auto flex flex-col items-center gap-1 no-underline"
-            aria-label="Scroll to mission"
-          >
-            <span className="text-[10px] tracking-[0.28em] text-neon-cyan/55 font-mono uppercase">
-              Enter the workshop
-            </span>
-            <ChevronDown className="w-4 h-4 text-neon-cyan/45" aria-hidden />
-          </motion.a>
         </div>
 
         <div
@@ -370,74 +375,65 @@ const HomePage = () => {
       <div className="h-6 sm:h-8 bg-cyber-surface border-t border-cyber-border/30" />
 
       {/* ================================================================
-          MISSION - quieter supporting section
+          IDENTITY / MISSION
           ================================================================ */}
       <section
         id="mission"
         className="home-section-quiet py-16 md:py-24 border-t border-cyber-border/40"
       >
-        <div className="container-custom">
-          <div className="max-w-xl mb-10 md:mb-14">
-            <div className="section-header">Mission & Values</div>
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white mb-3">
-              By the Community, For the Community
-            </h2>
-            <p className="text-text-secondary text-sm sm:text-base leading-relaxed">
-              Four principles guide funding, credit, and how we build together.
+        <div className="container-custom max-w-3xl">
+          <h2 className={sectionTitleClass}>
+            Built by the community. Owned by no one else.
+          </h2>
+          <div className="mt-6 space-y-4 text-sm sm:text-base leading-relaxed text-text-secondary">
+            <p>
+              Together Forge is a community-first independent game studio. We
+              make cooperative games with gamers, streamers, and volunteers.
+              Development happens in the open. Credit is public. Money that
+              comes in goes back into the games and the people making them.
+            </p>
+            <p>
+              Together Forge will not take outside investors. We will not sell
+              ownership, decision-making power, or any form of ongoing control
+              to third parties. The studio is structured to remain independent
+              and accountable to the community that builds and supports it, not
+              to external capital.
+            </p>
+            <p>
+              Most large companies have stopped experimenting. They reduce risk
+              and ship safer versions of what already worked. We exist to go
+              the other direction.
+            </p>
+            <p>
+              Our path is deliberate: start with focused cooperative games that
+              prove the model, then grow into much larger ambitions through the
+              combined power of the community.
             </p>
           </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 max-w-6xl">
-            {VALUES.map((value) => {
-              const Icon = value.icon;
-              return (
-                <Card
-                  key={value.title}
-                  variant={value.featured ? 'panel' : 'default'}
-                  className={`home-value-card flex flex-col h-full bg-cyber-card/80 ${
-                    value.featured ? 'home-value-card--featured' : ''
-                  }`}
-                >
-                  <div
-                    className={`w-10 h-10 mb-4 rounded-lg bg-cyber-surface border flex items-center justify-center ${value.iconBorder} ${value.accent}`}
-                  >
-                    <Icon className="w-4.5 h-4.5 w-5 h-5" />
-                  </div>
-                  <h3 className="font-mono text-xs tracking-widest uppercase text-white mb-2">
-                    {value.title}
-                  </h3>
-                  <p className="text-text-secondary text-sm leading-relaxed flex-1">
-                    {value.desc}
-                  </p>
-                  {value.featured && (
-                    <div className="mt-3">
-                      <Badge variant="gold" className="!normal-case">
-                        Core path
-                      </Badge>
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
-          </div>
-
-          <div className="mt-8">
-            <Link
-              to="/about"
-              className="inline-flex items-center gap-2 text-neon-cyan font-mono text-xs tracking-widest hover:underline"
+          <div className="mt-8 flex flex-col sm:flex-row flex-wrap gap-3">
+            <Button
+              className="gap-2"
+              onClick={() => navigate('/get-involved')}
             >
-              Full mission <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+              Get Involved
+            </Button>
+            <Button
+              variant="secondary"
+              className="gap-2"
+              onClick={() => navigate('/how-it-works')}
+            >
+              How it works
+            </Button>
           </div>
           <SectionContinueCue />
         </div>
       </section>
 
       {/* ================================================================
-          PROJECTS - featured takes the stage
+          THE PATH FORWARD
           ================================================================ */}
       <section
-        id="projects"
+        id="path-forward"
         className="relative py-16 md:py-24 border-t border-cyber-border overflow-hidden"
       >
         <div
@@ -446,40 +442,132 @@ const HomePage = () => {
         />
 
         <div className="container-custom relative z-10 max-w-6xl">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8 md:mb-10">
-            <div>
-              <div className="section-header">Featured Projects</div>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-white">
-                What we&apos;re building
-              </h2>
-              <p className="text-text-secondary mt-2 max-w-lg text-sm">
-                Early is the active focus - claim real work there. Mid opens
-                after Early is completed; Late opens after Mid is completed.
-              </p>
-            </div>
-            <Badge variant="neon">Early focus</Badge>
+          <div className="mb-10 md:mb-14 max-w-3xl">
+            <h2 className={sectionTitleClass}>The Path Forward</h2>
+            <p className="text-text-secondary mt-4 text-sm sm:text-base leading-relaxed">
+              Together Forge is taking a different road from most large
+              studios: one built on real challenge, steady growth, and the
+              ambition to become a leading force in games through community
+              power instead of investors or agendas.
+            </p>
           </div>
 
-          {/* Equal-height panels: Early live; Mid/Late planned only */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-5 items-stretch">
-            {FEATURED_PROJECTS.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onView={handleViewProject}
-                featured={project.status === 'active'}
-                className="home-project-card h-full"
-              />
-            ))}
+          <div className="space-y-16 md:space-y-24">
+            {PATH_FORWARD.map((stage, index) => {
+              const imageSrc = phaseImageSrc(stage.phase);
+              const imageFirst = index % 2 === 0;
+              return (
+                <article
+                  key={stage.id}
+                  id={stage.id}
+                  className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-center"
+                >
+                  <div
+                    className={`lg:col-span-5 ${
+                      imageFirst ? 'lg:order-1' : 'lg:order-2'
+                    }`}
+                  >
+                    <div className="relative rounded-xl overflow-hidden border border-cyber-border aspect-[16/10] bg-cyber-surface">
+                      {imageSrc ? (
+                        <img
+                          src={imageSrc}
+                          alt={phaseImageAlt(stage.phase, stage.title)}
+                          className="absolute inset-0 w-full h-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      ) : null}
+                      <div className="absolute top-3 left-3 z-10">
+                        <Badge variant="neon">{stage.phase}</Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    className={`lg:col-span-7 min-w-0 ${
+                      imageFirst ? 'lg:order-2' : 'lg:order-1'
+                    }`}
+                  >
+                    <h3 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-white mb-4">
+                      {stage.title}
+                    </h3>
+                    <div className="space-y-3 text-sm sm:text-base leading-relaxed">
+                      {stage.paragraphs.map((p, i) => (
+                        <p
+                          key={`${stage.id}-${i}`}
+                          className={
+                            i === 0
+                              ? 'text-white font-medium'
+                              : 'text-text-secondary'
+                          }
+                        >
+                          {p}
+                        </p>
+                      ))}
+                    </div>
+                    <Link
+                      to={stage.href}
+                      className="inline-flex items-center gap-1.5 mt-5 text-sm font-semibold text-neon-cyan hover:underline"
+                    >
+                      {stage.linkLabel}
+                      <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
           </div>
+          <SectionContinueCue />
+        </div>
+      </section>
 
-          <div className="text-center mt-8">
+      {/* ================================================================
+          HOW IT WORKS
+          ================================================================ */}
+      <section
+        id="how-it-works"
+        className="home-section-quiet py-16 md:py-24 border-t border-cyber-border/40"
+      >
+        <div className="container-custom max-w-6xl">
+          <div className="mb-8 md:mb-10 max-w-3xl">
+            <h2 className={sectionTitleClass}>
+              From idea to game, with the community
+            </h2>
+            <p className="text-text-secondary text-sm sm:text-base leading-relaxed">
+              Together Forge is a community-first studio. Here is how work
+              actually moves:
+            </p>
+          </div>
+          <ol className="home-how-steps grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 md:gap-4 list-none p-0 m-0">
+            {HOW_IT_WORKS_STEPS.map((step, i) => {
+              const Icon = step.icon;
+              return (
+                <li key={step.title} className="min-w-0">
+                  <Card
+                    variant="subtle"
+                    className="home-how-step h-full p-5"
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-4">
+                      <span className="font-mono text-xs tracking-[0.2em] text-neon-cyan">
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      <span className="shrink-0 w-8 h-8 rounded-md border border-cyber-border bg-cyber-surface flex items-center justify-center text-neon-cyan">
+                        <Icon className="w-4 h-4" aria-hidden />
+                      </span>
+                    </div>
+                    <p className="text-sm sm:text-[15px] text-white font-medium leading-snug">
+                      {step.title}
+                    </p>
+                  </Card>
+                </li>
+              );
+            })}
+          </ol>
+          <div className="mt-8">
             <Button
-              variant="secondary"
               className="gap-2"
-              onClick={() => navigate('/projects')}
+              onClick={() => navigate('/how-it-works')}
             >
-              View all projects <ArrowRight className="w-4 h-4" />
+              Full How It Works <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
           <SectionContinueCue />
@@ -487,34 +575,157 @@ const HomePage = () => {
       </section>
 
       {/* ================================================================
-          COMMUNITY - utility-quiet density on exploration page
+          GET INVOLVED
+          ================================================================ */}
+      <section
+        id="join"
+        className="relative py-16 md:py-24 border-t border-cyber-border"
+      >
+        <div className="container-custom max-w-6xl">
+          <div className="mb-8 md:mb-10 max-w-3xl">
+            <h2 className={sectionTitleClass}>Get Involved</h2>
+            <p className="text-text-secondary text-sm sm:text-base leading-relaxed">
+              Every skill has a way in. Here’s where most people start:
+            </p>
+          </div>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3 md:gap-4 list-none p-0 m-0">
+            {INVOLVE_PATHS.map((path, i) => {
+              const Icon = path.icon;
+              return (
+                <li
+                  key={path.title}
+                  className={`min-w-0 ${
+                    i >= 3 ? 'xl:col-span-3' : 'xl:col-span-2'
+                  }`}
+                >
+                  <Card
+                    variant="subtle"
+                    className="home-value-card h-full p-5 sm:p-6"
+                  >
+                    <span className="shrink-0 w-10 h-10 rounded-lg border border-cyber-border bg-cyber-surface flex items-center justify-center text-neon-cyan mb-4">
+                      <Icon className="w-5 h-5" aria-hidden />
+                    </span>
+                    <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight">
+                      {path.title}
+                    </h3>
+                    <p className="mt-2 text-sm sm:text-[15px] leading-relaxed text-text-secondary">
+                      {path.body}
+                    </p>
+                  </Card>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="mt-8">
+            <Button
+              className="gap-2"
+              onClick={() => navigate('/get-involved')}
+            >
+              Get Involved <ArrowRight className="w-4 h-4" />
+            </Button>
+          </div>
+          <SectionContinueCue />
+        </div>
+      </section>
+
+      {/* ================================================================
+          TRUST & TRANSPARENCY
+          ================================================================ */}
+      <section
+        id="trust"
+        className="home-section-quiet py-16 md:py-24 border-t border-cyber-border/40"
+      >
+        <div className="container-custom max-w-6xl">
+          <Card
+            variant="panel"
+            className="home-trust-panel p-8 sm:p-10 md:p-12"
+          >
+            <div className="grid lg:grid-cols-12 gap-8 lg:gap-10 items-stretch">
+              <div className="lg:col-span-6 min-w-0 flex flex-col justify-center">
+                <h2 className={sectionTitleClass}>Trust &amp; transparency</h2>
+                <p className="text-white text-base sm:text-lg font-medium leading-relaxed mb-3">
+                  Open by design.
+                </p>
+                <p className="text-text-secondary text-base sm:text-lg leading-relaxed mb-6">
+                  Public finances, decision logs, credits, and founder
+                  compensation rules are all visible on this site. We would
+                  rather show real numbers than publish polished marketing that
+                  hides the truth.
+                </p>
+                <Link
+                  to="/transparency"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-neon-cyan hover:underline"
+                >
+                  Transparency Hub
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+              <ul className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-3 list-none p-0 m-0">
+                {TRUST_VISIBLE.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <li
+                      key={item.label}
+                      className="flex items-center gap-3 rounded-lg border border-cyber-border/80 bg-cyber-surface/60 px-4 py-5 min-h-[5.5rem]"
+                    >
+                      <span className="shrink-0 w-9 h-9 rounded-md border border-cyber-border bg-cyber-bg/70 flex items-center justify-center text-neon-cyan">
+                        <Icon className="w-4 h-4" aria-hidden />
+                      </span>
+                      <span className="text-sm font-medium text-white leading-snug">
+                        {item.label}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </Card>
+        </div>
+      </section>
+
+      {/* ================================================================
+          COMMUNITY PULSE
           ================================================================ */}
       <section
         id="community"
         className="home-section-quiet py-16 md:py-24 border-t border-cyber-border"
       >
         <div className="container-custom max-w-6xl">
-          <div className="mb-10 max-w-lg">
-            <div className="section-header">Community</div>
-            <p className="text-text-secondary text-sm">
-              Momentum across volunteers, ideas, and open work.
-            </p>
+          <div className="mb-10 md:mb-14">
+            <h2 className={sectionTitleClass}>Community Pulse</h2>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-10">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mb-12 md:mb-16">
             {STAT_META.map((stat) => (
-              <StatWidget
+              <Card
                 key={stat.key}
-                label={stat.label}
-                value={
-                  statsLoading
+                variant="subtle"
+                data-accent={stat.accent}
+                className={`home-pulse-stat h-full text-center px-4 py-7 sm:px-6 sm:py-8 ${
+                  statsLoading ? 'opacity-80' : ''
+                }`}
+              >
+                <div className="home-pulse-icon mx-auto mb-5" aria-hidden="true">
+                  <img
+                    src={stat.iconSrc}
+                    alt=""
+                    width={96}
+                    height={96}
+                    className="home-pulse-icon-img"
+                    onError={(e) => {
+                      e.currentTarget.style.visibility = 'hidden';
+                    }}
+                  />
+                </div>
+                <div className="home-pulse-value font-mono font-bold tracking-tight mb-2">
+                  {statsLoading
                     ? '…'
-                    : communityStats[stat.key] ?? 0
-                }
-                icon={stat.icon}
-                tone={stat.tone}
-                className={`home-stat ${statsLoading ? 'opacity-80' : ''}`}
-              />
+                    : formatPulseValue(communityStats[stat.key] ?? 0)}
+                </div>
+                <div className="home-pulse-label font-mono uppercase">
+                  {stat.label}
+                </div>
+              </Card>
             ))}
           </div>
 
@@ -587,7 +798,6 @@ const HomePage = () => {
           CLOSING - sparse hearth
           ================================================================ */}
       <section
-        id="join"
         className="home-closing relative py-20 md:py-28 border-t border-cyber-border overflow-hidden"
       >
         <div className="container-custom relative z-10 text-center max-w-xl mx-auto">

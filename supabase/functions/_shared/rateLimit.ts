@@ -230,4 +230,10 @@ export const RATE_LIMITS = {
     message:
       'Too many reports from this network. Please wait a bit and try again.',
   },
+  volunteerApplication: {
+    limit: 4,
+    windowMs: 15 * 60 * 1000,
+    bucket: 'volunteer-application',
+    message: 'Too many applications. Please wait a bit and try again.',
+  },
 };

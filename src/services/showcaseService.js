@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '../lib/supabase';
+import { asUserError, isMissingRpcError } from '../utils/abuseErrors';
 import {
   parseYoutubeId,
   youtubeWatchUrl,
@@ -19,9 +20,9 @@ const TABLE = 'community_showcase_posts';
 const LIKES_TABLE = 'community_showcase_likes';
 
 const SELECT_BASE =
-  'id, content_type, title, description, creator_display_name, creator_user_id, submitter_email, url, youtube_id, image_url, thumbnail_url, project_tag, status, is_featured, moderator_note, moderated_by, moderated_at, published_at, created_at, updated_at';
+  'id, content_type, title, description, creator_display_name, creator_user_id, url, youtube_id, image_url, thumbnail_url, project_tag, status, is_featured, moderator_note, moderated_by, moderated_at, published_at, created_at, updated_at';
 
-const SELECT = `${SELECT_BASE}, likes`;
+const SELECT = `${SELECT_BASE}, likes, likes_public`;
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -200,7 +201,6 @@ function mapRow(row) {
     ),
     creatorUserId: row.creator_user_id || row.creatorUserId || null,
     creator: row.creator || null,
-    submitterEmail: row.submitter_email || null,
     url: row.url ? String(row.url).trim() : null,
     youtubeId: youtubeId || null,
     imageUrl: row.image_url || row.imageUrl || null,
@@ -219,7 +219,15 @@ function mapRow(row) {
     publishedAt: row.published_at || row.created_at || null,
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null,
-    likes: Math.max(0, Number(row.likes) || 0),
+    likes: Math.max(
+      0,
+      Number(
+        row.likes_public != null && row.likes_public !== ''
+          ? row.likes_public
+          : row.likes
+      ) || 0
+    ),
+    submitterEmail: null,
     _isDemo: Boolean(row._isDemo),
   };
 }
@@ -417,20 +425,25 @@ export async function getUserLikedShowcasePostIds(userId) {
  */
 export async function getShowcaseLikeCount(postId) {
   if (!isShowcasePostUuid(postId)) return 0;
-  const { count, error } = await supabase
-    .from(LIKES_TABLE)
-    .select('id', { count: 'exact', head: true })
-    .eq('post_id', postId);
-
-  if (error) {
-    const { data } = await supabase
+  let { data, error } = await supabase
+    .from(TABLE)
+    .select('likes, likes_public')
+    .eq('id', postId)
+    .maybeSingle();
+  if (error && /likes_public/i.test(String(error.message || ''))) {
+    ({ data, error } = await supabase
       .from(TABLE)
       .select('likes')
       .eq('id', postId)
-      .maybeSingle();
-    return Math.max(0, Number(data?.likes) || 0);
+      .maybeSingle());
   }
-  return Math.max(0, typeof count === 'number' ? count : 0);
+  if (error || !data) return 0;
+  const n = Number(
+    data.likes_public != null && data.likes_public !== ''
+      ? data.likes_public
+      : data.likes
+  );
+  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 /**
@@ -441,6 +454,19 @@ export async function toggleShowcaseLike(postId, userId) {
   if (!userId) throw new Error('Sign in to like posts.');
   if (!isShowcasePostUuid(postId)) {
     throw new Error('Likes are not available for demo posts.');
+  }
+
+  const rpc = await supabase.rpc('toggle_showcase_like', {
+    p_post_id: postId,
+  });
+  if (!rpc.error && rpc.data && typeof rpc.data === 'object') {
+    return {
+      liked: Boolean(rpc.data.liked),
+      likes: Math.max(0, Number(rpc.data.likes) || 0),
+    };
+  }
+  if (rpc.error && !isMissingRpcError(rpc.error)) {
+    throw asUserError(rpc.error, 'Could not update like.');
   }
 
   const { data: existing, error: findError } = await supabase
@@ -456,7 +482,7 @@ export async function toggleShowcaseLike(postId, userId) {
         'Likes are not set up yet. Run supabase/sql/supabase_community_showcase_likes.sql in Supabase.'
       );
     }
-    throw findError;
+    throw asUserError(findError, 'Could not update like.');
   }
 
   if (existing) {
@@ -465,7 +491,7 @@ export async function toggleShowcaseLike(postId, userId) {
       .delete()
       .eq('post_id', postId)
       .eq('user_id', userId);
-    if (delError) throw delError;
+    if (delError) throw asUserError(delError, 'Could not update like.');
   } else {
     const { error: insError } = await supabase
       .from(LIKES_TABLE)
@@ -481,7 +507,7 @@ export async function toggleShowcaseLike(postId, userId) {
           'Likes are not set up yet. Run supabase/sql/supabase_community_showcase_likes.sql in Supabase.'
         );
       } else {
-        throw insError;
+        throw asUserError(insError, 'Could not update like.');
       }
     }
   }
@@ -493,13 +519,6 @@ export async function toggleShowcaseLike(postId, userId) {
     .eq('post_id', postId)
     .eq('user_id', userId)
     .maybeSingle();
-
-  // Best-effort denormalized column (trigger should also update)
-  try {
-    await supabase.from(TABLE).update({ likes }).eq('id', postId);
-  } catch {
-    /* optional */
-  }
 
   return { liked: !!stillLiked, likes: Math.max(0, likes || 0) };
 }

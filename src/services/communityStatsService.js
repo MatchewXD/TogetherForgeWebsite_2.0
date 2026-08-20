@@ -1,9 +1,14 @@
 /**
- * Community / Home momentum stats - lightweight exact counts from Supabase.
+ * Community / Home momentum stats.
+ * Prefers get_public_community_stats() (members, ideas, supporters, tasks).
  * Each metric fails open to 0 so the Home UI never shows "n/a".
  */
 
 import { supabase } from '../lib/supabase';
+import {
+  getPublicFundContributors,
+  uniqueContributorsFromLocal,
+} from './donationsService';
 
 /** @returns {Promise<number>} */
 async function exactCount(table, apply = (q) => q) {
@@ -22,87 +27,110 @@ async function exactCount(table, apply = (q) => q) {
   }
 }
 
-/**
- * Volunteers: prefer profiles (registered community members).
- * Fallback: distinct users who have ever claimed a task (if profiles not readable).
- */
-async function countVolunteers() {
-  const fromProfiles = await exactCount('profiles');
-  if (fromProfiles > 0) return fromProfiles;
-
-  // Fallback when profiles select is restricted but claims are visible
-  try {
-    const { data, error } = await supabase
-      .from('task_claims')
-      .select('user_id');
-    if (error) {
-      console.warn('[communityStats] volunteer fallback failed:', error.message || error);
-      return 0;
-    }
-    const ids = new Set(
-      (data || []).map((r) => r.user_id).filter((id) => id != null && id !== '')
-    );
-    return ids.size;
-  } catch (err) {
-    console.warn('[communityStats] volunteer fallback error:', err);
-    return 0;
+function uniqueLocalSupporters() {
+  const named = [
+    ...uniqueContributorsFromLocal('studio'),
+    ...uniqueContributorsFromLocal('runway'),
+  ];
+  const keys = new Set();
+  for (const row of named) {
+    const key = String(row.username || row.displayName || '')
+      .trim()
+      .toLowerCase();
+    if (key) keys.add(`name:${key}`);
   }
+  return keys.size;
+}
+
+async function countSupportersFallback() {
+  try {
+    const [studio, runway] = await Promise.all([
+      getPublicFundContributors('studio'),
+      getPublicFundContributors('runway'),
+    ]);
+    const keys = new Set();
+    for (const row of [...(studio.items || []), ...(runway.items || [])]) {
+      const key = String(row.username || row.displayName || '')
+        .trim()
+        .toLowerCase();
+      if (key) keys.add(`name:${key}`);
+    }
+    if (keys.size > 0) return keys.size;
+  } catch (err) {
+    console.warn('[communityStats] supporter fallback failed:', err);
+  }
+  return uniqueLocalSupporters();
+}
+
+async function fallbackStats() {
+  const [members, ideasSubmitted, supporters, tasksCompleted] =
+    await Promise.all([
+      exactCount('profiles'),
+      exactCount('ideas', (q) => q.neq('status', 'Draft')),
+      countSupportersFallback(),
+      exactCount('tasks', (q) => q.eq('status', 'Completed')),
+    ]);
+  const ideas =
+    ideasSubmitted > 0 ? ideasSubmitted : await exactCount('ideas');
+  const tasks =
+    tasksCompleted > 0
+      ? tasksCompleted
+      : await exactCount('task_claims', (q) => q.eq('status', 'Completed'));
+  return {
+    members,
+    ideasSubmitted: ideas,
+    supporters,
+    tasksCompleted: tasks,
+    source: 'fallback',
+  };
+}
+
+function mapRpc(row) {
+  return {
+    members: Number(row.members) || 0,
+    ideasSubmitted: Number(row.ideas_submitted ?? row.ideasSubmitted) || 0,
+    supporters: Number(row.supporters) || 0,
+    tasksCompleted: Number(
+      row.tasks_completed ?? row.tasksCompleted ?? 0
+    ),
+    source: 'supabase',
+  };
 }
 
 /**
- * Active projects: In Development / Active (not Planning / Vision / archived).
- * If status filter yields nothing but rows exist, fall back to phase = Early.
- */
-async function countActiveProjects() {
-  const byStatus = await exactCount('projects', (q) =>
-    q.in('status', ['In Development', 'Active', 'active', 'Live', 'live'])
-  );
-  if (byStatus > 0) return byStatus;
-
-  const byPhase = await exactCount('projects', (q) =>
-    q.ilike('phase', 'early')
-  );
-  if (byPhase > 0) return byPhase;
-
-  // Last resort: total projects (still a real count, never "n/a")
-  return exactCount('projects');
-}
-
-/**
- * Tasks claimed: Active + Completed (real claim work). Falls back to all rows.
- */
-async function countTasksClaimed() {
-  const meaningful = await exactCount('task_claims', (q) =>
-    q.in('status', ['Active', 'Completed'])
-  );
-  if (meaningful > 0) return meaningful;
-  return exactCount('task_claims');
-}
-
-/**
- * Live Community section stats for the Home page.
+ * Live Community Pulse stats for the Home page.
  * @returns {Promise<{
- *   volunteers: number,
+ *   members: number,
  *   ideasSubmitted: number,
- *   activeProjects: number,
- *   tasksClaimed: number,
+ *   supporters: number,
+ *   tasksCompleted: number,
+ *   source: 'supabase'|'fallback',
  * }>}
  */
 export async function getHomeCommunityStats() {
-  const [volunteers, ideasSubmitted, activeProjects, tasksClaimed] =
-    await Promise.all([
-      countVolunteers(),
-      exactCount('ideas'),
-      countActiveProjects(),
-      countTasksClaimed(),
-    ]);
-
-  return {
-    volunteers,
-    ideasSubmitted,
-    activeProjects,
-    tasksClaimed,
-  };
+  try {
+    const { data, error } = await supabase.rpc('get_public_community_stats');
+    if (!error && data && typeof data === 'object') {
+      const mapped = mapRpc(data);
+      if (
+        mapped.members > 0 ||
+        mapped.ideasSubmitted > 0 ||
+        mapped.supporters > 0 ||
+        mapped.tasksCompleted > 0
+      ) {
+        return mapped;
+      }
+    }
+    if (error) {
+      console.warn(
+        '[communityStats] RPC failed:',
+        error.message || error
+      );
+    }
+  } catch (err) {
+    console.warn('[communityStats] RPC error:', err);
+  }
+  return fallbackStats();
 }
 
 export const communityStatsService = {

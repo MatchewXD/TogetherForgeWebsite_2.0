@@ -1,16 +1,17 @@
 /**
  * Personal runway fund transparency block.
  * Shared on Founders Thoughts and /support-runway.
+ * Current amount comes from public support totals (runway fund only).
  */
 
+import { useEffect, useState } from 'react';
 import { Wallet, Calendar, ListChecks } from 'lucide-react';
 import Card from './Card';
 import Badge from './Badge';
+import { getPublicSupportSummary } from '../../services/donationsService';
 
-/** Runway fund snapshot (public totals). */
+/** Expense categories shown under the live totals. */
 export const RUNWAY_FUND = {
-  amountUsd: 0,
-  monthsCovered: 0,
   expenses: [
     { label: 'Housing', note: 'Covered by runway' },
     { label: 'Food and household', note: 'Covered by runway' },
@@ -41,6 +42,29 @@ const RunwayTransparency = ({
   description =
     'Separate from studio Support. These numbers track direct contributions to founder living expenses so the community can see runway status clearly.',
 }) => {
+  const [amountUsd, setAmountUsd] = useState(0);
+  const [giftCount, setGiftCount] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const summary = await getPublicSupportSummary();
+        if (!mounted) return;
+        setAmountUsd((Number(summary?.runwayTotalCents) || 0) / 100);
+        setGiftCount(Number(summary?.runwayPaymentCount) || 0);
+      } catch {
+        if (mounted) {
+          setAmountUsd(0);
+          setGiftCount(0);
+        }
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <section
       id={id}
@@ -70,9 +94,14 @@ const RunwayTransparency = ({
               </span>
             </div>
             <div className="text-3xl sm:text-4xl font-mono font-bold text-neon-cyan">
-              {formatRunwayUsd(RUNWAY_FUND.amountUsd)}
+              {formatRunwayUsd(amountUsd)}
             </div>
-            <p className="text-xs text-text-muted mt-2">In runway trust</p>
+            <p className="text-xs text-text-muted mt-2">
+              Raised for personal runway
+              {giftCount > 0
+                ? ` · ${giftCount} gift${giftCount === 1 ? '' : 's'}`
+                : ''}
+            </p>
           </div>
           <div className="rounded-xl border border-cyber-border bg-cyber-surface/80 p-5">
             <div className="flex items-center gap-2 text-text-muted mb-2">
@@ -82,13 +111,13 @@ const RunwayTransparency = ({
               </span>
             </div>
             <div className="text-3xl sm:text-4xl font-mono font-bold text-white">
-              {RUNWAY_FUND.monthsCovered}
+              {giftCount}
               <span className="text-lg text-text-muted font-normal ml-2">
-                months
+                {giftCount === 1 ? 'gift' : 'gifts'}
               </span>
             </div>
             <p className="text-xs text-text-muted mt-2">
-              Of living expenses covered
+              Recorded on the personal runway path
             </p>
           </div>
         </div>

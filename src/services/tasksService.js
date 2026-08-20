@@ -2056,6 +2056,13 @@ export const tasksService = {
         err.code = 'CLAIM_HIERARCHY';
         throw err;
       }
+      if (/RATE_LIMITED/i.test(msg)) {
+        const err = new Error(
+          "You're doing that too quickly. Please wait a moment and try again."
+        );
+        err.code = 'RATE_LIMITED';
+        throw err;
+      }
       if (/limit|cooldown|wait/i.test(msg)) {
         const err = new Error(msg);
         err.code = /cooldown|wait/i.test(msg) ? 'CLAIM_COOLDOWN' : 'CLAIM_LIMIT';

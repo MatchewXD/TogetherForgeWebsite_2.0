@@ -10,7 +10,7 @@
 // deno-lint-ignore-file
 // @ts-nocheck
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno';
-import { enforceRateLimit } from '../_shared/rateLimit.ts';
+import { enforceRateLimit, RATE_LIMITS } from '../_shared/rateLimit.ts';
 
 const supabaseUrl =
   Deno.env.get('SUPABASE_URL') ?? Deno.env.get('SB_URL') ?? '';
@@ -30,13 +30,7 @@ const cors = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// Local rate limit bucket (reuse checkout-like limits)
-const VOLUNTEER_LIMIT = {
-  limit: 8,
-  windowMs: 15 * 60 * 1000,
-  bucket: 'volunteer-application',
-  message: 'Too many applications. Please wait a bit and try again.',
-};
+const VOLUNTEER_LIMIT = RATE_LIMITS.volunteerApplication;
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {

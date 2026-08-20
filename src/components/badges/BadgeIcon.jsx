@@ -66,6 +66,11 @@ const CATEGORY_TONE = {
  * img  = classes for <img> (fill frame; slight scale so padded PNGs read larger)
  */
 const SIZES = {
+  xs: {
+    box: 'w-7 h-7',
+    icon: 'w-3.5 h-3.5',
+    img: 'w-full h-full object-contain scale-[1.1]',
+  },
   sm: {
     box: 'w-10 h-10',
     icon: 'w-5 h-5',
@@ -92,7 +97,7 @@ const SIZES = {
  * @param {{
  *   badgeKey?: string|null,
  *   def?: object|null,
- *   size?: 'sm'|'md'|'lg'|'xl',
+ *   size?: 'xs'|'sm'|'md'|'lg'|'xl',
  *   className?: string,
  *   showTooltip?: boolean,
  *   fill?: boolean,

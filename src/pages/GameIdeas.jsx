@@ -33,6 +33,10 @@ import LoadingScreen from '../components/ui/LoadingScreen';
 import TagPicker from '../components/ideas/TagPicker';
 import { slugifyTag } from '../utils/ideaTags';
 import { listForgeAwardsForTargets } from '../services/forgeMarksService';
+import {
+  optimisticPublicCount,
+  reconcilePublicCount,
+} from '../utils/publicCounts';
 
 const CATEGORIES = [
   'Full Game Idea',
@@ -500,15 +504,26 @@ const GameIdeas = () => {
 
     togglingRef.current.add(key);
     setVotingId(ideaId);
-    console.log('[GameIdeas] vote click', {
-      ideaId,
-      beforeVoted: userVotesRef.current.has(key),
-      beforeCount: idea.votes,
+    const wasVoted = userVotesRef.current.has(key);
+    const prevCount = Math.max(0, Number(idea.votes) || 0);
+
+    setUserVotes((prev) => {
+      const next = new Set(prev);
+      if (wasVoted) next.delete(key);
+      else next.add(key);
+      userVotesRef.current = next;
+      return next;
     });
+    setAllIdeas((prev) =>
+      prev.map((i) =>
+        voteKey(i.id) === key
+          ? { ...i, votes: optimisticPublicCount(prevCount, !wasVoted) }
+          : i
+      )
+    );
 
     try {
       const { voted, votes } = await ideasService.toggleVote(ideaId, user.id);
-      console.log('[GameIdeas] vote server result', { ideaId, voted, votes });
 
       setUserVotes((prev) => {
         const next = new Set(prev);
@@ -521,14 +536,24 @@ const GameIdeas = () => {
       setAllIdeas((prev) =>
         prev.map((i) =>
           voteKey(i.id) === key
-            ? { ...i, votes: Math.max(0, Number(votes) || 0) }
+            ? { ...i, votes: reconcilePublicCount(prevCount, votes) }
             : i
         )
       );
     } catch (err) {
-      console.error('[GameIdeas] vote failed', err);
+      setUserVotes((prev) => {
+        const next = new Set(prev);
+        if (wasVoted) next.add(key);
+        else next.delete(key);
+        userVotesRef.current = next;
+        return next;
+      });
+      setAllIdeas((prev) =>
+        prev.map((i) =>
+          voteKey(i.id) === key ? { ...i, votes: prevCount } : i
+        )
+      );
       setMessage(err?.message || 'Could not update vote.');
-      await loadUserVotes(user.id);
     } finally {
       togglingRef.current.delete(key);
       setVotingId((cur) => (voteKey(cur) === key ? null : cur));

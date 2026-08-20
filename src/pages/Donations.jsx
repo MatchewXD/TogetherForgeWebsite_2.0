@@ -767,7 +767,7 @@ const SupportPage = () => {
           loading={socialLoading}
           source={recentSource}
           title="Recent contributions"
-          emptyBody="Your studio support can be the first on this list. Named gifts show name and amount. Private gifts show as Anonymous."
+          emptyBody="Your studio support can be the first on this list."
         />
 
         <FundContributorsCard fundType="studio" />

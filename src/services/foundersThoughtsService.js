@@ -48,7 +48,7 @@ export const LOCAL_THOUGHTS = [
     theme: 'Transparency',
     published_at: '2026-07-15',
     content: [
-      'Transparency is built into every part of this project because the community must be able to see whether the company is staying true to its principles. If money starts flowing to individuals or ideologies instead of games and players, people deserve to know immediately. Any future gaming company that avoids this level of openness will be signaling corruption. They prioritize lining pockets over making good games. Together Forge will never hide behind marketing copy. If we ever lose our way, the transparency systems will make it obvious.',
+      'Transparency is built into every part of Together Forge because the community must be able to see whether the company is staying true to its principles. If money starts flowing to individuals or ideologies instead of games and players, people deserve to know immediately. Any future gaming company that avoids this level of openness will be signaling corruption. They prioritize lining pockets over making good games. Together Forge will never hide behind marketing copy. If we ever lose our way, the transparency systems will make it obvious.',
     ].join('\n\n'),
     likes: 0,
     localOnly: true,
@@ -79,7 +79,14 @@ function normalizeThought(row) {
     theme: row.theme || 'Reflection',
     published_at: row.published_at || null,
     content: row.content || '',
-    likes: Math.max(0, Number(row.likes) || 0),
+    likes: Math.max(
+      0,
+      Number(
+        row.likes_public != null && row.likes_public !== ''
+          ? row.likes_public
+          : row.likes
+      ) || 0
+    ),
     localOnly: false,
   };
 }
@@ -100,10 +107,17 @@ export const foundersThoughtsService = {
    * @returns {Promise<{ thoughts: object[], fromDb: boolean, error: string|null }>}
    */
   async listThoughts() {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('founders_thoughts')
-      .select('id, slug, title, lead, theme, published_at, content, likes')
+      .select('id, slug, title, lead, theme, published_at, content, likes, likes_public')
       .order('published_at', { ascending: false });
+
+    if (error && /likes_public/i.test(String(error.message || ''))) {
+      ({ data, error } = await supabase
+        .from('founders_thoughts')
+        .select('id, slug, title, lead, theme, published_at, content, likes')
+        .order('published_at', { ascending: false }));
+    }
 
     if (error) {
       console.warn('[founders_thoughts] list failed', error);

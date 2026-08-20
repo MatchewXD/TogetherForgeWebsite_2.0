@@ -92,9 +92,30 @@ import { ideasService } from '../services/ideasService';
 describe('ideasService voting (simple toggle)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    supabase.rpc.mockResolvedValue({
+      data: null,
+      error: { message: 'Could not find the function', code: 'PGRST202' },
+    });
+  });
+
+  it('toggleVote prefers the server RPC when available', async () => {
+    supabase.rpc.mockResolvedValue({
+      data: { voted: true, votes: 12 },
+      error: null,
+    });
+
+    const result = await ideasService.toggleVote(10, 'user-abc');
+    expect(supabase.rpc).toHaveBeenCalledWith('toggle_idea_vote', {
+      p_idea_id: 10,
+    });
+    expect(result).toEqual({ voted: true, votes: 12 });
   });
 
   it('toggleVote inserts when not voted and returns voted:true + count', async () => {
+    supabase.rpc.mockResolvedValue({
+      data: null,
+      error: { message: 'Could not find the function', code: 'PGRST202' },
+    });
     const mock = createVoteMock({ startHadVote: false, startCount: 2 });
     supabase.from.mockImplementation(mock.from);
 
@@ -104,7 +125,6 @@ describe('ideasService voting (simple toggle)', () => {
     expect(result.votes).toBe(3);
     expect(mock.log.inserts).toBe(1);
     expect(mock.log.deletes).toBe(0);
-    expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
   it('toggleVote deletes when already voted and returns voted:false + count', async () => {

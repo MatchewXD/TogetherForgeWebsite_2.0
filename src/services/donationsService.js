@@ -56,15 +56,23 @@ export async function getPublicSupportSummary() {
 
     // If DB is empty but this browser just recorded a successful checkout,
     // show local optimistic totals so the page does not stay at $0.
-    if (fromRpc.studioTotalCents === 0) {
-      const local = sumFromLocalStorage();
-      if (local.studioTotalCents > 0) {
-        return {
-          ...local,
-          source: 'local',
-          error: null,
-        };
-      }
+    const local = sumFromLocalStorage();
+    if (fromRpc.studioTotalCents === 0 && local.studioTotalCents > 0) {
+      return {
+        ...fromRpc,
+        ...local,
+        source: 'local',
+        error: null,
+      };
+    }
+    if (fromRpc.runwayTotalCents === 0 && local.runwayTotalCents > 0) {
+      return {
+        ...fromRpc,
+        runwayTotalCents: local.runwayTotalCents,
+        runwayPaymentCount: local.runwayPaymentCount,
+        source: fromRpc.studioTotalCents > 0 ? 'supabase' : 'local',
+        error: null,
+      };
     }
 
     return fromRpc;
@@ -162,6 +170,9 @@ function mapRecentRow(row) {
     isAnonymous: !isNamed,
     username: isNamed ? username : null,
     avatarUrl,
+    pinnedBadgeKey: isNamed
+      ? row.pinned_badge_key || row.pinnedBadgeKey || null
+      : null,
     label,
   };
 }
@@ -317,6 +328,7 @@ function mapContributorRow(row) {
     username,
     displayName: displayName || username,
     avatarUrl: row.avatar_url || row.avatarUrl || null,
+    pinnedBadgeKey: row.pinned_badge_key || row.pinnedBadgeKey || null,
     firstAt: row.first_at || row.firstAt || null,
   };
 }
@@ -339,6 +351,7 @@ export function uniqueContributorsFromLocal(fundType = 'studio') {
       username,
       displayName: username,
       avatarUrl: d.avatarUrl || null,
+      pinnedBadgeKey: null,
       firstAt: d.timestamp || null,
     });
   }
@@ -367,6 +380,7 @@ function recentFromLocalStorage(limit, fundType = 'studio') {
       isAnonymous: !username,
       username,
       avatarUrl: !isAnonymous && d.avatarUrl ? d.avatarUrl : null,
+      pinnedBadgeKey: null,
       label: username || 'Anonymous Supporter',
     };
   });

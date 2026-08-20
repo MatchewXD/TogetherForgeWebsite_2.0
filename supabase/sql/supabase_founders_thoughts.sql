@@ -151,7 +151,7 @@ I created a separate option for people who want to support my personal runway di
   null,
   'Transparency',
   '2026-07-15',
-  $c$Transparency is built into every part of this project because the community must be able to see whether the company is staying true to its principles. If money starts flowing to individuals or ideologies instead of games and players, people deserve to know immediately. Any future gaming company that avoids this level of openness will be signaling corruption. They prioritize lining pockets over making good games. Together Forge will never hide behind marketing copy. If we ever lose our way, the transparency systems will make it obvious.$c$
+  $c$Transparency is built into every part of Together Forge because the community must be able to see whether the company is staying true to its principles. If money starts flowing to individuals or ideologies instead of games and players, people deserve to know immediately. Any future gaming company that avoids this level of openness will be signaling corruption. They prioritize lining pockets over making good games. Together Forge will never hide behind marketing copy. If we ever lose our way, the transparency systems will make it obvious.$c$
 ),
 (
   'long-term-vision',

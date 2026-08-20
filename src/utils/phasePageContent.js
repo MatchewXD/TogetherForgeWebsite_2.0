@@ -41,7 +41,7 @@ export const PHASE_IDEA_KEYS = {
  * Bump when finalized public copy changes so legacy page_content rows
  * (old markdown/HTML or outdated wording) stop overriding defaults.
  */
-export const EARLY_CONTENT_VERSION = 4;
+export const EARLY_CONTENT_VERSION = 5;
 
 export const EARLY_PHASE_DEFAULTS = {
   /** Schema version for staff-saved content */
@@ -70,8 +70,9 @@ export const EARLY_PHASE_DEFAULTS = {
     'Light resource management with clear role differentiation in short sessions (ex: Deep Rock Galactic, Lethal Company, Barotrauma)',
   ],
   aboutParagraphs: [
-    'Early Game is the foundation of Together Forge. We intentionally start with a series of smaller cooperative games so we can focus on what matters most: building fun teamwork mechanics and proving that a transparent, community-supported development process can create great games.',
-    'Right now we have the capacity to develop one game at a time. As the Forge grows we will expand to multiple projects in parallel.',
+    'Early Game is where we prove the model in public.',
+    'We start with focused cooperative games so we can build real teamwork systems, test transparent development in the open, and create the resources and culture needed for everything that comes next. These games are not side projects. They are the foundation.',
+    'This is where Together Forge shows that a community-supported studio can ship fun, ambitious multiplayer experiences without the usual corporate overhead.',
   ],
   howToHelp: [
     'Submit game concepts, mechanics, or ideas through the Game Ideas page or the active projects page.',

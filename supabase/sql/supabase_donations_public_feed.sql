@@ -114,7 +114,11 @@ as $$
                 null
               )
             else null
-          end as display_name
+          end as display_name,
+          case
+            when coalesce(d.is_anonymous, true) = false then p.pinned_badge_key
+            else null
+          end as pinned_badge_key
         from donations d
         left join profiles p on p.id = d.user_id
         where coalesce(d.fund_type, 'studio') = coalesce(nullif(trim(p_fund_type), ''), 'studio')
@@ -157,6 +161,7 @@ as $$
       ) as display_name,
       nullif(trim(p.username), '') as username,
       p.avatar_url,
+      p.pinned_badge_key,
       d.created_at,
       coalesce(
         case when d.user_id is not null then 'u:' || d.user_id::text end,
@@ -187,6 +192,7 @@ as $$
       display_name,
       username,
       avatar_url,
+      pinned_badge_key,
       created_at as first_at
     from keyed
     order by person_key, created_at asc nulls last
@@ -199,6 +205,7 @@ as $$
           display_name,
           username,
           avatar_url,
+          pinned_badge_key,
           first_at
         from first_seen
         order by lower(display_name)

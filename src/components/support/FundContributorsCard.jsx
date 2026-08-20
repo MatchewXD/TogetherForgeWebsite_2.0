@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { Users } from 'lucide-react';
 import Card from '../ui/Card';
 import UserAvatar from '../ui/UserAvatar';
+import BadgeIcon from '../badges/BadgeIcon';
 import { getPublicFundContributors } from '../../services/donationsService';
 import { publicProfilePath } from '../../utils/profileLinks';
 
@@ -21,8 +22,7 @@ const COPY = {
   },
   runway: {
     title: 'Runway supporters',
-    blurb:
-      'Everyone who has publicly supported the personal runway. Each person appears once. This list is separate from studio Support.',
+    blurb: '',
     empty: 'No public runway supporters yet.',
     headingId: 'runway-supporters-heading',
   },
@@ -69,9 +69,11 @@ export default function FundContributorsCard({
           >
             {copy.title}
           </h2>
-          <p className="text-xs sm:text-sm text-text-secondary mt-1 leading-relaxed">
-            {copy.blurb}
-          </p>
+          {copy.blurb ? (
+            <p className="text-xs sm:text-sm text-text-secondary mt-1 leading-relaxed">
+              {copy.blurb}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -83,40 +85,48 @@ export default function FundContributorsCard({
         </p>
       ) : (
         <div
-          className="mt-3 task-scroll max-h-64 overflow-y-auto overscroll-contain rounded-xl border border-cyber-border bg-cyber-surface/40 [scrollbar-gutter:stable]"
+          className="mt-3 task-scroll max-h-72 overflow-y-auto overscroll-contain rounded-xl border border-cyber-border bg-cyber-surface/40 p-2 [scrollbar-gutter:stable]"
           role="region"
           aria-label={copy.title}
         >
-          <ul className="divide-y divide-cyber-border/80">
+          <ul className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
             {items.map((p) => {
               const name = p.displayName || p.username;
               const path = p.username ? publicProfilePath(p.username) : null;
               return (
-                <li
-                  key={p.username || name}
-                  className="flex items-center gap-3 px-3 py-2.5"
-                >
-                  <UserAvatar
-                    src={p.avatarUrl}
-                    name={name}
-                    username={p.username}
-                    linkProfile={Boolean(path)}
-                    size="sm"
-                    className="!w-9 !h-9"
-                    borderClass="border border-neon-cyan/35"
-                  />
-                  {path ? (
-                    <Link
-                      to={path}
-                      className="text-sm font-semibold text-white hover:text-neon-cyan truncate"
-                    >
-                      {name}
-                    </Link>
-                  ) : (
-                    <span className="text-sm font-semibold text-white truncate">
-                      {name}
-                    </span>
-                  )}
+                <li key={p.username || name} className="min-w-0">
+                  <div className="h-[8.5rem] rounded-lg border border-cyber-border bg-cyber-card/80 px-2 py-2 flex flex-col items-center justify-center text-center gap-1 overflow-hidden">
+                    <UserAvatar
+                      src={p.avatarUrl}
+                      name={name}
+                      username={p.username}
+                      linkProfile={Boolean(path)}
+                      size="sm"
+                      className="!w-11 !h-11"
+                      borderClass="border border-neon-cyan/35"
+                    />
+                    <div className="flex items-center justify-center gap-0.5 min-w-0 w-full">
+                      {path ? (
+                        <Link
+                          to={path}
+                          className="text-xs sm:text-sm font-semibold text-white hover:text-neon-cyan truncate"
+                          title={name}
+                        >
+                          {name}
+                        </Link>
+                      ) : (
+                        <span
+                          className="text-xs sm:text-sm font-semibold text-white truncate"
+                          title={name}
+                        >
+                          {name}
+                        </span>
+                      )}
+                      {p.pinnedBadgeKey ? (
+                        <BadgeIcon badgeKey={p.pinnedBadgeKey} size="xs" />
+                      ) : null}
+                    </div>
+                  </div>
                 </li>
               );
             })}

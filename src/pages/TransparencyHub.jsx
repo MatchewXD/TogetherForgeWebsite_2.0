@@ -2,7 +2,7 @@
  * Transparency Hub: verify studio structure and how money is handled.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -21,6 +21,9 @@ import {
   getPublicSupportSummary,
   getPublicRecentDonations,
 } from '../services/donationsService';
+import { listPublicDecisionLogs } from '../services/decisionLogsService';
+import DecisionLogsManager from '../components/transparency/DecisionLogsManager';
+import useStaffRole from '../hooks/useStaffRole';
 
 const TRANSPARENCY_BANNER_SRC = '/images/Transparency_Page.webp';
 
@@ -53,40 +56,7 @@ const REINVESTMENT_REPORTS = [
   },
 ];
 
-const DECISION_LOGS = [
-  {
-    id: 'd1',
-    date: '2026-07-15',
-    title: 'Studio support builds projects, not founder pay',
-    tag: 'Governance',
-    summary:
-      'Together Forge project support funds development and operations only. Founder living wage comes from profits once the studio can pay all employees a family-supporting wage, or from a separate personal runway path that is not project funds.',
-  },
-  {
-    id: 'd2',
-    date: '2026-07-15',
-    title: 'Public workspaces over private silos',
-    tag: 'Process',
-    summary:
-      'Every active project gets a public workspace with kanban, updates, and shoutouts so progress does not require insider access.',
-  },
-  {
-    id: 'd3',
-    date: '2026-07-15',
-    title: 'Support is not a charitable donation',
-    tag: 'Legal',
-    summary:
-      'Together Forge is a community-supported for-profit studio. Contributions are not tax-deductible. That is stated clearly on Support and here.',
-  },
-  {
-    id: 'd4',
-    date: '2026-07-15',
-    title: 'Five active task claims per volunteer',
-    tag: 'Community',
-    summary:
-      'A cap of five active claims keeps boards fair. Completing or releasing a task frees a slot.',
-  },
-];
+
 
 const GOVERNANCE_ROWS = [
   {
@@ -96,16 +66,16 @@ const GOVERNANCE_ROWS = [
   {
     title: 'Founder compensation',
     paragraphs: [
-      'Studio support (donations) will never go to me as personal income.',
-      'I will only take a living wage from the company once the studio is generating enough revenue to pay every employee a family-supporting wage. That living wage will be set at a level that can support a family of five.',
-      'Until that point, any personal funding I need comes from a completely separate personal runway path that is kept outside of project and studio support funds.',
+      'Studio support (donations) will never go to the founder as personal income.',
+      'The founder will only take a living wage from the company once the studio is generating enough revenue to pay every employee a family-supporting wage. That living wage will be set at a level that can support a family of five.',
+      'Until that point, any personal funding the founder needs comes from a completely separate personal runway path that is kept outside of project and studio support funds.',
     ],
   },
   {
     title: 'Outside capital',
     paragraphs: [
-      'Together Forge will not sell ownership or decision-making power.',
-      'If outside capital is ever accepted, it will be structured as pure funding with a defined repayment (for example, a fixed return of the original amount plus a clear multiple, paid only from profits). Once that amount is repaid, the obligation ends. No equity, no board seats, and no ongoing influence over the studio or its community.',
+      'Together Forge will not take outside investors.',
+      'We will not sell ownership, decision-making power, or any form of ongoing control to third parties. The studio is structured to remain independent and accountable to the community that builds and supports it, not to external capital.',
     ],
   },
   {
@@ -140,6 +110,17 @@ const TransparencyHub = () => {
   });
   const [recentSupport, setRecentSupport] = useState([]);
   const [financeLoading, setFinanceLoading] = useState(true);
+  const [decisionLogs, setDecisionLogs] = useState([]);
+  const { isStaff, userId, loading: staffLoading } = useStaffRole();
+
+  const loadDecisionLogs = useCallback(async () => {
+    try {
+      const { items } = await listPublicDecisionLogs();
+      setDecisionLogs(items);
+    } catch {
+      setDecisionLogs([]);
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -179,6 +160,10 @@ const TransparencyHub = () => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    void loadDecisionLogs();
+  }, [loadDecisionLogs]);
 
   return (
     <div className="min-h-screen bg-cyber-bg text-text-primary">
@@ -371,29 +356,42 @@ const TransparencyHub = () => {
             </p>
           </div>
 
-          <ul className="divide-y divide-cyber-border border-y border-cyber-border">
-            {DECISION_LOGS.map((entry) => (
-              <li key={entry.id} className="py-4">
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-1.5">
-                  <h3 className="text-base font-semibold text-white">
-                    {entry.title}
-                  </h3>
-                  <span className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
-                    {entry.tag}
-                  </span>
-                  <time
-                    dateTime={entry.date}
-                    className="text-xs font-mono text-text-muted"
-                  >
-                    {formatDate(entry.date)}
-                  </time>
-                </div>
-                <p className="text-sm text-text-secondary leading-relaxed">
-                  {entry.summary}
-                </p>
-              </li>
-            ))}
-          </ul>
+          {!staffLoading && isStaff ? (
+            <div className="mb-6">
+              <DecisionLogsManager userId={userId} onChanged={loadDecisionLogs} />
+            </div>
+          ) : null}
+
+          <div className="tf-decision-log-scroll border-y border-cyber-border">
+            <ul className="divide-y divide-cyber-border">
+              {decisionLogs.map((entry) => (
+                <li key={entry.id} className="py-4 pr-2">
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-1.5">
+                    <h3 className="text-base font-semibold text-white">
+                      {entry.title}
+                    </h3>
+                    <span className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
+                      {entry.category || entry.tag}
+                    </span>
+                    <time
+                      dateTime={entry.date}
+                      className="text-xs font-mono text-text-muted"
+                    >
+                      {formatDate(entry.date)}
+                    </time>
+                  </div>
+                  <p className="text-sm text-text-secondary leading-relaxed">
+                    {entry.body || entry.summary}
+                  </p>
+                </li>
+              ))}
+              {!decisionLogs.length ? (
+                <li className="py-6 text-sm text-text-muted">
+                  No public decision logs yet.
+                </li>
+              ) : null}
+            </ul>
+          </div>
         </section>
 
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-12 items-start">

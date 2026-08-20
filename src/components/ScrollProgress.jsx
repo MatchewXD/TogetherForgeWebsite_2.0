@@ -66,4 +66,58 @@ export const SectionContinueCue = ({ className = '' }) => (
   </div>
 );
 
+/**
+ * First-screen “keep going” cue. Pinned to the viewport so a tall hero
+ * cannot clip it. A bottom fade plus motion chevrons say the page continues;
+ * it hides after the reader starts scrolling.
+ */
+export function HeroContinueCue({
+  targetId = 'mission',
+  className = '',
+}) {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const update = () => {
+      const threshold = Math.max(48, window.innerHeight * 0.18);
+      setVisible(window.scrollY < threshold);
+    };
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, []);
+
+  const go = (e) => {
+    e.preventDefault();
+    document
+      .getElementById(targetId)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  return (
+    <div
+      className={`tf-hero-continue ${visible ? 'is-visible' : ''} ${className}`}
+      aria-hidden={visible ? undefined : true}
+    >
+      <div className="tf-hero-continue-fade" aria-hidden="true" />
+      <a
+        href={`#${targetId}`}
+        onClick={go}
+        className="tf-hero-continue-btn"
+        tabIndex={visible ? 0 : -1}
+        aria-label="More below. Continue down the page."
+      >
+        <span className="tf-hero-continue-chevrons" aria-hidden="true">
+          <span className="tf-hero-continue-chevron" />
+          <span className="tf-hero-continue-chevron" />
+        </span>
+      </a>
+    </div>
+  );
+}
+
 export default ScrollProgress;

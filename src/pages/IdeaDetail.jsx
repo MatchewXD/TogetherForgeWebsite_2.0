@@ -31,6 +31,10 @@ import {
   getIdeaImageUrl,
 } from '../services/ideasService';
 import { getParentIdeaId } from '../utils/ideaRelations';
+import {
+  optimisticPublicCount,
+  reconcilePublicCount,
+} from '../utils/publicCounts';
 import { tasksService } from '../services/tasksService';
 import {
   getPublicIdeaLabel,
@@ -438,22 +442,26 @@ const IdeaDetail = () => {
 
     voteBusyRef.current = true;
     setVoting(true);
-    console.log('[IdeaDetail] vote click', {
-      ideaId,
-      beforeVoted: userVotedIdea,
-      beforeCount: idea.votes,
-    });
+    const wasVoted = !!userVotedIdea;
+    const prevCount = Math.max(0, Number(idea.votes) || 0);
+    setUserVotedIdea(!wasVoted);
+    setIdea((prev) =>
+      prev
+        ? { ...prev, votes: optimisticPublicCount(prevCount, !wasVoted) }
+        : prev
+    );
 
     try {
-      // Single server round-trip: insert or delete + recount
       const { voted, votes } = await ideasService.toggleVote(ideaId, user.id);
-      console.log('[IdeaDetail] vote server result', { voted, votes });
       setUserVotedIdea(!!voted);
       setIdea((prev) =>
-        prev ? { ...prev, votes: Math.max(0, Number(votes) || 0) } : prev
+        prev
+          ? { ...prev, votes: reconcilePublicCount(prevCount, votes) }
+          : prev
       );
     } catch (err) {
-      console.error('[IdeaDetail] vote failed', err);
+      setUserVotedIdea(wasVoted);
+      setIdea((prev) => (prev ? { ...prev, votes: prevCount } : prev));
       setMessage(err?.message || 'Could not update vote.');
       // Reload truth from server so UI is not stuck
       try {
@@ -463,7 +471,9 @@ const IdeaDetail = () => {
         ]);
         setUserVotedIdea(!!voted);
         setIdea((prev) =>
-          prev ? { ...prev, votes: Math.max(0, Number(votes) || 0) } : prev
+          prev
+            ? { ...prev, votes: reconcilePublicCount(prevCount, votes) }
+            : prev
         );
       } catch {
         /* keep prior UI */
@@ -477,34 +487,33 @@ const IdeaDetail = () => {
   const postComment = async () => {
     if (!comment.trim() || !user) return;
 
-    const { error } = await supabase.from('comments').insert({
-      idea_id: ideaId,
-      user_id: user.id,
-      content: comment.trim(),
-    });
-
-    if (!error) {
+    try {
+      await ideasService.postComment({
+        ideaId,
+        userId: user.id,
+        content: comment.trim(),
+      });
       setComment('');
       fetchComments();
-    } else {
-      setMessage(error.message);
+    } catch (err) {
+      setMessage(err?.message || 'Could not post comment.');
     }
   };
 
   const postReply = async () => {
     if (!replyText.trim() || !user || !replyTo) return;
-    const { error } = await supabase.from('comments').insert({
-      idea_id: ideaId,
-      user_id: user.id,
-      content: replyText.trim(),
-      parent_id: replyTo.id,
-    });
-    if (!error) {
+    try {
+      await ideasService.postComment({
+        ideaId,
+        userId: user.id,
+        content: replyText.trim(),
+        parentId: replyTo.id,
+      });
       setReplyText('');
       setReplyTo(null);
       fetchComments();
-    } else {
-      setMessage(error.message);
+    } catch (err) {
+      setMessage(err?.message || 'Could not post comment.');
     }
   };
 
@@ -618,6 +627,13 @@ const IdeaDetail = () => {
                       : 'text-slate-400'
                   }`}
                 />
+                <span
+                  className={`font-mono ${
+                    userVotedIdea ? 'text-orange-400' : 'text-text-secondary'
+                  }`}
+                >
+                  {userVotedIdea ? 'Voted' : 'Vote'}
+                </span>
                 <span
                   className={`font-mono tabular-nums ${
                     userVotedIdea ? 'text-orange-400' : 'text-text-secondary'

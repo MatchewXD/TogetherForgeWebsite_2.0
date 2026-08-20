@@ -802,13 +802,13 @@ html {
     animation: none;
 }
 
-/* Slightly lighter scrim so the art reads through more under Forge */
+/* Light full-frame wash so the art stays visible */
 .home-page .home-hero-bg-scrim {
     background: linear-gradient(
       to bottom,
-      rgb(var(--tf-cyber-bg) / 0.45) 0%,
-      rgb(var(--tf-cyber-bg) / 0.55) 45%,
-      rgb(var(--tf-cyber-bg) / 0.78) 100%
+      rgb(var(--tf-cyber-bg) / 0.28) 0%,
+      rgb(var(--tf-cyber-bg) / 0.22) 42%,
+      rgb(var(--tf-cyber-bg) / 0.62) 100%
     );
 }
 
@@ -818,7 +818,7 @@ html {
 
 .home-page .home-hero-atmosphere {
     background-image: var(--home-ember), var(--home-forge-depth);
-    opacity: 0.85;
+    opacity: 0.4;
     mix-blend-mode: soft-light;
 }
 
@@ -826,8 +826,8 @@ html {
     background: radial-gradient(
       ellipse 80% 75% at 50% 38%,
       transparent 0%,
-      rgb(var(--tf-cyber-bg) / 0.35) 65%,
-      rgb(var(--tf-cyber-bg) / 0.82) 100%
+      rgb(var(--tf-cyber-bg) / 0.18) 70%,
+      rgb(var(--tf-cyber-bg) / 0.55) 100%
     );
 }
 
@@ -1048,6 +1048,98 @@ html {
     backdrop-filter: none;
 }
 
+.home-page .home-pulse-stat {
+    background-color: rgb(var(--tf-cyber-card) / 0.82);
+    backdrop-filter: none;
+}
+
+.home-page .home-pulse-icon {
+    width: 5.75rem;
+    height: 5.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1rem;
+    background: transparent;
+}
+
+.home-page .home-pulse-icon-img {
+    width: 5.25rem;
+    height: 5.25rem;
+    object-fit: contain;
+    filter: drop-shadow(0 8px 16px rgb(0 0 0 / 0.35));
+}
+
+.home-page .home-pulse-value {
+    font-size: clamp(1.55rem, 3.6vw, 2.75rem);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--tf-text-primary));
+}
+
+.home-page .home-pulse-label {
+    font-size: 0.8rem;
+    letter-spacing: 0.16em;
+    color: rgb(var(--tf-text-muted));
+}
+
+@media (min-width: 640px) {
+    .home-page .home-pulse-label {
+        font-size: 0.88rem;
+    }
+}
+
+.home-page .home-pulse-stat[data-accent='cyan'] .home-pulse-value {
+    color: rgb(var(--tf-neon-cyan));
+}
+.home-page .home-pulse-stat[data-accent='cyan'] .home-pulse-icon {
+    background: transparent;
+}
+
+.home-page .home-pulse-stat[data-accent='purple'] .home-pulse-value {
+    color: rgb(var(--tf-neon-purple));
+}
+.home-page .home-pulse-stat[data-accent='purple'] .home-pulse-icon {
+    background: transparent;
+}
+
+.home-page .home-pulse-stat[data-accent='gold'] .home-pulse-value {
+    color: rgb(var(--tf-semantic-achievement));
+}
+.home-page .home-pulse-stat[data-accent='gold'] .home-pulse-icon {
+    background: transparent;
+}
+
+.home-page .home-pulse-stat[data-accent='magenta'] .home-pulse-value {
+    color: rgb(var(--tf-neon-magenta));
+}
+.home-page .home-pulse-stat[data-accent='magenta'] .home-pulse-icon {
+    background: transparent;
+}
+
+.tf-decision-log-scroll {
+    max-height: 22rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--tf-cyber-border) / 0.9) transparent;
+}
+
+@media (min-width: 768px) {
+    .tf-decision-log-scroll {
+        max-height: 26rem;
+    }
+}
+
+.tf-decision-log-scroll::-webkit-scrollbar {
+    width: 8px;
+}
+.tf-decision-log-scroll::-webkit-scrollbar-thumb {
+    background: rgb(var(--tf-cyber-border) / 0.85);
+    border-radius: 999px;
+}
+
 .home-page .home-activity-panel {
     background-color: rgb(var(--tf-cyber-card) / 0.8);
     backdrop-filter: none;
@@ -1065,6 +1157,44 @@ html {
         rgb(var(--tf-cyber-border) / 0.95) 30%,
         rgb(var(--tf-cyber-border) / 0.9) 70%,
         rgb(var(--tf-neon-purple) / 0.35) 100%
+    );
+}
+
+.home-page .home-how-step {
+    background-color: rgb(var(--tf-cyber-card) / 0.8);
+    backdrop-filter: none;
+}
+
+@media (min-width: 1280px) {
+    .home-page .home-how-steps > li {
+        position: relative;
+    }
+
+    .home-page .home-how-steps > li:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        top: 1.7rem;
+        right: -0.55rem;
+        width: 0.7rem;
+        height: 1px;
+        background: rgb(var(--tf-neon-cyan) / 0.28);
+        pointer-events: none;
+        z-index: 1;
+    }
+}
+
+.home-page .home-trust-panel {
+    background-color: rgb(var(--tf-cyber-card) / 0.82);
+    backdrop-filter: none;
+}
+
+.home-page .home-trust-panel::before {
+    background: linear-gradient(
+        135deg,
+        rgb(var(--tf-neon-cyan) / 0.48) 0%,
+        rgb(var(--tf-cyber-border) / 0.95) 28%,
+        rgb(var(--tf-cyber-border) / 0.9) 72%,
+        rgb(var(--tf-neon-purple) / 0.32) 100%
     );
 }
 
@@ -1091,6 +1221,10 @@ html {
 
 @media (prefers-reduced-motion: reduce) {
     .home-page .home-hero-logo-ember {
+        animation: none;
+    }
+
+    .tf-hero-continue-chevrons {
         animation: none;
     }
 }
@@ -1172,6 +1306,102 @@ html {
     border: 1px solid rgb(var(--tf-neon-cyan) / 0.4);
     transform: rotate(45deg);
     background: rgb(var(--tf-cyber-bg) / 0.5);
+}
+
+/* First-screen continue cue — pinned to the viewport, not the hero box */
+.tf-hero-continue {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    height: 7.5rem;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: max(0.7rem, calc(env(safe-area-inset-bottom, 0px) + 0.4rem));
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+}
+
+.tf-hero-continue.is-visible {
+    opacity: 1;
+}
+
+.tf-hero-continue-fade {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        rgb(var(--tf-cyber-bg) / 0.12) 22%,
+        rgb(var(--tf-cyber-bg) / 0.5) 52%,
+        rgb(var(--tf-cyber-bg) / 0.88) 78%,
+        rgb(var(--tf-cyber-bg) / 0.97) 100%
+    );
+    pointer-events: none;
+}
+
+.tf-hero-continue-btn {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.25rem;
+    height: 3rem;
+    pointer-events: auto;
+    border: 0;
+    background: radial-gradient(
+        circle at 50% 60%,
+        rgb(var(--tf-cyber-bg) / 0.72) 0%,
+        rgb(var(--tf-cyber-bg) / 0.2) 62%,
+        transparent 100%
+    );
+    outline: none;
+}
+
+.tf-hero-continue-btn:hover .tf-hero-continue-chevron,
+.tf-hero-continue-btn:focus-visible .tf-hero-continue-chevron {
+    border-color: rgb(var(--tf-neon-cyan) / 1);
+}
+
+.tf-hero-continue-btn:focus-visible {
+    box-shadow: 0 0 0 1px rgb(var(--tf-neon-cyan) / 0.55);
+}
+
+.tf-hero-continue-chevrons {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    animation: tf-hero-continue-bob 1.8s ease-in-out infinite;
+}
+
+.tf-hero-continue-chevron {
+    width: 12px;
+    height: 12px;
+    border-right: 2px solid rgb(var(--tf-neon-cyan) / 0.92);
+    border-bottom: 2px solid rgb(var(--tf-neon-cyan) / 0.92);
+    transform: rotate(45deg);
+    margin-top: -5px;
+    filter: drop-shadow(0 1px 6px rgb(0 0 0 / 0.85));
+}
+
+.tf-hero-continue-chevron:first-child {
+    opacity: 0.42;
+    margin-top: 0;
+}
+
+@keyframes tf-hero-continue-bob {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(6px);
+    }
 }
 
 /* ============================================================

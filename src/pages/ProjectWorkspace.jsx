@@ -73,6 +73,10 @@ import {
   formatAutoReleaseReason,
 } from '../services/tasksService';
 import { ideasService } from '../services/ideasService';
+import {
+  optimisticPublicCount,
+  reconcilePublicCount,
+} from '../utils/publicCounts';
 import { supabase } from '../lib/supabase';
 import { phaseImageSrc, phaseImageAlt } from '../utils/phaseImages';
 import { displayProjectTitle } from '../utils/ideaStatus';
@@ -2075,12 +2079,19 @@ const ProjectWorkspace = () => {
     });
     voteInflight.current.set(key, lockPromise);
 
-    // Optimistic
+    const prevCount = Math.max(
+      0,
+      Number(
+        (projectIdeas.find((i) => voteKey(i.id) === key) || {}).votes
+      ) || 0
+    );
+
+    // Optimistic: always flip Voted; only bump the number while still live (<10)
     if (hasVoted) {
       setProjectIdeas((prev) =>
         prev.map((i) =>
           voteKey(i.id) === key
-            ? { ...i, votes: Math.max(0, (i.votes || 0) - 1) }
+            ? { ...i, votes: optimisticPublicCount(prevCount, false) }
             : i
         )
       );
@@ -2094,35 +2105,36 @@ const ProjectWorkspace = () => {
     } else {
       setProjectIdeas((prev) =>
         prev.map((i) =>
-          voteKey(i.id) === key ? { ...i, votes: (i.votes || 0) + 1 } : i
+          voteKey(i.id) === key
+            ? { ...i, votes: optimisticPublicCount(prevCount, true) }
+            : i
         )
       );
       setUserIdeaVotes((prev) => new Set(prev).add(key));
     }
 
     try {
-      await ideasService.toggleVote(ideaId, authUser.id, hasVoted);
+      const { votes } = await ideasService.toggleVote(ideaId, authUser.id);
+      setProjectIdeas((prev) =>
+        prev.map((i) =>
+          voteKey(i.id) === key
+            ? { ...i, votes: reconcilePublicCount(prevCount, votes) }
+            : i
+        )
+      );
     } catch (err) {
       const soft =
         /already voted|duplicate|unique/i.test(err?.message || '') ||
         err?.code === '23505';
       if (!soft) {
-        // Roll back only on hard failure
+        setProjectIdeas((prev) =>
+          prev.map((i) =>
+            voteKey(i.id) === key ? { ...i, votes: prevCount } : i
+          )
+        );
         if (hasVoted) {
-          setProjectIdeas((prev) =>
-            prev.map((i) =>
-              voteKey(i.id) === key ? { ...i, votes: (i.votes || 0) + 1 } : i
-            )
-          );
           setUserIdeaVotes((prev) => new Set(prev).add(key));
         } else {
-          setProjectIdeas((prev) =>
-            prev.map((i) =>
-              voteKey(i.id) === key
-                ? { ...i, votes: Math.max(0, (i.votes || 1) - 1) }
-                : i
-            )
-          );
           setUserIdeaVotes((prev) => {
             const next = new Set(prev);
             next.delete(key);

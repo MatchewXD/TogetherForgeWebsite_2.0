@@ -85,10 +85,13 @@ const AboutPage = () => {
                         </div>
                         <div className="md:col-span-7 text-lg text-text-secondary space-y-6 leading-relaxed md:pt-1">
                             <p>
-                                Together Forge is a community-driven game studio. We make cooperative games with the community, for gamers. Not for investors, not for outside agendas, and not for disposable slop designed to extract money.
+                                Together Forge is a community-driven game studio. We make cooperative games with the community, for gamers. Not for investors, not for outside agendas, and not for disposable products designed mainly to extract money.
                             </p>
                             <p>
-                                We organize, build, and ship games focused on strong mechanics, real fun, and connection between players. Profits are reinvested into better games and long-term growth, never into shareholders or excessive executive pay.
+                                Together Forge will not take outside investors. We will not sell ownership, decision-making power, or any form of ongoing control to third parties. The studio is structured to remain independent and accountable to the community that builds and supports it, not to external capital. Profits are reinvested into better games and long-term growth, never into shareholders or excessive executive pay.
+                            </p>
+                            <p>
+                                We organize, build, and ship games focused on strong mechanics, real fun, and connection between players.
                             </p>
                         </div>
                     </div>

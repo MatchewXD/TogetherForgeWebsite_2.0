@@ -1,8 +1,8 @@
 /**
- * How It Works: plain-language path from idea/skill to shipped work at Together Forge.
+ * How It Works: how work moves from idea to shipped game.
  */
 
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Lightbulb,
   MessageSquare,
@@ -14,15 +14,13 @@ import {
 } from 'lucide-react';
 
 import Button from '../components/ui/Buttons';
-import Badge from '../components/ui/Badge';
-import DiscordLink from '../components/ui/DiscordLink';
 
 const STEPS = [
   {
     number: '01',
     title: 'Share an idea or offer a skill',
     paragraphs: [
-      'Pitch a game concept, mechanic, system, or improvement on the Ideas board, or jump in with a skill. Code, art, audio, testing, writing, moderation, content creation, and feedback all count. You do not need a finished pitch to help.',
+      'Post a game concept, mechanic, system, or improvement on the Ideas board, or offer a skill directly. Code, art, audio, design, writing, testing, moderation, and content creation all count. You do not need a polished pitch to start.',
     ],
     icon: Lightbulb,
   },
@@ -30,33 +28,32 @@ const STEPS = [
     number: '02',
     title: 'Discuss and refine in public',
     paragraphs: [
-      'The community votes, comments, and pressure-tests ideas. Strong concepts get clearer. Weak ones get honest notes. Everything happens in the open so anyone can follow the conversation.',
+      'The community comments, votes, and pressure-tests ideas in the open. Strong concepts become clearer. Weak ones get honest feedback. Nothing important happens in private channels that the rest of the community cannot see.',
     ],
     icon: MessageSquare,
   },
   {
     number: '03',
-    title: 'Official projects select from the best ideas',
+    title: 'Strong ideas move into official projects',
     paragraphs: [
-      'During Early, Mid, and Late Game, Together Forge focuses on a limited number of official games so the community can actually finish and ship them. These game phases are the launch sequence that proves the model.',
-      'Project leads and moderators pull the strongest ideas into those live workspaces. Mechanics, systems, art direction, and other ideas also feed into the official games.',
-      'After the phases, Together Forge continues making games. The Ideas board itself stays open the whole time. Any developer can take ideas from the board, work with the community the same way we do, and build their own games.',
+      'During Early, Mid, and Late, Together Forge focuses on a limited number of official games so the community can actually finish them. Project leads and moderators pull the strongest ideas into live project workspaces.',
+      'The Ideas board itself stays open permanently. Anyone can still take ideas from it and build their own games with the community using the same process.',
     ],
     icon: Layers,
   },
   {
     number: '04',
-    title: 'Claim tasks and build together',
+    title: 'Claim tasks and build',
     paragraphs: [
-      'Open boards list real work: features, art, bugs, docs, playtests. Claim a task, leave progress notes, and coordinate with other volunteers. In Early we focus on one game at a time so the community can finish what it starts.',
+      'Official projects have open task boards. You can claim real work (features, art, bugs, documentation, playtests, etc.), leave progress updates, and coordinate with others. In Early we deliberately focus on one game at a time so things actually get finished.',
     ],
     icon: Hammer,
   },
   {
     number: '05',
-    title: 'Get credit, then ship',
+    title: 'Receive credit and ship',
     paragraphs: [
-      'Contributors are named in public credits and shoutouts. Finances and major decisions stay transparent. When a build is ready, we release it for the community that made it.',
+      'Completed work is publicly credited. When a build is ready, it is released for the same community that made it. Finances and major decisions stay transparent throughout.',
     ],
     icon: Award,
   },
@@ -67,34 +64,24 @@ const HowItWorks = () => {
 
   return (
     <div className="min-h-screen bg-cyber-bg text-text-primary">
-      {/* Header */}
       <header className="relative pt-20 border-b border-cyber-border bg-cyber-surface/80">
         <div className="container-custom py-10 sm:py-12 md:py-14">
           <div className="max-w-3xl">
-            <div className="flex flex-wrap items-center gap-3 mb-4">
-              <div className="section-header mb-0">How it works</div>
-              <Badge variant="gold">Early open now</Badge>
-            </div>
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-4">
-              From idea to game, with the community
+            <h1 className="section-header dashboard-page-title !mb-4 !text-3xl sm:!text-4xl !font-bold !tracking-tight !normal-case">
+              How it Works
             </h1>
-            <p className="text-base sm:text-lg text-text-secondary leading-relaxed max-w-2xl">
-              Together Forge is a community-first studio. Here is how work
-              actually moves, so you can see where you fit.
+            <p className="text-xl sm:text-2xl font-semibold text-white mb-4">
+              From idea to shipped game
+            </p>
+            <p className="text-sm sm:text-base text-text-secondary leading-relaxed max-w-2xl">
+              Together Forge runs on a simple public process. Anyone can follow
+              the work, contribute, and see exactly how ideas become real games.
             </p>
           </div>
         </div>
       </header>
 
       <div className="container-custom py-12 md:py-16 max-w-4xl">
-        {/* Quick orientation */}
-        <p className="text-sm sm:text-base text-text-muted leading-relaxed mb-10 md:mb-12 max-w-2xl border-l-2 border-neon-cyan/40 pl-4">
-          Early is live today: a small number of cooperative games built in
-          public. Mid and Late come later. You can share an idea, claim a task,
-          or simply follow along. Every skill has a door in.
-        </p>
-
-        {/* Steps */}
         <ol className="space-y-8 md:space-y-10 list-none p-0 m-0">
           {STEPS.map((step) => {
             const Icon = step.icon;
@@ -103,7 +90,7 @@ const HowItWorks = () => {
                 key={step.number}
                 className="flex gap-4 sm:gap-6 items-start"
               >
-                <div className="shrink-0 flex flex-col items-center gap-2">
+                <div className="shrink-0 flex flex-col items-center">
                   <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-neon-cyan/10 border border-neon-cyan/25 flex items-center justify-center">
                     <span className="text-lg sm:text-xl font-mono text-neon-cyan font-bold">
                       {step.number}
@@ -136,59 +123,32 @@ const HowItWorks = () => {
           })}
         </ol>
 
-        {/* CTA — kept as existing Ready? block */}
-        <div className="mt-14 md:mt-16 rounded-2xl border border-cyber-border bg-cyber-card/60 p-6 sm:p-8 text-center">
-          <div className="section-header justify-center mx-auto mb-3">
-            Ready?
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
-            Pick a door and walk in
+        <section
+          aria-labelledby="where-you-fit-heading"
+          className="mt-14 md:mt-16 rounded-2xl border border-cyber-border bg-cyber-card/60 p-6 sm:p-8"
+        >
+          <h2
+            id="where-you-fit-heading"
+            className="text-2xl sm:text-3xl font-bold text-white mb-3"
+          >
+            Where you fit
           </h2>
-          <p className="text-text-secondary text-sm sm:text-base max-w-lg mx-auto mb-6 leading-relaxed">
-            Submit a pitch, claim a task, or explore how to help. The forge grows
-            when people show up. Credit and progress stay public.
+          <p className="text-text-secondary text-sm sm:text-base max-w-2xl mb-6 leading-relaxed">
+            Every skill has a way in. The Get Involved page shows the different
+            paths (game development, ideas, content creation, moderation,
+            platform skills, and optional support). This page simply shows how
+            the work itself moves.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Button
-              size="lg"
-              className="gap-2 w-full sm:w-auto"
-              onClick={() => navigate('/ideas/submit')}
-            >
-              <Lightbulb className="w-4 h-4" />
-              Submit an idea
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              className="gap-2 w-full sm:w-auto"
-              onClick={() => navigate('/get-involved')}
-            >
-              <Users className="w-4 h-4" />
-              Get involved
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-            <DiscordLink
-              variant="button"
-              labelKey="join"
-              className="w-full sm:w-auto"
-            />
-          </div>
-          <p className="mt-5 text-xs font-mono tracking-widest text-text-muted">
-            <Link
-              to="/projects/early"
-              className="hover:text-neon-cyan transition-colors"
-            >
-              Early workspace
-            </Link>
-            {' · '}
-            <Link
-              to="/transparency"
-              className="hover:text-neon-cyan transition-colors"
-            >
-              Transparency
-            </Link>
-          </p>
-        </div>
+          <Button
+            size="lg"
+            className="gap-2"
+            onClick={() => navigate('/get-involved')}
+          >
+            <Users className="w-4 h-4" />
+            Get Involved
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </section>
       </div>
     </div>
   );
