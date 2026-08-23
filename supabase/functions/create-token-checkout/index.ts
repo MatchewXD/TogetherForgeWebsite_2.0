@@ -8,6 +8,7 @@
  * Deploy:
  *   supabase functions deploy create-token-checkout --no-verify-jwt
  * Secrets: STRIPE_SECRET_KEY
+ * Temporary pause: ENABLE_DONATIONS=false (unset + sk_live_ also pauses).
  */
 
 // deno-lint-ignore-file
@@ -15,6 +16,11 @@
 import Stripe from 'https://esm.sh/stripe@14?target=deno';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno';
 import { enforceRateLimit, RATE_LIMITS } from '../_shared/rateLimit.ts';
+import {
+  areDonationsEnabled,
+  DONATIONS_PAUSED_CODE,
+  DONATIONS_PAUSED_ERROR,
+} from '../_shared/donationsEnabled.ts';
 import {
   getTokenPack,
   stripePackProductDescription,
@@ -156,6 +162,12 @@ Deno.serve(async (req) => {
   }
   if (req.method !== 'POST') {
     return json({ error: 'Method not allowed' }, 405);
+  }
+  if (!areDonationsEnabled()) {
+    return json(
+      { error: DONATIONS_PAUSED_ERROR, code: DONATIONS_PAUSED_CODE },
+      503
+    );
   }
   if (!stripeKey) {
     return json(

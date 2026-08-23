@@ -31,6 +31,8 @@ import {
   syncTokenCheckoutSession,
 } from '../../services/aiTokensService';
 import TokenBalanceChip from '../ai/TokenBalanceChip';
+import PaymentsComingSoon from '../support/PaymentsComingSoon';
+import { areDonationsEnabled } from '../../constants/donationsEnabled';
 
 function formatWhen(iso) {
   if (!iso) return '';
@@ -45,6 +47,7 @@ function formatWhen(iso) {
 }
 
 export default function AccountAiTokensSection() {
+  const donationsEnabled = areDonationsEnabled();
   const [status, setStatus] = useState(null);
   const [ledger, setLedger] = useState([]);
   const [purchases, setPurchases] = useState([]);
@@ -256,6 +259,9 @@ export default function AccountAiTokensSection() {
             One-time packs via Stripe. Not a donation — no public donor credit.
           </p>
         </div>
+        {!donationsEnabled ? (
+          <PaymentsComingSoon variant="tokens" />
+        ) : (
         <div className="grid sm:grid-cols-3 gap-4">
           {packs.map((pack) => (
             <Card
@@ -304,6 +310,7 @@ export default function AccountAiTokensSection() {
             </Card>
           ))}
         </div>
+        )}
       </section>
 
       <section aria-labelledby="token-history-heading">

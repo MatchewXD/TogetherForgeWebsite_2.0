@@ -31,6 +31,22 @@ async function authHeaders() {
   return headers;
 }
 
+function asRecoveryNetworkError(err) {
+  const msg = String(err?.message || err || '');
+  if (
+    err?.name === 'TypeError' ||
+    /failed to fetch|networkerror|load failed|cors/i.test(msg)
+  ) {
+    const e = new Error(
+      'Could not reach the recovery-code service. Deploy the mfa-recovery Edge Function on this Supabase project (supabase functions deploy mfa-recovery --no-verify-jwt).'
+    );
+    e.code = 'RECOVERY_UNAVAILABLE';
+    e.cause = err;
+    return e;
+  }
+  return err instanceof Error ? err : new Error(msg || 'Request failed.');
+}
+
 async function recoveryRequest(body) {
   const base = functionsBaseUrl();
   if (!base) {
@@ -38,11 +54,16 @@ async function recoveryRequest(body) {
     err.code = 'NO_CONFIG';
     throw err;
   }
-  const res = await fetch(`${base}/mfa-recovery`, {
-    method: 'POST',
-    headers: await authHeaders(),
-    body: JSON.stringify(body),
-  });
+  let res;
+  try {
+    res = await fetch(`${base}/mfa-recovery`, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    throw asRecoveryNetworkError(err);
+  }
   const text = await res.text();
   let data = null;
   try {
@@ -52,9 +73,11 @@ async function recoveryRequest(body) {
   }
   if (!res.ok) {
     const err = new Error(
-      data?.error || data?.message || text || `Request failed (${res.status})`
+      res.status === 404
+        ? 'Recovery codes are not available on this project yet. Deploy the mfa-recovery Edge Function.'
+        : data?.error || data?.message || text || `Request failed (${res.status})`
     );
-    err.code = data?.code || 'RECOVERY_API';
+    err.code = data?.code || (res.status === 404 ? 'RECOVERY_UNAVAILABLE' : 'RECOVERY_API');
     err.status = res.status;
     throw err;
   }

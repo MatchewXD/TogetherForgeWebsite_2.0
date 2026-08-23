@@ -1000,6 +1000,19 @@ html {
       0 20px 50px rgb(0 0 0 / 0.45);
 }
 
+@keyframes tf-legal-attention {
+    0% {
+        box-shadow: 0 0 0 0 rgb(var(--tf-semantic-danger) / 0.5);
+    }
+    100% {
+        box-shadow: 0 0 0 12px rgb(var(--tf-semantic-danger) / 0);
+    }
+}
+
+.tf-legal-agree--error {
+    animation: tf-legal-attention 0.85s ease-out;
+}
+
 /* Quieter working-style sections under the hero */
 .home-page .home-section-quiet {
     background: rgb(var(--tf-cyber-surface) / 0.96);

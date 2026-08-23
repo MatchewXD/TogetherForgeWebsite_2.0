@@ -71,6 +71,7 @@ function GoogleGlyph({ className = 'w-5 h-5' }) {
  *   disabled?: boolean,
  *   className?: string,
  *   onError?: (msg: string) => void,
+ *   onNeedAgree?: () => void,
  *   showEmailHint?: boolean,
  *   requireAgree?: boolean,
  *   agreed?: boolean,
@@ -81,6 +82,7 @@ export default function OAuthSignInButtons({
   disabled = false,
   className = '',
   onError,
+  onNeedAgree,
   showEmailHint = true,
   requireAgree = false,
   agreed = false,
@@ -90,9 +92,13 @@ export default function OAuthSignInButtons({
   const startOAuth = async (provider) => {
     if (disabled || busy) return;
     if (requireAgree && !agreed) {
-      onError?.(
-        'Please agree to the Terms of Service and Community Guidelines to continue.'
-      );
+      if (onNeedAgree) {
+        onNeedAgree();
+      } else {
+        onError?.(
+          'Please agree to the Terms of Service and Community Guidelines to continue.'
+        );
+      }
       return;
     }
     setBusy(provider);

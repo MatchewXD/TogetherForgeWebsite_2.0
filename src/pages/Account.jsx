@@ -4,7 +4,7 @@
  * Profile page for others remains /u/:username.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Link,
   Navigate,
@@ -44,6 +44,12 @@ import {
   stashPendingUsername,
   ensureUsernameFromSignup,
 } from '../utils/ensureUserProfile';
+import {
+  EXISTING_EMAIL_SIGNUP_BANNER,
+  EXISTING_EMAIL_SIGNUP_MESSAGE,
+  humanizeSignupError,
+  isDuplicateEmailSignupResult,
+} from '../utils/authSignupErrors';
 import {
   acceptCurrentLegal,
   legalAcceptanceMetadata,
@@ -126,49 +132,81 @@ const SECTION_ICONS = {
   danger: AlertTriangle,
 };
 
-function LegalAgreeCheckbox({ checked, onChange, className = '' }) {
+const LEGAL_REQUIRED_MESSAGE =
+  'Please agree to the Terms of Service and Community Guidelines to create an account.';
+
+function LegalAgreeCheckbox({
+  checked,
+  onChange,
+  className = '',
+  error = false,
+  boxRef = null,
+  inputRef = null,
+}) {
   return (
-    <label
-      className={`flex items-start gap-3 cursor-pointer text-sm text-text-secondary leading-relaxed ${className}`}
+    <div
+      ref={boxRef}
+      className={`rounded-xl border px-3 py-3 transition-colors ${
+        error
+          ? 'tf-legal-agree--error border-red-400/80 bg-red-500/15'
+          : 'border-white/15 bg-cyber-surface/40'
+      } ${className}`}
     >
-      <input
-        type="checkbox"
-        className="mt-1 accent-neon-cyan shrink-0"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        required
-      />
-      <span>
-        I agree to the{' '}
-        <Link
-          to="/terms"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-neon-cyan hover:underline"
+      <label
+        className={`flex items-start gap-3 cursor-pointer text-sm leading-relaxed ${
+          error ? 'text-red-200' : 'text-text-secondary'
+        }`}
+      >
+        <input
+          ref={inputRef}
+          type="checkbox"
+          className={`mt-1 shrink-0 ${error ? 'accent-red-400' : 'accent-neon-cyan'}`}
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'register-legal-error' : undefined}
+        />
+        <span>
+          I agree to the{' '}
+          <Link
+            to="/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-neon-cyan hover:underline"
+          >
+            Terms of Service
+          </Link>{' '}
+          and{' '}
+          <Link
+            to="/guidelines"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-neon-cyan hover:underline"
+          >
+            Community Guidelines
+          </Link>
+          . See also our{' '}
+          <Link
+            to="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-neon-cyan hover:underline"
+          >
+            Privacy Policy
+          </Link>
+          .
+        </span>
+      </label>
+      {error ? (
+        <p
+          id="register-legal-error"
+          className="text-xs text-red-400 mt-2 leading-relaxed"
+          role="alert"
         >
-          Terms of Service
-        </Link>{' '}
-        and{' '}
-        <Link
-          to="/guidelines"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-neon-cyan hover:underline"
-        >
-          Community Guidelines
-        </Link>
-        . See also our{' '}
-        <Link
-          to="/privacy"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-neon-cyan hover:underline"
-        >
-          Privacy Policy
-        </Link>
-        .
-      </span>
-    </label>
+          {LEGAL_REQUIRED_MESSAGE}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -181,9 +219,14 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
   const [usernameError, setUsernameError] = useState('');
   const [usernameHint, setUsernameHint] = useState('');
   const [usernameStatus, setUsernameStatus] = useState('idle');
+  const [emailError, setEmailError] = useState('');
   const [showEmailForm, setShowEmailForm] = useState(false);
   /** Required on register: Terms of Service + Community Guidelines */
   const [legalAgreed, setLegalAgreed] = useState(false);
+  const [legalError, setLegalError] = useState(false);
+  const [legalPulse, setLegalPulse] = useState(0);
+  const legalBoxRef = useRef(null);
+  const legalInputRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -274,12 +317,41 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
     };
   }, [form.username, mode]);
 
+  const flagLegalRequired = useCallback(() => {
+    setLegalError(true);
+    setLegalPulse((n) => n + 1);
+    setMessageOk(false);
+    setMessage(LEGAL_REQUIRED_MESSAGE);
+  }, []);
+
+  useEffect(() => {
+    if (!legalError) return undefined;
+    legalBoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    legalInputRef.current?.focus();
+    return undefined;
+  }, [legalError, legalPulse]);
+
+  const handleLegalChange = (value) => {
+    setLegalAgreed(value);
+    if (value) {
+      setLegalError(false);
+      setMessage((current) =>
+        current === LEGAL_REQUIRED_MESSAGE ? '' : current
+      );
+    }
+  };
+
   const handleAuth = async (e) => {
     e.preventDefault();
+    if (mode === 'register' && !legalAgreed) {
+      flagLegalRequired();
+      return;
+    }
     setLoading(true);
     setMessage('');
     setMessageOk(false);
     setUsernameError('');
+    setEmailError('');
     try {
       if (mode === 'forgot') {
         const result = await requestPasswordReset(form.email);
@@ -289,13 +361,6 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
         return;
       }
       if (mode === 'register') {
-        if (!legalAgreed) {
-          setMessage(
-            'Please agree to the Terms of Service and Community Guidelines to create an account.'
-          );
-          setLoading(false);
-          return;
-        }
         const format = validatePublicUsername(form.username);
         if (!format.ok) {
           setUsernameError(format.message || 'Username is required');
@@ -335,6 +400,13 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
           },
         });
         if (error) throw error;
+        // Username availability is profiles.username. Auth uniqueness is email.
+        if (isDuplicateEmailSignupResult(data)) {
+          setEmailError(EXISTING_EMAIL_SIGNUP_MESSAGE);
+          setMessage(EXISTING_EMAIL_SIGNUP_BANNER);
+          setLoading(false);
+          return;
+        }
         if (data.user) {
           // Prefer session claim; without session, metadata + stash apply on first sign-in
           if (data.session) {
@@ -380,11 +452,32 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
         navigate(next || '/dashboard', { replace: true });
       }
     } catch (err) {
-      setMessage(err.message || 'Authentication failed');
+      if (mode === 'register') {
+        const mapped = humanizeSignupError(err);
+        if (mapped.field === 'email') {
+          setEmailError(mapped.message);
+          setMessage(EXISTING_EMAIL_SIGNUP_BANNER);
+        } else {
+          setMessage(mapped.message);
+        }
+      } else {
+        setMessage(err.message || 'Authentication failed');
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  const legalCheckbox = (
+    <LegalAgreeCheckbox
+      key={legalPulse}
+      checked={legalAgreed}
+      onChange={handleLegalChange}
+      error={legalError}
+      boxRef={legalBoxRef}
+      inputRef={legalInputRef}
+    />
+  );
 
   const eyebrow =
     mode === 'forgot' ? 'PASSWORD' : mode === 'register' ? 'JOIN' : 'SIGN IN';
@@ -426,6 +519,7 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
                 disabled={loading}
                 requireAgree={mode === 'register'}
                 agreed={legalAgreed}
+                onNeedAgree={flagLegalRequired}
                 onError={(msg) => {
                   setMessageOk(false);
                   setMessage(msg || '');
@@ -451,6 +545,9 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
                     ? 'Sign up with email and password'
                     : 'Sign in with email and password'}
                 </button>
+              ) : null}
+              {mode === 'register' && !showEmailForm ? (
+                <div className="mt-5">{legalCheckbox}</div>
               ) : null}
             </>
           )}
@@ -506,10 +603,61 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
                   type="email"
                   required
                   autoComplete="email"
-                  className="w-full bg-cyber-surface border border-white/20 p-3 text-white rounded-lg focus:border-neon-cyan outline-none"
+                  aria-invalid={emailError ? true : undefined}
+                  aria-describedby={emailError ? 'register-email-error' : undefined}
+                  className={`w-full bg-cyber-surface p-3 text-white rounded-lg outline-none ${
+                    emailError
+                      ? 'border border-red-400/70 focus:border-red-300'
+                      : 'border border-white/20 focus:border-neon-cyan'
+                  }`}
                   value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  onChange={(e) => {
+                    setEmailError('');
+                    setForm({ ...form, email: e.target.value });
+                  }}
                 />
+                {emailError ? (
+                  <div className="mt-1.5 space-y-1.5">
+                    <p
+                      id="register-email-error"
+                      className="text-xs text-red-400 leading-relaxed"
+                      role="alert"
+                    >
+                      {emailError}
+                    </p>
+                    {mode === 'register' ? (
+                      <p className="text-xs text-text-muted">
+                        <button
+                          type="button"
+                          className="text-neon-cyan hover:underline"
+                          onClick={() => {
+                            setMode('login');
+                            setMessage('');
+                            setMessageOk(false);
+                            setEmailError('');
+                            setShowEmailForm(true);
+                          }}
+                        >
+                          Sign in
+                        </button>
+                        {' · '}
+                        <button
+                          type="button"
+                          className="text-neon-cyan hover:underline"
+                          onClick={() => {
+                            setMode('forgot');
+                            setMessage('');
+                            setMessageOk(false);
+                            setEmailError('');
+                            setShowEmailForm(true);
+                          }}
+                        >
+                          Forgot password
+                        </button>
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
               {mode !== 'forgot' && (
                 <div>
@@ -580,6 +728,7 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
                         setMode('forgot');
                         setMessage('');
                         setMessageOk(false);
+                        setEmailError('');
                       }}
                     >
                       Forgot password?
@@ -587,19 +736,13 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
                   )}
                 </div>
               )}
-              {mode === 'register' && (
-                <LegalAgreeCheckbox
-                  checked={legalAgreed}
-                  onChange={setLegalAgreed}
-                />
-              )}
+              {mode === 'register' && legalCheckbox}
               <button
                 type="submit"
                 disabled={
                   loading ||
                   (mode === 'register' &&
-                    (!legalAgreed ||
-                      usernameStatus === 'taken' ||
+                    (usernameStatus === 'taken' ||
                       usernameStatus === 'invalid' ||
                       usernameStatus === 'checking' ||
                       !form.username.trim()))
@@ -626,6 +769,7 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
                   setMode('login');
                   setMessage('');
                   setMessageOk(false);
+                  setEmailError('');
                   setShowEmailForm(true);
                 }}
               >
@@ -641,7 +785,9 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
                   setMessage('');
                   setMessageOk(false);
                   setUsernameError('');
+                  setEmailError('');
                   setLegalAgreed(false);
+                  setLegalError(false);
                   if (next === 'register') setShowEmailForm(true);
                 }}
               >

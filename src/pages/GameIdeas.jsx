@@ -31,7 +31,12 @@ import Button from '../components/ui/Buttons';
 import DiscordLink from '../components/ui/DiscordLink';
 import LoadingScreen from '../components/ui/LoadingScreen';
 import TagPicker from '../components/ideas/TagPicker';
-import { slugifyTag } from '../utils/ideaTags';
+import {
+  parseIdeaListTagParams,
+  slugifyTag,
+  tagNamesEqual,
+  uniqueTagNames,
+} from '../utils/ideaTags';
 import { listForgeAwardsForTargets } from '../services/forgeMarksService';
 import {
   optimisticPublicCount,
@@ -102,7 +107,28 @@ const GameIdeas = () => {
     () => searchParams.get('sort') || 'newest'
   );
   const [selectedCategories, setSelectedCategories] = useState([]);
-  const [selectedTags, setSelectedTags] = useState([]);
+  const selectedTags = useMemo(
+    () => parseIdeaListTagParams(searchParams),
+    [searchParams]
+  );
+
+  const applySelectedTags = useCallback(
+    (nextOrUpdater) => {
+      const current = parseIdeaListTagParams(searchParams);
+      const next =
+        typeof nextOrUpdater === 'function'
+          ? nextOrUpdater(current)
+          : nextOrUpdater;
+      const names = uniqueTagNames(next);
+      if (tagNamesEqual(current, names)) return;
+      const params = new URLSearchParams(searchParams);
+      params.delete('tag');
+      params.delete('tags');
+      for (const name of names) params.append('tag', name);
+      setSearchParams(params, { replace: true });
+    },
+    [searchParams, setSearchParams]
+  );
   const [statusFilter, setStatusFilter] = useState(() => {
     const raw = searchParams.get('status') || 'all';
     if (raw === 'Proposed' || raw === 'Archived' || raw === 'Open') return 'all';
@@ -570,7 +596,7 @@ const GameIdeas = () => {
     const cleaned = String(tag || '').trim();
     if (!cleaned) return;
     const slug = slugifyTag(cleaned);
-    setSelectedTags((prev) => {
+    applySelectedTags((prev) => {
       const exists = prev.some((t) => slugifyTag(t) === slug);
       if (exists) {
         return prev.filter((t) => slugifyTag(t) !== slug);
@@ -582,12 +608,11 @@ const GameIdeas = () => {
   const clearFilters = () => {
     setSearchTerm('');
     setSelectedCategories([]);
-    setSelectedTags([]);
     setStatusFilter('all');
     setSelectedProject(null);
     setSortMode('newest');
     setCategoryOpen(false);
-    setTagOpen(false);
+    setTagPickerOpen(false);
     setSearchParams({});
   };
 
@@ -794,7 +819,7 @@ const GameIdeas = () => {
                 type="button"
                 onClick={() => {
                   setCategoryOpen((o) => !o);
-                  setTagOpen(false);
+                  setTagPickerOpen(false);
                 }}
                 className={`${controlClass} inline-flex items-center gap-2 w-full sm:w-auto`}
                 aria-expanded={categoryOpen}
@@ -869,7 +894,7 @@ const GameIdeas = () => {
               isOpen={tagPickerOpen}
               onClose={() => setTagPickerOpen(false)}
               selected={selectedTags}
-              onChange={setSelectedTags}
+              onChange={applySelectedTags}
               mode="filter"
               ideasFallback={allIdeas}
               allowSuggest={false}

@@ -1,4 +1,5 @@
 import { Flame, MessageCircle, Link2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import Card from './Card';
 import Badge from './Badge';
 import UserAvatar from './UserAvatar';
@@ -11,6 +12,7 @@ import {
 } from '../../utils/ideaStatus';
 import { getIdeaImageUrl } from '../../services/ideasService';
 import { ideaHasParent } from '../../utils/ideaRelations';
+import { ideasListHrefForTag } from '../../utils/ideaTags';
 import CommunityAwardStrip from '../awards/CommunityAwardStrip';
 
 /**
@@ -136,12 +138,16 @@ const IdeaCard = ({
           {tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-3">
               {tags.map((tag) => (
-                <span
+                <Link
                   key={tag}
-                  className="text-[10px] font-mono tracking-wide px-2 py-0.5 rounded border border-cyber-border text-text-muted"
+                  to={ideasListHrefForTag(tag)}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  className="text-[10px] font-mono tracking-wide px-2 py-0.5 rounded border border-cyber-border text-text-muted hover:border-neon-cyan/50 hover:text-neon-cyan transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan/50"
+                  title={`View ideas tagged #${tag}`}
                 >
                   #{tag}
-                </span>
+                </Link>
               ))}
             </div>
           )}

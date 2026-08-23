@@ -25,3 +25,5 @@ drop policy if exists "Users cannot read recovery codes" on public.mfa_recovery_
 
 comment on table public.mfa_recovery_codes is
   'One-time MFA recovery codes; code_hash only. Managed via mfa-recovery edge function.';
+
+grant all on table public.mfa_recovery_codes to service_role;

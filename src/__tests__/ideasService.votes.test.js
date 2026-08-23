@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 /**
  * Build a chainable supabase mock for the simple vote toggle pattern:
@@ -79,43 +79,71 @@ function createVoteMock({ startHadVote = false, startCount = 0 } = {}) {
   };
 }
 
+const sessionUser = { id: 'user-abc' };
+
 vi.mock('../lib/supabase', () => ({
   supabase: {
     from: vi.fn(),
     rpc: vi.fn(),
+    auth: {
+      getSession: vi.fn(async () => ({
+        data: {
+          session: {
+            user: sessionUser,
+            access_token: 'eyJhbGciOiJub25l.eyJzdWIiOiJ1c2Vy.signature',
+            expires_at: Math.floor(Date.now() / 1000) + 3600,
+          },
+        },
+        error: null,
+      })),
+      getUser: vi.fn(async () => ({ data: { user: sessionUser }, error: null })),
+      refreshSession: vi.fn(async () => ({
+        data: { session: null },
+        error: null,
+      })),
+    },
   },
 }));
 
 import { supabase } from '../lib/supabase';
 import { ideasService } from '../services/ideasService';
 
+function jsonResponse(body, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    text: async () => JSON.stringify(body),
+  };
+}
+
 describe('ideasService voting (simple toggle)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    supabase.rpc.mockResolvedValue({
-      data: null,
-      error: { message: 'Could not find the function', code: 'PGRST202' },
-    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse(
+          { code: 'PGRST202', message: 'Could not find the function' },
+          404
+        )
+      )
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('toggleVote prefers the server RPC when available', async () => {
-    supabase.rpc.mockResolvedValue({
-      data: { voted: true, votes: 12 },
-      error: null,
-    });
+    fetch.mockResolvedValue(jsonResponse({ voted: true, votes: 12 }));
 
     const result = await ideasService.toggleVote(10, 'user-abc');
-    expect(supabase.rpc).toHaveBeenCalledWith('toggle_idea_vote', {
-      p_idea_id: 10,
-    });
+    expect(fetch).toHaveBeenCalled();
+    expect(String(fetch.mock.calls[0][0])).toMatch(/idea_cast_vote/);
     expect(result).toEqual({ voted: true, votes: 12 });
   });
 
   it('toggleVote inserts when not voted and returns voted:true + count', async () => {
-    supabase.rpc.mockResolvedValue({
-      data: null,
-      error: { message: 'Could not find the function', code: 'PGRST202' },
-    });
     const mock = createVoteMock({ startHadVote: false, startCount: 2 });
     supabase.from.mockImplementation(mock.from);
 

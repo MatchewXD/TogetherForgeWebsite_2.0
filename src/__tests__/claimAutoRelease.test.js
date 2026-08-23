@@ -23,6 +23,8 @@ describe('claim auto-release constants', () => {
     expect(CLAIM_MAX_DURATION_DAYS).toBe(30);
     expect(CLAIM_AUTO_RELEASE_POLICY_COPY).toMatch(/14/);
     expect(CLAIM_AUTO_RELEASE_POLICY_COPY).toMatch(/30/);
+    expect(CLAIM_AUTO_RELEASE_POLICY_COPY).not.toMatch(/[—–]/);
+    expect(CLAIM_AUTO_RELEASE_POLICY_COPY).toMatch(/viewing a task does not/i);
   });
 });
 

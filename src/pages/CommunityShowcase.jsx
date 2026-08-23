@@ -543,7 +543,13 @@ const CommunityShowcase = () => {
         return;
       }
 
-      if (!userId) {
+      let actorId = userId;
+      if (!actorId) {
+        const { data } = await supabase.auth.getUser();
+        actorId = data?.user?.id || null;
+        if (actorId) setUserId(actorId);
+      }
+      if (!actorId) {
         setLikeMessage('Sign in to like showcase posts.');
         return;
       }
@@ -573,7 +579,7 @@ const CommunityShowcase = () => {
       );
 
       try {
-        const { liked, likes } = await toggleShowcaseLike(item.id, userId);
+        const { liked, likes } = await toggleShowcaseLike(item.id, actorId);
         setLikedIds((prev) => {
           const next = new Set(prev);
           if (liked) next.add(item.id);

@@ -124,3 +124,18 @@ describe('mfaService.confirmEnroll', () => {
     });
   });
 });
+
+describe('mfaService.generateRecoveryCodes', () => {
+  it('maps Failed to fetch to a deploy hint instead of a raw CORS error', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+    );
+    await expect(
+      mfaService.generateRecoveryCodes('123456')
+    ).rejects.toMatchObject({
+      code: 'RECOVERY_UNAVAILABLE',
+    });
+    vi.unstubAllGlobals();
+  });
+});

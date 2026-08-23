@@ -7,7 +7,14 @@ vi.mock('../lib/supabase', () => ({
   supabase: {
     from: vi.fn(),
     rpc: vi.fn(),
-    auth: { getUser: vi.fn() },
+    auth: {
+      getUser: vi.fn(async () => ({ data: { user: null }, error: null })),
+      getSession: vi.fn(async () => ({ data: { session: null }, error: null })),
+      refreshSession: vi.fn(async () => ({
+        data: { session: null },
+        error: null,
+      })),
+    },
   },
 }));
 

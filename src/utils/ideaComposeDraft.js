@@ -117,3 +117,53 @@ export function clearComposeSession(userId, flow) {
     /* ignore */
   }
 }
+
+const STRUCTURE_FREEFORM_MAX = 16000;
+
+/** localStorage key for the Structure this idea textarea (survives token-purchase trips). */
+export function structureFreeformStorageKey(userId, mode = 'submit') {
+  return `tf_idea_structure_freeform_${mode}_${userId || 'anon'}`;
+}
+
+export function readStructureFreeform(userId, mode = 'submit') {
+  try {
+    const raw = localStorage.getItem(structureFreeformStorageKey(userId, mode));
+    if (!raw) return '';
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && typeof parsed.text === 'string') {
+        return parsed.text.slice(0, STRUCTURE_FREEFORM_MAX);
+      }
+    } catch {
+      /* plain string fallback */
+    }
+    return String(raw).slice(0, STRUCTURE_FREEFORM_MAX);
+  } catch {
+    return '';
+  }
+}
+
+export function writeStructureFreeform(userId, mode, text) {
+  const key = structureFreeformStorageKey(userId, mode);
+  const value = String(text || '').slice(0, STRUCTURE_FREEFORM_MAX);
+  try {
+    if (!value.trim()) {
+      localStorage.removeItem(key);
+      return;
+    }
+    localStorage.setItem(
+      key,
+      JSON.stringify({ text: value, savedAt: Date.now() })
+    );
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+export function clearStructureFreeform(userId, mode = 'submit') {
+  try {
+    localStorage.removeItem(structureFreeformStorageKey(userId, mode));
+  } catch {
+    /* ignore */
+  }
+}

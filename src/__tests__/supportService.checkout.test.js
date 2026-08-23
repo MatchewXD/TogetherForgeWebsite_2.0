@@ -25,6 +25,7 @@ describe('startStripeCheckout credit metadata', () => {
   let fetchMock;
 
   beforeEach(() => {
+    env.VITE_ENABLE_DONATIONS = 'true';
     env.VITE_STRIPE_CHECKOUT_API_URL = 'https://example.test/functions/v1/create-checkout';
     env.VITE_SUPABASE_ANON_KEY = 'test-anon';
     getSession.mockResolvedValue({
@@ -49,8 +50,17 @@ describe('startStripeCheckout credit metadata', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    delete env.VITE_ENABLE_DONATIONS;
     delete env.VITE_STRIPE_CHECKOUT_API_URL;
     delete env.VITE_SUPABASE_ANON_KEY;
+  });
+
+  it('does not call checkout when donations are paused', async () => {
+    env.VITE_ENABLE_DONATIONS = 'false';
+    await expect(
+      startStripeCheckout({ amountCents: 1000 })
+    ).rejects.toMatchObject({ code: 'DONATIONS_PAUSED' });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('rejects invalid amount before fetch', async () => {

@@ -54,6 +54,7 @@ declare
 begin
   target_idea := coalesce(new.idea_id, old.idea_id);
   select count(*)::integer into new_count from votes where idea_id = target_idea;
+  perform set_config('app.idea_vote_count_update', '1', true);
   update ideas
     set votes = new_count,
         last_vote_time = case when new_count > 0 then now() else last_vote_time end
@@ -62,6 +63,7 @@ begin
 exception
   when undefined_column then
     -- last_vote_time may not exist on older DBs
+    perform set_config('app.idea_vote_count_update', '1', true);
     update ideas set votes = new_count where id = target_idea;
     return coalesce(new, old);
 end;

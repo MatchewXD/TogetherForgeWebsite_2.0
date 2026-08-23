@@ -37,6 +37,13 @@ describe('abuseErrors', () => {
     ).toBe(true);
     expect(isMissingRpcError({ message: 'RATE_LIMITED' })).toBe(false);
   });
+
+  it('maps JWT expiry separately from a missing session', () => {
+    expect(humanizeAbuseError({ message: 'JWT expired' })).toMatch(/session expired/i);
+    expect(humanizeAbuseError({ message: 'SIGN_IN_REQUIRED' })).toMatch(
+      /signed in/i
+    );
+  });
 });
 
 describe('publicCounts hybrid display', () => {

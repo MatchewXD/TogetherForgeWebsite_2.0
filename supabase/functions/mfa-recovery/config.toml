@@ -1,0 +1,3 @@
+# Browser POSTs from the site send an OPTIONS preflight without a JWT.
+# The function checks the user JWT itself (userFromRequest).
+verify_jwt = false

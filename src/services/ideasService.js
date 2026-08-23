@@ -10,6 +10,7 @@ import {
   humanizeAbuseError,
   isMissingRpcError,
 } from '../utils/abuseErrors';
+import { rpcWithFreshAuth } from '../utils/ensureAuthSession';
 
 /** Optional supporting image on ideas */
 export const IDEA_IMAGE_BUCKET = 'idea-images';
@@ -1743,10 +1744,11 @@ export const ideasService = {
    *  4. Return { voted, votes }
    */
   async toggleVote(ideaId, userId) {
-    if (!userId) throw new Error('You must be signed in to vote.');
     const id = this._toIdeaId(ideaId);
 
-    const rpc = await supabase.rpc('toggle_idea_vote', { p_idea_id: id });
+    const rpc = await rpcWithFreshAuth('idea_cast_vote', { p_idea_id: id });
+    const actorId = rpc.user?.id || userId;
+    if (!actorId) throw new Error('You must be signed in to vote.');
     if (!rpc.error && rpc.data && typeof rpc.data === 'object') {
       return {
         voted: Boolean(rpc.data.voted),
@@ -1761,7 +1763,7 @@ export const ideasService = {
       .from('votes')
       .select('id')
       .eq('idea_id', id)
-      .eq('user_id', userId)
+      .eq('user_id', actorId)
       .maybeSingle();
 
     if (findError && findError.code !== 'PGRST116') {
@@ -1775,12 +1777,12 @@ export const ideasService = {
         .from('votes')
         .delete()
         .eq('idea_id', id)
-        .eq('user_id', userId);
+        .eq('user_id', actorId);
       if (delError) throw asUserError(delError, 'Could not update vote.');
     } else {
       const { error: insError } = await supabase
         .from('votes')
-        .insert([{ idea_id: id, user_id: userId }]);
+        .insert([{ idea_id: id, user_id: actorId }]);
       if (insError) {
         if (
           insError.code === '23505' ||
@@ -1794,7 +1796,7 @@ export const ideasService = {
     }
 
     const [voted, votes] = await Promise.all([
-      this.userHasVoted(id, userId),
+      this.userHasVoted(id, actorId),
       this.getIdeaVoteCount(id),
     ]);
 

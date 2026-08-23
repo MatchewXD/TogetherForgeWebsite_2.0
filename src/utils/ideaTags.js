@@ -107,6 +107,53 @@ export function serializeTags(names) {
 }
 
 /**
+ * Ideas listing URL with one tag pre-selected in the filter.
+ * @param {string} tag
+ * @returns {string}
+ */
+export function ideasListHrefForTag(tag) {
+  const name = normalizeTagName(tag);
+  if (!name) return '/ideas';
+  return `/ideas?tag=${encodeURIComponent(name)}`;
+}
+
+/**
+ * Read selected tag filters from /ideas search params.
+ * Supports `?tag=a&tag=b` and `?tags=a,b`.
+ * @param {URLSearchParams|{ get?: Function, getAll?: Function }|null|undefined} searchParams
+ * @returns {string[]}
+ */
+export function parseIdeaListTagParams(searchParams) {
+  if (!searchParams) return [];
+  const repeated =
+    typeof searchParams.getAll === 'function'
+      ? searchParams.getAll('tag')
+      : [];
+  const csv =
+    typeof searchParams.get === 'function' ? searchParams.get('tags') : '';
+  return uniqueTagNames([
+    ...(repeated || []),
+    ...String(csv || '').split(/[,;#|]+/),
+  ]);
+}
+
+/**
+ * True when two tag lists match by slug (order-independent).
+ * @param {string[]} a
+ * @param {string[]} b
+ */
+export function tagNamesEqual(a, b) {
+  const as = uniqueTagNames(a)
+    .map((n) => slugifyTag(n))
+    .sort();
+  const bs = uniqueTagNames(b)
+    .map((n) => slugifyTag(n))
+    .sort();
+  if (as.length !== bs.length) return false;
+  return as.every((slug, i) => slug === bs[i]);
+}
+
+/**
  * Build fallback public list from curated + idea-derived usage (>= threshold).
  * Used when idea_tags table is not deployed yet.
  * @param {Array<{ tags?: string }>} ideas

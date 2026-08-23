@@ -36,6 +36,10 @@ begin
     grant select on table public.comments to anon, authenticated, service_role;
     grant insert, update, delete on table public.comments to authenticated, service_role;
   end if;
+  if to_regclass('public.comment_likes') is not null then
+    grant select on table public.comment_likes to anon, authenticated, service_role;
+    grant insert, delete on table public.comment_likes to authenticated, service_role;
+  end if;
 end $$;
 
 -- Keep owner update policy present (draft re-save)

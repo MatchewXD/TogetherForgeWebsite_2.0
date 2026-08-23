@@ -12,6 +12,11 @@
  */
 
 import { supabase } from '../lib/supabase';
+import {
+  areDonationsEnabled,
+  DONATIONS_PAUSED_CODE,
+  DONATIONS_PAUSED_ERROR,
+} from '../constants/donationsEnabled';
 
 const MIN_CENTS = 100;
 const MAX_CENTS = 1_000_000;
@@ -119,6 +124,11 @@ export async function startStripeCheckout({
   displayName = null,
   isAnonymous = true,
 } = {}) {
+  if (!areDonationsEnabled()) {
+    const err = new Error(DONATIONS_PAUSED_ERROR);
+    err.code = DONATIONS_PAUSED_CODE;
+    throw err;
+  }
   const validated = validateAmountCents(amountCents);
   if (!validated.ok) {
     const err = new Error(validated.error);

@@ -17,6 +17,7 @@ import Button from '../ui/Buttons';
 import Modal from '../ui/Modal';
 import { billingService } from '../../services/billingService';
 import { formatBillingDate } from '../../constants/supportPlans';
+import { areDonationsEnabled } from '../../constants/donationsEnabled';
 
 function formatBillingDateSafe(iso) {
   return formatBillingDate(iso) || 'period end';
@@ -30,6 +31,7 @@ function statusBadgeVariant(tone) {
 }
 
 export default function AccountPlanSection() {
+  const donationsEnabled = areDonationsEnabled();
   const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -203,14 +205,15 @@ export default function AccountPlanSection() {
                 No active monthly plan
               </h3>
               <p className="text-sm text-text-secondary mt-1">
-                Subscribe on the Donate page for monthly support. One-time gifts
-                do not create a plan.
+                {donationsEnabled
+                  ? 'Subscribe on the Donate page for monthly support. One-time gifts do not create a plan.'
+                  : 'New monthly plans are paused while business banking is being set up. This is only temporary. Existing plans, if any, stay on this page.'}
               </p>
             </div>
           </div>
           <Link to="/donate">
             <Button size="sm" className="gap-2">
-              View monthly plans
+              {donationsEnabled ? 'View monthly plans' : 'Support page'}
             </Button>
           </Link>
         </Card>
@@ -238,6 +241,7 @@ export default function AccountPlanSection() {
           )}
 
           <div className="flex flex-wrap gap-2 pt-1">
+            {donationsEnabled ? (
             <Link to="/donate">
               <Button
                 type="button"
@@ -249,7 +253,8 @@ export default function AccountPlanSection() {
                 Change plan
               </Button>
             </Link>
-            {canRenew && (
+            ) : null}
+            {donationsEnabled && canRenew && (
               <Button
                 type="button"
                 size="sm"

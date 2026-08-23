@@ -546,7 +546,7 @@ export function getClaimAutoReleaseInfo(claim, opts = {}) {
 
 /** Short copy for claim UI: dual auto-release rules. */
 export const CLAIM_AUTO_RELEASE_POLICY_COPY =
-  `Claims auto-release after ${CLAIM_IDLE_RELEASE_DAYS} days with no meaningful progress (notes, checklist, or status — viewing does not count), or after ${CLAIM_MAX_DURATION_DAYS} days total, whichever comes first.`;
+  `Claims auto-release after ${CLAIM_IDLE_RELEASE_DAYS} days with no meaningful progress, or after ${CLAIM_MAX_DURATION_DAYS} days total, whichever comes first. Notes, checklist updates, and status changes count as progress. Viewing a task does not.`;
 
 export function formatAutoReleaseReason(reason, meta = {}) {
   const idle = meta.idle_days ?? meta.idleDays ?? CLAIM_IDLE_RELEASE_DAYS;

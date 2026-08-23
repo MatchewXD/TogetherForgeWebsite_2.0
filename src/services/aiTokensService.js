@@ -14,6 +14,11 @@ import {
   getTokenPack,
   getActionBaseCost,
 } from '../constants/aiTokens';
+import {
+  areDonationsEnabled,
+  DONATIONS_PAUSED_CODE,
+  DONATIONS_PAUSED_ERROR,
+} from '../constants/donationsEnabled';
 
 function functionsBase() {
   const base = import.meta.env.VITE_SUPABASE_URL;
@@ -190,6 +195,13 @@ export async function startTokenPackCheckout({
   successUrl,
   cancelUrl,
 }) {
+  if (!areDonationsEnabled()) {
+    return {
+      ok: false,
+      error: DONATIONS_PAUSED_ERROR,
+      code: DONATIONS_PAUSED_CODE,
+    };
+  }
   const pack = getTokenPack(packId);
   if (!pack) {
     return { ok: false, error: 'Choose a valid token pack.' };

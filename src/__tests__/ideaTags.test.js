@@ -12,6 +12,9 @@ import {
   serializeTags,
   buildFallbackPublicTags,
   promotionProgress,
+  ideasListHrefForTag,
+  parseIdeaListTagParams,
+  tagNamesEqual,
 } from '../utils/ideaTags';
 
 describe('ideaTags helpers', () => {
@@ -20,6 +23,26 @@ describe('ideaTags helpers', () => {
     expect(slugifyTag('  #Co-Op  ')).toBe('co-op');
     expect(slugifyTag('Local Multiplayer')).toBe('local-multiplayer');
     expect(slugifyTag('!!!')).toBe('');
+  });
+
+  it('builds ideas listing hrefs for a clicked tag', () => {
+    expect(ideasListHrefForTag('#Co-Op')).toBe('/ideas?tag=Co-Op');
+    expect(ideasListHrefForTag('Local Multiplayer')).toBe(
+      '/ideas?tag=Local%20Multiplayer'
+    );
+    expect(ideasListHrefForTag('   ')).toBe('/ideas');
+  });
+
+  it('parses tag filters from ideas listing search params', () => {
+    expect(
+      parseIdeaListTagParams(new URLSearchParams('tag=Co-Op&tag=rpg'))
+    ).toEqual(['Co-Op', 'rpg']);
+    expect(
+      parseIdeaListTagParams(new URLSearchParams('tags=a,b,#a'))
+    ).toEqual(['a', 'b']);
+    expect(parseIdeaListTagParams(new URLSearchParams('q=foo'))).toEqual([]);
+    expect(tagNamesEqual(['RPG', 'co-op'], ['Co-Op', 'rpg'])).toBe(true);
+    expect(tagNamesEqual(['RPG'], ['Action'])).toBe(false);
   });
 
   it('uniqueTagNames dedupes by slug', () => {

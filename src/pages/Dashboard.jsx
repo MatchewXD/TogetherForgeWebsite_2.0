@@ -650,8 +650,9 @@ const Dashboard = () => {
                   </div>
                   <div className={DASH_PANEL_BODY}>
                   <p className="text-[11px] text-text-muted mb-3">
-                    Open claims: work in progress and submissions waiting for
-                    review (both use a claim slot). {CLAIM_AUTO_RELEASE_POLICY_COPY}
+                    Open claims are work in progress and submissions waiting
+                    for review. Both use a claim slot.{' '}
+                    {CLAIM_AUTO_RELEASE_POLICY_COPY}
                   </p>
 
                   {claims.length === 0 ? (

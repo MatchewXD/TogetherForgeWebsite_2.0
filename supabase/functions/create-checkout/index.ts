@@ -18,6 +18,7 @@
  * Deploy:
  *   supabase functions deploy create-checkout --no-verify-jwt
  * Secrets: STRIPE_SECRET_KEY
+ * Temporary pause: ENABLE_DONATIONS=false (unset + sk_live_ also pauses).
  * Optional: STRIPE_PRODUCT_ID only if you created a real product in THIS Stripe account.
  * Dynamic $ amounts use inline product_data by default (no pre-created product needed).
  * Hosted also has SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY for DB customer lookup.
@@ -31,6 +32,11 @@ import {
   enforceRateLimit,
   RATE_LIMITS,
 } from '../_shared/rateLimit.ts';
+import {
+  areDonationsEnabled,
+  DONATIONS_PAUSED_CODE,
+  DONATIONS_PAUSED_ERROR,
+} from '../_shared/donationsEnabled.ts';
 
 const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
 // Only used when explicitly requested; never required for dynamic pricing
@@ -302,6 +308,13 @@ Deno.serve(async (req) => {
 
   if (req.method !== 'POST') {
     return json({ error: 'Method not allowed' }, 405);
+  }
+
+  if (!areDonationsEnabled()) {
+    return json(
+      { error: DONATIONS_PAUSED_ERROR, code: DONATIONS_PAUSED_CODE },
+      503
+    );
   }
 
   if (!stripeKey) {

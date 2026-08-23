@@ -30,7 +30,10 @@ export function humanizeAbuseError(error, fallback = GENERIC_COPY) {
   if (/DUPLICATE_CONTENT|already submitted something very similar/i.test(raw)) {
     return DUPLICATE_COPY;
   }
-  if (/SIGN_IN_REQUIRED|signed in|not authenticated|jwt/i.test(raw)) {
+  if (/jwt expired|invalid jwt|bad_jwt|PGRST301/i.test(raw)) {
+    return 'Your session expired. Please sign in again.';
+  }
+  if (/SIGN_IN_REQUIRED|signed in|not authenticated/i.test(raw)) {
     return SIGN_IN_COPY;
   }
   if (

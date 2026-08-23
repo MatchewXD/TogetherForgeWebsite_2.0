@@ -3,14 +3,6 @@ This is a text document of a one page website app that Vera made to help me keep
 Together Forge – Completion Tracker
 Private progress guide
 
-Updated checklist for current reality. Legal / business work can proceed in parallel with the Final Website & System Pass (run on Staging first) and scalability checks while waiting on LLC approval. Deployment prep lives in P7. Use Mark phase complete when every item in this phase is done.
-
-
-Legal / Business: Decide entity structure: Big Picture Collective LLC (parent) owns Together Forge LLC
-
-
-Legal / Business: Form Big Picture Collective LLC in Washington (filed, waiting for approval + UBI)
-
 
 Legal / Business: Form Together Forge LLC (owned by Big Picture Collective LLC) once parent UBI is available
 
@@ -33,19 +25,13 @@ Legal / Business: Trademark search for “Together Forge”
 Legal / Business: File federal trademark application for “Together Forge” (goal: application in process before public launch)
 
 
-Staging Pass – Global: Site loads cleanly on desktop and mobile
+Legal / Business: Resolve Together Forge LLC ownership filing error (currently filed under personal name instead of Big Picture Collective LLC). Waiting on Washington Secretary of State response.
 
 
-Staging Pass – Global: Navigation (all main links) works
+Legal / Business: Temporarily disable live donations and Runway support on production until business banking is ready
 
 
-Staging Pass – Global: Footer links work
-
-
-Staging Pass – Global: Auth — sign up, login, logout, password reset
-
-
-Staging Pass – Global: Profile creation / username choice
+Legal / Business: Add clear “Coming Soon” messaging on the Support and Runway pages explaining that payment processing is temporarily unavailable while business banking is being set up
 
 
 Staging Pass – Global: MFA flow (if enabled)
@@ -173,12 +159,12 @@ Scalability & Load Readiness: Document findings and any needed indexes, caching,
 
 Scalability & Load Readiness: Payment systems safety review (Stripe keys, webhook security, no secret leakage)
 
-2 of 56 items complete
+7 of 59 items complete
 Mark phase complete
 
 P7
 Deployment
-0/6 items
+0/11 items
 
 Not started
 Deployment prep after legal/readiness work. Soft launch then public go-live only when P6 blockers and this list are ready. Use Mark phase complete when every item is done.
@@ -201,7 +187,22 @@ Deployment Prep: Staging environment still isolated and healthy
 
 Deployment Prep: Soft launch then public go-live + post-deploy smoke tests
 
-0 of 6 items complete
+
+Deployment Prep: Connect togetherforge.net domain to Vercel (DNS + SSL)
+
+
+Deployment Prep: Set correct production environment variables (no staging secrets)
+
+
+Deployment Prep: Restore and verify the production Stripe webhook (even while donations are disabled)
+
+
+Deployment Prep: Confirm staging and production environments remain properly isolated
+
+
+Deployment Prep: Final production smoke test of critical paths after domain is live (auth, ideas, tasks, profiles, navigation, key pages)
+
+0 of 11 items complete
 Mark phase complete
 
 P8

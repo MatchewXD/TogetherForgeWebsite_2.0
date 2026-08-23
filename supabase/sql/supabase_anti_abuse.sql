@@ -147,6 +147,7 @@ declare
   v_actor text;
   v_count integer;
   v_last timestamptz;
+  v_uid uuid;
 begin
   if public.user_bypasses_abuse_limits() then
     return;
@@ -154,11 +155,22 @@ begin
 
   v_actor := nullif(trim(coalesce(p_actor_key, '')), '');
   if v_actor is null then
-    if auth.uid() is null then
+    begin
+      v_uid := public.request_uid();
+    exception
+      when undefined_function then
+        v_uid := auth.uid();
+    end;
+    if v_uid is null then
+      v_uid := auth.uid();
+    end if;
+    if v_uid is not null then
+      v_actor := 'user:' || v_uid::text;
+    end if;
+    if v_actor is null then
       raise exception 'SIGN_IN_REQUIRED'
         using errcode = 'P0001';
     end if;
-    v_actor := 'user:' || auth.uid()::text;
   end if;
 
   if p_min_gap is not null then
@@ -268,6 +280,10 @@ begin
   from ideas
   where id = target_idea;
 
+  -- Tell enforce_idea_submit_rules this is denormalized vote-count
+  -- maintenance, not an idea edit (voter is not the idea author).
+  perform set_config('app.idea_vote_count_update', '1', true);
+
   update ideas
   set
     votes = new_count,
@@ -288,6 +304,7 @@ begin
   return coalesce(new, old);
 exception
   when undefined_column then
+    perform set_config('app.idea_vote_count_update', '1', true);
     update ideas set votes = new_count where id = target_idea;
     return coalesce(new, old);
 end;
@@ -305,22 +322,27 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_row_user uuid := coalesce(new.user_id, old.user_id);
 begin
+  if v_row_user is null then
+    return coalesce(new, old);
+  end if;
   perform public.assert_action_allowed(
     'idea_vote',
     200,
     interval '15 minutes',
-    interval '200 milliseconds'
+    interval '200 milliseconds',
+    'user:' || v_row_user::text
   );
   return coalesce(new, old);
 end;
 $$;
 
+-- Rate limit is enforced inside idea_cast_vote / toggle_idea_vote with an
+-- explicit actor key. The table trigger used assert_action_allowed() without
+-- a usable auth.uid() (claim.sub GUC is unset) and blocked legitimate votes.
 drop trigger if exists trg_votes_rate on votes;
-create trigger trg_votes_rate
-  before insert or delete on votes
-  for each row
-  execute function public.enforce_idea_vote_rate();
 
 -- Own rows only so the public cannot COUNT(*) exact totals
 drop policy if exists "Public can read votes" on votes;
@@ -332,17 +354,59 @@ create policy "Users read own votes"
     or public.user_bypasses_abuse_limits()
   );
 
+create or replace function public.request_uid()
+returns uuid
+language plpgsql
+stable
+security definer
+set search_path = public, auth
+as $$
+declare
+  v uuid;
+  c text;
+begin
+  c := current_setting('request.jwt.claims', true);
+  if c is not null and c <> '' then
+    begin
+      v := nullif(c::jsonb ->> 'sub', '')::uuid;
+    exception
+      when others then
+        v := null;
+    end;
+  end if;
+  if v is not null then
+    return v;
+  end if;
+  return auth.uid();
+end;
+$$;
+
+revoke all on function public.request_uid() from public;
+grant execute on function public.request_uid() to authenticated, anon;
+
 create or replace function public.toggle_idea_vote(p_idea_id bigint)
 returns json
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, auth
 as $$
 declare
-  v_user uuid := auth.uid();
+  v_user uuid;
   v_exists boolean;
   v_public integer;
+  v_claims text;
 begin
+  -- This project sets request.jwt.claims JSON but not request.jwt.claim.sub.
+  v_claims := current_setting('request.jwt.claims', true);
+  begin
+    v_user := nullif(nullif(v_claims, '')::jsonb ->> 'sub', '')::uuid;
+  exception
+    when others then
+      v_user := public.request_uid();
+  end;
+  if v_user is null then
+    v_user := public.request_uid();
+  end if;
   if v_user is null then
     raise exception 'SIGN_IN_REQUIRED' using errcode = 'P0001';
   end if;
@@ -375,6 +439,7 @@ begin
 end;
 $$;
 
+revoke all on function public.toggle_idea_vote(bigint) from public;
 grant execute on function public.toggle_idea_vote(bigint) to authenticated;
 
 create or replace function public.normalize_idea_title(p_title text)
@@ -396,7 +461,24 @@ declare
   v_is_draft boolean;
   v_was_draft boolean;
   v_publishing boolean;
+  v_actor uuid;
+  v_vote_cols text[] := array['votes', 'votes_public', 'votes_public_at', 'last_vote_time'];
 begin
+  -- Vote-count writes (refresh_idea_vote_count / idea_cast_vote) UPDATE
+  -- ideas.votes while the JWT belongs to the voter, not the idea author.
+  -- The owner check below used to raise SIGN_IN_REQUIRED for every vote.
+  if tg_op = 'UPDATE' then
+    if current_setting('app.idea_vote_count_update', true) = '1'
+       or (
+         (to_jsonb(new) - v_vote_cols)
+         is not distinct from
+         (to_jsonb(old) - v_vote_cols)
+       )
+    then
+      return new;
+    end if;
+  end if;
+
   if tg_op = 'INSERT' then
     new.votes := 0;
     new.votes_public := 0;
@@ -417,7 +499,16 @@ begin
     return new;
   end if;
 
-  if new.user_id is distinct from auth.uid() then
+  begin
+    v_actor := public.request_uid();
+  exception
+    when undefined_function then
+      v_actor := auth.uid();
+  end;
+  if v_actor is null then
+    v_actor := auth.uid();
+  end if;
+  if new.user_id is distinct from v_actor then
     raise exception 'SIGN_IN_REQUIRED' using errcode = 'P0001';
   end if;
 
@@ -648,11 +739,9 @@ begin
     for each row
     execute function public.refresh_community_showcase_likes_count();
 
+  -- Rate limit lives inside toggle_showcase_like with an explicit actor key.
+  -- This trigger used assert_action_allowed() without a usable auth.uid().
   drop trigger if exists trg_showcase_likes_rate on community_showcase_likes;
-  create trigger trg_showcase_likes_rate
-    before insert or delete on community_showcase_likes
-    for each row
-    execute function public.enforce_showcase_like_rate();
 
   drop policy if exists "Public can read showcase likes" on community_showcase_likes;
   drop policy if exists "Users read own showcase likes" on community_showcase_likes;
@@ -671,10 +760,14 @@ security definer
 set search_path = public
 as $$
 declare
-  v_user uuid := auth.uid();
+  v_user uuid;
   v_exists boolean;
   v_public integer;
 begin
+  v_user := public.request_uid();
+  if v_user is null then
+    v_user := auth.uid();
+  end if;
   if v_user is null then
     raise exception 'SIGN_IN_REQUIRED' using errcode = 'P0001';
   end if;
@@ -688,6 +781,22 @@ begin
   ) then
     raise exception 'NOT_FOUND' using errcode = 'P0001';
   end if;
+
+  begin
+    perform public.assert_action_allowed(
+      'showcase_like',
+      200,
+      interval '15 minutes',
+      interval '200 milliseconds',
+      'user:' || v_user::text
+    );
+  exception
+    when others then
+      if sqlerrm like 'RATE_LIMITED%' then
+        raise;
+      end if;
+      null;
+  end;
 
   select exists (
     select 1
@@ -715,6 +824,7 @@ begin
 end;
 $$;
 
+revoke all on function public.toggle_showcase_like(uuid) from public;
 grant execute on function public.toggle_showcase_like(uuid) to authenticated;
 
 create or replace function public.enforce_showcase_submit_rules()

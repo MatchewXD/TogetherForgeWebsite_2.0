@@ -7,7 +7,7 @@
  * Structuring: auto-apply all fields → onAfterStructure (preview).
  * Gap Filling: only sparse/empty fields, auto-apply, no modal; stay on form.
  */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Sparkles,
@@ -42,6 +42,11 @@ import {
   isIdeaTooEmptyForGapFill,
   GAP_FILL_EMPTY_MESSAGE,
 } from '../../utils/ideaAiSparse';
+import {
+  readStructureFreeform,
+  writeStructureFreeform,
+  clearStructureFreeform,
+} from '../../utils/ideaComposeDraft';
 
 const fieldClass =
   'w-full bg-cyber-surface border border-cyber-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-neon-cyan focus:outline-none transition-colors';
@@ -200,14 +205,35 @@ export default function IdeaAiToolsPanel({
     setBalanceFromServer,
   } = useAiTokenStatus({ enabled: Boolean(user) });
 
+  const draftUserId = user?.id || 'anon';
+  const savedFreeform = readStructureFreeform(draftUserId, mode);
+  const hasSavedFreeform = Boolean(String(savedFreeform || '').trim());
+
   /** Collapsed by default — single entry point */
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(hasSavedFreeform);
   /** structure freeform sub-panel */
-  const [structureOpen, setStructureOpen] = useState(false);
-  const [freeform, setFreeform] = useState('');
+  const [structureOpen, setStructureOpen] = useState(hasSavedFreeform);
+  const [freeform, setFreeform] = useState(savedFreeform);
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
+  const draftUserRef = useRef(draftUserId);
+
+  useEffect(() => {
+    if (draftUserRef.current === draftUserId) return;
+    draftUserRef.current = draftUserId;
+    const saved = readStructureFreeform(draftUserId, mode);
+    if (saved) {
+      setFreeform(saved);
+      setMenuOpen(true);
+      setStructureOpen(true);
+    }
+  }, [draftUserId, mode]);
+
+  const updateFreeform = (value) => {
+    setFreeform(value);
+    writeStructureFreeform(draftUserId, mode, value);
+  };
 
   const anyTool = showStructure || showGapFill;
   if (!anyTool) return null;
@@ -265,6 +291,7 @@ export default function IdeaAiToolsPanel({
       );
       setStructureOpen(false);
       setFreeform('');
+      clearStructureFreeform(draftUserId, mode);
       setMenuOpen(false);
 
       if (typeof onAfterStructure === 'function') {
@@ -402,6 +429,7 @@ export default function IdeaAiToolsPanel({
               setError('');
               setInfo('');
               setMenuOpen(true);
+              if (freeform.trim()) setStructureOpen(true);
             }}
           >
             <Sparkles className="w-3.5 h-3.5 text-neon-purple shrink-0" />
@@ -495,17 +523,13 @@ export default function IdeaAiToolsPanel({
 
           {showStructure && structureOpen ? (
             <div className="space-y-2 pt-1 border-t border-cyber-border/60">
-              <p className="text-[11px] text-text-muted leading-snug">
-                Paste a rough pitch. On success, fields fill automatically and
-                you go to preview.
-              </p>
               <textarea
                 className={fieldClass}
                 rows={3}
                 maxLength={16000}
                 placeholder="e.g. co-op dungeon crawler where the party shares one backpack…"
                 value={freeform}
-                onChange={(e) => setFreeform(e.target.value)}
+                onChange={(e) => updateFreeform(e.target.value)}
                 disabled={!user || !platformOk || Boolean(busy)}
                 autoFocus
               />

@@ -20,6 +20,8 @@ import FundContributorsCard from '../components/support/FundContributorsCard';
 import DonationCreditChoice, {
   resolveDonationCredit,
 } from '../components/support/DonationCreditChoice';
+import PaymentsComingSoon from '../components/support/PaymentsComingSoon';
+import { areDonationsEnabled } from '../constants/donationsEnabled';
 import {
   startStripeCheckout,
   isStripeConfigured,
@@ -50,6 +52,7 @@ const SupportRunway = () => {
   const [authProfileReady, setAuthProfileReady] = useState(false);
 
   const stripeReady = useMemo(() => isStripeConfigured(), []);
+  const donationsEnabled = useMemo(() => areDonationsEnabled(), []);
   const amountTiers = interval === 'month' ? MONTH_TIERS : ONCE_TIERS;
 
   useEffect(() => {
@@ -183,6 +186,7 @@ const SupportRunway = () => {
 
   const runCheckout = async (amount, key) => {
     setError('');
+    if (!areDonationsEnabled()) return;
     const amountCents = Math.round(Number(amount) * 100);
     const validated = validateAmountCents(amountCents);
     if (!validated.ok) {
@@ -310,6 +314,7 @@ const SupportRunway = () => {
           </Card>
         )}
 
+        {donationsEnabled ? (
         <Card className="bg-cyber-card/80">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div className="flex items-center gap-2">
@@ -444,6 +449,9 @@ const SupportRunway = () => {
             </p>
           )}
         </Card>
+        ) : (
+          <PaymentsComingSoon variant="runway" />
+        )}
 
         <RecentDonationsList
           items={recentItems}

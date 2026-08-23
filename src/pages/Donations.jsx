@@ -32,6 +32,8 @@ import FundContributorsCard from '../components/support/FundContributorsCard';
 import DonationCreditChoice, {
   resolveDonationCredit,
 } from '../components/support/DonationCreditChoice';
+import PaymentsComingSoon from '../components/support/PaymentsComingSoon';
+import { areDonationsEnabled } from '../constants/donationsEnabled';
 import {
   getPublicSupportSummary,
   getPublicRecentDonations,
@@ -42,7 +44,9 @@ import { supabase } from '../lib/supabase';
 import {
   ONCE_TIERS,
   MONTH_TIERS,
+  listVisibleSupportPerks,
 } from '../constants/supportPlans';
+import BadgeIcon from '../components/badges/BadgeIcon';
 import { ensureUserProfile } from '../utils/ensureUserProfile';
 import { onProfileUpdated } from '../utils/profileEvents';
 
@@ -148,6 +152,7 @@ const SupportPage = () => {
   const [authProfileReady, setAuthProfileReady] = useState(false);
 
   const stripeReady = useMemo(() => isStripeConfigured(), []);
+  const donationsEnabled = useMemo(() => areDonationsEnabled(), []);
   const tiers = interval === 'month' ? MONTH_TIERS : ONCE_TIERS;
 
   useEffect(() => {
@@ -376,6 +381,7 @@ const SupportPage = () => {
 
   const runCheckout = async ({ amount, tierId, label }) => {
     setError('');
+    if (!areDonationsEnabled()) return;
     const amountCents = Math.round(Number(amount) * 100);
     const validated = validateAmountCents(amountCents);
     if (!validated.ok) {
@@ -520,7 +526,9 @@ const SupportPage = () => {
           source={supportStats.source}
         />
 
-        {/* 2. Donation options */}
+        {/* 2. Donation options (or Coming Soon while live checkout is paused) */}
+        {donationsEnabled ? (
+        <>
         <section aria-labelledby="tiers-heading">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <h2
@@ -569,11 +577,6 @@ const SupportPage = () => {
               </div>
             </div>
           </div>
-          <p className="text-sm text-text-secondary mb-5 max-w-2xl">
-            {interval === 'month'
-              ? 'Recurring Stripe subscription. Manage or cancel anytime under Account → My Plan. Each payment can appear on the thank-you list.'
-              : 'Single donation — not a subscription. No renewals or plan to cancel.'}
-          </p>
 
           {/* Credit choice — must happen before any donate button */}
           <DonationCreditChoice
@@ -603,11 +606,28 @@ const SupportPage = () => {
             </div>
           )}
 
+          {interval === 'month' && (
+            <div className="mb-5 flex items-center gap-3 rounded-xl border border-neon-magenta/30 bg-neon-magenta/5 px-3.5 py-3">
+              <BadgeIcon
+                badgeKey="status_active_subscriber"
+                size="sm"
+                showTooltip
+              />
+              <p className="text-sm text-text-secondary leading-snug">
+                Active Subscriber badge is included while your plan is active.
+              </p>
+            </div>
+          )}
+
           <div className="grid md:grid-cols-3 gap-4 md:gap-5">
             {tiers.map((tier) => {
               const key = `${tier.id}_${interval}_${tier.amount * 100}`;
               const busy = busyKey === key;
               const theme = TIER_THEME[tier.id] || TIER_THEME.supporter;
+              const perks = listVisibleSupportPerks(tier, {
+                publicCredit: wantPublicCredit,
+                interval,
+              });
               return (
                 <Card
                   key={`${tier.id}-${interval}`}
@@ -638,26 +658,25 @@ const SupportPage = () => {
                     <div className="font-mono text-[10px] tracking-widest text-text-muted uppercase mb-2">
                       Thank-you perks
                     </div>
-                    <ul className="space-y-1.5">
-                      {tier.perks.map((p) => (
+                    <ul className="space-y-1.5" aria-live="polite">
+                      {perks.map((p) => (
                         <li
-                          key={p}
-                          className="flex items-start gap-2 text-sm text-text-secondary"
+                          key={p.text}
+                          className={`flex items-start gap-2 text-sm ${
+                            p.emphasize
+                              ? 'text-white font-semibold'
+                              : 'text-text-secondary'
+                          }`}
                         >
                           <CheckCircle2
                             className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${theme.check}`}
                           />
-                          {p}
+                          {p.text}
                         </li>
                       ))}
                     </ul>
                   </div>
 
-                  <p className="mb-2 text-[11px] font-mono tracking-wide text-text-muted text-center">
-                    {wantPublicCredit
-                      ? 'Credit: show my name'
-                      : 'Credit: anonymous'}
-                  </p>
                   <Button
                     size="lg"
                     variant={theme.buttonVariant || 'primary'}
@@ -696,12 +715,10 @@ const SupportPage = () => {
                 ? 'Custom monthly plan'
                 : 'Custom one-time donation'}
             </h2>
-            <p className="text-sm text-text-secondary mb-5">
-              Any amount from $1 up. Uses the support type and public credit
-              choice selected above
+            <p className="text-sm text-text-secondary mb-5 leading-relaxed">
               {interval === 'month'
-                ? ' (recurring subscription).'
-                : ' (single charge, not a plan).'}
+                ? 'Same base perks. Forge Marks are calculated from the published rate ($1 = 100 Marks base) each billing cycle.'
+                : 'Same base perks. Forge Marks are calculated from the published rate ($1 = 100 Marks base).'}
             </p>
             <form
               onSubmit={handleCustom}
@@ -760,6 +777,10 @@ const SupportPage = () => {
             </form>
           </Card>
         </section>
+        </>
+        ) : (
+          <PaymentsComingSoon variant="studio" />
+        )}
 
         {/* 3. Recent support */}
         <RecentDonationsList

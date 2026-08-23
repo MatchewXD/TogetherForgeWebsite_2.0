@@ -31,6 +31,7 @@ import {
   getIdeaImageUrl,
 } from '../services/ideasService';
 import { getParentIdeaId } from '../utils/ideaRelations';
+import { ideasListHrefForTag } from '../utils/ideaTags';
 import {
   optimisticPublicCount,
   reconcilePublicCount,
@@ -99,7 +100,6 @@ const IdeaDetail = () => {
       try {
         const voted = await ideasService.userHasVoted(ideaId, sessionUser.id);
         if (!mounted || voteBusyRef.current) return;
-        console.log('[IdeaDetail] loaded vote state', { ideaId, voted });
         setUserVotedIdea(!!voted);
       } catch (err) {
         console.warn('[IdeaDetail] load vote state failed', err);
@@ -188,11 +188,6 @@ const IdeaDetail = () => {
           } catch {
             /* keep denormalized */
           }
-          console.log('[IdeaDetail] loaded idea', {
-            id: data.id,
-            votes,
-            hasGuided: !!data.guided_data,
-          });
           setIdea({ ...data, votes });
           setParentIdea(data.parent || data.parentIdea || null);
           // Owner (or any signed-in visitor): mark viewed so Dashboard "new activity" clears
@@ -734,12 +729,14 @@ const IdeaDetail = () => {
           {tags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
               {tags.map((t) => (
-                <span
+                <Link
                   key={t}
-                  className="px-3 py-1 text-xs rounded-full bg-white/5 border border-white/10 text-white/80 font-mono"
+                  to={ideasListHrefForTag(t)}
+                  className="px-3 py-1 text-xs rounded-full bg-white/5 border border-white/10 text-white/80 font-mono hover:border-neon-cyan/50 hover:text-neon-cyan transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan/50"
+                  title={`View ideas tagged #${t}`}
                 >
                   #{t}
-                </span>
+                </Link>
               ))}
             </div>
           )}

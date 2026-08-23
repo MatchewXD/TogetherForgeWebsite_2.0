@@ -35,8 +35,9 @@ const pepper =
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
+    'authorization, x-client-info, apikey, content-type, x-supabase-api-version',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
 };
 
 const CODE_COUNT = 10;
@@ -108,7 +109,7 @@ async function remainingCount(sb, userId) {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: cors });
+    return new Response(null, { status: 204, headers: cors });
   }
   if (req.method !== 'POST') {
     return json({ error: 'Method not allowed' }, 405);
@@ -296,7 +297,7 @@ Deno.serve(async (req) => {
         codes: plain,
         remaining: plain.length,
         message:
-          'Store these codes offline. They will not be shown again unless you regenerate.',
+          'Store these codes offline. We cannot show this list again. Creating a new set later replaces these codes.',
       });
     }
 

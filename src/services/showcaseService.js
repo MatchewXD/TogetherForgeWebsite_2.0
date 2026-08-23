@@ -6,6 +6,7 @@
 
 import { supabase } from '../lib/supabase';
 import { asUserError, isMissingRpcError } from '../utils/abuseErrors';
+import { rpcWithFreshAuth } from '../utils/ensureAuthSession';
 import {
   parseYoutubeId,
   youtubeWatchUrl,
@@ -451,14 +452,15 @@ export async function getShowcaseLikeCount(postId) {
  * @returns {Promise<{ liked: boolean, likes: number }>}
  */
 export async function toggleShowcaseLike(postId, userId) {
-  if (!userId) throw new Error('Sign in to like posts.');
   if (!isShowcasePostUuid(postId)) {
     throw new Error('Likes are not available for demo posts.');
   }
 
-  const rpc = await supabase.rpc('toggle_showcase_like', {
+  const rpc = await rpcWithFreshAuth('toggle_showcase_like', {
     p_post_id: postId,
   });
+  const actorId = rpc.user?.id || userId;
+  if (!actorId) throw new Error('Sign in to like posts.');
   if (!rpc.error && rpc.data && typeof rpc.data === 'object') {
     return {
       liked: Boolean(rpc.data.liked),
@@ -473,7 +475,7 @@ export async function toggleShowcaseLike(postId, userId) {
     .from(LIKES_TABLE)
     .select('id')
     .eq('post_id', postId)
-    .eq('user_id', userId)
+    .eq('user_id', actorId)
     .maybeSingle();
 
   if (findError && findError.code !== 'PGRST116') {
@@ -490,12 +492,12 @@ export async function toggleShowcaseLike(postId, userId) {
       .from(LIKES_TABLE)
       .delete()
       .eq('post_id', postId)
-      .eq('user_id', userId);
+      .eq('user_id', actorId);
     if (delError) throw asUserError(delError, 'Could not update like.');
   } else {
     const { error: insError } = await supabase
       .from(LIKES_TABLE)
-      .insert([{ post_id: postId, user_id: userId }]);
+      .insert([{ post_id: postId, user_id: actorId }]);
     if (insError) {
       if (
         insError.code === '23505' ||
@@ -517,7 +519,7 @@ export async function toggleShowcaseLike(postId, userId) {
     .from(LIKES_TABLE)
     .select('id')
     .eq('post_id', postId)
-    .eq('user_id', userId)
+    .eq('user_id', actorId)
     .maybeSingle();
 
   return { liked: !!stillLiked, likes: Math.max(0, likes || 0) };

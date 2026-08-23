@@ -21,6 +21,17 @@ Production → main Supabase project   +  Stripe LIVE  +  live webhook
 
 They must not share database rows, service-role keys, or Stripe mode.
 
+### Temporary live-checkout gate
+
+Support, Runway, and new Stripe Checkout (including AI token packs) can be paused without deleting payment code.
+
+| Env var | Where | Production now | Staging |
+|---------|--------|----------------|---------|
+| `VITE_ENABLE_DONATIONS` | Vite client | `false` (or unset + `pk_live_`) | `true` |
+| `ENABLE_DONATIONS` | Edge Function secrets | `false` (or unset + `sk_live_`) | `true` |
+
+Unset defaults: **on** for Stripe test keys, **off** for live keys or a missing key. Re-enable production by setting both flags to `true` and verifying checkout. Webhooks, Marks grants, and billing portal stay in place.
+
 ---
 
 ## Critical rules (plain language)

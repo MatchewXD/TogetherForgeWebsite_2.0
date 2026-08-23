@@ -19,6 +19,7 @@ import {
   isStripeConfigured,
   validateAmountCents,
 } from '../../services/supportService';
+import { areDonationsEnabled } from '../../constants/donationsEnabled';
 
 /**
  * @param {object} props
@@ -60,9 +61,11 @@ const StripeCheckoutButton = ({
   const [error, setError] = useState('');
 
   const ready = isStripeConfigured();
+  const donationsEnabled = areDonationsEnabled();
 
   const handleClick = async () => {
     setError('');
+    if (!donationsEnabled) return;
     const amountCents = Math.round(Number(amountDollars) * 100);
     const validated = validateAmountCents(amountCents);
     if (!validated.ok) {
@@ -114,7 +117,7 @@ const StripeCheckoutButton = ({
         variant={variant}
         size={size}
         className="gap-2"
-        disabled={busy}
+        disabled={busy || !donationsEnabled}
         onClick={handleClick}
       >
         {busy ? (
@@ -130,7 +133,13 @@ const StripeCheckoutButton = ({
           {error}
         </p>
       )}
-      {!ready && !error && (
+      {!donationsEnabled && (
+        <p className="mt-2 text-sm text-text-secondary leading-relaxed">
+          Coming soon. Payment processing is temporarily unavailable while
+          business banking is being set up.
+        </p>
+      )}
+      {donationsEnabled && !ready && !error && (
         <p className="mt-2 text-xs text-text-muted font-mono">
           Stripe Edge Function not reachable yet. See docs/STRIPE_LOCAL_SETUP.md
         </p>
