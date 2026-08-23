@@ -373,9 +373,9 @@ export default function AccountMfaSection() {
       {phase === 'codes' && freshCodes?.length > 0 && (
         <div className="space-y-3 border-t border-white/10 pt-4 max-w-lg">
           <div className="rounded-lg border border-semantic-warning/40 bg-semantic-warning/10 px-3 py-2 text-sm text-semantic-warning">
-            Save these recovery codes now. Each works once. We only store them
-            hashed, so we cannot show this list again. If you lose them, you can
-            create a new set, and these codes will stop working.
+            Save these recovery codes now. Each works once. We will not show
+            this list again. If you lose them, you can create a new set, and
+            these codes will stop working.
           </div>
           <ul className="grid grid-cols-2 gap-2 font-mono text-sm text-white bg-cyber-surface/80 border border-cyber-border rounded-lg p-3">
             {freshCodes.map((c) => (
