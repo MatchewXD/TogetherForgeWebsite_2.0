@@ -1294,7 +1294,7 @@ export async function listAllContributorsGrouped() {
     console.warn('[contributors] showcase for all list', err);
   }
 
-  // Layout preview people (merged with real credits; default on)
+  // Layout preview people (opt-in via VITE_SHOW_DEMO_CONTRIBUTORS)
   if (isDemoContributorsEnabled()) {
     injectDemoAllContributors(
       {

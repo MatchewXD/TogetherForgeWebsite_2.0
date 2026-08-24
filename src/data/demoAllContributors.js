@@ -1,14 +1,11 @@
 /**
  * Demo people for /contributors/all layout preview.
- * Merged with real credits when enabled (default on).
- *
- * Disable: VITE_SHOW_DEMO_CONTRIBUTORS=false in .env
+ * Off unless VITE_SHOW_DEMO_CONTRIBUTORS=true (keep off in production).
  */
 
 export function isDemoContributorsEnabled() {
   const flag = import.meta.env?.VITE_SHOW_DEMO_CONTRIBUTORS;
-  if (flag === 'false' || flag === '0') return false;
-  return true;
+  return flag === 'true' || flag === '1';
 }
 
 function p(id, username, displayName, extra = {}) {
