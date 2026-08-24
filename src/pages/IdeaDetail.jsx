@@ -609,7 +609,7 @@ const IdeaDetail = () => {
               <Button
                 variant="secondary"
                 size="sm"
-                className="gap-2 min-w-[5.5rem]"
+                className="gap-2"
                 disabled={voting}
                 onClick={handleIdeaVote}
                 aria-pressed={userVotedIdea}
@@ -622,13 +622,6 @@ const IdeaDetail = () => {
                       : 'text-slate-400'
                   }`}
                 />
-                <span
-                  className={`font-mono ${
-                    userVotedIdea ? 'text-orange-400' : 'text-text-secondary'
-                  }`}
-                >
-                  {userVotedIdea ? 'Voted' : 'Vote'}
-                </span>
                 <span
                   className={`font-mono tabular-nums ${
                     userVotedIdea ? 'text-orange-400' : 'text-text-secondary'

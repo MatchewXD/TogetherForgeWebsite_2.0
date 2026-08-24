@@ -31,6 +31,31 @@ export function normalizeXHref(raw) {
   return `https://x.com/${s.replace(/^@/, '')}`;
 }
 
+/** Public label for a stored YouTube handle or URL. */
+export function formatYoutubeLabel(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  let t = s
+    .replace(/^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i, '')
+    .replace(/\/+$/, '');
+  t = t.replace(/^(channel|c|user)\//i, '');
+  t = t.split(/[/?#]/)[0] || '';
+  if (!t) return s;
+  return t.startsWith('@') ? t : t;
+}
+
+/** Public label for a stored Twitch login or URL. */
+export function formatTwitchLabel(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  let t = s
+    .replace(/^https?:\/\/(www\.)?twitch\.tv\//i, '')
+    .replace(/^@/, '')
+    .replace(/\/+$/, '');
+  t = t.split(/[/?#]/)[0] || '';
+  return t || s;
+}
+
 export function formatCentsUsd(cents) {
   const n = Number(cents) || 0;
   return new Intl.NumberFormat(undefined, {

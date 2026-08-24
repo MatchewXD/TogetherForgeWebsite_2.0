@@ -290,8 +290,8 @@ declare
   v_name text;
   touched integer := 0;
 begin
-  -- Zero all first
-  update public.idea_tags set usage_count = 0;
+  -- Zero all first (WHERE required when pg_safeupdate is loaded)
+  update public.idea_tags set usage_count = 0 where true;
 
   for r in
     select tags from public.ideas

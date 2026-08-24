@@ -40,6 +40,8 @@ import {
   normalizeYoutubeHref,
   normalizeTwitchHref,
   normalizeXHref,
+  formatYoutubeLabel,
+  formatTwitchLabel,
   formatCentsUsd,
 } from '../utils/socialLinks';
 import { displayProjectTitle } from '../utils/ideaStatus';
@@ -825,7 +827,7 @@ const PublicProfile = () => {
                             YouTube
                           </span>
                           <span className="block text-sm font-semibold text-white truncate">
-                            Channel
+                            {formatYoutubeLabel(profile.youtube) || 'YouTube'}
                           </span>
                         </span>
                       </a>
@@ -845,7 +847,7 @@ const PublicProfile = () => {
                             Twitch
                           </span>
                           <span className="block text-sm font-semibold text-white truncate">
-                            Channel
+                            {formatTwitchLabel(profile.twitch) || 'Twitch'}
                           </span>
                         </span>
                       </a>
