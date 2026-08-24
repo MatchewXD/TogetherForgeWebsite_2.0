@@ -24,7 +24,7 @@ import { SHOW_RELEASED_GAMES } from '../constants/featureFlags';
 /** Local fallback when projects table is empty or offline */
 const FALLBACK_ACTIVE = {
   id: 'fallback-tether',
-  slug: 'prototype-systems',
+  slug: 'tether',
   title: 'Tether',
   status: 'In Development',
   summary:
@@ -117,9 +117,10 @@ const ProjectsEarly = () => {
               status: c.activeProjectStatus || FALLBACK_ACTIVE.status,
               summary:
                 c.activeProjectSummary || FALLBACK_ACTIVE.summary,
-              slug: (c.activeProjectHref || '/projects/prototype-systems')
+              slug: (c.activeProjectHref || '/projects/tether')
                 .replace(/^\/projects\//, '')
-                .replace(/^\//, '') || 'prototype-systems',
+                .replace(/^\//, '')
+                .replace(/^prototype-systems$/i, 'tether') || 'tether',
             },
           ];
 

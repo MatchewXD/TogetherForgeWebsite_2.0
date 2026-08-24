@@ -43,7 +43,7 @@ comment on column projects.sort_order is 'Lower sorts first within a phase';
 -- Ensure Early project exists and is titled Tether (never "Prototype Systems")
 insert into projects (slug, title, description, phase, status, summary, sort_order)
 values (
-  'prototype-systems',
+  'tether',
   'Tether',
   'A tethered crew crosses dangerous semi-procedural levels to reach a destroyed orbital station. Linked by a shared energy tether, players must coordinate movement, manage tension and momentum, collect critical resources for their stranded colony, and ultimately recover an antimatter generator that will let the colony survive on its own. Teamwork tools grow stronger when used together, while simple enemies try to break the tether. The tone is serious and the stakes are real: the people waiting below are counting on the crew.',
   'Early',
@@ -53,11 +53,18 @@ values (
 )
 on conflict (slug) do nothing;
 
--- Rename any existing row still called Prototype Systems
+-- Rename any existing row still using the retired slug / title
+update projects
+set slug = 'tether',
+    title = 'Tether',
+    updated_at = now()
+where slug = 'prototype-systems'
+  and not exists (select 1 from projects p2 where p2.slug = 'tether');
+
 update projects
 set title = 'Tether',
     updated_at = now()
-where slug = 'prototype-systems'
+where slug = 'tether'
   and (
     title is null
     or title ilike 'prototype systems'

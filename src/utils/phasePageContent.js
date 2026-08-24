@@ -13,7 +13,7 @@ export const PHASE_IDEA_KEYS = {
     /** User-facing label (avoid "phase" in public UI) */
     label: 'Early Game',
     /** project_id values that count as this stage */
-    projectIds: ['early', 'early-phase', 'prototype-systems'],
+    projectIds: ['early', 'early-phase', 'tether', 'prototype-systems'],
     /** tag tokens (lowercase) that count as this stage */
     tags: ['early', 'early-phase', 'early game', 'early-game'],
     submitProjectId: 'early',
@@ -87,7 +87,7 @@ export const EARLY_PHASE_DEFAULTS = {
   activeProjectTitle: 'Tether',
   activeProjectSummary:
     'A tethered crew crosses dangerous semi-procedural levels to reach a destroyed orbital station. Linked by a shared energy tether, players must coordinate movement, manage resources for their stranded colony, and recover a permanent power source.',
-  activeProjectHref: '/projects/prototype-systems',
+  activeProjectHref: '/projects/tether',
   activeProjectStatus: 'In Development',
   gameOverviewsNote:
     'Future Early Game projects will appear here as they are selected. Right now Together Forge is focused on one game at a time.',
@@ -566,7 +566,9 @@ export function sanitizePhaseContent(content, defaults = EARLY_PHASE_DEFAULTS) {
     ),
     activeProjectHref: String(
       c.activeProjectHref || d.activeProjectHref || ''
-    ).trim(),
+    )
+      .trim()
+      .replace(/\/projects\/prototype-systems/gi, '/projects/tether'),
     activeProjectStatus: stripMarkup(
       c.activeProjectStatus || d.activeProjectStatus
     ),

@@ -8,6 +8,7 @@ import {
   ideaMatchesProject,
   buildSafeIdeaPayload,
 } from '../services/ideasService';
+import { canonicalProjectSlug } from '../utils/ideaStatus';
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
@@ -51,6 +52,8 @@ describe('ideasService helpers', () => {
       username: 'a',
       avatar_url: 'x',
       avatarUrl: 'x',
+      pinnedBadgeKey: null,
+      pinned_badge_key: null,
     });
     expect(mapProfile(null, 'Guest').username).toBe('Guest');
   });
@@ -74,8 +77,19 @@ describe('ideasService helpers', () => {
     expect(result[0].profiles.username).toBe('alice');
   });
 
+  it('canonicalProjectSlug rewrites Prototype Systems to tether', () => {
+    expect(canonicalProjectSlug('prototype-systems')).toBe('tether');
+    expect(canonicalProjectSlug('Tether')).toBe('tether');
+    expect(canonicalProjectSlug('core-features')).toBe('core-features');
+  });
+
   it('normalizeProjectKeys dedupes slug and id', () => {
     expect(normalizeProjectKeys('prototype-systems')).toEqual([
+      'tether',
+      'prototype-systems',
+    ]);
+    expect(normalizeProjectKeys('tether')).toEqual([
+      'tether',
       'prototype-systems',
     ]);
     expect(
@@ -84,14 +98,17 @@ describe('ideasService helpers', () => {
     expect(normalizeProjectKeys(null)).toEqual([]);
   });
 
-  it('ideaMatchesProject matches slug case-insensitively', () => {
+  it('ideaMatchesProject matches Tether aliases case-insensitively', () => {
     expect(
       ideaMatchesProject(
         { project_id: 'Prototype-Systems' },
-        ['prototype-systems']
+        ['tether']
       )
     ).toBe(true);
-    expect(ideaMatchesProject({ project_id: 'other' }, ['prototype-systems'])).toBe(
+    expect(
+      ideaMatchesProject({ project_id: 'tether' }, ['prototype-systems'])
+    ).toBe(true);
+    expect(ideaMatchesProject({ project_id: 'other' }, ['tether'])).toBe(
       false
     );
   });
@@ -102,7 +119,7 @@ describe('ideasService helpers', () => {
       summary: 'Sum',
       description: 'Full desc',
       user_id: 'u1',
-      project_id: 'prototype-systems',
+      project_id: 'tether',
       features: [{ name: 'Dash', description: 'Fast move' }],
       additionalNotes: ['Playtest note'],
       economySystem: 'Shared scrap economy',
@@ -113,7 +130,16 @@ describe('ideasService helpers', () => {
       primaryInspiration: 'Hades + DRG',
       estimatedScope: 'Small team',
     });
-    expect(payload.project_id).toBe('prototype-systems');
+    expect(payload.project_id).toBe('tether');
+    expect(
+      buildSafeIdeaPayload({
+        title: 'Hello',
+        summary: 'Sum',
+        description: 'Full desc',
+        user_id: 'u1',
+        project_id: 'prototype-systems',
+      }).project_id
+    ).toBe('tether');
     expect(payload.title).toBe('Hello');
     expect(payload.user_id).toBe('u1');
     expect(payload.description).toBe('Full desc');

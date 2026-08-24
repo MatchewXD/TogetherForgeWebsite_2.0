@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import ScrollToTop from './components/ScrollToTop';
 import HomePage from './pages/HomePage';
@@ -59,6 +59,21 @@ import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import Guidelines from './pages/Guidelines';
 
+/** Old Prototype Systems URLs → /projects/tether */
+function RedirectPrototypeSystems() {
+  const location = useLocation();
+  const next = location.pathname.replace(
+    /^\/projects\/prototype-systems/i,
+    '/projects/tether'
+  );
+  return (
+    <Navigate
+      to={`${next}${location.search}${location.hash}`}
+      replace
+    />
+  );
+}
+
 function App() {
     return (
         <Router>
@@ -90,6 +105,14 @@ function App() {
                         <Route path="/projects/mid" element={<ProjectsMid />} />
                         <Route path="/projects/late" element={<ProjectsLate />} />
                         {/* Contributors + board before generic :id workspace */}
+                        <Route
+                          path="/projects/prototype-systems"
+                          element={<RedirectPrototypeSystems />}
+                        />
+                        <Route
+                          path="/projects/prototype-systems/*"
+                          element={<RedirectPrototypeSystems />}
+                        />
                         <Route
                           path="/projects/:id/contributors"
                           element={<ProjectContributors />}

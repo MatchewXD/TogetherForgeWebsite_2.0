@@ -517,7 +517,7 @@ const ProjectsEarlyEdit = () => {
           ) : projects.length === 0 ? (
             <p className="text-sm text-text-secondary">
               No Early projects in the database yet. Add one, or run the tasks
-              schema seed for Tether (prototype-systems).
+              schema seed for Tether.
             </p>
           ) : (
             <div className="space-y-3">
@@ -933,7 +933,7 @@ const ProjectsEarlyEdit = () => {
                   onChange={(e) =>
                     updateField('activeProjectHref', e.target.value)
                   }
-                  placeholder="/projects/prototype-systems"
+                  placeholder="/projects/tether"
                 />
               </div>
               <div>

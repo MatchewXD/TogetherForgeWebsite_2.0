@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import {
   isStudioStageKey,
   resolveLinkDisplayName,
+  canonicalProjectSlug,
 } from './ideaStatus';
 
 /** Fixed phase options — not projects. Empty id = community (unlinked). */
@@ -21,7 +22,6 @@ export const RELATED_PHASE_OPTIONS = [
 const PLACEHOLDER_PROJECT_IDS = new Set([
   'core-features',
   'polish-playtests',
-  // Keep prototype-systems if it is a real project in DB; only exclude if not returned from DB
 ]);
 
 /**
@@ -51,13 +51,14 @@ export async function loadRelatedProjectOptions() {
       // Never list phase keys as projects
       if (isStudioStageKey(id)) continue;
       if (PLACEHOLDER_PROJECT_IDS.has(id.toLowerCase())) continue;
-      const key = id.toLowerCase();
+      const optionId = canonicalProjectSlug(id) || id;
+      const key = String(optionId).toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
 
       // Always Tether for the early project slug (never "Prototype Systems")
-      const label = resolveLinkDisplayName(id, p.title) || p.title || id;
-      projects.push({ id, label });
+      const label = resolveLinkDisplayName(optionId, p.title) || p.title || optionId;
+      projects.push({ id: optionId, label });
     }
 
     // If DB empty, still show known live project so Early/Tether workflows work
@@ -74,7 +75,7 @@ export async function loadRelatedProjectOptions() {
 
 function fallbackProjects() {
   // Minimal safe fallback when projects table is unavailable
-  return [{ id: 'prototype-systems', label: 'Tether' }];
+  return [{ id: 'tether', label: 'Tether' }];
 }
 
 /**
@@ -84,9 +85,10 @@ function fallbackProjects() {
 export function ensureRelatedValueOption(phases, projects, currentId) {
   const id = currentId != null ? String(currentId).trim() : '';
   if (!id) return { phases, projects };
+  const canonical = canonicalProjectSlug(id) || id;
 
-  const inPhases = phases.some((p) => p.id === id);
-  const inProjects = projects.some((p) => p.id === id);
+  const inPhases = phases.some((p) => p.id === id || p.id === canonical);
+  const inProjects = projects.some((p) => p.id === id || p.id === canonical);
   if (inPhases || inProjects) return { phases, projects };
 
   if (isStudioStageKey(id)) {

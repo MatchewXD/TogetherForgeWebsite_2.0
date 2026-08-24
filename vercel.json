@@ -30,6 +30,18 @@
       ]
     }
   ],
+  "redirects": [
+    {
+      "source": "/projects/prototype-systems",
+      "destination": "/projects/tether",
+      "permanent": true
+    },
+    {
+      "source": "/projects/prototype-systems/:path*",
+      "destination": "/projects/tether/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!assets/).*)",

@@ -56,6 +56,7 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 ### 2. Projects / tasks / claims (+ idea images after staff helper)
 
 11. `supabase_tasks_schema.sql` — projects, tasks, claims, activity, `is_project_staff()`  
+11b. `supabase_project_tether_slug.sql` — public slug Prototype Systems → `tether`  
 11c. `supabase_projects_public_grants.sql` — projects/tasks SELECT grants + donation project_id backfill  
 11d. `supabase_billing_table_grants.sql` — service_role INSERT/UPDATE on donations + subscriptions (webhook/sync)  
 12. `supabase_ideas_image.sql` — idea image + storage (needs `is_project_staff`)  
@@ -279,6 +280,7 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_task_dependencies.sql` | Task blocked-by edges |
 | `supabase_task_staff_only.sql` | Staff Only tasks (viewable by all, claimable by staff) |
 | `supabase_task_board_scope.sql` | Staging vs Public task boards + publish RPC |
+| `supabase_project_tether_slug.sql` | Rename public project slug to `tether` |
 | `supabase_task_scope_requests.sql` | Scope help requests |
 | `supabase_parent_ready_for_review.sql` | Parent ready when children complete |
 | `supabase_page_content.sql` | Phase hub editable content |

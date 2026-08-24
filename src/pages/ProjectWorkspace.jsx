@@ -86,7 +86,11 @@ import {
 } from '../utils/publicCounts';
 import { supabase } from '../lib/supabase';
 import { phaseImageSrc, phaseImageAlt } from '../utils/phaseImages';
-import { displayProjectTitle } from '../utils/ideaStatus';
+import {
+  displayProjectTitle,
+  canonicalProjectSlug,
+  TETHER_SLUG,
+} from '../utils/ideaStatus';
 import {
   TASK_CATEGORIES,
   getTaskCategoryTextClass,
@@ -117,8 +121,8 @@ import { progressTone } from '../utils/progressTone';
 // ---------------------------------------------------------------------------
 
 const FALLBACK_PROJECTS = {
-  'prototype-systems': {
-    slug: 'prototype-systems',
+  tether: {
+    slug: 'tether',
     title: 'Tether',
     phase: 'Early',
     status: 'In Development',
@@ -151,6 +155,8 @@ const DEFAULT_PROJECT = {
   description:
     'A collaborative Together Forge project. Claim tasks, ship wins, and help shape the build with the community.',
 };
+
+FALLBACK_PROJECTS['prototype-systems'] = FALLBACK_PROJECTS[TETHER_SLUG];
 
 const OPEN_QUESTIONS = [
   {
@@ -602,14 +608,16 @@ const ProjectWorkspace = () => {
 
       const fallback =
         FALLBACK_PROJECTS[projectSlug] ||
+        FALLBACK_PROJECTS[canonicalProjectSlug(projectSlug)] ||
         (projectSlug
           ? {
               ...DEFAULT_PROJECT,
-              slug: projectSlug,
-              title: projectSlug
-                .split('-')
-                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                .join(' '),
+              slug: canonicalProjectSlug(projectSlug) || projectSlug,
+              title: displayProjectTitle({ slug: projectSlug }) ||
+                projectSlug
+                  .split('-')
+                  .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                  .join(' '),
             }
           : DEFAULT_PROJECT);
 
@@ -620,13 +628,17 @@ const ProjectWorkspace = () => {
         if (dbProject) {
           // Prefer FALLBACK_PROJECTS copy for known catalog slugs so site text
           // stays under version control (DB description is often seed/stale).
-          const catalog = FALLBACK_PROJECTS[projectSlug];
+          const catalog =
+            FALLBACK_PROJECTS[projectSlug] ||
+            FALLBACK_PROJECTS[canonicalProjectSlug(projectSlug)];
+          const publicSlug =
+            canonicalProjectSlug(dbProject.slug) || dbProject.slug;
           setProject({
-            id: dbProject.slug,
-            slug: dbProject.slug,
+            id: publicSlug,
+            slug: publicSlug,
             uuid: dbProject.id,
             title: displayProjectTitle({
-              slug: dbProject.slug,
+              slug: publicSlug,
               title: catalog?.title || dbProject.title,
             }),
             description:

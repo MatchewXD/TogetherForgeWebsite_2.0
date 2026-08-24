@@ -60,6 +60,7 @@ $ordered = @(
   # 2. Tasks first (is_project_staff), then idea images storage that uses it
   "supabase/sql/supabase_tasks_schema.sql",
   "supabase/sql/supabase_projects_public_grants.sql",
+  "supabase/sql/supabase_project_tether_slug.sql",
   "supabase/sql/supabase_ideas_image.sql",
   "supabase/sql/supabase_projects_completion.sql",
   "supabase/sql/supabase_projects_release_meta.sql",

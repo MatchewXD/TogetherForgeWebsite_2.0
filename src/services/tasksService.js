@@ -1,6 +1,11 @@
 import { supabase } from '../lib/supabase';
 import { initialsFromName } from '../utils/avatarUtils';
 import {
+  canonicalProjectSlug,
+  displayProjectTitle,
+  expandProjectSlugAliases,
+} from '../utils/ideaStatus';
+import {
   validateReviewEvidencePackage,
   extractGithubUrlsFromEvidence,
 } from '../constants/taskReviewEvidence';
@@ -1157,6 +1162,14 @@ export const tasksService = {
         key
       );
 
+    const normalizeRow = (row) => {
+      if (!row) return row;
+      const next = { ...row };
+      next.slug = canonicalProjectSlug(next.slug) || next.slug;
+      next.title = displayProjectTitle(next);
+      return next;
+    };
+
     const fetchOne = async (column, value) => {
       let { data, error } = await supabase
         .from('projects')
@@ -1194,7 +1207,7 @@ export const tasksService = {
         data.githubUrl = data.github_url || null;
         data.contributionMeta = data.contribution_meta || {};
       }
-      return data;
+      return normalizeRow(data);
     };
 
     if (isUuid) {
@@ -1202,7 +1215,12 @@ export const tasksService = {
       if (byId) return byId;
     }
 
-    return fetchOne('slug', key);
+    const slugKeys = expandProjectSlugAliases(key);
+    for (const slug of slugKeys.length ? slugKeys : [key]) {
+      const row = await fetchOne('slug', slug);
+      if (row) return row;
+    }
+    return null;
   },
 
   async getTasksForProject(projectId, opts = {}) {
@@ -1475,7 +1493,11 @@ export const tasksService = {
       const task = taskById.get(r.task_id) || {};
       const project = projectById.get(r.project_id) || {};
       const profile = profileById.get(r.requester_id) || {};
-      const slug = project.slug || project.id || r.project_id;
+      const slug =
+        canonicalProjectSlug(project.slug) ||
+        project.slug ||
+        project.id ||
+        r.project_id;
       return {
         id: r.id,
         projectId: r.project_id,
@@ -3181,7 +3203,8 @@ export const tasksService = {
           : task.projects
         : null;
       const projectId = task?.project_id || project?.id || null;
-      const projectSlug = project?.slug || null;
+      const projectSlug =
+        canonicalProjectSlug(project?.slug) || project?.slug || null;
       const claimStatus = row.status || 'Active';
       const inReview =
         claimStatus === 'PendingReview' ||
@@ -3264,7 +3287,8 @@ export const tasksService = {
           : task.projects
         : null;
       const projectId = task?.project_id || project?.id || null;
-      const projectSlug = project?.slug || null;
+      const projectSlug =
+        canonicalProjectSlug(project?.slug) || project?.slug || null;
       return {
         id: row.id,
         claimId: row.claim_id,

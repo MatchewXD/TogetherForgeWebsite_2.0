@@ -5,7 +5,7 @@
  */
 
 import { supabase } from '../lib/supabase';
-import { displayProjectTitle } from '../utils/ideaStatus';
+import { canonicalProjectSlug, displayProjectTitle } from '../utils/ideaStatus';
 import {
   parseReleaseMeta,
   mergeReleaseMeta,
@@ -171,7 +171,8 @@ function mapProjectRow(row) {
     contribution_meta: contributionMeta,
     contributionMeta,
   };
-  // Always expose the public title (Prototype Systems → Tether)
+  // Always expose the public title + URL slug (Prototype Systems → Tether)
+  mapped.slug = canonicalProjectSlug(mapped.slug) || mapped.slug;
   mapped.title = displayProjectTitle(mapped);
   return mapped;
 }

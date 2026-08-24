@@ -29,7 +29,7 @@ import ParentIdeaPicker from '../components/ideas/ParentIdeaPicker';
 import IdeaAiToolsPanel from '../components/ideas/IdeaAiToolsPanel';
 import { ideaTagsService } from '../services/ideaTagsService';
 import { serializeTags } from '../utils/ideaTags';
-import { parseTags } from '../utils/ideaStatus';
+import { parseTags, canonicalProjectSlug } from '../utils/ideaStatus';
 import { humanizeParentLinkError } from '../utils/ideaRelations';
 
 const CATEGORIES = [
@@ -77,7 +77,11 @@ function formFromIdeaRow(data) {
     summary: data.summary || '',
     description: data.description || '',
     tags: data.tags || '',
-    projectId: data.project_id || data.projectId || '',
+    projectId:
+      canonicalProjectSlug(data.project_id || data.projectId || '') ||
+      data.project_id ||
+      data.projectId ||
+      '',
     parentIdeaId:
       data.parent_idea_id != null
         ? String(data.parent_idea_id)

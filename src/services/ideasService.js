@@ -11,6 +11,7 @@ import {
   isMissingRpcError,
 } from '../utils/abuseErrors';
 import { rpcWithFreshAuth } from '../utils/ensureAuthSession';
+import { canonicalProjectSlug, expandProjectSlugAliases } from '../utils/ideaStatus';
 
 /** Optional supporting image on ideas */
 export const IDEA_IMAGE_BUCKET = 'idea-images';
@@ -104,20 +105,34 @@ export function attachCommentProfiles(comments = [], profileMap = {}) {
  */
 export function normalizeProjectKeys(projectKey) {
   if (!projectKey) return [];
+  const raw = [];
   if (typeof projectKey === 'string' || typeof projectKey === 'number') {
     const s = String(projectKey).trim();
-    return s ? [s] : [];
+    if (s) raw.push(s);
+  } else {
+    raw.push(
+      ...[projectKey.slug, projectKey.id, projectKey.project_id]
+        .filter((v) => v != null && String(v).trim() !== '')
+        .map((v) => String(v).trim())
+    );
   }
-  const keys = [projectKey.slug, projectKey.id, projectKey.project_id]
-    .filter((v) => v != null && String(v).trim() !== '')
-    .map((v) => String(v).trim());
+  const keys = [];
+  for (const item of raw) {
+    const aliases = expandProjectSlugAliases(item);
+    if (aliases.length) keys.push(...aliases);
+    else keys.push(item);
+  }
   return [...new Set(keys)];
 }
 
 /** Whether an idea row belongs to any of the given project keys. */
 export function ideaMatchesProject(idea, keys = []) {
   if (!idea || !keys.length) return false;
-  const keySet = new Set(keys.map((k) => String(k).trim().toLowerCase()));
+  const keySet = new Set(
+    keys.flatMap((k) =>
+      expandProjectSlugAliases(k).map((s) => String(s).trim().toLowerCase())
+    )
+  );
   const candidates = [
     idea.project_id,
     idea.projectId,
@@ -126,6 +141,7 @@ export function ideaMatchesProject(idea, keys = []) {
     idea.projectSlug,
   ]
     .filter((v) => v != null && String(v).trim() !== '')
+    .flatMap((v) => expandProjectSlugAliases(v))
     .map((v) => String(v).trim().toLowerCase());
   return candidates.some((c) => keySet.has(c));
 }
@@ -420,7 +436,8 @@ export function buildSafeIdeaPayload(raw = {}) {
 
   const projectId = raw.project_id ?? raw.projectId ?? null;
   if (projectId != null && String(projectId).trim()) {
-    payload.project_id = String(projectId).trim();
+    const trimmed = String(projectId).trim();
+    payload.project_id = canonicalProjectSlug(trimmed) || trimmed;
   }
 
   // Related idea parent (optional). Explicit null clears the link on update.

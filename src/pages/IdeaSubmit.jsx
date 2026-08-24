@@ -68,7 +68,7 @@ import {
   RELATED_PHASE_OPTIONS,
   getRelatedToGroupedOptions,
 } from '../utils/relatedToOptions';
-import { resolveLinkDisplayName } from '../utils/ideaStatus';
+import { resolveLinkDisplayName, canonicalProjectSlug } from '../utils/ideaStatus';
 
 const COMPOSE_FLOW = 'guided';
 
@@ -118,7 +118,9 @@ const IdeaSubmit = () => {
 
   const linkedFromQuery = useMemo(() => {
     const raw = searchParams.get('project');
-    return raw ? String(raw).trim() : null;
+    if (!raw) return null;
+    const trimmed = String(raw).trim();
+    return canonicalProjectSlug(trimmed) || trimmed;
   }, [searchParams]);
 
   const tagFromQuery = useMemo(() => {
@@ -264,7 +266,11 @@ const IdeaSubmit = () => {
         summary: data.summary || '',
         description: data.description || '',
         tags: data.tags || '',
-        projectId: data.project_id || linkedFromQuery || '',
+        projectId:
+          canonicalProjectSlug(data.project_id || linkedFromQuery || '') ||
+          data.project_id ||
+          linkedFromQuery ||
+          '',
         parentIdeaId:
           data.parent_idea_id != null
             ? String(data.parent_idea_id)

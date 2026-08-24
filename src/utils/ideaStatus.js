@@ -174,9 +174,14 @@ export function getIdeaProjectKey(idea) {
  * Friendly display names for known project / pipeline ids stored on ideas.project_id.
  * User-facing: stages are "Early Game" / "Mid Game" / "Late Game" (not "Phase").
  */
+/** Public URL slug for the Early Game project. */
+export const TETHER_SLUG = 'tether';
+/** Retired URL slug — still accepted, always rewritten to TETHER_SLUG. */
+export const TETHER_LEGACY_SLUG = 'prototype-systems';
+
 const PROJECT_DISPLAY_NAMES = {
-  'prototype-systems': 'Tether',
-  tether: 'Tether',
+  [TETHER_LEGACY_SLUG]: 'Tether',
+  [TETHER_SLUG]: 'Tether',
   early: 'Early Game',
   'early-phase': 'Early Game',
   mid: 'Mid Game',
@@ -188,7 +193,41 @@ const PROJECT_DISPLAY_NAMES = {
 };
 
 /** Old product name; never show this to users. */
-const LEGACY_PROTOTYPE_SYSTEMS = /^prototype\s*systems$/i;
+const LEGACY_PROTOTYPE_SYSTEMS = /^prototype[\s_-]*systems$/i;
+
+/** True when a slug/id is Tether, including the retired Prototype Systems slug. */
+export function isTetherProjectSlug(slug) {
+  const s = String(slug || '').trim().toLowerCase();
+  return s === TETHER_SLUG || s === TETHER_LEGACY_SLUG;
+}
+
+/**
+ * Public URL slug. Prototype Systems always becomes `tether`.
+ * @param {string|null|undefined} slug
+ * @returns {string}
+ */
+export function canonicalProjectSlug(slug) {
+  const s = String(slug || '').trim();
+  if (!s) return '';
+  if (isTetherProjectSlug(s) || LEGACY_PROTOTYPE_SYSTEMS.test(s.replace(/[_-]+/g, ' '))) {
+    return TETHER_SLUG;
+  }
+  return s.toLowerCase() === s ? s : s;
+}
+
+/**
+ * Keys that should match Tether ideas/projects (current slug + legacy slug).
+ * @param {string|null|undefined} slug
+ * @returns {string[]}
+ */
+export function expandProjectSlugAliases(slug) {
+  const raw = String(slug || '').trim();
+  if (!raw) return [];
+  if (isTetherProjectSlug(raw)) return [TETHER_SLUG, TETHER_LEGACY_SLUG];
+  const canonical = canonicalProjectSlug(raw);
+  if (canonical === TETHER_SLUG) return [TETHER_SLUG, TETHER_LEGACY_SLUG];
+  return [raw];
+}
 
 const STUDIO_STAGE_KEYS = new Set([
   'early',

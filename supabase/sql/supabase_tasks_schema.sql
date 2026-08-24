@@ -203,7 +203,7 @@ create policy "Members can insert activity" on activity_log for insert
 insert into projects (slug, title, description, phase, status)
 values
   (
-    'prototype-systems',
+    'tether',
     'Tether',
     'A tethered crew crosses dangerous semi-procedural levels to reach a destroyed orbital station. Linked by a shared energy tether, players must coordinate movement, manage tension and momentum, collect critical resources for their stranded colony, and ultimately recover an antimatter generator that will let the colony survive on its own.',
     'Early',
@@ -227,8 +227,14 @@ on conflict (slug) do nothing;
 
 -- Keep public title as Tether if an older seed used "Prototype Systems"
 update projects
-set title = 'Tether'
+set slug = 'tether',
+    title = 'Tether'
 where slug = 'prototype-systems'
+  and not exists (select 1 from projects p2 where p2.slug = 'tether');
+
+update projects
+set title = 'Tether'
+where slug = 'tether'
   and (title is null or title ilike 'prototype systems' or title ilike 'prototype-systems');
 
 -- Seed tasks only when project has none yet
@@ -237,7 +243,10 @@ declare
   pid uuid;
   task_count int;
 begin
-  select id into pid from projects where slug = 'prototype-systems';
+  select id into pid from projects
+  where slug in ('tether', 'prototype-systems')
+  order by case when slug = 'tether' then 0 else 1 end
+  limit 1;
   if pid is null then
     return;
   end if;
@@ -267,7 +276,7 @@ end $$;
 
 -- Optional: verify
 -- select slug, title from projects;
--- select title, status from tasks t join projects p on p.id = t.project_id where p.slug = 'prototype-systems';
+-- select title, status from tasks t join projects p on p.id = t.project_id where p.slug = 'tether';
 
 -- ---------------------------------------------------------------------------
 -- 8. Atomic RPCs (SECURITY DEFINER) - claim / progress / complete / return
