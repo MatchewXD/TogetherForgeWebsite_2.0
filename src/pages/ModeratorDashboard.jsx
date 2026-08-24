@@ -747,8 +747,16 @@ const ModeratorDashboard = () => {
                               {formatDate(req.createdAt)}
                             </span>
                           </div>
-                          <h3 className="text-base sm:text-lg font-semibold text-white truncate">
+                          <h3 className="text-base sm:text-lg font-semibold text-white truncate flex flex-wrap items-center gap-2">
                             {req.taskTitle}
+                            {req.staffOnly && (
+                              <Badge
+                                variant="gold"
+                                className="!normal-case tracking-wide !text-[10px]"
+                              >
+                                Staff Only
+                              </Badge>
+                            )}
                           </h3>
                           <p className="text-xs font-mono text-text-muted">
                             {displayProjectTitle({

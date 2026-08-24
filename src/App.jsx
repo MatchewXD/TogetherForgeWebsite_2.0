@@ -1,6 +1,4 @@
-import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { dismissBootLoader } from './lib/bootLoader';
 import Navbar from './components/Navbar';
 import ScrollToTop from './components/ScrollToTop';
 import HomePage from './pages/HomePage';
@@ -62,11 +60,6 @@ import Privacy from './pages/Privacy';
 import Guidelines from './pages/Guidelines';
 
 function App() {
-    // Handoff: hide pre-React boot loader once the app shell has mounted
-    useEffect(() => {
-        dismissBootLoader();
-    }, []);
-
     return (
         <Router>
             <ScrollToTop />
@@ -100,6 +93,10 @@ function App() {
                         <Route
                           path="/projects/:id/contributors"
                           element={<ProjectContributors />}
+                        />
+                        <Route
+                          path="/projects/:id/board/staging"
+                          element={<ProjectWorkspace />}
                         />
                         <Route
                           path="/projects/:id/board"

@@ -45,6 +45,7 @@ const statusVariant = (task) => {
  * @param {function} [props.onClaim]
  * @param {string|null} [props.claimingId]
  * @param {number} [props.parentDepth]
+ * @param {boolean} [props.isStaff]
  */
 const SubTaskList = ({
   items = [],
@@ -55,6 +56,7 @@ const SubTaskList = ({
   onClaim,
   claimingId = null,
   parentDepth = 0,
+  isStaff = false,
   /** When true, hide empty-state copy (volunteers never see "No sub-tasks yet") */
   hideEmptyMessage = false,
 }) => {
@@ -95,13 +97,18 @@ const SubTaskList = ({
               child.claim?.status === 'Active' ||
               (Boolean(child.claimedBy) && !isDone);
             const isLocked = Boolean(child.isLocked);
-            const showClaim =
+            const isStaffOnly = Boolean(child.staffOnly || child.staff_only);
+            const structurallyClaimable =
               canClaim &&
               onClaim &&
               !isLocked &&
               child.volunteerClaimable &&
               !hasActiveClaim &&
               !isDone;
+            const showClaim =
+              structurallyClaimable && (!isStaffOnly || isStaff);
+            const showStaffOnlyInsteadOfClaim =
+              structurallyClaimable && isStaffOnly && !isStaff;
             const depth = child.depth ?? parentDepth + 1;
             const accent =
               depth === 1
@@ -133,6 +140,14 @@ const SubTaskList = ({
                         className="!text-[10px] !normal-case !bg-white/5 !text-text-muted"
                       >
                         Locked
+                      </Badge>
+                    )}
+                    {isStaffOnly && (
+                      <Badge
+                        variant="gold"
+                        className="!text-[10px] !normal-case"
+                      >
+                        Staff Only
                       </Badge>
                     )}
                     <Badge variant={statusVariant(child)} className="!text-[10px]">
@@ -204,6 +219,14 @@ const SubTaskList = ({
                     >
                       {claimingId === child.id ? '…' : 'Claim'}
                     </Button>
+                  )}
+                  {showStaffOnlyInsteadOfClaim && (
+                    <Badge
+                      variant="gold"
+                      className="!text-[10px] !normal-case"
+                    >
+                      Staff Only
+                    </Badge>
                   )}
                   {onOpen && (
                     <Button

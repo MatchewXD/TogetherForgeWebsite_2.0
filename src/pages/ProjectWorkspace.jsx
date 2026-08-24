@@ -37,6 +37,7 @@ import {
   LayoutGrid,
   ExternalLink,
   Github,
+  Upload,
 } from 'lucide-react';
 
 import Button from '../components/ui/Buttons';
@@ -45,6 +46,7 @@ import Badge from '../components/ui/Badge';
 import TaskCard from '../components/ui/TaskCard';
 import SubTaskList from '../components/ui/SubTaskList';
 import TaskDependencyPicker from '../components/ui/TaskDependencyPicker';
+import TaskStagingTree from '../components/ui/TaskStagingTree';
 import ActivityItem from '../components/ui/ActivityItem';
 import StatWidget from '../components/ui/StatWidget';
 import Modal from '../components/ui/Modal';
@@ -61,7 +63,12 @@ import {
   getChildTasks,
   getTaskBreadcrumb,
   taskLevelLabel,
-  getTaskClaimBlockedReason,
+  getUserTaskClaimBlockedReason,
+  STAFF_ONLY_TASK_MESSAGE,
+  STAGING_TASK_CLAIM_MESSAGE,
+  BOARD_SCOPE_STAGING,
+  BOARD_SCOPE_PUBLIC,
+  canPublishStagingTask,
   normalizeChecklist,
   progressFromChecklist,
   isChecklistComplete,
@@ -278,6 +285,8 @@ const EMPTY_TASK_FORM = {
   blockedByTaskIds: [],
   /** Staff: allow claim while blockers incomplete */
   dependencyOverride: false,
+  /** Staff: volunteers can view but cannot claim */
+  staffOnly: false,
 };
 
 const fieldLabelClass =
@@ -306,6 +315,12 @@ function friendlyError(err) {
   }
   if (err?.code === 'TASK_LOCKED' || /TASK_LOCKED|Locked – waiting on/i.test(msg)) {
     return msg.replace(/^TASK_LOCKED:\s*/i, '');
+  }
+  if (err?.code === 'STAFF_ONLY' || /STAFF_ONLY/i.test(msg)) {
+    return msg.replace(/^STAFF_ONLY:\s*/i, '') || STAFF_ONLY_TASK_MESSAGE;
+  }
+  if (err?.code === 'STAGING_TASK' || /STAGING_TASK/i.test(msg)) {
+    return msg.replace(/^STAGING_TASK:\s*/i, '') || STAGING_TASK_CLAIM_MESSAGE;
   }
   if (
     err?.code === 'SUBMIT_LIMIT' ||
@@ -359,9 +374,14 @@ const ProjectWorkspace = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const boardMatch = useMatch({ path: '/projects/:id/board', end: true });
+  const stagingMatch = useMatch({
+    path: '/projects/:id/board/staging',
+    end: true,
+  });
   /** Dedicated Task Board page (full focus) vs project hub */
-  const boardOnly = Boolean(boardMatch);
-  const { isModerator } = useIsModerator();
+  const isStagingBoard = Boolean(stagingMatch);
+  const boardOnly = Boolean(boardMatch) || isStagingBoard;
+  const { isModerator, loading: roleLoading } = useIsModerator();
 
   const [project, setProject] = useState(null);
   const [projectUuid, setProjectUuid] = useState(null);
@@ -441,6 +461,8 @@ const ProjectWorkspace = () => {
   const [boardShowLocked, setBoardShowLocked] = useState(false);
   /** Staff: force dual-rule auto-release check */
   const [autoReleaseBusy, setAutoReleaseBusy] = useState(false);
+  const [stagingBusyId, setStagingBusyId] = useState(null);
+  const [publishingId, setPublishingId] = useState(null);
   /** Notices for claims auto-released under this user */
   const [autoReleaseNotices, setAutoReleaseNotices] = useState([]);
 
@@ -463,7 +485,9 @@ const ProjectWorkspace = () => {
     async (uuid) => {
       if (!uuid) return;
       const [taskRows, activityRows, pulseData, shoutoutRows] = await Promise.all([
-        tasksService.getTasksForProject(uuid),
+        tasksService.getTasksForProject(uuid, {
+          boardScope: isStagingBoard ? BOARD_SCOPE_STAGING : BOARD_SCOPE_PUBLIC,
+        }),
         tasksService.getActivityForProject(uuid, { limit: 25 }),
         tasksService.getProjectPulse(uuid),
         tasksService.getShoutouts(uuid, { limit: 8 }),
@@ -473,7 +497,7 @@ const ProjectWorkspace = () => {
       setPulse(pulseData);
       setShoutouts(shoutoutRows);
     },
-    []
+    [isStagingBoard]
   );
 
   // Auth session
@@ -653,6 +677,13 @@ const ProjectWorkspace = () => {
       cancelled = true;
     };
   }, [projectSlug, refreshBoard]);
+
+  useEffect(() => {
+    if (!isStagingBoard || roleLoading) return;
+    if (!isModerator) {
+      navigate(`/projects/${projectSlug}/board`, { replace: true });
+    }
+  }, [isStagingBoard, roleLoading, isModerator, projectSlug, navigate]);
 
   const selectedTask = useMemo(
     () => tasks.find((t) => t.id === selectedTaskId) || null,
@@ -1039,6 +1070,7 @@ const ProjectWorkspace = () => {
       parentTaskId: parentTaskId || null,
       blockedByTaskIds: [],
       dependencyOverride: false,
+      staffOnly: false,
     });
     setTaskFormError(null);
     setTaskFormOpen(true);
@@ -1078,6 +1110,7 @@ const ProjectWorkspace = () => {
           ? task.blockedBy.map((b) => b.id).filter(Boolean)
           : [],
       dependencyOverride: Boolean(task.dependencyOverride),
+      staffOnly: Boolean(task.staffOnly),
     });
     setTaskFormError(null);
     setSelectedTaskId(null);
@@ -1118,6 +1151,7 @@ const ProjectWorkspace = () => {
           : [],
       // Fresh copy should respect blockers unless lead re-enables override
       dependencyOverride: false,
+      staffOnly: Boolean(task.staffOnly),
     });
     setTaskFormError(null);
     setSelectedTaskId(null);
@@ -1131,6 +1165,74 @@ const ProjectWorkspace = () => {
       return;
     }
     openDuplicateTaskForm(task);
+  };
+
+  const handleStagingDelete = async (task) => {
+    if (!isModerator || !task?.id || !isStagingBoard) return;
+    const nested = task.childCount || 0;
+    const ok = window.confirm(
+      nested > 0
+        ? `Delete “${task.title}” and ${nested} nested staging task${nested === 1 ? '' : 's'}?\n\nPublic copies already published stay on the live board.`
+        : `Delete “${task.title}” from Staging?\n\nPublic copies already published stay on the live board.`
+    );
+    if (!ok) return;
+    setStagingBusyId(task.id);
+    try {
+      await tasksService.deleteTask(task.id);
+      if (selectedTaskId === task.id) setSelectedTaskId(null);
+      await refreshBoard(projectUuid);
+      showToast('Removed from Staging.', 'success');
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
+    } finally {
+      setStagingBusyId(null);
+    }
+  };
+
+  const handleStagingMove = async (task, direction) => {
+    if (!isModerator || !task?.id || !isStagingBoard) return;
+    setStagingBusyId(task.id);
+    try {
+      await tasksService.reorderTaskAmongSiblings(task.id, direction, tasks);
+      await refreshBoard(projectUuid);
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
+    } finally {
+      setStagingBusyId(null);
+    }
+  };
+
+  const handlePublishStaging = async (task) => {
+    if (!isModerator || !task?.id || !isStagingBoard) return;
+    if (!canPublishStagingTask(task)) {
+      showToast('Publish a Medium or Epic. Small tasks go with their parent.', 'warn');
+      return;
+    }
+    const kind = (Number(task.depth) || 0) === 0 ? 'Epic' : 'Medium';
+    const extra =
+      task.publishedTaskId
+        ? '\n\nSome of this was published before. New nested work will be copied; existing public tasks stay in place.'
+        : '';
+    const ok = window.confirm(
+      `Publish “${task.title}” (${kind}) to the public task board?\n\nThis copies it and nested staging tasks to the live board. Staff Only flags are kept. The Staging copy stays here for further prep.${extra}`
+    );
+    if (!ok) return;
+    setPublishingId(task.id);
+    try {
+      const result = await tasksService.publishStagingTask(task.id);
+      await refreshBoard(projectUuid);
+      const created = Number(result?.created_count) || 0;
+      showToast(
+        created > 0
+          ? `Published ${created} task${created === 1 ? '' : 's'} to the public board.`
+          : 'Already on the public board. New nested work will appear the next time you publish.',
+        'success'
+      );
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
+    } finally {
+      setPublishingId(null);
+    }
   };
 
   const toggleBlockedByTask = (blockerId) => {
@@ -1214,6 +1316,8 @@ const ProjectWorkspace = () => {
       parentTaskId: taskForm.parentTaskId || null,
       blockedByTaskIds: [...(taskForm.blockedByTaskIds || [])],
       dependencyOverride: Boolean(taskForm.dependencyOverride),
+      staffOnly: Boolean(taskForm.staffOnly),
+      boardScope: isStagingBoard ? BOARD_SCOPE_STAGING : BOARD_SCOPE_PUBLIC,
     };
 
     setTaskFormBusy(true);
@@ -1244,9 +1348,13 @@ const ProjectWorkspace = () => {
         await tasksService.createTask(projectUuid, payload, user.id);
         await refreshBoard(projectUuid);
         showToast(
-          payload.parentTaskId
-            ? 'Sub-task created under its parent. Open the parent to claim nested work.'
-            : 'Task created - it is live in To Do and ready to claim!',
+          isStagingBoard
+            ? payload.parentTaskId
+              ? 'Staging sub-task saved. Publish its Medium or Epic when the structure is ready.'
+              : 'Staging task saved. Volunteers cannot see it until you publish.'
+            : payload.parentTaskId
+              ? 'Sub-task created under its parent. Open the parent to claim nested work.'
+              : 'Task created - it is live in To Do and ready to claim!',
           'success'
         );
       }
@@ -1259,6 +1367,7 @@ const ProjectWorkspace = () => {
         parentTaskId: null,
         blockedByTaskIds: [],
         dependencyOverride: false,
+        staffOnly: false,
       });
       if (reopenParent) setSelectedTaskId(reopenParent);
     } catch (err) {
@@ -1442,8 +1551,14 @@ const ProjectWorkspace = () => {
       return;
     }
 
+    if (isStagingBoard) {
+      showToast(STAGING_TASK_CLAIM_MESSAGE, 'warn');
+      return;
+    }
     const task = tasks.find((t) => t.id === taskId);
-    const blocked = getTaskClaimBlockedReason(task);
+    const blocked = getUserTaskClaimBlockedReason(task, {
+      isStaff: isModerator,
+    });
     if (blocked) {
       showToast(blocked, 'warn');
       return;
@@ -1451,7 +1566,7 @@ const ProjectWorkspace = () => {
 
     setClaimingId(taskId);
     try {
-      await tasksService.claimTask(taskId, { task });
+      await tasksService.claimTask(taskId, { task, isStaff: isModerator });
       await refreshBoard(projectUuid);
       await refreshClaimQuota();
       showToast(
@@ -1466,7 +1581,8 @@ const ProjectWorkspace = () => {
         err?.code === 'CLAIM_COOLDOWN' ||
         err?.code === 'CLAIM_HIERARCHY' ||
         err?.code === 'IDENTITY_GATE' ||
-        err?.code === 'CLAIM_RESTRICTED';
+        err?.code === 'CLAIM_RESTRICTED' ||
+        err?.code === 'STAFF_ONLY';
       showToast(msg, soft ? 'warn' : 'error');
       refreshClaimQuota();
     } finally {
@@ -1478,6 +1594,11 @@ const ProjectWorkspace = () => {
     if (!user) {
       showToast('Sign in to request joining a claim.', 'warn');
       navigate('/account');
+      return;
+    }
+    const joinTask = tasks.find((t) => t.id === taskId);
+    if (joinTask?.staffOnly && !isModerator) {
+      showToast(STAFF_ONLY_TASK_MESSAGE, 'warn');
       return;
     }
     if (myPendingJoinTaskIds.has(taskId)) {
@@ -1509,7 +1630,10 @@ const ProjectWorkspace = () => {
         });
         showToast(friendlyError(err), 'warn');
       } else {
-        showToast(friendlyError(err), 'error');
+        showToast(
+          friendlyError(err),
+          err?.code === 'STAFF_ONLY' ? 'warn' : 'error'
+        );
       }
     } finally {
       setJoiningId(null);
@@ -2169,10 +2293,20 @@ const ProjectWorkspace = () => {
     );
   }
 
+  if (isStagingBoard && (roleLoading || !isModerator)) {
+    return (
+      <div className="pt-20 min-h-screen flex items-center justify-center text-text-secondary gap-2">
+        <Loader2 className="w-5 h-5 animate-spin text-neon-cyan" />
+        Loading staging…
+      </div>
+    );
+  }
+
   const displayProject = project || DEFAULT_PROJECT;
   const projectKey = displayProject.slug || displayProject.id || projectSlug;
   const projectPath = `/projects/${projectKey}`;
   const boardPath = `${projectPath}/board`;
+  const stagingPath = `${boardPath}/staging`;
   const projectSubmitPath = `/ideas/submit?project=${projectKey || ''}`;
   const projectGithubUrl =
     displayProject.githubUrl || displayProject.github_url || null;
@@ -2233,18 +2367,37 @@ const ProjectWorkspace = () => {
           /* -------- Dedicated Task Board: title + full-width control bar -------- */
           <header className="space-y-5">
             <div className="min-w-0">
-              <div className="section-header">Task Board</div>
+              <div className="section-header">
+                {isStagingBoard ? 'Staff only' : 'Task Board'}
+              </div>
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-neon-cyan drop-shadow-[0_0_24px_rgba(0,249,255,0.25)]">
-                {displayProject.title}
+                {isStagingBoard ? 'Staging' : displayProject.title}
               </h1>
+              {isStagingBoard && (
+                <p className="mt-2 text-sm text-text-secondary max-w-2xl leading-relaxed">
+                  Preparation board for {displayProject.title}. Volunteers never
+                  see these tasks. Publish an Epic or Medium to copy it onto the
+                  public board.
+                </p>
+              )}
             </div>
 
             {/* Contribution loop: TF board vs GitHub — below title, above controls */}
             <div className="rounded-lg border border-cyber-border/80 bg-cyber-bg/40 px-3 py-2.5 text-xs text-text-secondary leading-relaxed">
               <p className="font-mono tracking-widest text-[10px] text-text-muted uppercase mb-1">
-                How contributing works
+                {isStagingBoard ? 'How staging works' : 'How contributing works'}
               </p>
               <p>
+                {isStagingBoard ? (
+                  <>
+                    Build Epics, Mediums, and Smalls here. Reorder and delete
+                    freely. When a Medium or Epic is ready,{' '}
+                    <span className="text-white font-medium">Publish</span> it
+                    to the public board. Staff Only flags copy with the live
+                    tasks. Volunteers never see Staging.
+                  </>
+                ) : (
+                  <>
                 <span className="text-white font-medium">Together Forge</span>{' '}
                 = claim, track, review, and credit ·{' '}
                 <span className="text-white font-medium">GitHub</span> = where
@@ -2270,13 +2423,17 @@ const ProjectWorkspace = () => {
                 {projectGithubUrl ? ' on GitHub' : ' (GitHub for code tasks)'}{' '}
                 → submit with clear evidence (PR preferred for Code) → get
                 credit when accepted.
+                  </>
+                )}
               </p>
+              {!isStagingBoard && (
               <p className="mt-2 text-[11px] text-text-muted leading-relaxed border-t border-cyber-border/50 pt-2">
                 {CLAIM_AUTO_RELEASE_POLICY_COPY}
               </p>
+              )}
             </div>
 
-            {autoReleaseNotices.length > 0 && (
+            {!isStagingBoard && autoReleaseNotices.length > 0 && (
               <div className="rounded-lg border border-semantic-warning/40 bg-semantic-warning/10 px-3 py-2.5 flex flex-col sm:flex-row sm:items-start gap-2">
                 <div className="min-w-0 flex-1 space-y-1">
                   <p className="text-xs font-mono tracking-widest text-semantic-warning uppercase">
@@ -2315,14 +2472,16 @@ const ProjectWorkspace = () => {
                   <Badge variant="neon" className="justify-center shrink-0">
                     {loading
                       ? 'Loading…'
-                      : `${boardTasks.length} shown · ${tasks.length} total`}
+                      : isStagingBoard
+                        ? `${tasks.length} staging`
+                        : `${boardTasks.length} shown · ${tasks.length} total`}
                   </Badge>
-                  {!user && (
+                  {!user && !isStagingBoard && (
                     <span className="text-xs font-mono text-text-muted">
                       Sign in to claim
                     </span>
                   )}
-                  {claimQuota?.signedIn && (
+                  {claimQuota?.signedIn && !isStagingBoard && (
                     <span className="text-xs font-mono text-text-muted">
                       Your claims: {claimQuota.activeClaims ?? 0}/
                       {claimQuota.claimLimit ?? 2} active
@@ -2413,7 +2572,29 @@ const ProjectWorkspace = () => {
                       Edit repo
                     </button>
                   )}
-                  {isModerator && (
+                  {isModerator && !isStagingBoard && (
+                    <Button
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => navigate(stagingPath)}
+                      disabled={!projectUuid || loading}
+                      title="Staff-only preparation board. Volunteers cannot see it."
+                    >
+                      <Upload className="w-4 h-4" />
+                      Staging
+                    </Button>
+                  )}
+                  {isStagingBoard && (
+                    <Button
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => navigate(boardPath)}
+                    >
+                      <LayoutGrid className="w-4 h-4" />
+                      Public board
+                    </Button>
+                  )}
+                  {isModerator && !isStagingBoard && (
                     <Button
                       className="gap-2"
                       onClick={() => openCreateTaskForm(null)}
@@ -2428,7 +2609,7 @@ const ProjectWorkspace = () => {
                       Add New Task
                     </Button>
                   )}
-                  {isModerator && (
+                  {isModerator && !isStagingBoard && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -2462,6 +2643,7 @@ const ProjectWorkspace = () => {
               </div>
 
               {/* Category + unclaimed filters — skill-first for new contributors */}
+              {!isStagingBoard && (
               <div className="mt-3 pt-3 border-t border-cyber-border/80 space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-[10px] font-mono tracking-widest text-text-muted uppercase">
@@ -2583,6 +2765,7 @@ const ProjectWorkspace = () => {
                   </p>
                 )}
               </div>
+              )}
             </div>
           </header>
         ) : (
@@ -2736,7 +2919,7 @@ const ProjectWorkspace = () => {
           </div>
         )}
 
-        {boardOnly && claimQuota?.signedIn && claimQuota.isRestricted && (
+        {boardOnly && !isStagingBoard && claimQuota?.signedIn && claimQuota.isRestricted && (
           <div
             role="alert"
             className="rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 space-y-1"
@@ -2772,6 +2955,7 @@ const ProjectWorkspace = () => {
         )}
 
         {boardOnly &&
+          !isStagingBoard &&
           claimQuota?.signedIn &&
           !claimQuota.isRestricted &&
           claimQuota.meetsIdentityGate === false && (
@@ -2797,7 +2981,28 @@ const ProjectWorkspace = () => {
           )}
 
         {/* 3. TASK BOARD (full page) or hub entry card */}
-        {boardOnly ? (
+        {boardOnly && isStagingBoard ? (
+        <section aria-labelledby="staging-board-heading" className="space-y-4">
+          <h2 id="staging-board-heading" className="sr-only">
+            Staging task board
+          </h2>
+          {loading ? (
+            <LoadingScreen variant="section" message="Loading staging…" />
+          ) : (
+            <TaskStagingTree
+              tasks={tasks}
+              busyId={stagingBusyId}
+              publishingId={publishingId}
+              onAddEpic={() => openCreateTaskForm(null)}
+              onAddChild={(parent) => openCreateSubTask(parent)}
+              onEdit={(task) => openEditTaskForm(task)}
+              onDelete={handleStagingDelete}
+              onPublish={handlePublishStaging}
+              onMove={handleStagingMove}
+            />
+          )}
+        </section>
+        ) : boardOnly ? (
         <section aria-labelledby="board-heading" className="space-y-4">
           <h2 id="board-heading" className="sr-only">
             Task board columns
@@ -2856,6 +3061,7 @@ const ProjectWorkspace = () => {
                                 }
                                 onView={handleViewTask}
                                 canStaffUpdate={isModerator}
+                                isStaff={isModerator}
                                 onDuplicate={
                                   isModerator ? handleDuplicateTask : undefined
                                 }
@@ -2922,6 +3128,7 @@ const ProjectWorkspace = () => {
                                   currentUserId={user?.id}
                                   onView={handleViewTask}
                                   canStaffUpdate={isModerator}
+                                  isStaff={isModerator}
                                   onDuplicate={
                                     isModerator
                                       ? handleDuplicateTask
@@ -2992,6 +3199,7 @@ const ProjectWorkspace = () => {
                                   currentUserId={user?.id}
                                   onView={handleViewTask}
                                   canStaffUpdate={isModerator}
+                                  isStaff={isModerator}
                                   onUpdate={handleUpdateTask}
                                   onDuplicate={
                                     isModerator
@@ -3067,6 +3275,18 @@ const ProjectWorkspace = () => {
                   <LayoutGrid className="w-4 h-4" />
                   Open Task Board
                 </Button>
+                {isModerator && (
+                  <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => navigate(stagingPath)}
+                    disabled={loading}
+                    title="Staff-only preparation board"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Open Staging
+                  </Button>
+                )}
                 <DiscordLink
                   variant="button"
                   labelKey="join"
@@ -3601,6 +3821,19 @@ const ProjectWorkspace = () => {
                               : String(selectedTask.status || 'Open')}
                     </span>
                   </>
+                  {selectedTask.staffOnly && (
+                    <>
+                      <span className="text-white/20 shrink-0" aria-hidden>
+                        ·
+                      </span>
+                      <Badge
+                        variant="gold"
+                        className="!normal-case tracking-wide !text-[10px] !py-0.5 !px-2"
+                      >
+                        Staff Only
+                      </Badge>
+                    </>
+                  )}
                   {!selectedTask.isEpic &&
                     !selectedTask.hasChildren &&
                     (selectedTask.difficulty ||
@@ -3657,6 +3890,19 @@ const ProjectWorkspace = () => {
                   )}
                 </div>
               </div>
+
+              {selectedTask.staffOnly && (
+                <div className="rounded-lg border border-semantic-achievement/30 bg-semantic-achievement/10 px-3 py-2.5">
+                  <p className="font-mono tracking-widest text-[10px] text-semantic-achievement uppercase mb-1.5">
+                    Staff Only
+                  </p>
+                  <p className="text-sm text-text-secondary leading-relaxed">
+                    {isModerator
+                      ? 'Staff and founders can claim, work, and complete this task. Volunteers can see it on the board but cannot claim it.'
+                      : 'This work is reserved for staff. It stays on the board so progress stays visible, but volunteers cannot claim it.'}
+                  </p>
+                </div>
+              )}
 
               {selectedTask.description ? (
                 <div className="rounded-lg border border-cyber-border/80 bg-cyber-bg/40 px-3 py-2.5">
@@ -3729,6 +3975,7 @@ const ProjectWorkspace = () => {
                 onClaim={handleClaim}
                 claimingId={claimingId}
                 canClaim={Boolean(user)}
+                isStaff={isModerator}
                 canAdd={Boolean(
                   isModerator && selectedTask.canAddChild !== false
                 )}
@@ -4378,8 +4625,30 @@ const ProjectWorkspace = () => {
             {selectedTask.volunteerClaimable &&
               !selectedTask.isLocked &&
               selectedTask.status === 'todo' &&
-              !selectedTask.claimedBy && (
+              !selectedTask.claimedBy &&
+              selectedTask.staffOnly &&
+              !isModerator && (
                 <div className="space-y-2 pt-2 border-t border-cyber-border">
+                  <Badge variant="gold" className="!normal-case tracking-wide">
+                    Staff Only
+                  </Badge>
+                  <p className="text-sm text-text-secondary leading-relaxed">
+                    {STAFF_ONLY_TASK_MESSAGE}
+                  </p>
+                </div>
+              )}
+
+            {selectedTask.volunteerClaimable &&
+              !selectedTask.isLocked &&
+              selectedTask.status === 'todo' &&
+              !selectedTask.claimedBy &&
+              (!selectedTask.staffOnly || isModerator) && (
+                <div className="space-y-2 pt-2 border-t border-cyber-border">
+                  {selectedTask.staffOnly && (
+                    <Badge variant="gold" className="!normal-case tracking-wide">
+                      Staff Only
+                    </Badge>
+                  )}
                   <p className="text-[11px] text-text-muted leading-relaxed">
                     Claiming reserves this task for you on Together Forge.
                     {isCodeLikeCategory(selectedTask.category)
@@ -4776,24 +5045,40 @@ const ProjectWorkspace = () => {
         onClose={closeTaskForm}
         title={
           taskFormMode === 'edit'
-            ? 'Edit Task'
+            ? isStagingBoard
+              ? 'Edit Staging Task'
+              : 'Edit Task'
             : taskForm.parentTaskId
-              ? 'Add Sub-task'
+              ? isStagingBoard
+                ? 'Add Staging Sub-task'
+                : 'Add Sub-task'
               : String(taskForm.title || '').startsWith('Copy of ')
-                ? 'Duplicate Task'
-                : 'Add New Task'
+                ? isStagingBoard
+                  ? 'Duplicate Staging Task'
+                  : 'Duplicate Task'
+                : isStagingBoard
+                  ? 'Add Staging Task'
+                  : 'Add New Task'
         }
         size="lg"
       >
         <form onSubmit={handleTaskFormSubmit} className="task-scroll space-y-6 max-h-[70vh] overflow-y-auto pr-1">
           <p className="text-sm text-text-secondary leading-relaxed">
             {taskFormMode === 'edit'
-              ? 'Update task details. Checklist labels keep their done state when unchanged.'
+              ? isStagingBoard
+                ? 'Update this Staging task. Volunteers will not see it until you publish the Epic or Medium.'
+                : 'Update task details. Checklist labels keep their done state when unchanged.'
               : String(taskForm.title || '').startsWith('Copy of ')
-                ? 'Duplicating as a new Unclaimed / To Do task. Edit anything below, then create. Claim, progress, and review data are not copied.'
+                ? isStagingBoard
+                  ? 'Duplicating as a new Staging task. It stays off the public board until you publish.'
+                  : 'Duplicating as a new Unclaimed / To Do task. Edit anything below, then create. Claim, progress, and review data are not copied.'
                 : taskForm.parentTaskId
-                  ? 'Add a child task under the parent.'
-                  : 'Top-level = Epic. Nest Medium/Small under it for claimable work.'}
+                  ? isStagingBoard
+                    ? 'Add a nested Staging task under this parent.'
+                    : 'Add a child task under the parent.'
+                  : isStagingBoard
+                    ? 'Top-level = Epic. Nest Mediums and Smalls here, then publish when the structure is ready.'
+                    : 'Top-level = Epic. Nest Medium/Small under it for claimable work.'}
           </p>
 
           {taskForm.parentTaskId && (
@@ -4934,6 +5219,24 @@ const ProjectWorkspace = () => {
             <p className="text-xs text-text-muted mt-1">
               Choose a range so volunteers can scan effort at a glance.
             </p>
+          </div>
+
+          <div>
+            <label className={fieldLabelClass}>STAFF ONLY</label>
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-0.5 accent-cyan-400 shrink-0"
+                checked={Boolean(taskForm.staffOnly)}
+                onChange={(e) =>
+                  updateTaskFormField('staffOnly', e.target.checked)
+                }
+              />
+              <span className="text-sm text-text-secondary leading-snug">
+                Volunteers can see this task on the board but cannot claim it.
+                Staff and founders can claim, work, and complete it as usual.
+              </span>
+            </label>
           </div>
 
           {/* Blocked by — hierarchical multi dependency */}

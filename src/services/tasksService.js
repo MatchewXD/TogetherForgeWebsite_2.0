@@ -252,15 +252,52 @@ export function progressFromChecklist(items) {
   return Math.round((100 * done) / list.length);
 }
 
+export const STAFF_ONLY_TASK_MESSAGE =
+  'This task is Staff Only. Volunteers can view it, but only staff can claim or join it.';
+
+export const BOARD_SCOPE_PUBLIC = 'public';
+export const BOARD_SCOPE_STAGING = 'staging';
+export const STAGING_TASK_CLAIM_MESSAGE =
+  'Staging tasks cannot be claimed. Publish them to the public board first.';
+
+export function isStagingTask(task) {
+  const scope = task?.boardScope || task?.board_scope;
+  return String(scope || BOARD_SCOPE_PUBLIC) === BOARD_SCOPE_STAGING;
+}
+
+/** Epic or Medium on Staging can be published (Smalls ride with their parent). */
+export function canPublishStagingTask(task) {
+  if (!isStagingTask(task)) return false;
+  const depth = Number(task.depth) || 0;
+  return depth === 0 || depth === 1;
+}
+
+export function compareTaskBoardOrder(a, b) {
+  const so = (Number(a?.sortOrder) || 0) - (Number(b?.sortOrder) || 0);
+  if (so !== 0) return so;
+  return String(a?.createdAt || '').localeCompare(String(b?.createdAt || ''));
+}
+
+/** True when the mapped task (or raw row) is flagged Staff Only. */
+export function isTaskStaffOnly(task) {
+  return Boolean(task?.staffOnly || task?.staff_only);
+}
+
 /**
  * Volunteer claim rules (client + server should agree):
  * - Epic (depth 0): never claimable
  * - Medium/Small with children: not claimable (progress from children)
  * - Locked (incomplete "Blocked by" deps): not claimable until blockers Completed
  * - Medium/Small leaf (unlocked): claimable
+ *
+ * Staff Only is a separate gate — volunteers still see the task. Use
+ * getUserTaskClaimBlockedReason when the viewer role is known.
  */
 export function getTaskClaimBlockedReason(task) {
   if (!task) return 'Task not found';
+  if (isStagingTask(task)) {
+    return STAGING_TASK_CLAIM_MESSAGE;
+  }
   if (task.dbStatus === 'Completed' || task.status === 'completed') {
     return 'This task is already completed';
   }
@@ -283,6 +320,24 @@ export function getTaskClaimBlockedReason(task) {
     return 'This task has sub-tasks and is not claimable. Claim a Small (or leaf Medium) task instead.';
   }
   return null;
+}
+
+/** Blocks volunteers from claiming/joining Staff Only tasks; staff pass through. */
+export function getTaskStaffOnlyBlockedReason(task, isStaff = false) {
+  if (!isTaskStaffOnly(task) || isStaff) return null;
+  return STAFF_ONLY_TASK_MESSAGE;
+}
+
+/**
+ * Hierarchy/lock rules plus Staff Only for the current viewer.
+ * @param {object} task
+ * @param {{ isStaff?: boolean }} [opts]
+ */
+export function getUserTaskClaimBlockedReason(task, opts = {}) {
+  return (
+    getTaskClaimBlockedReason(task) ||
+    getTaskStaffOnlyBlockedReason(task, Boolean(opts.isStaff))
+  );
 }
 
 /** True when a task row counts as completed/accepted for dependency unlock. */
@@ -737,6 +792,15 @@ export function mapTaskRow(row) {
     scopeRequest: null,
     /** Staff override: ignore incomplete blockers when claiming */
     dependencyOverride: Boolean(row.dependency_override),
+    /** Volunteers can view; only staff/founders can claim or join */
+    staffOnly: Boolean(row.staff_only),
+    boardScope:
+      row.board_scope === BOARD_SCOPE_STAGING
+        ? BOARD_SCOPE_STAGING
+        : BOARD_SCOPE_PUBLIC,
+    sortOrder: Number(row.sort_order) || 0,
+    publishedTaskId: row.published_task_id || null,
+    publishedAt: row.published_at || null,
     /** Filled by attachTaskDependencies */
     blockedBy: [],
     blockedByIds: [],
@@ -933,6 +997,7 @@ const ACTIVITY_ACTION_LABELS = {
   review_accepted: 'accepted',
   review_rejected: 'sent back',
   auto_released: 'was auto-released from',
+  published: 'published to the public board',
 };
 
 export function mapActivityRow(row) {
@@ -975,6 +1040,11 @@ const TASK_SELECT = `
   completed_at,
   created_at,
   dependency_override,
+  staff_only,
+  board_scope,
+  sort_order,
+  published_task_id,
+  published_at,
   task_claims (
     id,
     user_id,
@@ -1135,13 +1205,44 @@ export const tasksService = {
     return fetchOne('slug', key);
   },
 
-  async getTasksForProject(projectId) {
+  async getTasksForProject(projectId, opts = {}) {
     if (!projectId) return [];
-    let { data, error } = await supabase
+    const boardScope =
+      opts.boardScope === BOARD_SCOPE_STAGING
+        ? BOARD_SCOPE_STAGING
+        : BOARD_SCOPE_PUBLIC;
+    let query = supabase
       .from('tasks')
       .select(TASK_SELECT)
       .eq('project_id', projectId)
+      .eq('board_scope', boardScope)
+      .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true });
+    let { data, error } = await query;
+
+    if (
+      error &&
+      /board_scope|sort_order|published_task_id|published_at|column .* does not exist/i.test(
+        error.message || ''
+      )
+    ) {
+      const unscoped = await supabase
+        .from('tasks')
+        .select(TASK_SELECT.replace(/board_scope,\s*|sort_order,\s*|published_task_id,\s*|published_at,\s*/g, ''))
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: true });
+      data = unscoped.data;
+      error = unscoped.error;
+      if (
+        !error &&
+        boardScope === BOARD_SCOPE_STAGING &&
+        Array.isArray(data)
+      ) {
+        data = data.filter((row) => row.board_scope === BOARD_SCOPE_STAGING);
+      } else if (!error && Array.isArray(data)) {
+        data = data.filter((row) => row.board_scope !== BOARD_SCOPE_STAGING);
+      }
+    }
 
     // Graceful fallback before dependency_override / hierarchy migrations
     if (
@@ -1329,13 +1430,25 @@ export const tasksService = {
       ...new Set(rows.map((r) => r.requester_id).filter(Boolean)),
     ];
 
+    const fetchScopeTasks = async () => {
+      if (!taskIds.length) return { data: [] };
+      const withFlag = await supabase
+        .from('tasks')
+        .select(
+          'id, title, category, difficulty, status, project_id, staff_only'
+        )
+        .in('id', taskIds);
+      if (withFlag.error && /staff_only/i.test(withFlag.error.message || '')) {
+        return supabase
+          .from('tasks')
+          .select('id, title, category, difficulty, status, project_id')
+          .in('id', taskIds);
+      }
+      return withFlag;
+    };
+
     const [tasksRes, projectsRes, profilesRes] = await Promise.all([
-      taskIds.length
-        ? supabase
-            .from('tasks')
-            .select('id, title, category, difficulty, status, project_id')
-            .in('id', taskIds)
-        : Promise.resolve({ data: [] }),
+      fetchScopeTasks(),
       projectIds.length
         ? supabase
             .from('projects')
@@ -1373,6 +1486,7 @@ export const tasksService = {
         taskCategory: task.category || null,
         taskDifficulty: task.difficulty || null,
         taskStatus: task.status || null,
+        staffOnly: Boolean(task.staff_only),
         claimId: r.claim_id,
         requesterId: r.requester_id,
         username: profile.username || 'Volunteer',
@@ -1475,10 +1589,28 @@ export const tasksService = {
     }
 
     // --- Task counts + active claimers ---
-    const { data: taskRows, error: taskErr } = await supabase
+    let pulseSelect = `
+        id,
+        status,
+        board_scope,
+        task_claims (
+          id,
+          user_id,
+          status,
+          profiles!user_id ( username, avatar_url, pinned_badge_key )
+        )
+      `;
+    let { data: taskRows, error: taskErr } = await supabase
       .from('tasks')
-      .select(
-        `
+      .select(pulseSelect)
+      .eq('project_id', projectId)
+      .eq('board_scope', BOARD_SCOPE_PUBLIC);
+
+    if (taskErr && /board_scope/i.test(taskErr.message || '')) {
+      const retry = await supabase
+        .from('tasks')
+        .select(
+          `
         id,
         status,
         task_claims (
@@ -1488,8 +1620,11 @@ export const tasksService = {
           profiles!user_id ( username, avatar_url, pinned_badge_key )
         )
       `
-      )
-      .eq('project_id', projectId);
+        )
+        .eq('project_id', projectId);
+      taskRows = retry.data;
+      taskErr = retry.error;
+    }
 
     if (taskErr) throw taskErr;
 
@@ -1499,6 +1634,9 @@ export const tasksService = {
     const claimerIds = new Set();
 
     for (const t of taskRows || []) {
+      if (String(t.board_scope || BOARD_SCOPE_PUBLIC) === BOARD_SCOPE_STAGING) {
+        continue;
+      }
       const st = String(t.status || '');
       if (st === 'Completed') tasksCompleted += 1;
       if (st === 'ToDo') openTasks += 1;
@@ -1932,7 +2070,7 @@ export const tasksService = {
    * Claim a task. Client pre-checks + server claim_task (anti-hoarding SQL).
    * Volunteers may only claim Medium/Small leaf tasks (not Epics or parents with children).
    * @param {string} taskId
-   * @param {{ task?: object }} [opts] optional enriched task for client-side claim rules
+   * @param {{ task?: object, isStaff?: boolean }} [opts] optional enriched task + staff viewer flag
    */
   async claimTask(taskId, opts = {}) {
     const {
@@ -1952,10 +2090,21 @@ export const tasksService = {
     }
 
     if (opts.task) {
-      const blocked = getTaskClaimBlockedReason(opts.task);
+      const hierarchyBlocked = getTaskClaimBlockedReason(opts.task);
+      const staffOnlyBlocked = getTaskStaffOnlyBlockedReason(
+        opts.task,
+        Boolean(opts.isStaff)
+      );
+      const blocked = hierarchyBlocked || staffOnlyBlocked;
       if (blocked) {
         const err = new Error(blocked);
-        err.code = opts.task?.isLocked ? 'TASK_LOCKED' : 'CLAIM_HIERARCHY';
+        err.code = isStagingTask(opts.task)
+          ? 'STAGING_TASK'
+          : hierarchyBlocked
+            ? opts.task?.isLocked
+              ? 'TASK_LOCKED'
+              : 'CLAIM_HIERARCHY'
+            : 'STAFF_ONLY';
         throw err;
       }
     }
@@ -2043,6 +2192,20 @@ export const tasksService = {
         err.code = 'CLAIM_RESTRICTED';
         throw err;
       }
+      if (/STAFF_ONLY/i.test(msg)) {
+        const err = new Error(
+          msg.replace(/^STAFF_ONLY:\s*/i, '') || STAFF_ONLY_TASK_MESSAGE
+        );
+        err.code = 'STAFF_ONLY';
+        throw err;
+      }
+      if (/STAGING_TASK/i.test(msg)) {
+        const err = new Error(
+          msg.replace(/^STAGING_TASK:\s*/i, '') || STAGING_TASK_CLAIM_MESSAGE
+        );
+        err.code = 'STAGING_TASK';
+        throw err;
+      }
       if (/TASK_LOCKED/i.test(msg) || /Locked – waiting on/i.test(msg)) {
         const err = new Error(
           msg.replace(/^TASK_LOCKED:\s*/i, '') ||
@@ -2080,6 +2243,20 @@ export const tasksService = {
     });
     if (error) {
       const msg = error.message || '';
+      if (/STAFF_ONLY/i.test(msg)) {
+        const err = new Error(
+          msg.replace(/^STAFF_ONLY:\s*/i, '') || STAFF_ONLY_TASK_MESSAGE
+        );
+        err.code = 'STAFF_ONLY';
+        throw err;
+      }
+      if (/STAGING_TASK/i.test(msg)) {
+        const err = new Error(
+          msg.replace(/^STAGING_TASK:\s*/i, '') || STAGING_TASK_CLAIM_MESSAGE
+        );
+        err.code = 'STAGING_TASK';
+        throw err;
+      }
       if (/already have a pending|already helping|already requested/i.test(msg)) {
         const err = new Error(msg);
         err.code = 'JOIN_ALREADY';
@@ -2694,12 +2871,33 @@ export const tasksService = {
     if (payload.dependencyOverride != null) {
       row.dependency_override = Boolean(payload.dependencyOverride);
     }
+    if (payload.staffOnly != null) {
+      row.staff_only = Boolean(payload.staffOnly);
+    }
+    row.board_scope =
+      payload.boardScope === BOARD_SCOPE_STAGING
+        ? BOARD_SCOPE_STAGING
+        : BOARD_SCOPE_PUBLIC;
+    if (payload.sortOrder != null) {
+      row.sort_order = Number(payload.sortOrder) || 0;
+    }
 
     let { data, error } = await supabase
       .from('tasks')
       .insert([row])
       .select(TASK_SELECT)
       .single();
+
+    if (error && /staff_only/i.test(error.message || '')) {
+      throw new Error(
+        'Staff Only is not set up yet. Run supabase/sql/supabase_task_staff_only.sql in Supabase.'
+      );
+    }
+    if (error && /board_scope|sort_order/i.test(error.message || '')) {
+      throw new Error(
+        'Staging boards are not set up yet. Run supabase/sql/supabase_task_board_scope.sql in Supabase.'
+      );
+    }
 
     if (
       error &&
@@ -2775,6 +2973,12 @@ export const tasksService = {
     if (fields.dependencyOverride !== undefined) {
       patch.dependency_override = Boolean(fields.dependencyOverride);
     }
+    if (fields.staffOnly !== undefined) {
+      patch.staff_only = Boolean(fields.staffOnly);
+    }
+    if (fields.sortOrder !== undefined) {
+      patch.sort_order = Number(fields.sortOrder) || 0;
+    }
 
     let { data, error } = await supabase
       .from('tasks')
@@ -2782,6 +2986,17 @@ export const tasksService = {
       .eq('id', taskId)
       .select(TASK_SELECT)
       .single();
+
+    if (error && /staff_only/i.test(error.message || '')) {
+      throw new Error(
+        'Staff Only is not set up yet. Run supabase/sql/supabase_task_staff_only.sql in Supabase.'
+      );
+    }
+    if (error && /board_scope|sort_order/i.test(error.message || '')) {
+      throw new Error(
+        'Staging boards are not set up yet. Run supabase/sql/supabase_task_board_scope.sql in Supabase.'
+      );
+    }
 
     if (
       error &&
@@ -2830,6 +3045,67 @@ export const tasksService = {
     return mapTaskRow(data);
   },
 
+  /** Staff: delete a Staging task (nested children cascade in the database). */
+  async deleteTask(taskId) {
+    if (!taskId) throw new Error('Task not found');
+    const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+    if (error) throw error;
+    return { id: taskId };
+  },
+
+  /**
+   * Staff: swap a task with the previous/next sibling (same parent).
+   * @param {string} taskId
+   * @param {'up'|'down'} direction
+   * @param {Array} tasks enriched project tasks
+   */
+  async reorderTaskAmongSiblings(taskId, direction, tasks) {
+    const list = Array.isArray(tasks) ? tasks : [];
+    const current = list.find((t) => t.id === taskId);
+    if (!current) throw new Error('Task not found');
+    const parentId = current.parentTaskId || null;
+    const siblings = list
+      .filter((t) => (t.parentTaskId || null) === parentId)
+      .slice()
+      .sort(compareTaskBoardOrder);
+    const idx = siblings.findIndex((t) => t.id === taskId);
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= siblings.length) return current;
+
+    const ordered = siblings.map((t, i) =>
+      i === idx ? siblings[swapIdx] : i === swapIdx ? siblings[idx] : t
+    );
+    for (let i = 0; i < ordered.length; i += 1) {
+      if ((Number(ordered[i].sortOrder) || 0) === i) continue;
+      const { error } = await supabase
+        .from('tasks')
+        .update({ sort_order: i })
+        .eq('id', ordered[i].id);
+      if (error) throw error;
+    }
+    return { id: taskId, direction };
+  },
+
+  /**
+   * Staff: copy a Staging Epic or Medium (and nested work) onto the public board.
+   */
+  async publishStagingTask(taskId) {
+    if (!taskId) throw new Error('Task not found');
+    const { data, error } = await supabase.rpc('publish_staging_task', {
+      p_task_id: taskId,
+    });
+    if (error) {
+      const msg = error.message || '';
+      if (/could not find the function|schema cache/i.test(msg)) {
+        throw new Error(
+          'Staging publish is not set up yet. Run supabase/sql/supabase_task_board_scope.sql in Supabase.'
+        );
+      }
+      throw error;
+    }
+    return data;
+  },
+
   async getCurrentUser() {
     const {
       data: { user },
@@ -2853,10 +3129,7 @@ export const tasksService = {
     } = await supabase.auth.getUser();
     if (!user) return [];
 
-    const { data, error } = await supabase
-      .from('task_claims')
-      .select(
-        `
+    const claimsSelect = (withStaffOnly) => `
         id,
         task_id,
         claimed_at,
@@ -2871,14 +3144,29 @@ export const tasksService = {
           status,
           category,
           difficulty,
+          ${withStaffOnly ? 'staff_only,' : ''}
           project_id,
           projects ( id, slug, title )
         )
-      `
-      )
+      `;
+
+    let { data, error } = await supabase
+      .from('task_claims')
+      .select(claimsSelect(true))
       .eq('user_id', user.id)
       .in('status', ['Active', 'PendingReview'])
       .order('claimed_at', { ascending: false });
+
+    if (error && /staff_only/i.test(error.message || '')) {
+      const retry = await supabase
+        .from('task_claims')
+        .select(claimsSelect(false))
+        .eq('user_id', user.id)
+        .in('status', ['Active', 'PendingReview'])
+        .order('claimed_at', { ascending: false });
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.warn('[tasksService.listMyActiveClaims]', error);
@@ -2910,6 +3198,7 @@ export const tasksService = {
         inReview,
         category: task?.category || null,
         difficulty: task?.difficulty || null,
+        staffOnly: Boolean(task?.staff_only || task?.staffOnly),
         projectId,
         projectSlug,
         // Prefer slug for /projects/:id workspace routes

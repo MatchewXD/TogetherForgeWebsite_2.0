@@ -407,3 +407,5 @@ end;
 $$;
 
 grant execute on function public.claim_task(uuid) to authenticated;
+
+-- Staff Only claim/join gates live in supabase_task_staff_only.sql (run after this file).

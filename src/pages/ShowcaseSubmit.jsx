@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Buttons';
+import LoadingScreen from '../components/ui/LoadingScreen';
 import { supabase } from '../lib/supabase';
 import {
   submitShowcasePost,
@@ -176,9 +177,7 @@ const ShowcaseSubmit = () => {
 
       <div className="container-custom py-12 md:py-16 max-w-3xl">
         {authLoading ? (
-          <Card className="p-8 text-center text-text-secondary text-sm">
-            Checking sign-in…
-          </Card>
+          <LoadingScreen />
         ) : !authUser ? (
           <Card className="p-6 sm:p-10 border-neon-cyan/30 text-center space-y-4">
             <h2 className="text-xl font-bold text-white">Sign in required</h2>

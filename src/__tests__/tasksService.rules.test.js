@@ -11,7 +11,14 @@ import {
   OPEN_CLAIM_STATUSES,
   claimLimitForAcceptedCount,
   getTaskClaimBlockedReason,
+  getTaskStaffOnlyBlockedReason,
+  getUserTaskClaimBlockedReason,
+  isTaskStaffOnly,
+  isStagingTask,
+  canPublishStagingTask,
   isVolunteerClaimable,
+  STAFF_ONLY_TASK_MESSAGE,
+  STAGING_TASK_CLAIM_MESSAGE,
   isChecklistComplete,
   progressFromChecklist,
   attachTaskHierarchy,
@@ -108,6 +115,96 @@ describe('getTaskClaimBlockedReason / isVolunteerClaimable', () => {
         task({ depth: 2, isLocked: true, lockedWaitingOn: ['X'] })
       )
     ).toBe(false);
+  });
+});
+
+describe('Staff Only claim gate', () => {
+  it('maps staffOnly from the row flag and leaves volunteerClaimable structural', () => {
+    const leaf = task({
+      depth: 2,
+      hasChildren: false,
+      childCount: 0,
+      staffOnly: true,
+    });
+    expect(isTaskStaffOnly(leaf)).toBe(true);
+    expect(isVolunteerClaimable(leaf)).toBe(true);
+    expect(getTaskClaimBlockedReason(leaf)).toBeNull();
+  });
+
+  it('blocks volunteers and allows staff/founders', () => {
+    const leaf = task({
+      depth: 2,
+      hasChildren: false,
+      childCount: 0,
+      staffOnly: true,
+    });
+    expect(getTaskStaffOnlyBlockedReason(leaf, false)).toBe(
+      STAFF_ONLY_TASK_MESSAGE
+    );
+    expect(getTaskStaffOnlyBlockedReason(leaf, true)).toBeNull();
+    expect(
+      getUserTaskClaimBlockedReason(leaf, { isStaff: false })
+    ).toBe(STAFF_ONLY_TASK_MESSAGE);
+    expect(getUserTaskClaimBlockedReason(leaf, { isStaff: true })).toBeNull();
+  });
+
+  it('still prefers hierarchy/lock reasons over Staff Only', () => {
+    const locked = task({
+      depth: 2,
+      staffOnly: true,
+      isLocked: true,
+      lockedWaitingOn: ['Choose art style'],
+    });
+    expect(getUserTaskClaimBlockedReason(locked, { isStaff: false })).toMatch(
+      /Locked/i
+    );
+    expect(getUserTaskClaimBlockedReason(locked, { isStaff: true })).toMatch(
+      /Locked/i
+    );
+  });
+});
+
+describe('Staging vs Public board scope', () => {
+  it('blocks claiming staging tasks for everyone', () => {
+    const leaf = task({
+      depth: 2,
+      hasChildren: false,
+      childCount: 0,
+      boardScope: 'staging',
+    });
+    expect(isStagingTask(leaf)).toBe(true);
+    expect(isVolunteerClaimable(leaf)).toBe(false);
+    expect(getTaskClaimBlockedReason(leaf)).toBe(STAGING_TASK_CLAIM_MESSAGE);
+    expect(getUserTaskClaimBlockedReason(leaf, { isStaff: true })).toBe(
+      STAGING_TASK_CLAIM_MESSAGE
+    );
+  });
+
+  it('lets staff publish Epics and Mediums, not Smalls', () => {
+    expect(
+      canPublishStagingTask(task({ depth: 0, boardScope: 'staging' }))
+    ).toBe(true);
+    expect(
+      canPublishStagingTask(task({ depth: 1, boardScope: 'staging' }))
+    ).toBe(true);
+    expect(
+      canPublishStagingTask(task({ depth: 2, boardScope: 'staging' }))
+    ).toBe(false);
+    expect(
+      canPublishStagingTask(task({ depth: 0, boardScope: 'public' }))
+    ).toBe(false);
+  });
+
+  it('does not change public leaf claimability', () => {
+    const leaf = task({
+      depth: 2,
+      hasChildren: false,
+      childCount: 0,
+      boardScope: 'public',
+    });
+    expect(isStagingTask(leaf)).toBe(false);
+    expect(getTaskClaimBlockedReason(leaf)).toBeNull();
+    expect(isVolunteerClaimable(leaf)).toBe(true);
   });
 });
 

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Buttons';
+import LoadingScreen from '../components/ui/LoadingScreen';
 import { DISCORD_URL } from '../constants/communityLinks';
 import { useReportConcern } from '../context/ReportConcernContext';
 
@@ -99,9 +100,7 @@ const Contact = () => {
           </div>
 
           {authLoading ? (
-            <p className="text-center text-sm text-text-muted">
-              Checking sign-in…
-            </p>
+            <LoadingScreen variant="inline" />
           ) : !user ? (
             <div className="text-center space-y-4 py-6">
               <h2 className="text-xl font-bold text-white">Sign in required</h2>

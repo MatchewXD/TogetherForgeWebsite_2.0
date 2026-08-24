@@ -11,7 +11,7 @@ import {
   acceptCurrentLegal,
 } from '../../services/legalService';
 import { ensureUserProfile } from '../../utils/ensureUserProfile';
-import LoadingScreen from '../ui/LoadingScreen';
+import { dismissBootLoader } from '../../lib/bootLoader';
 import Button from '../ui/Buttons';
 import { LEGAL_PATHS, TERMS_VERSION } from '../../constants/legal';
 
@@ -86,6 +86,10 @@ export default function LegalAcceptanceGate({ children }) {
     return () => data?.subscription?.unsubscribe?.();
   }, [recheck]);
 
+  useEffect(() => {
+    if (phase !== 'loading') dismissBootLoader();
+  }, [phase]);
+
   const onAccept = async () => {
     if (!user?.id || !agreed) return;
     setBusy(true);
@@ -101,11 +105,7 @@ export default function LegalAcceptanceGate({ children }) {
   };
 
   if (phase === 'loading') {
-    return (
-      <div className="pt-20 min-h-screen bg-cyber-bg">
-        <LoadingScreen variant="section" message="Loading…" />
-      </div>
-    );
+    return null;
   }
 
   // Allow reading legal pages (and contact) without accepting

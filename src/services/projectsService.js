@@ -744,14 +744,24 @@ export async function listActiveTaskBoards() {
   const uuids = boards.map((b) => b.id).filter(Boolean);
   if (uuids.length > 0) {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('tasks')
-        .select('project_id, status')
-        .in('project_id', uuids);
+        .select('project_id, status, board_scope')
+        .in('project_id', uuids)
+        .eq('board_scope', 'public');
+      if (error && /board_scope/i.test(error.message || '')) {
+        const retry = await supabase
+          .from('tasks')
+          .select('project_id, status')
+          .in('project_id', uuids);
+        data = retry.data;
+        error = retry.error;
+      }
       if (!error && data) {
         const openBy = new Map();
         const totalBy = new Map();
         for (const row of data) {
+          if (String(row.board_scope || 'public') === 'staging') continue;
           const pid = row.project_id;
           if (!pid) continue;
           totalBy.set(pid, (totalBy.get(pid) || 0) + 1);

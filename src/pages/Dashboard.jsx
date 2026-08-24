@@ -722,6 +722,14 @@ const Dashboard = () => {
                                     In progress
                                   </Badge>
                                 )}
+                                {c.staffOnly && (
+                                  <Badge
+                                    variant="gold"
+                                    className="!normal-case tracking-wide"
+                                  >
+                                    Staff Only
+                                  </Badge>
+                                )}
                                 {releaseInfo?.warn && (
                                   <Badge
                                     variant="warning"

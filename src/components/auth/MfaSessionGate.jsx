@@ -4,8 +4,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { mfaService } from '../../services/mfaService';
+import { dismissBootLoader } from '../../lib/bootLoader';
 import MfaChallengeScreen from './MfaChallengeScreen';
-import LoadingScreen from '../ui/LoadingScreen';
 
 export default function MfaSessionGate({ children }) {
   const [phase, setPhase] = useState('loading'); // loading | challenge | ok
@@ -34,12 +34,12 @@ export default function MfaSessionGate({ children }) {
     return () => data?.subscription?.unsubscribe?.();
   }, [recheck]);
 
+  useEffect(() => {
+    if (phase === 'challenge') dismissBootLoader();
+  }, [phase]);
+
   if (phase === 'loading') {
-    return (
-      <div className="pt-20 min-h-screen bg-cyber-bg">
-        <LoadingScreen variant="section" message="Checking sign-in…" />
-      </div>
-    );
+    return null;
   }
 
   if (phase === 'challenge') {

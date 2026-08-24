@@ -74,6 +74,8 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 25. `supabase_task_scope_requests.sql` — “scope larger than expected”  
 26. `supabase_helpers_join_dedupe.sql` — approve join → helper append  
 27. `supabase_join_request_no_dupes.sql` — no duplicate join requests  
+27b. `supabase_task_staff_only.sql` — Staff Only flag; volunteers can view, only staff can claim  
+27c. `supabase_task_board_scope.sql` — Staging vs Public board; staff-only staging; publish Epic/Medium  
 
 ### 3. Contributions + media + community
 
@@ -175,6 +177,8 @@ supabase db query --linked -f supabase/sql/supabase_task_dependencies.sql
 supabase db query --linked -f supabase/sql/supabase_task_scope_requests.sql
 supabase db query --linked -f supabase/sql/supabase_helpers_join_dedupe.sql
 supabase db query --linked -f supabase/sql/supabase_join_request_no_dupes.sql
+supabase db query --linked -f supabase/sql/supabase_task_staff_only.sql
+supabase db query --linked -f supabase/sql/supabase_task_board_scope.sql
 
 # 3. Community / content
 supabase db query --linked -f supabase/sql/supabase_project_contributions.sql
@@ -273,6 +277,8 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_ai_token_pack_grants.sql` | Canonical pack grants + top-up under-credited purchases |
 | `supabase_identity_gate_github.sql` | GitHub for identity gate |
 | `supabase_task_dependencies.sql` | Task blocked-by edges |
+| `supabase_task_staff_only.sql` | Staff Only tasks (viewable by all, claimable by staff) |
+| `supabase_task_board_scope.sql` | Staging vs Public task boards + publish RPC |
 | `supabase_task_scope_requests.sql` | Scope help requests |
 | `supabase_parent_ready_for_review.sql` | Parent ready when children complete |
 | `supabase_page_content.sql` | Phase hub editable content |

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ImagePlus, X, Move } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { publicProfilePath } from '../../utils/profileLinks';
@@ -153,6 +153,7 @@ export default function ProfileSettingsForm({
   onUserChange,
   onSaved,
 }) {
+  const navigate = useNavigate();
   const [user, setUser] = useState(userProp || null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -777,12 +778,6 @@ export default function ProfileSettingsForm({
         bannerPos,
       })
     );
-    setMessage(
-      previousUsername &&
-        previousUsername.toLowerCase() !== storedName.toLowerCase()
-        ? `Username updated to ${storedName}. You can change it again in ${USERNAME_CHANGE_COOLDOWN_DAYS} days.`
-        : `Profile saved. Open your public page: /u/${encodeURIComponent(storedName)}`
-    );
     setEditingUsername(false);
     setUsernameChangeModalOpen(false);
     setLoading(false);
@@ -793,6 +788,12 @@ export default function ProfileSettingsForm({
       username: storedName,
     });
     onSaved?.();
+    const profilePath = publicProfilePath(storedName);
+    if (profilePath) {
+      navigate(profilePath);
+    } else {
+      setMessage('Profile saved.');
+    }
   };
 
   const usernameCooldown = useMemo(
@@ -843,20 +844,6 @@ export default function ProfileSettingsForm({
       </div>
 
       <div className="cyber-card p-6 sm:p-8 border border-cyber-border">
-          {message && (
-            <div
-              role="alert"
-              className={`mb-6 rounded-lg border px-4 py-3 text-sm ${
-                /username|cannot be opened|failed|error|must/i.test(message) &&
-                !/saved/i.test(message)
-                  ? 'border-semantic-warning/40 bg-semantic-warning/10 text-semantic-warning'
-                  : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
-              }`}
-            >
-              {message}
-            </div>
-          )}
-
           {/* Username — locked by default; change via explicit button */}
           <div className="mb-6">
             <label
@@ -1380,6 +1367,19 @@ export default function ProfileSettingsForm({
               {loading ? 'SAVING…' : 'Save profile'}
             </button>
           </div>
+          {message && (
+            <div
+              role="alert"
+              className={`mt-4 rounded-lg border px-4 py-3 text-sm ${
+                /username|cannot be opened|failed|error|must/i.test(message) &&
+                !/saved/i.test(message)
+                  ? 'border-semantic-warning/40 bg-semantic-warning/10 text-semantic-warning'
+                  : 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
+              }`}
+            >
+              {message}
+            </div>
+          )}
         </div>
     </div>
   );

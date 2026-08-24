@@ -196,6 +196,8 @@ $$;
 
 -- ---------------------------------------------------------------------------
 -- claim_task — skip progressive limit + claim cooldown when bypass
+-- If you re-run this file, also re-run supabase_task_staff_only.sql so the
+-- Staff Only claim gate stays in claim_task (insert trigger still enforces it).
 -- ---------------------------------------------------------------------------
 create or replace function public.claim_task(p_task_id uuid)
 returns jsonb

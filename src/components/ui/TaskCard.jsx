@@ -48,6 +48,8 @@ const TaskCard = ({
   joinRequestPending = false,
   /** Project Lead / Admin / Moderator - Update on completed tasks */
   canStaffUpdate = false,
+  /** Staff / founder viewer — can claim Staff Only tasks */
+  isStaff = false,
   /** Staff: open create form pre-filled from this task */
   onDuplicate = null,
 }) => {
@@ -69,11 +71,16 @@ const TaskCard = ({
   const lockedWaitingOn = Array.isArray(task.lockedWaitingOn)
     ? task.lockedWaitingOn
     : [];
-  const showClaim =
+  const staffViewer = Boolean(isStaff || canStaffUpdate);
+  const isStaffOnly = Boolean(task.staffOnly || task.staff_only);
+  const structurallyClaimable =
     !isLocked &&
     (task.volunteerClaimable !== undefined
       ? task.volunteerClaimable && !hasActiveClaim && !isCompleted
       : !hasActiveClaim && !isCompleted && depth > 0 && !hasChildren);
+  const showClaim = structurallyClaimable && (!isStaffOnly || staffViewer);
+  const showStaffOnlyInsteadOfClaim =
+    structurallyClaimable && isStaffOnly && !staffViewer;
 
   const showDifficultyEffort =
     depth > 0 && !hasChildren && (task.difficulty || task.estimatedEffort);
@@ -119,7 +126,8 @@ const TaskCard = ({
     currentUserId &&
     !isMine &&
     !joinRequestPending &&
-    onRequestJoin;
+    onRequestJoin &&
+    (!isStaffOnly || staffViewer);
 
   const hasChecklist = Boolean(
     task.hasChecklist || (task.subtasks && task.subtasks.length > 0)
@@ -176,6 +184,11 @@ const TaskCard = ({
             className="!normal-case tracking-wide !bg-white/5 !text-text-muted !border-white/15"
           >
             Locked
+          </Badge>
+        )}
+        {isStaffOnly && (
+          <Badge variant="gold" className="!normal-case tracking-wide">
+            Staff Only
           </Badge>
         )}
         {isCompleted && (
@@ -366,6 +379,11 @@ const TaskCard = ({
           >
             {claiming ? 'Claiming…' : 'Claim Task'}
           </Button>
+        )}
+        {showStaffOnlyInsteadOfClaim && (
+          <Badge variant="gold" className="!normal-case tracking-wide">
+            Staff Only
+          </Badge>
         )}
         {canRequestJoin && (
           <Button
