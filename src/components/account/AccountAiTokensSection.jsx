@@ -260,7 +260,7 @@ export default function AccountAiTokensSection() {
           </p>
         </div>
         {!donationsEnabled ? (
-          <PaymentsComingSoon variant="tokens" />
+          <PaymentsComingSoon />
         ) : (
         <div className="grid sm:grid-cols-3 gap-4">
           {packs.map((pack) => (

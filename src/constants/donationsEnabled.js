@@ -15,7 +15,7 @@
 export const DONATIONS_PAUSED_CODE = 'DONATIONS_PAUSED';
 
 export const DONATIONS_PAUSED_ERROR =
-  'Payment processing is temporarily unavailable while business banking is being set up.';
+  'Support and Runway are temporarily unavailable.';
 
 /** @param {unknown} raw */
 export function parseEnableFlag(raw) {

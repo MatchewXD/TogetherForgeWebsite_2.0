@@ -779,7 +779,7 @@ const SupportPage = () => {
         </section>
         </>
         ) : (
-          <PaymentsComingSoon variant="studio" />
+          <PaymentsComingSoon />
         )}
 
         {/* 3. Recent support */}

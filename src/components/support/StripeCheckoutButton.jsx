@@ -135,8 +135,8 @@ const StripeCheckoutButton = ({
       )}
       {!donationsEnabled && (
         <p className="mt-2 text-sm text-text-secondary leading-relaxed">
-          Coming soon. Payment processing is temporarily unavailable while
-          business banking is being set up.
+          Support and Runway are temporarily unavailable. They will be back
+          shortly.
         </p>
       )}
       {donationsEnabled && !ready && !error && (

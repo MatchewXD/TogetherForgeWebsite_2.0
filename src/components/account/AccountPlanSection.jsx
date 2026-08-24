@@ -207,7 +207,7 @@ export default function AccountPlanSection() {
               <p className="text-sm text-text-secondary mt-1">
                 {donationsEnabled
                   ? 'Subscribe on the Donate page for monthly support. One-time gifts do not create a plan.'
-                  : 'New monthly plans are paused while business banking is being set up. This is only temporary. Existing plans, if any, stay on this page.'}
+                  : 'Support and Runway are temporarily unavailable. They will be back shortly.'}
               </p>
             </div>
           </div>

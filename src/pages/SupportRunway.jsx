@@ -450,7 +450,7 @@ const SupportRunway = () => {
           )}
         </Card>
         ) : (
-          <PaymentsComingSoon variant="runway" />
+          <PaymentsComingSoon />
         )}
 
         <RecentDonationsList
