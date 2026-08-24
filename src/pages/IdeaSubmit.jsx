@@ -1706,7 +1706,8 @@ const IdeaSubmit = () => {
                 type="button"
                 variant="ghost"
                 className="gap-2"
-                onClick={step === 1 ? () => navigate(backHref) : goBack}
+                to={step === 1 ? backHref : undefined}
+                onClick={step === 1 ? undefined : goBack}
               >
                 <ArrowLeft className="w-4 h-4" />
                 {step === 1 ? 'Cancel' : 'Back'}

@@ -214,7 +214,7 @@ const PhaseIdeasSection = ({
           type="button"
           variant="secondary"
           className="gap-2 text-xs"
-          onClick={() => navigate(submitHref)}
+          to={submitHref}
         >
           <Plus className="w-3.5 h-3.5" />
           Submit a {meta.label} Idea

@@ -423,7 +423,7 @@ export default function IdeaAiToolsPanel({
           ) : null}
           <button
             type="button"
-            className={`${btnBase} border-cyber-border bg-cyber-surface/80 backdrop-blur-sm text-text-secondary hover:border-neon-purple/40 hover:text-white shadow-sm`}
+            className={`${btnBase} border-cyber-border bg-cyber-surface/90 text-text-secondary hover:border-neon-purple/40 hover:text-white shadow-sm`}
             disabled={Boolean(busy)}
             onClick={() => {
               setError('');
@@ -438,7 +438,7 @@ export default function IdeaAiToolsPanel({
           </button>
         </div>
       ) : (
-        <div className="rounded-xl border border-cyber-border/90 bg-cyber-surface/80 backdrop-blur-sm p-3 space-y-3 shadow-lg">
+        <div className="rounded-xl border border-cyber-border/90 bg-cyber-surface/90 p-3 space-y-3 shadow-lg">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <Sparkles className="w-4 h-4 text-neon-purple shrink-0" />

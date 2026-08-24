@@ -4,7 +4,7 @@
  */
 
 import { useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   FlaskConical,
@@ -135,8 +135,6 @@ const PURPOSE_POINTS = [
 ];
 
 const MechanicLab = () => {
-  const navigate = useNavigate();
-
   useEffect(() => {
     const prevTitle = document.title;
     document.title = PAGE_TITLE;
@@ -184,7 +182,7 @@ const MechanicLab = () => {
               <Button
                 size="lg"
                 className="gap-2 w-full sm:w-auto"
-                onClick={() => navigate('/ideas/wizard')}
+                to="/ideas/wizard"
               >
                 <Lightbulb className="w-4 h-4" />
                 Submit a mechanic
@@ -193,7 +191,7 @@ const MechanicLab = () => {
                 size="lg"
                 variant="secondary"
                 className="gap-2 w-full sm:w-auto"
-                onClick={() => navigate('/ideas')}
+                to="/ideas"
               >
                 <Vote className="w-4 h-4" />
                 Vote on ideas
@@ -202,7 +200,7 @@ const MechanicLab = () => {
                 size="lg"
                 variant="outline"
                 className="gap-2 w-full sm:w-auto"
-                onClick={() => navigate('/get-involved')}
+                to="/get-involved"
               >
                 <Users className="w-4 h-4" />
                 Get involved
@@ -302,14 +300,14 @@ const MechanicLab = () => {
                       size="sm"
                       variant="secondary"
                       className="gap-1.5"
-                      onClick={() => navigate(`/ideas?q=${encodeURIComponent(demo.title)}`)}
+                      to={`/ideas?q=${encodeURIComponent(demo.title)}`}
                     >
                       Learn more
                     </Button>
                     <Button
                       size="sm"
                       className="gap-1.5"
-                      onClick={() => navigate('/ideas')}
+                      to="/ideas"
                     >
                       <Vote className="w-3.5 h-3.5" />
                       Vote
@@ -318,7 +316,7 @@ const MechanicLab = () => {
                       size="sm"
                       variant="ghost"
                       className="gap-1.5"
-                      onClick={() => navigate('/ideas')}
+                      to="/ideas"
                     >
                       <MessageCircle className="w-3.5 h-3.5" />
                       Discuss
@@ -372,7 +370,7 @@ const MechanicLab = () => {
                     variant="secondary"
                     size="sm"
                     className="gap-2 self-start"
-                    onClick={() => navigate(item.cta.to)}
+                    to={item.cta.to}
                   >
                     {item.cta.label}
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -474,7 +472,7 @@ const MechanicLab = () => {
               <Button
                 size="lg"
                 className="gap-2"
-                onClick={() => navigate('/ideas/wizard')}
+                to="/ideas/wizard"
               >
                 Idea Wizard
               </Button>
@@ -482,7 +480,7 @@ const MechanicLab = () => {
                 size="lg"
                 variant="secondary"
                 className="gap-2"
-                onClick={() => navigate('/get-involved')}
+                to="/get-involved"
               >
                 Get Involved
               </Button>
@@ -490,7 +488,7 @@ const MechanicLab = () => {
                 size="lg"
                 variant="outline"
                 className="gap-2"
-                onClick={() => navigate('/projects')}
+                to="/projects"
               >
                 View Projects
               </Button>

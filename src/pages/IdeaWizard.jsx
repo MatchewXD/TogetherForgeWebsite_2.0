@@ -914,7 +914,7 @@ const IdeaWizard = () => {
       />
 
       {/* Top bar */}
-      <header className="relative z-20 border-b border-cyber-border bg-cyber-surface/90 backdrop-blur sticky top-0">
+      <header className="relative z-20 border-b border-cyber-border bg-cyber-surface sticky top-0">
         <div className="container-custom py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <Lightbulb className="w-5 h-5 text-neon-cyan shrink-0" />

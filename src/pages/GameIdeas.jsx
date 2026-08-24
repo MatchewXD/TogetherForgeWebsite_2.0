@@ -28,6 +28,7 @@ import IdeaCard from '../components/ui/IdeaCard';
 import Badge from '../components/ui/Badge';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Buttons';
+import BannerImage from '../components/ui/BannerImage';
 import DiscordLink from '../components/ui/DiscordLink';
 import LoadingScreen from '../components/ui/LoadingScreen';
 import TagPicker from '../components/ideas/TagPicker';
@@ -628,24 +629,14 @@ const GameIdeas = () => {
       {/* Page header banner */}
       <header className="relative pt-20 overflow-hidden">
         <div className="absolute inset-0" aria-hidden="true">
-          <img
+          <BannerImage
             src={IDEAS_BANNER_SRC}
-            alt=""
             className="absolute inset-0 w-full h-full object-cover object-center"
-            decoding="async"
             fetchPriority="high"
           />
-          {/* Readability: base dim + center-weighted for centered title */}
-          <div className="absolute inset-0 bg-cyber-bg/55" />
-          <div className="absolute inset-0 bg-gradient-to-b from-cyber-bg/80 via-cyber-bg/60 to-transparent" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgb(var(--tf-cyber-bg)/0.45)_0%,transparent_70%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgb(var(--tf-neon-cyan)/0.08)_0%,transparent_55%)]" />
+          <div className="tf-banner-scrim tf-banner-scrim-center" />
         </div>
-        {/* Soft fade into page background (matches home hero) */}
-        <div
-          className="absolute bottom-0 inset-x-0 h-28 sm:h-32 pointer-events-none z-[5] bg-gradient-to-b from-transparent via-cyber-bg/50 to-cyber-bg"
-          aria-hidden="true"
-        />
+        <div className="tf-banner-fade h-28 sm:h-32" aria-hidden="true" />
 
         <div className="container-custom relative z-10 py-10 md:py-14">
           <div className="text-center max-w-3xl mx-auto [text-shadow:0_1px_2px_rgb(0_0_0_/_0.9),0_2px_16px_rgb(0_0_0_/_0.55)]">
@@ -671,7 +662,7 @@ const GameIdeas = () => {
 
             {/* Feed toggle + CTA */}
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <div className="inline-flex items-center bg-cyber-surface/90 backdrop-blur-sm border border-cyber-border rounded-lg p-1">
+              <div className="inline-flex items-center bg-cyber-surface/95 border border-cyber-border rounded-lg p-1">
                 <button
                   type="button"
                   onClick={() => {

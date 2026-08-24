@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   ExternalLink,
@@ -16,6 +16,7 @@ import {
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
+import BannerImage from '../components/ui/BannerImage';
 import { listReleasedGames } from '../services/projectsService';
 import { displayProjectTitle } from '../utils/ideaStatus';
 import {
@@ -28,7 +29,6 @@ import {
 const RELEASED_BANNER_SRC = '/images/Release_HeroImage.webp';
 
 const ReleasedGames = () => {
-  const navigate = useNavigate();
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -55,22 +55,14 @@ const ReleasedGames = () => {
       {/* Page header banner */}
       <header className="relative pt-20 overflow-hidden">
         <div className="absolute inset-0" aria-hidden="true">
-          <img
+          <BannerImage
             src={RELEASED_BANNER_SRC}
-            alt=""
             className="absolute inset-0 w-full h-full object-cover object-[center_40%] sm:object-center"
-            decoding="async"
             fetchPriority="high"
           />
-          <div className="absolute inset-0 bg-cyber-bg/55" />
-          <div className="absolute inset-0 bg-gradient-to-r from-cyber-bg/96 via-cyber-bg/85 to-cyber-bg/35" />
-          <div className="absolute inset-0 bg-gradient-to-b from-cyber-bg/70 via-cyber-bg/25 to-transparent" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgb(var(--tf-forge-gold)/0.1)_0%,transparent_50%)]" />
+          <div className="tf-banner-scrim tf-banner-scrim-gold" />
         </div>
-        <div
-          className="absolute bottom-0 inset-x-0 h-28 sm:h-32 pointer-events-none z-[5] bg-gradient-to-b from-transparent via-cyber-bg/50 to-cyber-bg"
-          aria-hidden="true"
-        />
+        <div className="tf-banner-fade h-28 sm:h-32" aria-hidden="true" />
 
         <div className="container-custom relative z-10 py-10 sm:py-12 md:py-14 min-h-[16rem] sm:min-h-[18rem] md:min-h-[20rem] flex flex-col justify-center">
           <div className="max-w-3xl [text-shadow:0_1px_2px_rgb(0_0_0_/_0.9),0_2px_16px_rgb(0_0_0_/_0.55)]">
@@ -150,17 +142,14 @@ const ReleasedGames = () => {
                 <li key={game.id || slug}>
                   <Card
                     interactive
-                    role="link"
-                    tabIndex={0}
-                    onClick={() => navigate(`/released/${slug}`)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        navigate(`/released/${slug}`);
-                      }
-                    }}
-                    className="p-5 sm:p-6 h-full flex flex-col cyber-card-gold group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-cyber-bg"
+                    className="relative p-5 sm:p-6 h-full flex flex-col cyber-card-gold group"
                   >
+                    <Link
+                      to={`/released/${slug}`}
+                      className="absolute inset-0 z-0 rounded-[inherit] focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-cyber-bg"
+                      aria-label={`View ${title}`}
+                    />
+                    <div className="relative z-10 flex flex-1 flex-col pointer-events-none">
                     <div className="flex flex-wrap items-center gap-2 mb-3">
                       <Badge variant={phaseBadgeVariant(game.phase)}>
                         {game.phase || 'Early'}
@@ -184,15 +173,14 @@ const ReleasedGames = () => {
                       </p>
                     )}
                     {links.length > 0 && (
-                      <div className="mt-4 flex flex-wrap gap-2">
+                      <div className="mt-4 flex flex-wrap gap-2 pointer-events-auto relative z-10">
                         {links.slice(0, 4).map((link) => (
                           <a
                             key={`${slug}-${link.url}`}
                             href={link.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 text-xs font-mono tracking-wide text-neon-cyan hover:text-white border border-neon-cyan/30 rounded-full px-2.5 py-1 transition-colors relative z-10"
+                            className="inline-flex items-center gap-1 text-xs font-mono tracking-wide text-neon-cyan hover:text-white border border-neon-cyan/30 rounded-full px-2.5 py-1 transition-colors"
                           >
                             {link.label}
                             <ExternalLink className="w-3 h-3" />
@@ -205,6 +193,7 @@ const ReleasedGames = () => {
                         View Details
                         <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition" />
                       </span>
+                    </div>
                     </div>
                   </Card>
                 </li>

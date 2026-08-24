@@ -102,7 +102,7 @@ const Modal = ({
   // Portal to body: parent .cyber-card / transforms break fixed centering on mobile
   const node = (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overscroll-none"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 p-4 overscroll-none"
       style={{
         // iOS visual viewport: keep overlay on the actual screen, not the document
         position: 'fixed',

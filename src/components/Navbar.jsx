@@ -11,7 +11,7 @@ import AvatarMenu from './account/AvatarMenu';
 import { onProfileUpdated } from '../utils/profileEvents';
 import { SHOW_RELEASED_GAMES } from '../constants/featureFlags';
 
-const TF_LOGO_SRC = '/images/TF_Logo_Ideas_V2.png';
+const TF_LOGO_SRC = '/images/TF_Logo_Ideas_V2.webp';
 
 /** Always-visible top-level links */
 const TOP_LINKS = [
@@ -281,7 +281,7 @@ const Navbar = () => {
         <Link to="/" className="flex items-center gap-2.5 sm:gap-3 group min-w-0">
           <div className="relative w-10 h-10 sm:w-11 sm:h-11 shrink-0 flex items-center justify-center">
             <div
-              className="absolute inset-0 rounded-full bg-semantic-achievement/15 blur-md opacity-70 group-hover:opacity-100 transition-opacity"
+              className="absolute inset-0 rounded-full bg-semantic-achievement/20 opacity-80 group-hover:opacity-100 transition-opacity"
               aria-hidden="true"
             />
             <img
@@ -371,7 +371,7 @@ const Navbar = () => {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="mobile-menu task-scroll lg:hidden border-t border-white/10 bg-cyber-bg/98 backdrop-blur-xl max-h-[calc(100vh-5rem)] overflow-y-auto">
+        <div className="mobile-menu task-scroll lg:hidden border-t border-white/10 bg-cyber-bg max-h-[calc(100vh-5rem)] overflow-y-auto">
           <div className="container-custom py-6 flex flex-col gap-1 text-sm font-mono tracking-widest">
             {TOP_LINKS.map((link) => (
               <Link

@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   Bug,
   ImagePlus,
@@ -27,7 +27,6 @@ const fieldControl =
   'w-full bg-cyber-surface border border-cyber-border rounded-lg px-4 py-3 text-text-primary placeholder:text-text-muted focus:border-neon-cyan focus:outline-none transition-colors';
 
 const ReportBug = () => {
-  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -169,7 +168,7 @@ const ReportBug = () => {
               </p>
             )}
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
-              <Button onClick={() => navigate('/bugs')}>View bug tracker</Button>
+              <Button to="/bugs">View bug tracker</Button>
               <Button
                 variant="secondary"
                 onClick={() => {

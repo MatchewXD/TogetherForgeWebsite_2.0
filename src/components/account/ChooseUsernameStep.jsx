@@ -109,7 +109,7 @@ export default function ChooseUsernameStep({ user, onComplete }) {
       <div className="container-custom relative z-10 py-12 max-w-md">
         <div className="text-center mb-8">
           <img
-            src="/images/TF_Logo_Ideas_V2.png"
+            src="/images/TF_Logo_Ideas_V2.webp"
             alt="Together Forge"
             className="w-16 h-16 mx-auto mb-4 object-contain"
           />

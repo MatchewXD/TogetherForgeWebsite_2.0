@@ -84,7 +84,7 @@ function App() {
             <div className="min-h-screen bg-cyber-bg text-text-primary font-display flex flex-col">
                 <Navbar />
 
-                <div className="scanline-overlay" />
+                <div className="scanline-overlay" aria-hidden="true" />
 
                 <main className="flex-1">
                     <Routes>

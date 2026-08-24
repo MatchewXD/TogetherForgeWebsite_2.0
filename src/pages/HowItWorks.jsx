@@ -2,7 +2,6 @@
  * How It Works: how work moves from idea to shipped game.
  */
 
-import { useNavigate } from 'react-router-dom';
 import {
   Lightbulb,
   MessageSquare,
@@ -60,8 +59,6 @@ const STEPS = [
 ];
 
 const HowItWorks = () => {
-  const navigate = useNavigate();
-
   return (
     <div className="min-h-screen bg-cyber-bg text-text-primary">
       <header className="relative pt-20 border-b border-cyber-border bg-cyber-surface/80">
@@ -142,7 +139,7 @@ const HowItWorks = () => {
           <Button
             size="lg"
             className="gap-2"
-            onClick={() => navigate('/get-involved')}
+            to="/get-involved"
           >
             <Users className="w-4 h-4" />
             Get Involved

@@ -1602,10 +1602,9 @@ const Account = () => {
                       const Icon = SECTION_ICONS[s.id] || User;
                       const active = s.id === section;
                       return (
-                        <button
+                        <Link
                           key={s.id}
-                          type="button"
-                          onClick={() => navigate(accountPath(s.id))}
+                          to={accountPath(s.id)}
                           className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm whitespace-nowrap lg:whitespace-normal transition-colors ${
                             active
                               ? s.id === 'danger'
@@ -1616,7 +1615,7 @@ const Account = () => {
                         >
                           <Icon className="w-4 h-4 shrink-0" />
                           <span className="font-medium">{s.label}</span>
-                        </button>
+                        </Link>
                       );
                     })}
                   </div>

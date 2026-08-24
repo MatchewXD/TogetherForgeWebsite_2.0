@@ -99,7 +99,7 @@ body {
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
+    text-rendering: optimizeSpeed;
     transition: background-color 0.25s ease, color 0.25s ease;
 }
 
@@ -153,16 +153,15 @@ textarea {
     text-shadow: 0 0 3px currentColor;
 }
 
-/* Cyberpunk Grid Background */
+/* Cyberpunk Grid Background — static; animating background-position is costly on CPU raster */
 .cyber-grid {
     background-image:
         linear-gradient(rgb(var(--tf-neon-cyan) / 0.06) 1px, transparent 1px),
         linear-gradient(90deg, rgb(var(--tf-neon-cyan) / 0.06) 1px, transparent 1px);
     background-size: 48px 48px;
-    animation: grid-move 25s linear infinite;
 }
 
-/* Subtle Scanline Overlay */
+/* Subtle Scanline Overlay — static fill, no mix-blend (blend of the full viewport is expensive) */
 .scanline-overlay {
     position: fixed;
     top: 0;
@@ -174,12 +173,10 @@ textarea {
     background: repeating-linear-gradient(
         to bottom,
         transparent 0px,
-        transparent 3px,
-        rgb(var(--tf-neon-cyan) / 0.015) 3px,
-        rgb(var(--tf-neon-cyan) / 0.015) 6px
+        transparent 4px,
+        rgb(var(--tf-neon-cyan) / 0.018) 4px,
+        rgb(var(--tf-neon-cyan) / 0.018) 5px
     );
-    animation: scanline 6s linear infinite;
-    mix-blend-mode: screen;
 }
 
 /* ============================================================
@@ -204,14 +201,14 @@ textarea {
     isolation: isolate;
     border-radius: 0 !important;
     /* Clean dark panel - utilities (bg-cyber-card/80 etc.) still win when set */
-    background-color: rgb(var(--tf-cyber-card) / 0.85);
+    background-color: rgb(var(--tf-cyber-card) / 0.92);
     /* Rectangular CSS borders can't follow the chamfer - frame is ::before */
     border-color: transparent;
     border-style: solid;
     border-width: 0;
-    backdrop-filter: blur(12px);
+    /* No backdrop-filter: blur on every card — that is the main software-GL tax */
     /* No transform here - non-interactive cards stay still */
-    transition: filter 0.25s ease;
+    transition: box-shadow 0.25s ease, transform 0.25s ease;
     clip-path: polygon(
         var(--panel-cut) 0,
         calc(100% - var(--panel-cut)) 0,
@@ -319,12 +316,12 @@ a.cyber-card,
 .cyber-card.interactive {
     transition:
         transform 0.25s cubic-bezier(0.23, 1, 0.32, 1),
-        filter 0.25s ease;
+        box-shadow 0.25s ease;
 }
 
 a.cyber-card:hover,
 .cyber-card.interactive:hover {
-    filter: drop-shadow(0 0 10px rgb(var(--tf-neon-cyan) / 0.22));
+    box-shadow: 0 0 18px rgb(var(--tf-neon-cyan) / 0.18);
     transform: translateY(-2px);
 }
 
@@ -347,7 +344,7 @@ a.cyber-card:hover::after,
 a.cyber-card:focus-visible,
 .cyber-card.interactive:focus-visible {
     outline: none;
-    filter: drop-shadow(0 0 0 2px rgb(var(--tf-neon-cyan) / 0.55));
+    box-shadow: 0 0 0 2px rgb(var(--tf-neon-cyan) / 0.55);
 }
 
 /* Non-interactive: never move (guard against accidental utilities) */
@@ -362,7 +359,6 @@ a.cyber-card:focus-visible,
     --panel-cut: 7px;
     --panel-frame: 1px;
     --panel-tick: 8px;
-    backdrop-filter: none;
 }
 
 .cyber-card.cyber-card-subtle::before,
@@ -599,15 +595,20 @@ a.cyber-card:focus-visible,
     color: var(--neon-cyan);
     background: transparent;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.23, 1.0, 0.32, 1);
     overflow: hidden;
     text-decoration: none;
+    transition:
+        color 0.2s cubic-bezier(0.23, 1, 0.32, 1),
+        background-color 0.2s cubic-bezier(0.23, 1, 0.32, 1),
+        border-color 0.2s cubic-bezier(0.23, 1, 0.32, 1),
+        box-shadow 0.2s cubic-bezier(0.23, 1, 0.32, 1),
+        transform 0.2s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
     .btn-neon:hover {
         background: rgb(var(--tf-neon-cyan) / 0.1);
         color: white;
-        box-shadow: 0 0 15px rgb(var(--tf-neon-cyan) / 0.5), 0 0 30px rgb(var(--tf-neon-cyan) / 0.2);
+        box-shadow: 0 0 14px rgb(var(--tf-neon-cyan) / 0.35);
         border-color: var(--neon-cyan);
         transform: translateY(-1px);
     }
@@ -619,7 +620,7 @@ a.cyber-card:focus-visible,
 
     .btn-neon-magenta:hover {
         background: rgb(var(--tf-neon-magenta) / 0.1);
-        box-shadow: 0 0 15px rgb(var(--tf-neon-magenta) / 0.5), 0 0 30px rgb(var(--tf-neon-magenta) / 0.2);
+        box-shadow: 0 0 14px rgb(var(--tf-neon-magenta) / 0.35);
         border-color: var(--neon-magenta);
     }
 
@@ -633,9 +634,8 @@ a.cyber-card:focus-visible,
 }
 
     .btn-primary:hover {
-        filter: brightness(1.1);
-        box-shadow: 0 0 30px rgb(var(--tf-glow-rgb) / 0.6);
-        transform: translateY(-2px) scale(1.01);
+        box-shadow: 0 0 22px rgb(var(--tf-glow-rgb) / 0.5);
+        transform: translateY(-2px);
     }
 
 /* Section Header with accent underline
@@ -720,10 +720,9 @@ a.cyber-card:focus-visible,
         color: var(--neon-magenta);
     }
 
-/* Navbar glass */
+/* Navbar — near-opaque fill (blur of scrolling content is a software-GL tax) */
 .navbar {
-    background: rgb(var(--tf-cyber-bg) / 0.95);
-    backdrop-filter: blur(16px);
+    background: rgb(var(--tf-cyber-bg) / 0.97);
     border-bottom: 1px solid rgb(var(--tf-neon-cyan) / 0.1);
 }
 
@@ -772,6 +771,67 @@ html {
     scroll-behavior: smooth;
 }
 
+/* Single-layer page-banner readability (replaces 3–4 stacked overlay divs) */
+.tf-banner-scrim {
+    --tf-banner-accent: rgb(var(--tf-neon-cyan) / 0.07);
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse at 30% 50%, var(--tf-banner-accent) 0%, transparent 50%),
+        linear-gradient(
+            to right,
+            rgb(var(--tf-cyber-bg) / 0.9) 0%,
+            rgb(var(--tf-cyber-bg) / 0.55) 48%,
+            rgb(var(--tf-cyber-bg) / 0.18) 100%
+        ),
+        linear-gradient(
+            to bottom,
+            rgb(var(--tf-cyber-bg) / 0.5) 0%,
+            rgb(var(--tf-cyber-bg) / 0.15) 42%,
+            transparent 70%
+        );
+}
+
+.tf-banner-scrim-center {
+    --tf-banner-accent: rgb(var(--tf-neon-cyan) / 0.08);
+    background:
+        radial-gradient(ellipse at center, rgb(var(--tf-cyber-bg) / 0.4) 0%, transparent 70%),
+        radial-gradient(ellipse at center, var(--tf-banner-accent) 0%, transparent 55%),
+        linear-gradient(
+            to bottom,
+            rgb(var(--tf-cyber-bg) / 0.72) 0%,
+            rgb(var(--tf-cyber-bg) / 0.45) 45%,
+            transparent 75%
+        );
+}
+
+.tf-banner-scrim-gold {
+    --tf-banner-accent: rgb(var(--tf-forge-gold) / 0.09);
+}
+
+.tf-banner-scrim-purple {
+    --tf-banner-accent: rgb(var(--tf-neon-purple) / 0.09);
+}
+
+.tf-banner-scrim-magenta {
+    --tf-banner-accent: rgb(var(--tf-neon-magenta) / 0.09);
+}
+
+.tf-banner-fade {
+    position: absolute;
+    bottom: 0;
+    inset-inline: 0;
+    pointer-events: none;
+    z-index: 5;
+    background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        rgb(var(--tf-cyber-bg) / 0.45) 45%,
+        rgb(var(--tf-cyber-bg)) 100%
+    );
+}
+
 /* ============================================
    HOME - Tier 1 Exploration: Dark Future Atmospheric Forge
    Metallic TF emblem + ember/gold workshop energy.
@@ -803,38 +863,39 @@ html {
 }
 
 /* Light full-frame wash so the art stays visible */
-.home-page .home-hero-bg-scrim {
-    background: linear-gradient(
-      to bottom,
-      rgb(var(--tf-cyber-bg) / 0.28) 0%,
-      rgb(var(--tf-cyber-bg) / 0.22) 42%,
-      rgb(var(--tf-cyber-bg) / 0.62) 100%
-    );
+.home-page .home-hero-overlay {
+    background:
+      radial-gradient(
+        ellipse 80% 55% at 50% 28%,
+        rgb(var(--tf-forge-gold) / 0.1) 0%,
+        transparent 62%
+      ),
+      radial-gradient(
+        ellipse 80% 75% at 50% 38%,
+        transparent 0%,
+        rgb(var(--tf-cyber-bg) / 0.16) 70%,
+        rgb(var(--tf-cyber-bg) / 0.52) 100%
+      ),
+      linear-gradient(
+        to bottom,
+        rgb(var(--tf-cyber-bg) / 0.28) 0%,
+        rgb(var(--tf-cyber-bg) / 0.2) 42%,
+        rgb(var(--tf-cyber-bg) / 0.62) 100%
+      );
 }
 
-.home-page .home-hero-bg-img {
-    filter: saturate(1.05) contrast(1.04);
-}
-
-.home-page .home-hero-atmosphere {
-    background-image: var(--home-ember), var(--home-forge-depth);
-    opacity: 0.4;
-    mix-blend-mode: soft-light;
-}
-
-.home-page .home-hero-vignette {
+.home-page .home-hero-copy-glow {
     background: radial-gradient(
-      ellipse 80% 75% at 50% 38%,
-      transparent 0%,
-      rgb(var(--tf-cyber-bg) / 0.18) 70%,
-      rgb(var(--tf-cyber-bg) / 0.55) 100%
+      ellipse at center,
+      rgb(var(--tf-cyber-bg) / 0.7) 0%,
+      rgb(var(--tf-cyber-bg) / 0.32) 48%,
+      transparent 72%
     );
 }
 
-/* Logo: metallic focal + ember spark glow */
+/* Logo glow is the ember layer (opacity/transform), not a filter drop-shadow */
 .home-page .home-hero-logo-wrap {
-    filter: drop-shadow(0 0 28px rgb(var(--tf-forge-gold) / 0.35))
-      drop-shadow(0 12px 40px rgb(0 0 0 / 0.65));
+    border-radius: 0;
 }
 
 .home-page .home-hero-logo-ember {
@@ -881,17 +942,15 @@ html {
 
 .home-page .home-hero-status {
     border-color: rgb(var(--tf-neon-cyan) / 0.4);
-    background: rgb(var(--tf-cyber-bg) / 0.65);
-    backdrop-filter: blur(8px);
-    box-shadow: 0 0 20px rgb(var(--tf-neon-cyan) / 0.1);
+    background: rgb(var(--tf-cyber-bg) / 0.78);
+    box-shadow: 0 0 16px rgb(var(--tf-neon-cyan) / 0.1);
 }
 
 .home-page .home-hero-cta-primary {
     box-shadow:
       0 0 0 1px rgb(var(--tf-neon-cyan) / 0.55),
-      0 0 32px rgb(var(--tf-neon-cyan) / 0.32),
-      0 16px 48px rgb(0 0 0 / 0.5);
-    transform: translateZ(0);
+      0 0 24px rgb(var(--tf-neon-cyan) / 0.28),
+      0 12px 32px rgb(0 0 0 / 0.45);
 }
 
 .home-page .home-hero-cta-primary:hover {
@@ -1197,8 +1256,7 @@ html {
 }
 
 .home-page .home-trust-panel {
-    background-color: rgb(var(--tf-cyber-card) / 0.82);
-    backdrop-filter: none;
+    background-color: rgb(var(--tf-cyber-card) / 0.9);
 }
 
 .home-page .home-trust-panel::before {
@@ -1233,11 +1291,13 @@ html {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .home-page .home-hero-logo-ember {
-        animation: none;
+    html {
+        scroll-behavior: auto;
     }
 
-    .tf-hero-continue-chevrons {
+    .home-page .home-hero-logo-ember,
+    .tf-hero-continue-chevrons,
+    .flicker {
         animation: none;
     }
 }
@@ -1279,13 +1339,11 @@ html {
     width: 100%;
     transform-origin: left center;
     transform: scaleX(0);
-    will-change: transform;
     background: linear-gradient(
         90deg,
         rgb(var(--tf-neon-cyan) / 0.5) 0%,
         rgb(var(--tf-forge-gold) / 0.85) 100%
     );
-    box-shadow: 0 0 8px rgb(var(--tf-forge-gold) / 0.18);
     transition: none;
 }
 
@@ -1495,7 +1553,10 @@ html {
     .btn-neon,
     .cyber-card,
     .tf-loader-fill,
-    .tf-loader-sheen {
+    .tf-loader-sheen,
+    .home-page .home-hero-logo-ember,
+    .tf-hero-continue-chevrons,
+    .flicker {
         animation: none !important;
         transition: none !important;
     }
@@ -1506,29 +1567,104 @@ html {
         transform: none;
         opacity: 0.85;
     }
+
+    a.cyber-card:hover,
+    .cyber-card.interactive:hover,
+    .btn-neon:hover,
+    .btn-primary:hover {
+        transform: none;
+    }
+}
+
+/*
+ * Lite visual path: software GL, weak GPU, reduced motion, or slow frames.
+ * Class is set in index.html + src/lib/visualPerformance.js — never explained in UI.
+ */
+html.tf-lite-fx .scanline-overlay,
+html.tf-lite-fx .cyber-grid {
+    display: none !important;
+}
+
+html.tf-lite-fx .navbar,
+html.tf-lite-fx .cyber-card,
+html.tf-lite-fx .static-card,
+html.tf-lite-fx .clickable-card,
+html.tf-lite-fx [class*="backdrop-blur"] {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+
+html.tf-lite-fx .blur-2xl,
+html.tf-lite-fx .blur-xl,
+html.tf-lite-fx .blur-lg,
+html.tf-lite-fx .blur-md,
+html.tf-lite-fx .blur-sm {
+    filter: none !important;
+}
+
+html.tf-lite-fx .home-page .home-hero-logo-ember,
+html.tf-lite-fx .tf-hero-continue-chevrons,
+html.tf-lite-fx .flicker,
+html.tf-lite-fx .tf-loader-sheen {
+    animation: none !important;
+}
+
+html.tf-lite-fx .home-page .home-hero-cta-primary,
+html.tf-lite-fx .shadow-neon-cyan,
+html.tf-lite-fx .shadow-neon-magenta,
+html.tf-lite-fx .shadow-neon-glow,
+html.tf-lite-fx .shadow-neon-purple,
+html.tf-lite-fx .shadow-forge-gold {
+    box-shadow: none !important;
+}
+
+html.tf-lite-fx .btn-primary {
+    box-shadow: none !important;
+}
+
+html.tf-lite-fx a.cyber-card:hover,
+html.tf-lite-fx .cyber-card.interactive:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+html.tf-lite-fx [class*="mix-blend"] {
+    mix-blend-mode: normal !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .scanline-overlay {
+        display: none !important;
+    }
+
+    [class*="backdrop-blur"] {
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+    }
 }
 
 /* Static Card - No hover reaction */
 .static-card {
-    background-color: rgba(17, 17, 26, 0.85);
+    background-color: rgba(17, 17, 26, 0.92);
     border: 1px solid rgba(0, 249, 255, 0.15);
-    backdrop-filter: blur(12px);
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 /* Clickable Card - With hover effects */
 .clickable-card {
-    background-color: rgba(17, 17, 26, 0.85);
+    background-color: rgba(17, 17, 26, 0.92);
     border: 1px solid rgba(0, 249, 255, 0.15);
-    backdrop-filter: blur(12px);
-    transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+    transition:
+        border-color 0.2s cubic-bezier(0.23, 1, 0.32, 1),
+        box-shadow 0.2s cubic-bezier(0.23, 1, 0.32, 1),
+        transform 0.2s cubic-bezier(0.23, 1, 0.32, 1);
     cursor: pointer;
 }
 
     .clickable-card:hover {
         border-color: rgba(0, 249, 255, 0.4);
-        box-shadow: 0 0 0 1px rgba(0, 249, 255, 0.1), 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-        transform: translateY(-4px);
+        box-shadow: 0 0 0 1px rgba(0, 249, 255, 0.1), 0 12px 20px rgb(0 0 0 / 0.25);
+        transform: translateY(-2px);
     }
 
 .back-link {

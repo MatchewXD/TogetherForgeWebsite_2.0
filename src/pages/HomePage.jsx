@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   Play,
@@ -39,8 +39,9 @@ import ScrollProgress, {
 import { getHomeCommunityStats } from '../services/communityStatsService';
 import { DISCORD_URL, DISCORD_LABELS } from '../constants/communityLinks';
 import DiscordLink from '../components/ui/DiscordLink';
+import BannerImage from '../components/ui/BannerImage';
 
-const TF_LOGO_SRC = '/images/TF_Logo_Ideas_V2.png';
+const TF_LOGO_SRC = '/images/TF_Logo_Ideas_V2.webp';
 const HERO_BG_SRC = '/images/Hero_Background.webp';
 
 const sectionTitleClass =
@@ -198,7 +199,6 @@ const RECENT_ACTIVITY = [
 const INTRO_VIDEO_URL = 'https://www.youtube.com/@MXDGameGuides';
 
 const HomePage = () => {
-  const navigate = useNavigate();
   const [communityStats, setCommunityStats] = useState(EMPTY_STATS);
   const [statsLoading, setStatsLoading] = useState(true);
 
@@ -241,26 +241,19 @@ const HomePage = () => {
       <section className="home-hero relative min-h-[100dvh] flex flex-col overflow-hidden">
         {/* Hero background image */}
         <div className="absolute inset-0" aria-hidden="true">
-          <img
+          <BannerImage
             src={HERO_BG_SRC}
-            alt=""
             className="home-hero-bg-img absolute inset-0 w-full h-full object-cover object-center"
-            decoding="async"
             fetchPriority="high"
           />
-          {/* Readability scrim - keeps logo + copy legible */}
-          <div className="home-hero-bg-scrim absolute inset-0" />
-          <div className="home-hero-atmosphere absolute inset-0" />
-          <div className="home-hero-vignette absolute inset-0" />
-          {/* Classic: light grid on top of image; Forge nearly hides it via CSS */}
-          <div className="absolute inset-0 cyber-grid opacity-40" />
+          <div className="home-hero-overlay absolute inset-0" />
         </div>
 
         <div className="relative z-10 flex-1 flex items-center justify-center pt-24 pb-28 sm:pb-32">
           <div className="container-custom text-center px-6 w-full">
             <div className="max-w-3xl mx-auto relative">
               <div
-                className="pointer-events-none absolute -inset-x-6 sm:-inset-x-12 -inset-y-4 sm:-inset-y-8 rounded-[2rem] bg-cyber-bg/60 blur-2xl"
+                className="home-hero-copy-glow pointer-events-none absolute -inset-x-6 sm:-inset-x-12 -inset-y-4 sm:-inset-y-8 rounded-[2rem]"
                 aria-hidden="true"
               />
               <div className="relative [text-shadow:0_1px_2px_rgb(0_0_0_/_0.95),0_6px_22px_rgb(0_0_0_/_0.75)]">
@@ -278,7 +271,6 @@ const HomePage = () => {
                     height={208}
                     className="relative z-10 w-full h-full object-contain select-none"
                     decoding="async"
-                    fetchPriority="high"
                   />
                 </div>
               </div>
@@ -310,7 +302,7 @@ const HomePage = () => {
                 <Button
                   size="lg"
                   className="home-hero-cta-primary w-full sm:w-auto gap-2 min-w-[13rem] text-base"
-                  onClick={() => navigate('/projects')}
+                  to="/projects"
                 >
                   <Hammer className="w-4 h-4" />
                   Explore Projects
@@ -319,7 +311,7 @@ const HomePage = () => {
                   size="lg"
                   variant="secondary"
                   className="w-full sm:w-auto gap-2 min-w-[13rem]"
-                  onClick={() => navigate('/get-involved')}
+                  to="/get-involved"
                 >
                   <Users className="w-4 h-4" />
                   Get Involved
@@ -327,14 +319,13 @@ const HomePage = () => {
               </div>
 
               <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-12 text-xs sm:text-sm font-mono tracking-widest text-white/80">
-                <button
-                  type="button"
-                  onClick={() => navigate('/ideas/submit')}
+                <Link
+                  to="/ideas/submit"
                   className="inline-flex items-center gap-1.5 hover:text-neon-cyan transition-colors"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   Submit an idea
-                </button>
+                </Link>
                 <a
                   href={INTRO_VIDEO_URL}
                   target="_blank"
@@ -413,14 +404,14 @@ const HomePage = () => {
           <div className="mt-8 flex flex-col sm:flex-row flex-wrap gap-3">
             <Button
               className="gap-2"
-              onClick={() => navigate('/get-involved')}
+              to="/get-involved"
             >
               Get Involved
             </Button>
             <Button
               variant="secondary"
               className="gap-2"
-              onClick={() => navigate('/how-it-works')}
+              to="/how-it-works"
             >
               How it works
             </Button>
@@ -565,63 +556,9 @@ const HomePage = () => {
           <div className="mt-8">
             <Button
               className="gap-2"
-              onClick={() => navigate('/how-it-works')}
+              to="/how-it-works"
             >
               Full How It Works <ArrowRight className="w-4 h-4" />
-            </Button>
-          </div>
-          <SectionContinueCue />
-        </div>
-      </section>
-
-      {/* ================================================================
-          GET INVOLVED
-          ================================================================ */}
-      <section
-        id="join"
-        className="relative py-16 md:py-24 border-t border-cyber-border"
-      >
-        <div className="container-custom max-w-6xl">
-          <div className="mb-8 md:mb-10 max-w-3xl">
-            <h2 className={sectionTitleClass}>Get Involved</h2>
-            <p className="text-text-secondary text-sm sm:text-base leading-relaxed">
-              Every skill has a way in. Here’s where most people start:
-            </p>
-          </div>
-          <ul className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3 md:gap-4 list-none p-0 m-0">
-            {INVOLVE_PATHS.map((path, i) => {
-              const Icon = path.icon;
-              return (
-                <li
-                  key={path.title}
-                  className={`min-w-0 ${
-                    i >= 3 ? 'xl:col-span-3' : 'xl:col-span-2'
-                  }`}
-                >
-                  <Card
-                    variant="subtle"
-                    className="home-value-card h-full p-5 sm:p-6"
-                  >
-                    <span className="shrink-0 w-10 h-10 rounded-lg border border-cyber-border bg-cyber-surface flex items-center justify-center text-neon-cyan mb-4">
-                      <Icon className="w-5 h-5" aria-hidden />
-                    </span>
-                    <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight">
-                      {path.title}
-                    </h3>
-                    <p className="mt-2 text-sm sm:text-[15px] leading-relaxed text-text-secondary">
-                      {path.body}
-                    </p>
-                  </Card>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="mt-8">
-            <Button
-              className="gap-2"
-              onClick={() => navigate('/get-involved')}
-            >
-              Get Involved <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
           <SectionContinueCue />
@@ -680,6 +617,60 @@ const HomePage = () => {
               </ul>
             </div>
           </Card>
+        </div>
+      </section>
+
+      {/* ================================================================
+          GET INVOLVED
+          ================================================================ */}
+      <section
+        id="join"
+        className="relative py-16 md:py-24 border-t border-cyber-border"
+      >
+        <div className="container-custom max-w-6xl">
+          <div className="mb-8 md:mb-10 max-w-3xl">
+            <h2 className={sectionTitleClass}>Get Involved</h2>
+            <p className="text-text-secondary text-sm sm:text-base leading-relaxed">
+              Every skill has a way in. Here’s where most people start:
+            </p>
+          </div>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3 md:gap-4 list-none p-0 m-0">
+            {INVOLVE_PATHS.map((path, i) => {
+              const Icon = path.icon;
+              return (
+                <li
+                  key={path.title}
+                  className={`min-w-0 ${
+                    i >= 3 ? 'xl:col-span-3' : 'xl:col-span-2'
+                  }`}
+                >
+                  <Card
+                    variant="subtle"
+                    className="home-value-card h-full p-5 sm:p-6"
+                  >
+                    <span className="shrink-0 w-10 h-10 rounded-lg border border-cyber-border bg-cyber-surface flex items-center justify-center text-neon-cyan mb-4">
+                      <Icon className="w-5 h-5" aria-hidden />
+                    </span>
+                    <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight">
+                      {path.title}
+                    </h3>
+                    <p className="mt-2 text-sm sm:text-[15px] leading-relaxed text-text-secondary">
+                      {path.body}
+                    </p>
+                  </Card>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="mt-8">
+            <Button
+              className="gap-2"
+              to="/get-involved"
+            >
+              Get Involved <ArrowRight className="w-4 h-4" />
+            </Button>
+          </div>
+          <SectionContinueCue />
         </div>
       </section>
 
@@ -778,7 +769,7 @@ const HomePage = () => {
               <div className="flex flex-col gap-2">
                 <Button
                   className="w-full gap-2 home-hero-cta-primary"
-                  onClick={() => navigate('/get-involved')}
+                  to="/get-involved"
                 >
                   Join the work <ArrowRight className="w-4 h-4" />
                 </Button>
@@ -814,7 +805,7 @@ const HomePage = () => {
             <Button
               size="lg"
               className="w-full sm:w-auto gap-2 home-hero-cta-primary"
-              onClick={() => navigate('/ideas/submit')}
+              to="/ideas/submit"
             >
               Submit an Idea <ArrowRight className="w-4 h-4" />
             </Button>
@@ -822,7 +813,7 @@ const HomePage = () => {
               size="lg"
               variant="secondary"
               className="w-full sm:w-auto gap-2"
-              onClick={() => navigate('/get-involved')}
+              to="/get-involved"
             >
               Get Involved
             </Button>

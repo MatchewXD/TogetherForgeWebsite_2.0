@@ -7,11 +7,12 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Buttons';
+import BannerImage from '../components/ui/BannerImage';
 import Modal from '../components/ui/Modal';
 import DiscordLink from '../components/ui/DiscordLink';
 import VolunteerOfferForm from '../components/getInvolved/VolunteerOfferForm';
@@ -27,17 +28,17 @@ const SPOT_BASE = '/images/spot_illustrations/Get_Involved';
  * @type {Record<string, string | { left?: string, right?: string } | null>}
  */
 const PATH_SPOT_SRC = {
-  'game-development': `${SPOT_BASE}/Game_Development.png`,
-  'ideas-feedback': `${SPOT_BASE}/Ideas.png`,
+  'game-development': `${SPOT_BASE}/Game_Development.webp`,
+  'ideas-feedback': `${SPOT_BASE}/Ideas.webp`,
   'content-creation': null,
-  'community-moderation': `${SPOT_BASE}/Moderation.png`,
+  'community-moderation': `${SPOT_BASE}/Moderation.webp`,
   // Other Skills 2 left, Other Skills 1 right of Platform copy
   'platform-skills': {
-    left: `${SPOT_BASE}/Other_Skills_2.png`,
-    right: `${SPOT_BASE}/Other_Skills_1.png`,
+    left: `${SPOT_BASE}/Other_Skills_2.webp`,
+    right: `${SPOT_BASE}/Other_Skills_1.webp`,
   },
-  'support-studio': `${SPOT_BASE}/Support_The_Studio.png`,
-  recognition: `${SPOT_BASE}/Credit.png`,
+  'support-studio': `${SPOT_BASE}/Support_The_Studio.webp`,
+  recognition: `${SPOT_BASE}/Credit.webp`,
 };
 
 const CONTENT_CREATORS_FOCUS = {
@@ -74,7 +75,7 @@ function PathSpot({ sectionId, src, className = '' }) {
         <img
           src={src}
           alt=""
-          className="w-full h-auto max-h-[15rem] sm:max-h-[17rem] lg:max-h-[19rem] object-contain object-center block mx-auto drop-shadow-[0_12px_28px_rgba(0,0,0,0.45)]"
+          className="w-full h-auto max-h-[15rem] sm:max-h-[17rem] lg:max-h-[19rem] object-contain object-center block mx-auto"
           decoding="async"
           loading="lazy"
         />
@@ -294,7 +295,6 @@ function PathSection({
 }
 
 const GetInvolved = () => {
-  const navigate = useNavigate();
   const location = useLocation();
   const [skillModalOpen, setSkillModalOpen] = useState(false);
   const [modModalOpen, setModModalOpen] = useState(false);
@@ -368,21 +368,14 @@ const GetInvolved = () => {
     <div className="min-h-screen bg-cyber-bg text-text-primary">
       <header className="relative pt-20 overflow-hidden">
         <div className="absolute inset-0" aria-hidden="true">
-          <img
+          <BannerImage
             src={GET_INVOLVED_BANNER_SRC}
-            alt=""
             className="absolute inset-0 w-full h-full object-cover object-[center_40%] sm:object-center"
-            decoding="async"
             fetchPriority="high"
           />
-          <div className="absolute inset-0 bg-cyber-bg/55" />
-          <div className="absolute inset-0 bg-gradient-to-r from-cyber-bg/96 via-cyber-bg/85 to-cyber-bg/35" />
-          <div className="absolute inset-0 bg-gradient-to-b from-cyber-bg/70 via-cyber-bg/25 to-transparent" />
+          <div className="tf-banner-scrim" />
         </div>
-        <div
-          className="absolute bottom-0 inset-x-0 h-28 sm:h-32 pointer-events-none z-[5] bg-gradient-to-b from-transparent via-cyber-bg/50 to-cyber-bg"
-          aria-hidden="true"
-        />
+        <div className="tf-banner-fade h-28 sm:h-32" aria-hidden="true" />
 
         <div className="container-custom relative z-10 py-8 sm:py-10 md:py-12 min-h-[16rem] sm:min-h-[18rem] md:min-h-[20rem] flex flex-col justify-center">
           <div className="max-w-2xl [text-shadow:0_1px_2px_rgb(0_0_0_/_0.9),0_2px_16px_rgb(0_0_0_/_0.55)]">
@@ -415,7 +408,7 @@ const GetInvolved = () => {
               <Button
                 type="button"
                 className="gap-2"
-                onClick={() => navigate('/open-work')}
+                to="/open-work"
               >
                 Open Work
                 <ArrowRight className="w-4 h-4" />
@@ -424,7 +417,7 @@ const GetInvolved = () => {
                 type="button"
                 variant="secondary"
                 className="gap-2"
-                onClick={() => navigate('/projects')}
+                to="/projects"
               >
                 Projects
                 <ArrowRight className="w-4 h-4" />
@@ -450,7 +443,7 @@ const GetInvolved = () => {
               <Button
                 type="button"
                 className="gap-2"
-                onClick={() => navigate('/ideas')}
+                to="/ideas"
               >
                 Ideas
                 <ArrowRight className="w-4 h-4" />
@@ -459,7 +452,7 @@ const GetInvolved = () => {
                 type="button"
                 variant="secondary"
                 className="gap-2"
-                onClick={() => navigate('/ideas/submit')}
+                to="/ideas/submit"
               >
                 Submit idea
                 <ArrowRight className="w-4 h-4" />
@@ -513,7 +506,7 @@ const GetInvolved = () => {
                 <Button
                   type="button"
                   className="gap-2"
-                  onClick={() => navigate('/showcase')}
+                  to="/showcase"
                 >
                   Browse Showcase
                   <ArrowRight className="w-4 h-4" />
@@ -522,7 +515,7 @@ const GetInvolved = () => {
                   type="button"
                   variant="secondary"
                   className="gap-2"
-                  onClick={() => navigate('/showcase/submit')}
+                  to="/showcase/submit"
                 >
                   Submit media
                   <ArrowRight className="w-4 h-4" />
@@ -560,7 +553,7 @@ const GetInvolved = () => {
                   type="button"
                   variant="secondary"
                   className="gap-2"
-                  onClick={() => navigate('/media')}
+                  to="/media"
                 >
                   Media hub
                   <ArrowRight className="w-4 h-4" />
@@ -642,7 +635,7 @@ const GetInvolved = () => {
               <Button
                 type="button"
                 className="gap-2"
-                onClick={() => navigate('/donate')}
+                to="/donate"
               >
                 Donate
                 <ArrowRight className="w-4 h-4" />
@@ -651,7 +644,7 @@ const GetInvolved = () => {
                 type="button"
                 variant="secondary"
                 className="gap-2"
-                onClick={() => navigate('/transparency')}
+                to="/transparency"
               >
                 Transparency
                 <ArrowRight className="w-4 h-4" />
@@ -688,14 +681,14 @@ const GetInvolved = () => {
                   <Button
                     variant="secondary"
                     className="gap-2"
-                    onClick={() => navigate('/contributors')}
+                    to="/contributors"
                   >
                     Contributors
                   </Button>
                   <Button
                     variant="ghost"
                     className="gap-2"
-                    onClick={() => navigate('/how-it-works')}
+                    to="/how-it-works"
                   >
                     How credit works
                     <ArrowRight className="w-4 h-4" />

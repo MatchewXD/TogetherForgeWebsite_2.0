@@ -3,10 +3,11 @@
  * Pure CSS width driven by scroll position - minimal, on-brand.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const ScrollProgress = ({ className = '' }) => {
-  const [progress, setProgress] = useState(0);
+  const fillRef = useRef(null);
+  const valueRef = useRef(null);
 
   useEffect(() => {
     let raf = 0;
@@ -17,7 +18,15 @@ const ScrollProgress = ({ className = '' }) => {
       const scrollTop = window.scrollY || doc.scrollTop || 0;
       const max = Math.max(1, doc.scrollHeight - window.innerHeight);
       const next = Math.min(1, Math.max(0, scrollTop / max));
-      setProgress(next);
+      if (fillRef.current) {
+        fillRef.current.style.transform = `scaleX(${next})`;
+      }
+      if (valueRef.current) {
+        valueRef.current.setAttribute(
+          'aria-valuenow',
+          String(Math.round(next * 100))
+        );
+      }
     };
 
     const onScroll = () => {
@@ -37,16 +46,18 @@ const ScrollProgress = ({ className = '' }) => {
 
   return (
     <div
+      ref={valueRef}
       className={`tf-scroll-progress ${className}`}
       role="progressbar"
       aria-label="Page scroll progress"
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-valuenow={Math.round(progress * 100)}
+      aria-valuenow={0}
     >
       <div
+        ref={fillRef}
         className="tf-scroll-progress-fill"
-        style={{ transform: `scaleX(${progress})` }}
+        style={{ transform: 'scaleX(0)' }}
       />
     </div>
   );
@@ -78,16 +89,23 @@ export function HeroContinueCue({
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
+    let raf = 0;
     const update = () => {
+      raf = 0;
       const threshold = Math.max(48, window.innerHeight * 0.18);
       setVisible(window.scrollY < threshold);
     };
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(update);
+    };
     update();
-    window.addEventListener('scroll', update, { passive: true });
-    window.addEventListener('resize', update, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
     return () => {
-      window.removeEventListener('scroll', update);
-      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      if (raf) cancelAnimationFrame(raf);
     };
   }, []);
 

@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Shield,
   Users,
@@ -115,7 +115,6 @@ function ideaTime(idea) {
 }
 
 const ModeratorDashboard = () => {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const {
     isModerator,
@@ -476,7 +475,7 @@ const ModeratorDashboard = () => {
               This dashboard is for moderators.
               If you need access, contact the site owner.
             </p>
-            <Button variant="secondary" onClick={() => navigate('/')}>
+            <Button variant="secondary" to="/">
               Back home
             </Button>
           </Card>

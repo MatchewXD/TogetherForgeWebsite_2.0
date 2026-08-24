@@ -1,8 +1,10 @@
 import { forwardRef } from 'react';
+import { Link } from 'react-router-dom';
 
 /**
  * Button variants.
  * success / danger use semantic tokens (classic ≈ cyan/magenta; forge = green/red).
+ * Pass `to` (in-app) or `href` (external) so middle-click / ctrl-click opens a new tab.
  */
 const Button = forwardRef(
   (
@@ -12,12 +14,17 @@ const Button = forwardRef(
       size = 'md',
       className = '',
       type = 'button',
+      to,
+      href,
+      target,
+      rel,
+      disabled = false,
       ...props
     },
     ref
   ) => {
     const base =
-      'font-sans font-semibold tracking-wide transition-all duration-200 inline-flex items-center justify-center rounded-lg border focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-cyber-bg disabled:opacity-50 disabled:pointer-events-none';
+      'font-sans font-semibold tracking-wide transition-colors duration-200 inline-flex items-center justify-center rounded-lg border focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-cyber-bg disabled:opacity-50 disabled:pointer-events-none';
 
     const variants = {
       primary:
@@ -44,11 +51,40 @@ const Button = forwardRef(
       lg: 'px-6 py-3 text-lg',
     };
 
+    const classes = `${base} ${variants[variant] || variants.primary} ${sizes[size] || sizes.md} ${className}`;
+
+    if (to && !disabled) {
+      return (
+        <Link ref={ref} to={to} className={classes} {...props}>
+          {children}
+        </Link>
+      );
+    }
+
+    if (href && !disabled) {
+      return (
+        <a
+          ref={ref}
+          href={href}
+          className={classes}
+          target={target}
+          rel={
+            rel ||
+            (target === '_blank' ? 'noopener noreferrer' : undefined)
+          }
+          {...props}
+        >
+          {children}
+        </a>
+      );
+    }
+
     return (
       <button
         ref={ref}
         type={type}
-        className={`${base} ${variants[variant] || variants.primary} ${sizes[size] || sizes.md} ${className}`}
+        disabled={disabled}
+        className={classes}
         {...props}
       >
         {children}

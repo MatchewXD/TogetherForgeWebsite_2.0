@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App.jsx';
 import { dismissBootLoader } from './lib/bootLoader';
+import { initVisualPerformance } from './lib/visualPerformance';
+
+initVisualPerformance();
 
 // Failsafe: never leave the boot overlay stuck if App mount is delayed
 window.setTimeout(dismissBootLoader, 2500);

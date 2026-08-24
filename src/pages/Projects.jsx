@@ -15,6 +15,7 @@ import {
 
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
+import BannerImage from '../components/ui/BannerImage';
 import { useIsModerator } from '../hooks/useIsModerator';
 import { phaseImageSrc, phaseImageAlt } from '../utils/phaseImages';
 import { SHOW_RELEASED_GAMES } from '../constants/featureFlags';
@@ -85,42 +86,17 @@ const Projects = () => {
 
   return (
     <div className="min-h-screen bg-cyber-bg text-text-primary">
-      {/* Atmosphere */}
-      <div
-        className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,249,255,0.06)_0%,transparent_50%),radial-gradient(ellipse_at_bottom_right,rgb(var(--tf-forge-gold)/0.04)_0%,transparent_45%)]"
-        aria-hidden="true"
-      />
-      <div
-        className="pointer-events-none fixed inset-0 opacity-[0.035]"
-        style={{
-          backgroundImage:
-            'linear-gradient(rgba(0,249,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(0,249,255,0.5) 1px, transparent 1px)',
-          backgroundSize: '48px 48px',
-        }}
-        aria-hidden="true"
-      />
-
       {/* Page header banner — taller so the image can dissolve into the page */}
       <header className="relative pt-20 overflow-hidden">
         <div className="absolute inset-0" aria-hidden="true">
-          <img
+          <BannerImage
             src={PROJECTS_BANNER_SRC}
-            alt=""
             className="absolute inset-0 w-full h-full object-cover object-[center_35%] sm:object-center"
-            decoding="async"
             fetchPriority="high"
           />
-          {/* Lighter scrims so the art stays visible; text relies more on shadow + left panel */}
-          <div className="absolute inset-0 bg-cyber-bg/25" />
-          <div className="absolute inset-0 bg-gradient-to-r from-cyber-bg/88 via-cyber-bg/45 to-cyber-bg/10" />
-          <div className="absolute inset-0 bg-gradient-to-b from-cyber-bg/40 via-transparent to-transparent" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgb(var(--tf-neon-cyan)/0.06)_0%,transparent_50%)]" />
+          <div className="tf-banner-scrim" />
         </div>
-        {/* Long soft fade so the banner never ends on a hard edge */}
-        <div
-          className="absolute bottom-0 inset-x-0 h-40 sm:h-48 md:h-56 pointer-events-none z-[5] bg-gradient-to-b from-transparent via-cyber-bg/35 to-cyber-bg"
-          aria-hidden="true"
-        />
+        <div className="tf-banner-fade h-40 sm:h-48 md:h-56" aria-hidden="true" />
 
         <div className="container-custom relative z-10 flex flex-col justify-center min-h-[20rem] sm:min-h-[22rem] md:min-h-[26rem] pt-10 sm:pt-12 md:pt-14 pb-20 sm:pb-24 md:pb-28">
           <div className="max-w-3xl [text-shadow:0_1px_3px_rgb(0_0_0_/_0.95),0_4px_24px_rgb(0_0_0_/_0.7)]">
@@ -134,7 +110,7 @@ const Projects = () => {
               {isModerator && (
                 <Link
                   to="/projects/edit"
-                  className="shrink-0 text-xs font-mono tracking-widest px-3 py-1.5 rounded-full border border-neon-cyan text-neon-cyan hover:bg-neon-cyan/10 transition-colors bg-cyber-bg/70 backdrop-blur-sm sm:mt-6 [text-shadow:none]"
+                  className="shrink-0 text-xs font-mono tracking-widest px-3 py-1.5 rounded-full border border-neon-cyan text-neon-cyan hover:bg-neon-cyan/10 transition-colors bg-cyber-bg/90 sm:mt-6 [text-shadow:none]"
                 >
                   Edit Page
                 </Link>
@@ -250,12 +226,12 @@ const Projects = () => {
                   >
                     <div className="relative h-36 sm:h-40 overflow-hidden border-b border-cyber-border bg-cyber-surface">
                       {coverSrc ? (
-                        <img
+                        <BannerImage
                           src={coverSrc}
                           alt={phaseImageAlt(phase.label)}
                           className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                           loading="lazy"
-                          decoding="async"
+                          sizes="(min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw"
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
@@ -275,10 +251,10 @@ const Projects = () => {
                           className={
                             phase.badgeVariant === 'gold'
                               ? phase.id === 'early'
-                                ? '!bg-forge-gold/15 !text-forge-gold !border-forge-gold/50 !shadow-none backdrop-blur-sm'
+                                ? '!bg-forge-gold/15 !text-forge-gold !border-forge-gold/50 !shadow-none'
                                 : ''
                               : phase.badgeVariant === 'purple'
-                                ? '!bg-neon-purple/30 !text-purple-100 !border-neon-purple/70 !shadow-none backdrop-blur-sm'
+                                ? '!bg-neon-purple/30 !text-purple-100 !border-neon-purple/70 !shadow-none'
                                 : ''
                           }
                         >
@@ -286,7 +262,7 @@ const Projects = () => {
                         </Badge>
                       </div>
                       <div className="absolute bottom-3 left-3 z-10">
-                        <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-white/15 bg-cyber-bg/60 backdrop-blur-sm">
+                        <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-white/15 bg-cyber-bg/80">
                           <Icon className={`w-4 h-4 ${phase.accentClass}`} />
                         </span>
                       </div>
@@ -351,7 +327,7 @@ const Projects = () => {
             >
               <div className="relative md:col-span-5 min-h-[12rem] md:min-h-full border-b md:border-b-0 md:border-r border-cyber-border bg-cyber-surface">
                 {phaseImageSrc(FEATURED_PROJECT.phase) ? (
-                  <img
+                  <BannerImage
                     src={phaseImageSrc(FEATURED_PROJECT.phase)}
                     alt={phaseImageAlt(
                       FEATURED_PROJECT.phase,
@@ -359,7 +335,7 @@ const Projects = () => {
                     )}
                     className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
                     loading="lazy"
-                    decoding="async"
+                    sizes="(min-width: 768px) 42vw, 100vw"
                   />
                 ) : null}
                 <div

@@ -1005,7 +1005,7 @@ const ReleasedGameDetail = () => {
       {/* Simple lightbox */}
       {lightbox && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-cyber-bg/90 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-cyber-bg/92"
           role="dialog"
           aria-modal="true"
           aria-label={lightbox.alt || 'Screenshot'}

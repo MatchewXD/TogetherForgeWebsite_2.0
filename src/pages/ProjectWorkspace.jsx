@@ -23,7 +23,6 @@ import {
 import {
   Users,
   CheckCircle2,
-  MessageCircleQuestion,
   Sparkles,
   Megaphone,
   Hammer,
@@ -47,6 +46,8 @@ import TaskCard from '../components/ui/TaskCard';
 import SubTaskList from '../components/ui/SubTaskList';
 import TaskDependencyPicker from '../components/ui/TaskDependencyPicker';
 import TaskStagingTree from '../components/ui/TaskStagingTree';
+import OpenQuestionsSection from '../components/projects/OpenQuestionsSection';
+import BannerImage from '../components/ui/BannerImage';
 import ActivityItem from '../components/ui/ActivityItem';
 import StatWidget from '../components/ui/StatWidget';
 import Modal from '../components/ui/Modal';
@@ -157,27 +158,6 @@ const DEFAULT_PROJECT = {
 };
 
 FALLBACK_PROJECTS['prototype-systems'] = FALLBACK_PROJECTS[TETHER_SLUG];
-
-const OPEN_QUESTIONS = [
-  {
-    id: 'q1',
-    title: 'How long should a co-op session feel?',
-    blurb: 'Aiming for 15–20 minutes vs. 40+ for early prototypes.',
-    replies: 6,
-  },
-  {
-    id: 'q2',
-    title: 'Role differentiation without hard classes?',
-    blurb: 'Soft roles via tools/loadouts vs. explicit class pick.',
-    replies: 4,
-  },
-  {
-    id: 'q3',
-    title: 'What counts as a “win” for credit tracking?',
-    blurb: 'Task complete, PR merged, playtest notes, or design docs?',
-    replies: 9,
-  },
-];
 
 const IDEA_CATEGORIES = [
   'Full Game Idea',
@@ -2363,10 +2343,6 @@ const ProjectWorkspace = () => {
 
   return (
     <div className="pt-20 min-h-screen bg-cyber-bg text-text-primary">
-      <div
-        className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,249,255,0.05)_0%,transparent_50%)]"
-        aria-hidden="true"
-      />
 
       <div
         className={`container-custom relative z-10 ${
@@ -2588,7 +2564,7 @@ const ProjectWorkspace = () => {
                     <Button
                       variant="outline"
                       className="gap-2"
-                      onClick={() => navigate(stagingPath)}
+                      to={stagingPath}
                       disabled={!projectUuid || loading}
                       title="Staff-only preparation board. Volunteers cannot see it."
                     >
@@ -2600,7 +2576,7 @@ const ProjectWorkspace = () => {
                     <Button
                       variant="outline"
                       className="gap-2"
-                      onClick={() => navigate(boardPath)}
+                      to={boardPath}
                     >
                       <LayoutGrid className="w-4 h-4" />
                       Public board
@@ -2638,7 +2614,7 @@ const ProjectWorkspace = () => {
                   <Button
                     variant="outline"
                     className="gap-2"
-                    onClick={() => navigate(`${projectPath}/contributors`)}
+                    to={`${projectPath}/contributors`}
                   >
                     <Users className="w-4 h-4" />
                     Contributors
@@ -2646,7 +2622,7 @@ const ProjectWorkspace = () => {
                   <Button
                     variant="secondary"
                     className="gap-2"
-                    onClick={() => navigate(projectPath)}
+                    to={projectPath}
                   >
                     <ExternalLink className="w-4 h-4" />
                     Project hub
@@ -2786,7 +2762,7 @@ const ProjectWorkspace = () => {
             <header className="space-y-4">
               {phaseImageSrc(displayProject.phase) && (
                 <div className="relative w-full h-40 sm:h-52 md:h-56 rounded-xl overflow-hidden border border-cyber-border bg-cyber-surface">
-                  <img
+                  <BannerImage
                     src={phaseImageSrc(displayProject.phase)}
                     alt={phaseImageAlt(
                       displayProject.phase,
@@ -2794,7 +2770,6 @@ const ProjectWorkspace = () => {
                     )}
                     className="absolute inset-0 w-full h-full object-cover"
                     loading="eager"
-                    decoding="async"
                   />
                   <div
                     className="absolute inset-0 bg-gradient-to-t from-cyber-bg via-cyber-bg/40 to-transparent pointer-events-none"
@@ -2819,7 +2794,7 @@ const ProjectWorkspace = () => {
                 <div className="flex flex-col sm:flex-row gap-3 shrink-0">
                   <Button
                     className="gap-2"
-                    onClick={() => navigate(boardPath)}
+                    to={boardPath}
                   >
                     <LayoutGrid className="w-4 h-4" />
                     Task Board
@@ -2838,7 +2813,7 @@ const ProjectWorkspace = () => {
                   <Button
                     variant="secondary"
                     className="gap-2"
-                    onClick={() => navigate(projectSubmitPath)}
+                    to={projectSubmitPath}
                   >
                     <Sparkles className="w-4 h-4" />
                     Submit Idea
@@ -2846,7 +2821,7 @@ const ProjectWorkspace = () => {
                   <Button
                     variant="outline"
                     className="gap-2"
-                    onClick={() => navigate(`${projectPath}/contributors`)}
+                    to={`${projectPath}/contributors`}
                   >
                     <Users className="w-4 h-4" />
                     Contributors
@@ -2980,15 +2955,12 @@ const ProjectWorkspace = () => {
                 {claimQuota.identityReason ||
                   'Verify your email and link Discord, Google, or GitHub before claiming tasks or submitting for review.'}
               </p>
-              <button
-                type="button"
+              <Link
+                to="/account/linked?setup=identity"
                 className="mt-2 inline-flex items-center rounded-lg border border-semantic-warning/50 bg-semantic-warning/15 px-3 py-1.5 text-xs font-semibold text-semantic-warning hover:bg-semantic-warning/25 hover:text-white"
-                onClick={() =>
-                  navigate('/account/linked?setup=identity')
-                }
               >
                 Link accounts on Profile
-              </button>
+              </Link>
             </div>
           )}
 
@@ -3281,7 +3253,7 @@ const ProjectWorkspace = () => {
               <div className="shrink-0 flex flex-col sm:flex-row lg:flex-col gap-2">
                 <Button
                   className="gap-2"
-                  onClick={() => navigate(boardPath)}
+                  to={boardPath}
                   disabled={loading}
                 >
                   <LayoutGrid className="w-4 h-4" />
@@ -3291,7 +3263,7 @@ const ProjectWorkspace = () => {
                   <Button
                     variant="outline"
                     className="gap-2"
-                    onClick={() => navigate(stagingPath)}
+                    to={stagingPath}
                     disabled={loading}
                     title="Staff-only preparation board"
                   >
@@ -3307,7 +3279,7 @@ const ProjectWorkspace = () => {
                 <Button
                   variant="ghost"
                   className="gap-2"
-                  onClick={() => navigate('/get-involved')}
+                  to="/get-involved"
                 >
                   <Hammer className="w-4 h-4" />
                   How to contribute
@@ -3438,62 +3410,13 @@ const ProjectWorkspace = () => {
           </section>
         </div>
 
-        {/* 6. OPEN QUESTIONS */}
-        <section aria-labelledby="questions-heading">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
-            <div>
-              <div className="section-header">Open Questions</div>
-              <h2 id="questions-heading" className="text-2xl font-bold text-white">
-                Help shape the build
-              </h2>
-              <p className="text-text-secondary text-sm mt-1 max-w-xl">
-                Community prompts and idea teasers for this project. Full idea
-                board lives under Game Ideas.
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 self-start sm:self-auto"
-              onClick={() =>
-                navigate(`/ideas?project=${displayProject.slug || displayProject.id}`)
-              }
-            >
-              <MessageCircleQuestion className="w-4 h-4" />
-              Browse ideas
-            </Button>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {OPEN_QUESTIONS.map((q) => (
-              <Card
-                key={q.id}
-                className="bg-cyber-card/80 flex flex-col h-full"
-              >
-                <h3 className="text-base font-semibold text-white mb-2">
-                  {q.title}
-                </h3>
-                <p className="text-sm text-text-secondary flex-1 mb-4">
-                  {q.blurb}
-                </p>
-                <div className="flex items-center justify-between text-xs font-mono text-text-muted">
-                  <span className="text-neon-cyan">{q.replies} replies</span>
-                  <button
-                    type="button"
-                    className="text-text-secondary hover:text-neon-cyan transition-colors"
-                    onClick={() =>
-                      navigate(
-                        `/ideas/submit?project=${displayProject.slug || displayProject.id}`
-                      )
-                    }
-                  >
-                    Add take →
-                  </button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </section>
+        {/* 6. OPEN QUESTIONS — staff-initiated project decisions */}
+        <OpenQuestionsSection
+          projectId={projectUuid}
+          projectTitle={displayProject.title}
+          isStaff={isModerator}
+          user={user}
+        />
 
         {/* 7. PROJECT IDEAS - scoped to this project only */}
         <section id="project-ideas" aria-labelledby="project-ideas-heading">
@@ -3514,7 +3437,7 @@ const ProjectWorkspace = () => {
 
             <Button
               className="gap-2 self-start lg:self-auto shrink-0"
-              onClick={() => navigate(projectSubmitPath)}
+              to={projectSubmitPath}
             >
               <Lightbulb className="w-4 h-4" />
               Submit Idea for this Project
@@ -3612,7 +3535,7 @@ const ProjectWorkspace = () => {
                 <Button
                   className="gap-2 mt-4"
                   size="sm"
-                  onClick={() => navigate(projectSubmitPath)}
+                  to={projectSubmitPath}
                 >
                   <Lightbulb className="w-4 h-4" />
                   Submit Idea for this Project
@@ -3666,7 +3589,7 @@ const ProjectWorkspace = () => {
             <Button
               variant="outline"
               className="gap-2"
-              onClick={() => navigate(projectSubmitPath)}
+              to={projectSubmitPath}
             >
               <Sparkles className="w-4 h-4" />
               Submit Idea for this Project
@@ -3675,11 +3598,7 @@ const ProjectWorkspace = () => {
               variant="ghost"
               size="sm"
               className="gap-2"
-              onClick={() =>
-                navigate(
-                  `/ideas?project=${displayProject.slug || displayProject.id}`
-                )
-              }
+              to={`/ideas?project=${displayProject.slug || displayProject.id}`}
             >
               View all ideas
             </Button>
@@ -3704,7 +3623,7 @@ const ProjectWorkspace = () => {
               variant="ghost"
               size="sm"
               className="gap-2 self-start sm:self-auto"
-              onClick={() => navigate('/transparency')}
+              to="/transparency"
             >
               <Megaphone className="w-4 h-4" />
               Transparency Hub
@@ -4438,7 +4357,7 @@ const ProjectWorkspace = () => {
                     size="sm"
                     variant="outline"
                     className="gap-1.5 shrink-0"
-                    onClick={() => navigate('/moderator?tab=scope')}
+                    to="/moderator?tab=scope"
                   >
                     Open Scope help queue
                     <ExternalLink className="w-3.5 h-3.5" />

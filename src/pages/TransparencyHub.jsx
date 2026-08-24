@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   Wallet,
@@ -16,6 +16,7 @@ import {
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
+import BannerImage from '../components/ui/BannerImage';
 import FinanceDashboard from '../components/transparency/FinanceDashboard';
 import {
   getPublicSupportSummary,
@@ -98,7 +99,6 @@ const formatDate = (iso) => {
 };
 
 const TransparencyHub = () => {
-  const navigate = useNavigate();
   const [supportSummary, setSupportSummary] = useState({
     studioTotalCents: 0,
     studioPaymentCount: 0,
@@ -167,27 +167,17 @@ const TransparencyHub = () => {
 
   return (
     <div className="min-h-screen bg-cyber-bg text-text-primary">
-      <div
-        className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,249,255,0.05)_0%,transparent_55%)]"
-        aria-hidden="true"
-      />
-
       <header className="relative pt-20 overflow-hidden">
         <div className="absolute inset-0" aria-hidden="true">
-          <img
+          <BannerImage
             src={TRANSPARENCY_BANNER_SRC}
-            alt=""
             className="absolute inset-0 w-full h-full object-cover object-[center_40%] sm:object-center"
-            decoding="async"
             fetchPriority="high"
           />
-          <div className="absolute inset-0 bg-cyber-bg/55" />
-          <div className="absolute inset-0 bg-gradient-to-r from-cyber-bg/96 via-cyber-bg/85 to-cyber-bg/35" />
-          <div className="absolute inset-0 bg-gradient-to-b from-cyber-bg/70 via-cyber-bg/25 to-transparent" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgb(var(--tf-neon-cyan)/0.08)_0%,transparent_50%)]" />
+          <div className="tf-banner-scrim" />
         </div>
         <div
-          className="absolute bottom-0 inset-x-0 h-28 sm:h-32 pointer-events-none z-[5] bg-gradient-to-b from-transparent via-cyber-bg/50 to-cyber-bg"
+          className="tf-banner-fade h-28 sm:h-32"
           aria-hidden="true"
         />
 
@@ -272,7 +262,7 @@ const TransparencyHub = () => {
               variant="secondary"
               size="sm"
               className="gap-2"
-              onClick={() => navigate('/donate')}
+              to="/donate"
             >
               <Heart className="w-3.5 h-3.5" />
               Support
@@ -487,7 +477,7 @@ const TransparencyHub = () => {
               <Button
                 size="lg"
                 className="gap-2"
-                onClick={() => navigate('/get-involved')}
+                to="/get-involved"
               >
                 <Hammer className="w-4 h-4" />
                 Get involved
@@ -496,7 +486,7 @@ const TransparencyHub = () => {
                 size="lg"
                 variant="gold"
                 className="gap-2"
-                onClick={() => navigate('/donate')}
+                to="/donate"
               >
                 <Wallet className="w-4 h-4" />
                 Donate

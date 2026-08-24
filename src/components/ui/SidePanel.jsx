@@ -83,7 +83,7 @@ const SidePanel = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`fixed top-20 right-0 bottom-0 z-[190] w-full ${widthClass} flex flex-col border-l border-neon-cyan/35 bg-cyber-card/98 shadow-[-12px_0_40px_rgba(0,0,0,0.45)] backdrop-blur-md`}
+        className={`fixed top-20 right-0 bottom-0 z-[190] w-full ${widthClass} flex flex-col border-l border-neon-cyan/35 bg-cyber-card shadow-[-12px_0_40px_rgba(0,0,0,0.45)]`}
         style={{ maxWidth: '100vw' }}
       >
         <div className="shrink-0 border-b border-cyber-border bg-cyber-surface/90">

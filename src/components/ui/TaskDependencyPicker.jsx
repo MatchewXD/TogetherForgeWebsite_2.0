@@ -240,7 +240,7 @@ const TaskDependencyPicker = ({
     <div
       className={`task-scroll max-h-56 overflow-y-auto rounded-lg border border-cyber-border bg-cyber-surface/50 ${className}`}
     >
-      <p className="sticky top-0 z-[1] px-3 py-1.5 text-[10px] font-mono tracking-wide text-text-muted bg-cyber-surface/95 border-b border-cyber-border/60 backdrop-blur-sm">
+      <p className="sticky top-0 z-[1] px-3 py-1.5 text-[10px] font-mono tracking-wide text-text-muted bg-cyber-surface border-b border-cyber-border/60">
         Expand a parent to pick nested work · checkbox selects only that task
       </p>
       <ul className="py-1">{roots.map((r) => renderNode(r, 0))}</ul>

@@ -77,6 +77,7 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 27. `supabase_join_request_no_dupes.sql` — no duplicate join requests  
 27b. `supabase_task_staff_only.sql` — Staff Only flag; volunteers can view, only staff can claim  
 27c. `supabase_task_board_scope.sql` — Staging vs Public board; staff-only staging; publish Epic/Medium  
+27d. `supabase_open_questions.sql` — staff-initiated Open Questions; community Suggestions (support, reply, staff Adopt / close note)  
 
 ### 3. Contributions + media + community
 
@@ -281,6 +282,7 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_task_staff_only.sql` | Staff Only tasks (viewable by all, claimable by staff) |
 | `supabase_task_board_scope.sql` | Staging vs Public task boards + publish RPC |
 | `supabase_project_tether_slug.sql` | Rename public project slug to `tether` |
+| `supabase_open_questions.sql` | Staff Open Questions; community Suggestions with support, rank, Adopt, close note |
 | `supabase_task_scope_requests.sql` | Scope help requests |
 | `supabase_parent_ready_for_review.sql` | Parent ready when children complete |
 | `supabase_page_content.sql` | Phase hub editable content |

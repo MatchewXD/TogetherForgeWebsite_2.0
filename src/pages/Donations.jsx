@@ -19,6 +19,7 @@ import {
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
+import BannerImage from '../components/ui/BannerImage';
 import FaqAccordion from '../components/ui/FaqAccordion';
 import {
   startStripeCheckout,
@@ -459,32 +460,17 @@ const SupportPage = () => {
 
   return (
     <div className="min-h-screen bg-cyber-bg text-text-primary">
-      <div
-        className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(192,38,211,0.06)_0%,transparent_55%)]"
-        aria-hidden="true"
-      />
-
       {/* Page header banner */}
       <header className="relative pt-20 overflow-hidden">
         <div className="absolute inset-0" aria-hidden="true">
-          <img
+          <BannerImage
             src={SUPPORT_BANNER_SRC}
-            alt=""
             className="absolute inset-0 w-full h-full object-cover object-[center_40%] sm:object-center"
-            decoding="async"
             fetchPriority="high"
           />
-          {/* Readability: base dim + left-weighted panel + top shade */}
-          <div className="absolute inset-0 bg-cyber-bg/55" />
-          <div className="absolute inset-0 bg-gradient-to-r from-cyber-bg/96 via-cyber-bg/85 to-cyber-bg/35" />
-          <div className="absolute inset-0 bg-gradient-to-b from-cyber-bg/70 via-cyber-bg/25 to-transparent" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgb(var(--tf-neon-magenta)/0.08)_0%,transparent_50%)]" />
+          <div className="tf-banner-scrim tf-banner-scrim-magenta" />
         </div>
-        {/* Soft fade into page background (matches home hero) */}
-        <div
-          className="absolute bottom-0 inset-x-0 h-28 sm:h-32 pointer-events-none z-[5] bg-gradient-to-b from-transparent via-cyber-bg/50 to-cyber-bg"
-          aria-hidden="true"
-        />
+        <div className="tf-banner-fade h-28 sm:h-32" aria-hidden="true" />
 
         <div className="container-custom relative z-10 py-10 sm:py-12 md:py-14 min-h-[16rem] sm:min-h-[18rem] md:min-h-[20rem] flex flex-col justify-center">
           <div className="max-w-3xl [text-shadow:0_1px_2px_rgb(0_0_0_/_0.9),0_2px_16px_rgb(0_0_0_/_0.55)]">

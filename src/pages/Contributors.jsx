@@ -168,7 +168,7 @@ const Contributors = () => {
               className="p-6 sm:p-8 md:p-10 border-forge-gold/40 cyber-card-gold relative overflow-hidden"
             >
               <div
-                className="pointer-events-none absolute -right-8 -top-8 w-40 h-40 rounded-full bg-forge-gold/10 blur-2xl"
+                className="pointer-events-none absolute -right-8 -top-8 w-40 h-40 rounded-full bg-forge-gold/10"
                 aria-hidden
               />
               <div className="relative flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-8">

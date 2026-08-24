@@ -96,7 +96,7 @@ const ShowcaseLinkPreview = ({
         aria-hidden
       />
       <div className="absolute bottom-2 left-2 right-2 flex items-center gap-1.5 min-w-0 pointer-events-none">
-        <span className="inline-flex items-center gap-1.5 max-w-full rounded-md border border-white/15 bg-cyber-bg/85 px-2 py-1 text-[10px] font-mono tracking-wide text-text-secondary backdrop-blur-sm">
+        <span className="inline-flex items-center gap-1.5 max-w-full rounded-md border border-white/15 bg-cyber-bg/90 px-2 py-1 text-[10px] font-mono tracking-wide text-text-secondary">
           <FileText className="w-3 h-3 shrink-0 text-neon-cyan" aria-hidden />
           <span className="truncate">{hostname}</span>
         </span>

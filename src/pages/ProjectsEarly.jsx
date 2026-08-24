@@ -134,9 +134,9 @@ const ProjectsEarly = () => {
     displayActive.length > 1 ? 'Active Projects' : 'Active Project';
 
   return (
-    <div className="pt-20 min-h-screen bg-cyber-bg text-text-primary">
+    <div className="relative pt-20 min-h-screen bg-cyber-bg text-text-primary">
       <div
-        className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,249,255,0.05)_0%,transparent_50%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(0,249,255,0.05)_0%,transparent_50%)]"
         aria-hidden="true"
       />
 

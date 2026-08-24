@@ -2,6 +2,38 @@
 <html lang="en" data-theme="forge">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      Detect software GL / reduced motion before CSS paint.
+      Adds html.tf-lite-fx only — no user-facing hardware-acceleration copy.
+    -->
+    <script>
+      (function () {
+        try {
+          if (sessionStorage.getItem('tf-lite-fx')) {
+            document.documentElement.classList.add('tf-lite-fx');
+            return;
+          }
+        } catch (e) {}
+        try {
+          if (
+            window.matchMedia &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches
+          ) {
+            document.documentElement.classList.add('tf-lite-fx');
+            return;
+          }
+          var c = document.createElement('canvas');
+          var o = { failIfMajorPerformanceCaveat: true };
+          if (
+            !(c.getContext('webgl', o) || c.getContext('experimental-webgl', o))
+          ) {
+            document.documentElement.classList.add('tf-lite-fx');
+          }
+        } catch (e) {
+          document.documentElement.classList.add('tf-lite-fx');
+        }
+      })();
+    </script>
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="shortcut icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
