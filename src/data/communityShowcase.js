@@ -2,8 +2,8 @@
  * Community Showcase catalog (fan / community content only).
  * Official studio videos stay on /media — do not mix them here.
  *
- * Demo entries are enabled by default for layout preview.
- * Disable: VITE_SHOW_DEMO_SHOWCASE=false
+ * Demo entries are off unless VITE_SHOW_DEMO_SHOWCASE=true
+ * (keep off in production).
  *
  * HOW TO ADD (when ready for real posts)
  * Append to COMMUNITY_SHOWCASE_ITEMS with type, title, author, etc.
@@ -20,8 +20,7 @@ export { YOUTUBE_CHANNEL_URL };
 
 export function isDemoShowcaseEnabled() {
   const flag = import.meta.env?.VITE_SHOW_DEMO_SHOWCASE;
-  if (flag === 'false' || flag === '0') return false;
-  return true;
+  return flag === 'true' || flag === '1';
 }
 
 /**

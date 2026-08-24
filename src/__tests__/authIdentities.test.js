@@ -21,6 +21,7 @@ import {
   resolveOAuthReturnState,
   authSignInRedirectUrl,
   linkedAccountsRedirectUrl,
+  safeReturnToPath,
 } from '../utils/authIdentities';
 
 describe('authIdentities', () => {
@@ -92,6 +93,17 @@ describe('authIdentities', () => {
     expect(linkedAccountsRedirectUrl('https://example.com', 'discord')).toBe(
       'https://example.com/account/linked?linked=1&provider=discord'
     );
+  });
+
+  it('allows in-app return paths and rejects open redirects', () => {
+    expect(safeReturnToPath('/ideas')).toBe('/ideas');
+    expect(safeReturnToPath('/ideas/22?tab=comments')).toBe(
+      '/ideas/22?tab=comments'
+    );
+    expect(safeReturnToPath('/dashboard')).toBeNull();
+    expect(safeReturnToPath('/account')).toBeNull();
+    expect(safeReturnToPath('https://evil.test/phish')).toBeNull();
+    expect(safeReturnToPath('//evil.test')).toBeNull();
   });
 });
 
@@ -263,10 +275,14 @@ describe('OAuth intent + resolveOAuthReturnState', () => {
   });
 
   it('stashes and consumes intent', () => {
-    stashOAuthIntent({ intent: 'link', provider: 'Google' });
+    stashOAuthIntent({ intent: 'link', provider: 'Google', returnTo: '/ideas' });
     const got = consumeOAuthIntent();
     expect(got).toEqual(
-      expect.objectContaining({ intent: 'link', provider: 'google' })
+      expect.objectContaining({
+        intent: 'link',
+        provider: 'google',
+        returnTo: '/ideas',
+      })
     );
     expect(consumeOAuthIntent()).toBeNull();
   });

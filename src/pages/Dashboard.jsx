@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   ListTodo,
@@ -79,6 +79,7 @@ const DASH_PANEL_BODY =
   'dashboard-panel-scroll flex-1 min-h-0 overflow-y-auto overscroll-contain';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { isModerator } = useIsModerator();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
@@ -267,7 +268,7 @@ const Dashboard = () => {
     };
   }, [load]);
 
-  // OAuth return: clean ?sso= params (banner optional; username gate above)
+  // OAuth return: clean ?sso= params, then restore the page they started from.
   useEffect(() => {
     try {
       const href = window.location.href;
@@ -277,13 +278,21 @@ const Dashboard = () => {
         href,
         consumeIntent: true,
       });
+      const returnTo =
+        result.ok && result.intent?.intent !== 'link'
+          ? result.intent?.returnTo
+          : null;
+      if (returnTo && user) {
+        navigate(returnTo, { replace: true });
+        return;
+      }
       if (result.cleanPath) {
         window.history.replaceState({}, '', result.cleanPath);
       }
     } catch {
       /* ignore */
     }
-  }, [user]);
+  }, [user, navigate]);
 
   // Deep-link: /dashboard#my-drafts | #my-ideas | #showcase-submissions
   useEffect(() => {

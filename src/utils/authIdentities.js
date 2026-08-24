@@ -120,8 +120,9 @@ export function linkedAccountsRedirectUrl(
 }
 
 /**
- * Redirect after OAuth sign-in / sign-up from the public auth entry page.
- * Lands on Dashboard; Account still gates username when needed.
+ * Redirect after OAuth sign-in / sign-up.
+ * Must stay on /dashboard (allow-listed in Supabase Auth). After the app
+ * loads, we may send the user back to the page they started from.
  */
 export function authSignInRedirectUrl(
   origin = typeof window !== 'undefined' ? window.location.origin : '',
@@ -130,6 +131,40 @@ export function authSignInRedirectUrl(
   const q = new URLSearchParams({ sso: '1' });
   if (provider) q.set('provider', String(provider).toLowerCase());
   return `${origin}/dashboard?${q.toString()}`;
+}
+
+const AUTH_RETURN_BLOCKLIST = new Set([
+  '/account',
+  '/dashboard',
+  '/reset-password',
+  '/email-confirmation',
+]);
+
+/**
+ * Same-origin in-app path to restore after OAuth. Rejects open redirects.
+ * @param {string} [raw]
+ * @returns {string|null}
+ */
+export function safeReturnToPath(raw) {
+  let s = String(raw || '').trim();
+  if (!s.startsWith('/') || s.startsWith('//')) return null;
+  if (s.includes('://') || s.includes('\\')) return null;
+  if (s.length > 500) s = s.slice(0, 500);
+  const pathOnly = s.split(/[?#]/)[0];
+  if (AUTH_RETURN_BLOCKLIST.has(pathOnly)) return null;
+  if (pathOnly.startsWith('/account/')) return null;
+  return s;
+}
+
+/**
+ * Current page if it is a safe post-login return target.
+ * @returns {string|null}
+ */
+export function currentSafeReturnTo() {
+  if (typeof window === 'undefined') return null;
+  return safeReturnToPath(
+    `${window.location.pathname}${window.location.search}${window.location.hash}`
+  );
 }
 
 // ─── OAuth intent (survives provider redirect) ───────────────────────────────
@@ -144,9 +179,18 @@ export function stashOAuthIntent(payload) {
     const provider = String(payload?.provider || '').toLowerCase();
     const intent = payload?.intent === 'link' ? 'link' : 'signin';
     if (!provider) return;
+    const returnTo =
+      payload?.returnTo != null
+        ? safeReturnToPath(payload.returnTo)
+        : currentSafeReturnTo();
     sessionStorage.setItem(
       OAUTH_INTENT_KEY,
-      JSON.stringify({ intent, provider, at: Date.now() })
+      JSON.stringify({
+        intent,
+        provider,
+        at: Date.now(),
+        ...(returnTo ? { returnTo } : {}),
+      })
     );
   } catch {
     /* private mode / denied */
@@ -170,7 +214,8 @@ export function consumeOAuthIntent(maxAgeMs = 30 * 60 * 1000) {
     const at = Number(parsed?.at) || 0;
     if (!provider) return null;
     if (at && Date.now() - at > maxAgeMs) return null;
-    return { intent, provider, at };
+    const returnTo = safeReturnToPath(parsed?.returnTo);
+    return { intent, provider, at, ...(returnTo ? { returnTo } : {}) };
   } catch {
     return null;
   }
