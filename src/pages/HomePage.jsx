@@ -36,7 +36,10 @@ import ScrollProgress, {
   SectionContinueCue,
   HeroContinueCue,
 } from '../components/ScrollProgress';
-import { getHomeCommunityStats } from '../services/communityStatsService';
+import {
+  getHomeCommunityStats,
+  getHomeRecentActivity,
+} from '../services/communityStatsService';
 import { DISCORD_URL, DISCORD_LABELS } from '../constants/communityLinks';
 import DiscordLink from '../components/ui/DiscordLink';
 import BannerImage from '../components/ui/BannerImage';
@@ -165,49 +168,27 @@ function formatPulseValue(value) {
   return n.toLocaleString('en-US');
 }
 
-const RECENT_ACTIVITY = [
-  {
-    user: 'Alex R.',
-    userInitials: 'AR',
-    action: 'submitted an idea',
-    target: 'Co-op Base Builder',
-    time: '2h ago',
-  },
-  {
-    user: 'Jordan K.',
-    userInitials: 'JK',
-    action: 'claimed a task on',
-    target: 'Tether',
-    time: '5h ago',
-  },
-  {
-    user: 'Sam T.',
-    userInitials: 'ST',
-    action: 'completed art for',
-    target: 'Mid Game Ambitions',
-    time: '1d ago',
-  },
-  {
-    user: 'Riley M.',
-    userInitials: 'RM',
-    action: 'joined the forge on',
-    target: 'Get Involved',
-    time: '1d ago',
-  },
-];
-
 const INTRO_VIDEO_URL = 'https://www.youtube.com/@MXDGameGuides';
 
 const HomePage = () => {
   const [communityStats, setCommunityStats] = useState(EMPTY_STATS);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setStatsLoading(true);
+      setActivityLoading(true);
       try {
-        const live = await getHomeCommunityStats();
+        const [live, feed] = await Promise.all([
+          getHomeCommunityStats(),
+          getHomeRecentActivity({ limit: 6 }).catch((err) => {
+            console.warn('[HomePage] activity failed:', err);
+            return [];
+          }),
+        ]);
         if (!cancelled && live) {
           setCommunityStats({
             members: live.members ?? 0,
@@ -216,11 +197,20 @@ const HomePage = () => {
             tasksCompleted: live.tasksCompleted ?? 0,
           });
         }
+        if (!cancelled) {
+          setRecentActivity(Array.isArray(feed) ? feed : []);
+        }
       } catch (err) {
         console.warn('[HomePage] community stats failed:', err);
-        if (!cancelled) setCommunityStats(EMPTY_STATS);
+        if (!cancelled) {
+          setCommunityStats(EMPTY_STATS);
+          setRecentActivity([]);
+        }
       } finally {
-        if (!cancelled) setStatsLoading(false);
+        if (!cancelled) {
+          setStatsLoading(false);
+          setActivityLoading(false);
+        }
       }
     })();
     return () => {
@@ -729,14 +719,25 @@ const HomePage = () => {
                 <h3 className="font-mono text-xs tracking-widest uppercase text-neon-cyan">
                   Recent Activity
                 </h3>
-                <Badge variant="default">Live</Badge>
+                {!activityLoading && recentActivity.length > 0 ? (
+                  <Badge variant="default">Live</Badge>
+                ) : null}
               </div>
-              {RECENT_ACTIVITY.map((activity, i) => (
-                <ActivityItem
-                  key={`${activity.user}-${i}`}
-                  activity={activity}
-                />
-              ))}
+              {activityLoading ? (
+                <p className="text-sm text-text-muted py-4">Loading activity…</p>
+              ) : recentActivity.length === 0 ? (
+                <p className="text-sm text-text-muted py-4">
+                  No public activity yet. Submitted ideas and claimed tasks will
+                  show up here.
+                </p>
+              ) : (
+                recentActivity.map((activity) => (
+                  <ActivityItem
+                    key={activity.id || `${activity.user}-${activity.createdAt}`}
+                    activity={activity}
+                  />
+                ))
+              )}
             </Card>
 
             <Card className="home-promo-panel lg:col-span-2 flex flex-col justify-between bg-cyber-card/80 border-neon-cyan/25">

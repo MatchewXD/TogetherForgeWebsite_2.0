@@ -396,22 +396,6 @@ const Media = () => {
                       </Button>
                     </Link>
                   </div>
-                  {isModerator && (
-                    <p className="text-xs text-text-muted pt-2">
-                      Staff:{' '}
-                      <Link
-                        to="/media/edit"
-                        className={`text-neon-cyan hover:text-white rounded ${focusRing}`}
-                      >
-                        manage videos
-                      </Link>{' '}
-                      or run{' '}
-                      <code className="text-neon-cyan/90">
-                        supabase_official_videos.sql
-                      </code>{' '}
-                      for demo rows.
-                    </p>
-                  )}
                 </>
               ) : null}
             </Card>

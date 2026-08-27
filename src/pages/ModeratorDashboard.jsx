@@ -27,6 +27,9 @@ import {
   BookOpen,
   UserCog,
   ScrollText,
+  MessageSquare,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 import Card from '../components/ui/Card';
@@ -48,10 +51,17 @@ import { STATUS_LABELS, displayProjectTitle } from '../utils/ideaStatus';
 import { listShowcaseForModeration } from '../services/showcaseService';
 import IdeaTagsAdminPanel from '../components/ideas/IdeaTagsAdminPanel';
 import DecisionLogsManager from '../components/transparency/DecisionLogsManager';
+import platformSuggestionsService from '../services/platformSuggestionsService';
+import {
+  SUGGESTION_STATUSES,
+  OPEN_SUGGESTION_STATUSES,
+} from '../constants/platformSuggestions';
+import UserNameWithBadge from '../components/badges/UserNameWithBadge';
 
 const TABS = [
   { id: 'users', label: 'Users', icon: Users },
   { id: 'ideas', label: 'Ideas', icon: Lightbulb },
+  { id: 'suggestions', label: 'Suggestions', icon: MessageSquare },
   { id: 'tags', label: 'Tags', icon: Tags },
   { id: 'decisions', label: 'Decision logs', icon: ScrollText },
   { id: 'scope', label: 'Scope help', icon: SplitSquareVertical },
@@ -181,6 +191,10 @@ const ModeratorDashboard = () => {
   const [ideaCategoryFilter, setIdeaCategoryFilter] = useState('all');
   const [ideaSort, setIdeaSort] = useState('newest');
 
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsMissing, setSuggestionsMissing] = useState(false);
+  const [suggestionStatusFilter, setSuggestionStatusFilter] = useState('all');
+
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(''), 8000);
@@ -202,6 +216,7 @@ const ModeratorDashboard = () => {
       }),
       tasksService.countPendingScopeRequests(),
       tasksService.listRestrictionEvents(80),
+      platformSuggestionsService.list({ includeHidden: true, limit: 100 }),
     ]);
 
     const errs = [];
@@ -298,6 +313,22 @@ const ModeratorDashboard = () => {
       );
     }
 
+    if (results[7].status === 'fulfilled') {
+      setSuggestions(results[7].value || []);
+      setSuggestionsMissing(false);
+    } else {
+      setSuggestions([]);
+      const reason = results[7].reason;
+      const missing =
+        /platform_suggestions|not set up yet|does not exist|schema cache/i.test(
+          reason?.message || ''
+        );
+      setSuggestionsMissing(missing);
+      if (!missing && reason?.message) {
+        errs.push(reason.message);
+      }
+    }
+
     if (isFounder) {
       try {
         const log = await moderationService.listRoleChanges({ limit: 50 });
@@ -339,6 +370,50 @@ const ModeratorDashboard = () => {
     }
     return [...set].sort((a, b) => a.localeCompare(b));
   }, [ideas]);
+
+  const openSuggestionCount = useMemo(
+    () =>
+      suggestions.filter((s) =>
+        OPEN_SUGGESTION_STATUSES.includes(s.status)
+      ).length,
+    [suggestions]
+  );
+
+  const filteredSuggestions = useMemo(() => {
+    if (suggestionStatusFilter === 'all') return suggestions;
+    if (suggestionStatusFilter === 'hidden') {
+      return suggestions.filter((s) => s.isHidden);
+    }
+    return suggestions.filter((s) => s.status === suggestionStatusFilter);
+  }, [suggestions, suggestionStatusFilter]);
+
+  const handleSuggestionStatus = async (id, status) => {
+    setBusyKey(`sug-${id}`);
+    setError('');
+    try {
+      const updated = await platformSuggestionsService.updateStatus(id, status);
+      setSuggestions((prev) => prev.map((x) => (x.id === id ? updated : x)));
+      showToast(`Status → ${status}`);
+    } catch (e) {
+      setError(e?.message || 'Could not update suggestion.');
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleSuggestionHidden = async (id, hidden) => {
+    setBusyKey(`sug-${id}`);
+    setError('');
+    try {
+      const updated = await platformSuggestionsService.setHidden(id, hidden);
+      setSuggestions((prev) => prev.map((x) => (x.id === id ? updated : x)));
+      showToast(hidden ? 'Hidden from the public list' : 'Visible on the public list');
+    } catch (e) {
+      setError(e?.message || 'Could not update visibility.');
+    } finally {
+      setBusyKey(null);
+    }
+  };
 
   const filteredUsers = useMemo(() => {
     const q = userSearch.trim().toLowerCase();
@@ -570,6 +645,24 @@ const ModeratorDashboard = () => {
                 <ExternalLink className="w-3.5 h-3.5 opacity-60" aria-hidden />
               </Button>
             </Link>
+            <Link to="/moderator?tab=suggestions" className="inline-flex">
+              <Button
+                type="button"
+                variant="secondary"
+                className="gap-2 min-h-[2.75rem]"
+              >
+                <MessageSquare className="w-4 h-4 text-neon-cyan" />
+                Suggestions
+                <span className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
+                  Queue
+                </span>
+                {openSuggestionCount > 0 && (
+                  <span className="text-xs font-mono tabular-nums bg-neon-cyan/20 text-neon-cyan px-1.5 py-0.5 rounded">
+                    {openSuggestionCount}
+                  </span>
+                )}
+              </Button>
+            </Link>
             <Link to="/showcase/moderate" className="inline-flex">
               <Button
                 type="button"
@@ -621,6 +714,11 @@ const ModeratorDashboard = () => {
                   {t.id === 'scope' && scopePendingCount > 0 && (
                     <span className="ml-1 text-xs bg-semantic-warning/20 text-semantic-warning px-1.5 py-0.5 rounded">
                       {scopePendingCount}
+                    </span>
+                  )}
+                  {t.id === 'suggestions' && openSuggestionCount > 0 && (
+                    <span className="ml-1 text-xs bg-neon-cyan/20 text-neon-cyan px-1.5 py-0.5 rounded">
+                      {openSuggestionCount}
                     </span>
                   )}
                 </button>
@@ -1175,6 +1273,171 @@ const ModeratorDashboard = () => {
                         <Ban className="w-3.5 h-3.5" />
                         Ban
                       </Button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ---------- Platform suggestions ---------- */}
+        {tab === 'suggestions' && (
+          <section aria-labelledby="suggestions-heading">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
+              <div>
+                <h2
+                  id="suggestions-heading"
+                  className="text-xl sm:text-2xl font-bold text-white tracking-tight"
+                >
+                  Platform suggestions
+                </h2>
+                <p className="text-sm text-text-secondary mt-1 max-w-xl">
+                  Site feedback (not game ideas). Set status, or hide a row from
+                  the public list.
+                </p>
+                <Link
+                  to="/suggestions"
+                  className="inline-flex items-center gap-1 text-xs font-mono tracking-widest text-neon-cyan hover:underline mt-2"
+                >
+                  View public list
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+              <div>
+                <label className={filterLabel} htmlFor="mod-sug-status">
+                  Status
+                </label>
+                <select
+                  id="mod-sug-status"
+                  className={filterControl}
+                  value={suggestionStatusFilter}
+                  onChange={(e) => setSuggestionStatusFilter(e.target.value)}
+                >
+                  <option value="all">All</option>
+                  {SUGGESTION_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                  <option value="hidden">Hidden</option>
+                </select>
+              </div>
+            </div>
+
+            {suggestionsMissing && (
+              <Card className="bg-cyber-card/80 border-amber-500/30 mb-4">
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  Platform suggestions are not set up yet. Run{' '}
+                  <code className="text-neon-cyan text-xs font-mono">
+                    supabase/sql/supabase_platform_suggestions.sql
+                  </code>{' '}
+                  in Supabase, then refresh.
+                </p>
+              </Card>
+            )}
+
+            {!suggestionsMissing &&
+              filteredSuggestions.length === 0 &&
+              !loading && (
+                <Card className="bg-cyber-card/80 text-sm text-text-muted">
+                  No suggestions in this view.
+                </Card>
+              )}
+
+            <div className="space-y-3">
+              {filteredSuggestions.map((item) => {
+                const busy = busyKey === `sug-${item.id}`;
+                return (
+                  <Card
+                    key={item.id}
+                    className={`bg-cyber-card/80 ${
+                      item.isHidden ? 'opacity-80 border-amber-400/30' : ''
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+                      <h3 className="text-base font-semibold text-white pr-2">
+                        {item.title}
+                      </h3>
+                      <div className="flex flex-wrap gap-1.5 shrink-0">
+                        <Badge variant="default">{item.category}</Badge>
+                        <Badge
+                          variant={
+                            item.status === 'Done'
+                              ? 'success'
+                              : item.status === 'Under consideration'
+                                ? 'neon'
+                                : 'default'
+                          }
+                        >
+                          {item.status}
+                        </Badge>
+                        {item.isHidden && (
+                          <Badge variant="warning">Hidden</Badge>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
+                      {item.description}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 pt-2 text-xs text-text-muted font-mono">
+                      <UserAvatar
+                        src={
+                          item.creator?.avatar_url || item.creator?.avatarUrl
+                        }
+                        name={item.creator?.username || 'Member'}
+                        username={item.creator?.username}
+                        size="xs"
+                      />
+                      <UserNameWithBadge
+                        username={item.creator?.username}
+                        displayName={item.creator?.username || 'Member'}
+                        pinnedBadgeKey={
+                          item.creator?.pinnedBadgeKey ||
+                          item.creator?.pinned_badge_key ||
+                          null
+                        }
+                        linkClassName="text-neon-cyan hover:underline"
+                      />
+                      {item.createdAt && (
+                        <span className="opacity-70">
+                          · {formatDate(item.createdAt)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 mt-3">
+                      <select
+                        className="bg-cyber-surface border border-cyber-border rounded-lg px-2 py-1.5 text-xs text-white"
+                        value={item.status}
+                        disabled={busy}
+                        onChange={(e) =>
+                          void handleSuggestionStatus(item.id, e.target.value)
+                        }
+                      >
+                        {SUGGESTION_STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          void handleSuggestionHidden(item.id, !item.isHidden)
+                        }
+                        className="inline-flex items-center gap-1 text-xs text-text-secondary hover:text-white border border-white/15 rounded-lg px-2 py-1.5"
+                      >
+                        {item.isHidden ? (
+                          <>
+                            <Eye className="w-3 h-3" /> Unhide
+                          </>
+                        ) : (
+                          <>
+                            <EyeOff className="w-3 h-3" /> Hide
+                          </>
+                        )}
+                      </button>
                     </div>
                   </Card>
                 );

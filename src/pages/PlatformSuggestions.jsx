@@ -8,9 +8,8 @@ import {
   Lightbulb,
   Loader2,
   RefreshCw,
-  EyeOff,
-  Eye,
   CheckCircle2,
+  Shield,
 } from 'lucide-react';
 
 import { supabase } from '../lib/supabase';
@@ -21,10 +20,7 @@ import UserAvatar from '../components/ui/UserAvatar';
 import UserNameWithBadge from '../components/badges/UserNameWithBadge';
 import useIsModerator from '../hooks/useIsModerator';
 import platformSuggestionsService from '../services/platformSuggestionsService';
-import {
-  SUGGESTION_CATEGORIES,
-  SUGGESTION_STATUSES,
-} from '../constants/platformSuggestions';
+import { SUGGESTION_CATEGORIES } from '../constants/platformSuggestions';
 
 const fieldLabel =
   'block text-sm font-mono tracking-widest text-neon-cyan mb-2';
@@ -65,8 +61,6 @@ const PlatformSuggestions = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [toast, setToast] = useState('');
-  const [busyId, setBusyId] = useState(null);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -75,17 +69,11 @@ const PlatformSuggestions = () => {
   const [submitError, setSubmitError] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
-  const showToast = (msg) => {
-    setToast(msg);
-    window.setTimeout(() => setToast(''), 4000);
-  };
-
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const rows = await platformSuggestionsService.list({
-        includeHidden: isModerator,
         limit: 60,
       });
       setItems(rows);
@@ -95,7 +83,7 @@ const PlatformSuggestions = () => {
     } finally {
       setLoading(false);
     }
-  }, [isModerator]);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -142,49 +130,8 @@ const PlatformSuggestions = () => {
     }
   };
 
-  const handleStatus = async (id, status) => {
-    if (!isModerator) return;
-    setBusyId(id);
-    try {
-      const updated = await platformSuggestionsService.updateStatus(id, status);
-      setItems((prev) => prev.map((x) => (x.id === id ? updated : x)));
-      showToast(`Status → ${status}`);
-    } catch (err) {
-      showToast(err.message || 'Update failed');
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const handleHide = async (id, hide) => {
-    if (!isModerator) return;
-    setBusyId(id);
-    try {
-      const updated = await platformSuggestionsService.setHidden(id, hide);
-      if (hide && !isModerator) {
-        setItems((prev) => prev.filter((x) => x.id !== id));
-      } else {
-        setItems((prev) => prev.map((x) => (x.id === id ? updated : x)));
-      }
-      showToast(hide ? 'Hidden from public list' : 'Visible again');
-    } catch (err) {
-      showToast(err.message || 'Update failed');
-    } finally {
-      setBusyId(null);
-    }
-  };
-
   return (
     <div className="pt-20 min-h-screen bg-cyber-bg text-text-primary">
-      {toast && (
-        <div
-          role="status"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-lg border border-cyber-border bg-cyber-surface text-sm shadow-lg"
-        >
-          {toast}
-        </div>
-      )}
-
       <div className="border-b border-white/10 bg-cyber-surface py-12 md:py-14">
         <div className="container-custom max-w-3xl">
           <div className="section-header !block mb-3">Feedback</div>
@@ -195,6 +142,15 @@ const PlatformSuggestions = () => {
             Non-game related Ideas for Together Forge. Payments, Task Board,
             Auth, and more.
           </p>
+          {isModerator && (
+            <Link
+              to="/moderator?tab=suggestions"
+              className="inline-flex items-center gap-1.5 mt-4 text-xs font-mono tracking-widest text-neon-cyan hover:text-white"
+            >
+              <Shield className="w-3.5 h-3.5" />
+              Moderate suggestions
+            </Link>
+          )}
         </div>
       </div>
 
@@ -388,43 +344,6 @@ const PlatformSuggestions = () => {
                         </span>
                       )}
                     </div>
-
-                    {isModerator && (
-                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10">
-                        <select
-                          className="bg-cyber-surface border border-cyber-border rounded-lg px-2 py-1.5 text-xs text-white"
-                          value={item.status}
-                          disabled={busyId === item.id}
-                          onChange={(e) =>
-                            void handleStatus(item.id, e.target.value)
-                          }
-                        >
-                          {SUGGESTION_STATUSES.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          disabled={busyId === item.id}
-                          onClick={() =>
-                            void handleHide(item.id, !item.isHidden)
-                          }
-                          className="inline-flex items-center gap-1 text-xs text-text-secondary hover:text-white border border-white/15 rounded-lg px-2 py-1.5"
-                        >
-                          {item.isHidden ? (
-                            <>
-                              <Eye className="w-3 h-3" /> Unhide
-                            </>
-                          ) : (
-                            <>
-                              <EyeOff className="w-3 h-3" /> Hide
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    )}
                   </Card>
                 </li>
               ))}

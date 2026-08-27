@@ -4,16 +4,7 @@ Together Forge – Completion Tracker
 Private progress guide
 
 
-Legal / Business: Form Together Forge LLC (owned by Big Picture Collective LLC) once parent UBI is available
-
-
-Legal / Business: Obtain EIN for Big Picture Collective LLC
-
-
-Legal / Business: Obtain EIN for Together Forge LLC
-
-
-Legal / Business: Create simple Operating Agreements for both LLCs
+Legal / Business: Create simple Operating Agreements for both LLCs (Big Picture Collective LLC and Together Forge LLC). Together Forge’s agreement must state Big Picture Collective LLC owns 100%.
 
 
 Legal / Business: Open dedicated business bank account(s)
@@ -25,174 +16,16 @@ Legal / Business: Trademark search for “Together Forge”
 Legal / Business: File federal trademark application for “Together Forge” (goal: application in process before public launch)
 
 
-Legal / Business: Resolve Together Forge LLC ownership filing error (currently filed under personal name instead of Big Picture Collective LLC). Waiting on Washington Secretary of State response.
+Legal / Business: Wait for City of Marysville to process Big Picture Collective LLC Home Occupation Application (permit BLS26-0761). File uploaded; status may stay Incomplete until staff review.
 
 
-Legal / Business: Temporarily disable live donations and Runway support on production until business banking is ready
+Legal / Business: Wait for Together Forge LLC DOR / Marysville business license to finish processing. After complete, verify owner listed is Big Picture Collective LLC.
 
 
-Legal / Business: Add clear “Coming Soon” messaging on the Support and Runway pages explaining that payment processing is temporarily unavailable while business banking is being set up
+Legal / Business: Set up Together Forge email on the domain (at least contact@togetherforge.net and bugs@togetherforge.net). Prefer domain email over a new Gmail.
 
 
-Staging Pass – Global: MFA flow (if enabled)
-
-
-Staging Pass – Global: “Report a concern” footer link + form submits privately
-
-
-Staging Pass – Home: Hero and main CTAs work
-
-
-Staging Pass – Home: Key sections render correctly
-
-
-Staging Pass – About / How it Works / Guidelines / FAQ / Contact: Content displays; links and any forms work
-
-
-Staging Pass – Get Involved: Six sections render correctly
-
-
-Staging Pass – Get Involved: Spot illustrations and layout look good
-
-
-Staging Pass – Get Involved: Community roles + Apply flow works
-
-
-Staging Pass – Get Involved: Volunteer Your Skills modal opens, pre-fills when appropriate, and submits
-
-
-Staging Pass – Get Involved: Content Creation section correctly explains Showcase vs Official team
-
-
-Staging Pass – Get Involved: Discord CTA works
-
-
-Staging Pass – Ideas: List, filters (including Filters / Projects / Adopted by Together Forge), and sorting
-
-
-Staging Pass – Ideas: Submit idea flow
-
-
-Staging Pass – Ideas: Idea detail page
-
-
-Staging Pass – Ideas: Awards placement (Spark → Masterwork) + Marks deduction
-
-
-Staging Pass – Ideas: Award notes section (collapsed, scrollable, correct user display)
-
-
-Staging Pass – Ideas: No unwanted default status badges (only Under Review / Adopted when applicable)
-
-
-Staging Pass – Projects / Open Work / Tether: Project list and detail pages
-
-
-Staging Pass – Projects / Open Work / Tether: Task boards, claiming, status changes
-
-
-Staging Pass – Projects / Open Work / Tether: Credit / contribution display
-
-
-Staging Pass – Showcase: Browse and submit flows
-
-
-Staging Pass – Showcase: Awards on Showcase items if supported
-
-
-Staging Pass – Support / Donations: Donation flows
-
-
-Staging Pass – Support / Donations: Marks are granted correctly after a successful donation (test on Staging)
-
-
-Staging Pass – Support / Donations: Transparency / totals display
-
-
-Staging Pass – Profiles & Badges: Public profile shows Marks, award history, badges
-
-
-Staging Pass – Profiles & Badges: Hover tooltip on Forge Marks works
-
-
-Staging Pass – Profiles & Badges: Badge display and pinned badge
-
-
-Staging Pass – Media / Official Content: Official media items display
-
-
-Staging Pass – Media / Official Content: Contributor credit on official media works
-
-
-Staging Pass – Auth-gated & Admin: Moderator / staff tools still function
-
-
-Staging Pass – Auth-gated & Admin: Any admin-only pages are properly protected
-
-
-Staging Pass – Payments & Safety: Stripe test keys work on Staging
-
-
-Staging Pass – Payments & Safety: Webhooks are received and processed
-
-
-Staging Pass – Payments & Safety: No secrets visible in client
-
-
-Staging Pass – Payments & Safety: Error states are clean (failed payment, insufficient Marks, etc.)
-
-
-Staging Pass – Mobile: Key flows usable on a real phone or good emulator
-
-
-Scalability & Load Readiness: Review Supabase plan limits and upgrade path for expected traffic
-
-
-Scalability & Load Readiness: Confirm connection pooling / rate limits / basic monitoring on Supabase
-
-
-Scalability & Load Readiness: Run controlled load / stress tests on key API and database paths
-
-
-Scalability & Load Readiness: Document findings and any needed indexes, caching, or query improvements
-
-
-Scalability & Load Readiness: Payment systems safety review (Stripe keys, webhook security, no secret leakage)
-
-7 of 59 items complete
-Mark phase complete
-
-P7
-Deployment
-0/11 items
-
-Not started
-Deployment prep after legal/readiness work. Soft launch then public go-live only when P6 blockers and this list are ready. Use Mark phase complete when every item is done.
-
-
-Deployment Prep: Confirm hosting (Vercel or current), production env, database, live Stripe keys
-
-
-Deployment Prep: Domain, SSL, DNS
-
-
-Deployment Prep: CI/CD pipeline
-
-
-Deployment Prep: Monitoring, error tracking, analytics, backups
-
-
-Deployment Prep: Staging environment still isolated and healthy
-
-
-Deployment Prep: Soft launch then public go-live + post-deploy smoke tests
-
-
-Deployment Prep: Connect togetherforge.net domain to Vercel (DNS + SSL)
-
-
-Deployment Prep: Set correct production environment variables (no staging secrets)
-
+Legal / Business: Optional later — file Amended Annual Report with Washington Secretary of State if governors need to be updated. SOS records governors only, not ownership percentages.
 
 Deployment Prep: Restore and verify the production Stripe webhook (even while donations are disabled)
 
@@ -202,14 +35,6 @@ Deployment Prep: Confirm staging and production environments remain properly iso
 
 Deployment Prep: Final production smoke test of critical paths after domain is live (auth, ideas, tasks, profiles, navigation, key pages)
 
-0 of 11 items complete
-Mark phase complete
-
-P8
-YouTube Channel
-0/8 items
-
-Not started
 Official videos are produced by the Content Creators Team (see Community Infrastructure). Volunteer + public credit until paid opportunities open.
 
 
@@ -261,6 +86,3 @@ Cross-promote site ↔ YouTube ↔ Discord
 
 
 Track what drives traffic and Discord joins; iterate
-
-0 of 6 items complete
-Mark phase complete

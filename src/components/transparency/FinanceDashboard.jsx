@@ -26,7 +26,7 @@ import SparkLine from '../ui/dashboard/SparkLine';
 import LoadingScreen from '../ui/LoadingScreen';
 
 /** Share of net set aside for tax / legal obligations (policy target). */
-const TAX_RESERVE_PCT = 0.15;
+const TAX_RESERVE_PCT = 0.25;
 
 /** Spend categories for history (amounts stay 0 until a spend ledger exists). */
 const SPEND_CATEGORIES = [

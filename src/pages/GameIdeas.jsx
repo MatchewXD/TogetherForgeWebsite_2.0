@@ -750,11 +750,11 @@ const GameIdeas = () => {
             </select>
           </div>
 
-          <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+          <div className="grid grid-cols-2 sm:flex sm:flex-row sm:flex-wrap gap-3">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className={controlClass}
+              className={`${controlClass} w-full min-w-0 sm:w-auto`}
               aria-label="Filters"
             >
               {FILTER_OPTIONS.map((opt) => (
@@ -785,7 +785,7 @@ const GameIdeas = () => {
                   match || { id: val, slug: val, title: val }
                 );
               }}
-              className={controlClass}
+              className={`${controlClass} w-full min-w-0 sm:w-auto`}
               id="ideas-project-filter"
               aria-label="Projects"
             >
@@ -805,14 +805,14 @@ const GameIdeas = () => {
             </select>
 
             {/* Category multi-select */}
-            <div className="relative" ref={categoryMenuRef}>
+            <div className="relative min-w-0" ref={categoryMenuRef}>
               <button
                 type="button"
                 onClick={() => {
                   setCategoryOpen((o) => !o);
                   setTagPickerOpen(false);
                 }}
-                className={`${controlClass} inline-flex items-center gap-2 w-full sm:w-auto`}
+                className={`${controlClass} inline-flex items-center justify-between gap-2 w-full sm:w-auto`}
                 aria-expanded={categoryOpen}
                 aria-haspopup="listbox"
               >
@@ -822,7 +822,7 @@ const GameIdeas = () => {
                     {selectedCategories.length}
                   </span>
                 )}
-                <ChevronDown className="w-4 h-4 text-text-muted" />
+                <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
               </button>
               {categoryOpen && (
                 <div className="absolute mt-2 w-72 max-w-[calc(100vw-2rem)] bg-cyber-surface border border-cyber-border rounded-lg p-4 z-50 shadow-lg">
@@ -864,38 +864,40 @@ const GameIdeas = () => {
             </div>
 
             {/* Tags — same hybrid picker as create/edit */}
-            <button
-              type="button"
-              onClick={() => {
-                setTagPickerOpen(true);
-                setCategoryOpen(false);
-              }}
-              className={`${controlClass} inline-flex items-center gap-2 w-full sm:w-auto`}
-              aria-haspopup="dialog"
-            >
-              Tags
-              {selectedTags.length > 0 && (
-                <span className="text-xs bg-neon-cyan text-cyber-bg px-2 py-0.5 rounded-full font-mono">
-                  {selectedTags.length}
-                </span>
-              )}
-              <ChevronDown className="w-4 h-4 text-text-muted" />
-            </button>
-            <TagPicker
-              isOpen={tagPickerOpen}
-              onClose={() => setTagPickerOpen(false)}
-              selected={selectedTags}
-              onChange={applySelectedTags}
-              mode="filter"
-              ideasFallback={allIdeas}
-              allowSuggest={false}
-            />
+            <div className="min-w-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setTagPickerOpen(true);
+                  setCategoryOpen(false);
+                }}
+                className={`${controlClass} inline-flex items-center justify-between gap-2 w-full sm:w-auto`}
+                aria-haspopup="dialog"
+              >
+                Tags
+                {selectedTags.length > 0 && (
+                  <span className="text-xs bg-neon-cyan text-cyber-bg px-2 py-0.5 rounded-full font-mono">
+                    {selectedTags.length}
+                  </span>
+                )}
+                <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
+              </button>
+              <TagPicker
+                isOpen={tagPickerOpen}
+                onClose={() => setTagPickerOpen(false)}
+                selected={selectedTags}
+                onChange={applySelectedTags}
+                mode="filter"
+                ideasFallback={allIdeas}
+                allowSuggest={false}
+              />
+            </div>
 
             {activeFilterCount > 0 && (
               <button
                 type="button"
                 onClick={clearFilters}
-                className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-neon-cyan transition-colors px-2"
+                className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-neon-cyan transition-colors px-2 col-span-2 sm:col-auto self-center"
               >
                 <X className="w-4 h-4" />
                 Clear filters
