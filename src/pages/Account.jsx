@@ -62,7 +62,12 @@ import {
   isAccountSection,
   getAccountSection,
 } from '../constants/accountSections';
-import { changePasswordWhileLoggedIn, requestPasswordReset } from '../services/authPasswordService';
+import {
+  changePasswordWhileLoggedIn,
+  requestEmailChange,
+  requestPasswordReset,
+} from '../services/authPasswordService';
+import { AUTH_FROM_HINT } from '../constants/authEmail';
 import {
   PASSWORD_MIN_LENGTH,
   getPasswordRequirementStatus,
@@ -71,7 +76,11 @@ import {
   validatePasswordStrength,
 } from '../utils/passwordRules';
 import {
+  emailConfirmRedirectUrl,
+  isEmailNotConfirmedAuthError,
+  needsEmailConfirmation,
   resolveOAuthReturnState,
+  stashPendingConfirmEmail,
 } from '../utils/authIdentities';
 import AccountPlanSection from '../components/account/AccountPlanSection';
 import AccountBillingSection from '../components/account/AccountBillingSection';
@@ -396,7 +405,7 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
           password: form.password,
           options: {
             data: { username: avail.value, ...legalMeta },
-            emailRedirectTo: `${window.location.origin}/dashboard`,
+            emailRedirectTo: emailConfirmRedirectUrl(),
           },
         });
         if (error) throw error;
@@ -408,27 +417,31 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
           return;
         }
         if (data.user) {
-          // Prefer session claim; without session, metadata + stash apply on first sign-in
-          if (data.session) {
-            await claimUsernameForUser(
-              data.user.id,
-              avail.value,
-              form.email
-            );
-            try {
-              await acceptCurrentLegal(data.user.id);
-            } catch {
-              /* gate will re-prompt if profile columns missing */
+          const pendingConfirm =
+            !data.session || needsEmailConfirmation(data.user);
+          if (pendingConfirm) {
+            stashPendingConfirmEmail(form.email);
+            if (data.session) {
+              await supabase.auth.signOut();
             }
-            onAuthed?.(data.user);
-            const next = safeNextPath(
-              new URLSearchParams(window.location.search).get('next')
-            );
-            navigate(next || '/dashboard', { replace: true });
-          } else {
-            localStorage.setItem('pending_confirmation_email', form.email);
             navigate('/confirm-email', { replace: true });
+            return;
           }
+          await claimUsernameForUser(
+            data.user.id,
+            avail.value,
+            form.email
+          );
+          try {
+            await acceptCurrentLegal(data.user.id);
+          } catch {
+            /* gate will re-prompt if profile columns missing */
+          }
+          onAuthed?.(data.user);
+          const next = safeNextPath(
+            new URLSearchParams(window.location.search).get('next')
+          );
+          navigate(next || '/dashboard', { replace: true });
         }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -436,7 +449,20 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
           password: form.password,
         });
         if (error) {
+          if (isEmailNotConfirmedAuthError(error)) {
+            stashPendingConfirmEmail(form.email);
+            navigate('/confirm-email', { replace: true });
+            setLoading(false);
+            return;
+          }
           setMessage(error.message);
+          setLoading(false);
+          return;
+        }
+        if (data.user && needsEmailConfirmation(data.user)) {
+          stashPendingConfirmEmail(data.user.email || form.email);
+          await supabase.auth.signOut();
+          navigate('/confirm-email', { replace: true });
           setLoading(false);
           return;
         }
@@ -493,7 +519,7 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
           {mode === 'forgot' && (
             <p className="text-sm text-text-secondary mt-3 max-w-sm mx-auto leading-relaxed">
               We will email a single-use reset link if an account exists for that
-              address.
+              address. Look for mail from {AUTH_FROM_HINT}.
             </p>
           )}
         </div>
@@ -943,6 +969,10 @@ function DangerZoneSection({ user }) {
 
 function SecuritySection({ user }) {
   const [openPassword, setOpenPassword] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailMsg, setEmailMsg] = useState('');
+  const [emailErr, setEmailErr] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -988,8 +1018,8 @@ function SecuritySection({ user }) {
       });
       setMsg(
         result.signedOutOthers
-          ? 'Password updated. Other sessions were signed out. Check your email for a security notice if enabled on this project.'
-          : 'Password updated. Check your email for a security notice if enabled on this project.'
+          ? `Password updated. Other sessions were signed out. Look for a security notice from ${AUTH_FROM_HINT}.`
+          : `Password updated. Look for a security notice from ${AUTH_FROM_HINT}.`
       );
       closePasswordForm();
     } catch (ex) {
@@ -1148,6 +1178,63 @@ function SecuritySection({ user }) {
             </div>
           </form>
         )}
+      </Card>
+      <Card className="bg-cyber-card border border-cyber-border p-6 space-y-4">
+        <h3 className="text-sm font-mono tracking-widest text-neon-purple uppercase">
+          Email
+        </h3>
+        <p className="text-sm text-text-secondary leading-relaxed">
+          Current address:{' '}
+          <span className="text-white font-mono break-all">
+            {user?.email || 'none'}
+          </span>
+        </p>
+        <form
+          className="space-y-3 max-w-md"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setEmailMsg('');
+            setEmailErr('');
+            setEmailBusy(true);
+            try {
+              const result = await requestEmailChange(newEmail);
+              setEmailMsg(result.message);
+              setNewEmail('');
+            } catch (ex) {
+              setEmailErr(ex?.message || 'Could not change email.');
+            } finally {
+              setEmailBusy(false);
+            }
+          }}
+        >
+          <div>
+            <label className="block text-xs font-mono tracking-widest text-text-muted uppercase mb-1.5">
+              New email
+            </label>
+            <input
+              type="email"
+              autoComplete="email"
+              required
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              className="w-full bg-cyber-surface border border-cyber-border rounded-lg px-3 py-2.5 text-sm text-white focus:border-neon-cyan outline-none"
+              placeholder="you@example.com"
+            />
+          </div>
+          {emailMsg ? (
+            <p className="text-sm text-emerald-300 leading-relaxed" role="status">
+              {emailMsg}
+            </p>
+          ) : null}
+          {emailErr ? (
+            <p className="text-sm text-red-300" role="alert">
+              {emailErr}
+            </p>
+          ) : null}
+          <Button type="submit" size="sm" disabled={emailBusy}>
+            {emailBusy ? 'Sending…' : 'Send confirmation'}
+          </Button>
+        </form>
       </Card>
       <AccountMfaSection />
       <ComingSoon

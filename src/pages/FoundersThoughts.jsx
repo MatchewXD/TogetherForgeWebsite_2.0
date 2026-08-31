@@ -23,6 +23,8 @@ import Button from '../components/ui/Buttons';
 import BannerImage from '../components/ui/BannerImage';
 import RunwayTransparency from '../components/ui/RunwayTransparency';
 import FundContributorsCard from '../components/support/FundContributorsCard';
+import PaymentsComingSoon from '../components/support/PaymentsComingSoon';
+import { areRunwayEnabled } from '../constants/donationsEnabled';
 import { supabase } from '../lib/supabase';
 import foundersThoughtsService from '../services/foundersThoughtsService';
 
@@ -59,6 +61,7 @@ const formatDate = (iso) => {
 
 const FoundersThoughts = () => {
   const location = useLocation();
+  const runwayEnabled = areRunwayEnabled();
 
   const [thoughts, setThoughts] = useState([]);
   const [fromDb, setFromDb] = useState(false);
@@ -403,15 +406,19 @@ const FoundersThoughts = () => {
 
                   {thought.slug === 'founder-compensation' && (
                     <div className="mt-6">
-                      <Button
-                        size="lg"
-                        className="gap-2 w-full sm:w-auto"
-                        to="/support-runway"
-                      >
-                        <Wallet className="w-4 h-4" />
-                        Support my Runway
-                        <ArrowRight className="w-4 h-4" />
-                      </Button>
+                      {runwayEnabled ? (
+                        <Button
+                          size="lg"
+                          className="gap-2 w-full sm:w-auto"
+                          to="/support-runway"
+                        >
+                          <Wallet className="w-4 h-4" />
+                          Support my Runway
+                          <ArrowRight className="w-4 h-4" />
+                        </Button>
+                      ) : (
+                        <PaymentsComingSoon variant="runway" />
+                      )}
                     </div>
                   )}
                 </Card>
@@ -422,13 +429,17 @@ const FoundersThoughts = () => {
         <RunwayTransparency
           variant="compact"
           footer={
-            <Button
-              className="gap-2 w-full sm:w-auto"
-              to="/support-runway"
-            >
-              <Wallet className="w-4 h-4" />
-              Support my Runway
-            </Button>
+            runwayEnabled ? (
+              <Button
+                className="gap-2 w-full sm:w-auto"
+                to="/support-runway"
+              >
+                <Wallet className="w-4 h-4" />
+                Support my Runway
+              </Button>
+            ) : (
+              <PaymentsComingSoon variant="runway" />
+            )
           }
         />
 

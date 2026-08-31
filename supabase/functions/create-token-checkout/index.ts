@@ -9,6 +9,7 @@
  *   supabase functions deploy create-token-checkout --no-verify-jwt
  * Secrets: STRIPE_SECRET_KEY
  * Temporary pause: ENABLE_DONATIONS=false (unset + sk_live_ also pauses).
+ * LLC / AI Tokens only. Founder Runway is not billed here.
  */
 
 // deno-lint-ignore-file

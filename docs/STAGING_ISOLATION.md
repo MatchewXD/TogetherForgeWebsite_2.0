@@ -23,14 +23,16 @@ They must not share database rows, service-role keys, or Stripe mode.
 
 ### Temporary live-checkout gate
 
-Support, Runway, and new Stripe Checkout (including AI token packs) can be paused without deleting payment code.
+Studio Support, subscriptions, AI Tokens, and new Stripe Checkout can be paused without deleting payment code. Founder Runway is a **separate** flag and is not Stripe.
 
 | Env var | Where | Production now | Staging |
 |---------|--------|----------------|---------|
 | `VITE_ENABLE_DONATIONS` | Vite client | `false` (or unset + `pk_live_`) | `true` |
 | `ENABLE_DONATIONS` | Edge Function secrets | `false` (or unset + `sk_live_`) | `true` |
+| `VITE_ENABLE_RUNWAY` | Vite client | `true` | `true` |
+| `ENABLE_RUNWAY` | Edge Function secrets (UI docs; not Stripe) | `true` | `true` |
 
-Unset defaults: **on** for Stripe test keys, **off** for live keys or a missing key. Re-enable production by setting both flags to `true` and verifying checkout. Webhooks, Marks grants, and billing portal stay in place.
+`ENABLE_DONATIONS` unset defaults: **on** for Stripe test keys, **off** for live keys or a missing key. Keep production donations **off** until banking is ready. `ENABLE_DONATIONS` must not hide or show Runway. Webhooks, Marks grants, and billing portal stay in place.
 
 ---
 

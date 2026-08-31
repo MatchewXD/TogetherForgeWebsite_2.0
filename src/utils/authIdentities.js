@@ -63,6 +63,132 @@ export function isEmailVerified(user) {
   return Boolean(user.email_confirmed_at || user.confirmed_at);
 }
 
+/**
+ * True when an OAuth identity reports a provider-verified email.
+ * Email/password identities are ignored.
+ * @param {object|null|undefined} user
+ */
+export function hasProviderVerifiedEmail(user) {
+  const list = Array.isArray(user?.identities) ? user.identities : [];
+  return list.some((i) => {
+    const p = String(i?.provider || '').toLowerCase();
+    if (!p || p === 'email') return false;
+    const data = i?.identity_data || {};
+    return (
+      data.email_verified === true ||
+      data.email_verified === 'true' ||
+      i?.email_verified === true
+    );
+  });
+}
+
+/**
+ * Email/password accounts that still need Supabase Confirm email.
+ * OAuth users never hit the confirm-email wall.
+ * @param {object|null|undefined} user
+ */
+export function needsEmailConfirmation(user) {
+  if (!user) return false;
+  if (isEmailVerified(user)) return false;
+  if (hasSsoLinked(user) || hasProviderVerifiedEmail(user)) return false;
+  return true;
+}
+
+export const PENDING_CONFIRM_EMAIL_KEY = 'pending_confirmation_email';
+
+export function stashPendingConfirmEmail(email) {
+  const v = String(email || '').trim();
+  if (!v) return;
+  try {
+    localStorage.setItem(PENDING_CONFIRM_EMAIL_KEY, v);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readPendingConfirmEmail() {
+  try {
+    return String(localStorage.getItem(PENDING_CONFIRM_EMAIL_KEY) || '').trim();
+  } catch {
+    return '';
+  }
+}
+
+export function clearPendingConfirmEmail() {
+  try {
+    localStorage.removeItem(PENDING_CONFIRM_EMAIL_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Confirm-email link target. Uses the current origin so staging and production
+ * stay on their own Site URL. /dashboard is the existing auth callback
+ * allow-listed for this project.
+ * @param {string} [origin]
+ */
+export function emailConfirmRedirectUrl(
+  origin = typeof window !== 'undefined' ? window.location.origin : ''
+) {
+  return `${origin}/dashboard`;
+}
+
+/**
+ * Password-reset landing. Origin-specific so staging and production stay apart.
+ * @param {string} [origin]
+ */
+export function passwordResetRedirectUrl(
+  origin = typeof window !== 'undefined' ? window.location.origin : ''
+) {
+  return `${origin}/reset-password`;
+}
+
+/**
+ * After the user confirms a new email address.
+ * @param {string} [origin]
+ */
+export function emailChangeRedirectUrl(
+  origin = typeof window !== 'undefined' ? window.location.origin : ''
+) {
+  return `${origin}/account/security`;
+}
+
+/**
+ * Paths that require a fully signed-in (confirmed) account.
+ * Public browsing is not gated.
+ * @param {string} [pathname]
+ */
+export function isAccountGatedPath(pathname) {
+  const path = String(pathname || '').split(/[?#]/)[0] || '/';
+  const prefixes = [
+    '/dashboard',
+    '/account',
+    '/profile/edit',
+    '/ideas/submit',
+    '/ideas/wizard',
+    '/showcase/submit',
+    '/bugs/report',
+    '/report-bug',
+    '/media/edit',
+    '/projects/edit',
+    '/projects/early/edit',
+    '/moderator',
+  ];
+  if (prefixes.some((p) => path === p || path.startsWith(`${p}/`))) return true;
+  if (/^\/ideas\/[^/]+\/edit\/?$/.test(path)) return true;
+  return false;
+}
+
+export function isEmailNotConfirmedAuthError(err) {
+  const code = String(err?.code || err?.error_code || '').toLowerCase();
+  const raw = String(err?.message || err?.error_description || '').toLowerCase();
+  return (
+    code === 'email_not_confirmed' ||
+    /email not confirmed|email_not_confirmed/.test(`${code} ${raw}`)
+  );
+}
+
 export function hasSsoLinked(user) {
   return SSO_PROVIDERS.some((p) => userHasProvider(user, p));
 }
@@ -138,6 +264,7 @@ const AUTH_RETURN_BLOCKLIST = new Set([
   '/dashboard',
   '/reset-password',
   '/email-confirmation',
+  '/confirm-email',
 ]);
 
 /**

@@ -19,6 +19,7 @@
  *   supabase functions deploy create-checkout --no-verify-jwt
  * Secrets: STRIPE_SECRET_KEY
  * Temporary pause: ENABLE_DONATIONS=false (unset + sk_live_ also pauses).
+ * Founder Runway is never created here (ENABLE_RUNWAY is a separate UI flag).
  * Optional: STRIPE_PRODUCT_ID only if you created a real product in THIS Stripe account.
  * Dynamic $ amounts use inline product_data by default (no pre-created product needed).
  * Hosted also has SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY for DB customer lookup.
@@ -36,6 +37,8 @@ import {
   areDonationsEnabled,
   DONATIONS_PAUSED_CODE,
   DONATIONS_PAUSED_ERROR,
+  RUNWAY_NOT_STRIPE_CODE,
+  RUNWAY_NOT_STRIPE_ERROR,
 } from '../_shared/donationsEnabled.ts';
 
 const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
@@ -310,6 +313,22 @@ Deno.serve(async (req) => {
     return json({ error: 'Method not allowed' }, 405);
   }
 
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: 'Invalid JSON' }, 400);
+  }
+  if (body?.fundType === 'runway') {
+    return json(
+      {
+        error: RUNWAY_NOT_STRIPE_ERROR,
+        code: RUNWAY_NOT_STRIPE_CODE,
+      },
+      400
+    );
+  }
+
   if (!areDonationsEnabled()) {
     return json(
       { error: DONATIONS_PAUSED_ERROR, code: DONATIONS_PAUSED_CODE },
@@ -340,27 +359,11 @@ Deno.serve(async (req) => {
     });
     if (limited) return limited;
 
-    const body = await req.json();
     const amountCents = Math.round(Number(body.amountCents));
     const interval = body.interval === 'month' ? 'month' : 'once';
-    if (body.fundType === 'runway') {
-      return json(
-        {
-          error:
-            'Personal runway is funded on Ko-fi, not Stripe. Open /support-runway.',
-          code: 'RUNWAY_USE_KOFI',
-        },
-        400
-      );
-    }
     const fundType = 'studio';
     const tierId = String(body.tierId || 'custom').slice(0, 64);
-    const label = String(
-      body.label ||
-        (fundType === 'runway'
-          ? 'Together Forge Founder Runway'
-          : 'Together Forge Support')
-    ).slice(0, 120);
+    const label = String(body.label || 'Together Forge Support').slice(0, 120);
     // Do not force a stale env product id — only use if body explicitly passes one,
     // or env is set AND body does not opt out (useProduct: false).
     const useProduct =

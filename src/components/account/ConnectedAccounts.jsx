@@ -13,12 +13,14 @@ import {
   hasSsoLinked,
   humanizeAuthIdentityError,
   isEmailVerified,
+  emailConfirmRedirectUrl,
   linkedAccountsRedirectUrl,
   providerDisplayName,
   resolveOAuthReturnState,
   stashOAuthIntent,
   userHasProvider,
 } from '../../utils/authIdentities';
+import { AUTH_FROM_HINT } from '../../constants/authEmail';
 
 const PROVIDERS = [
   {
@@ -291,19 +293,12 @@ export default function ConnectedAccounts({
         type: 'signup',
         email: user.email,
         options: {
-          emailRedirectTo: `${window.location.origin}/account/linked?verified=1`,
+          emailRedirectTo: emailConfirmRedirectUrl(),
         },
       });
-      if (err) {
-        // Fallback for already-signed-in users where signup resend fails
-        const retry = await supabase.auth.resend({
-          type: 'email_change',
-          email: user.email,
-        });
-        if (retry.error) throw err;
-      }
+      if (err) throw err;
       setMessage(
-        `Verification email sent to ${user.email}. Open the link, then return here — status updates automatically.`
+        `Confirmation sent to ${user.email}. Look for mail from ${AUTH_FROM_HINT}.`
       );
     } catch (e) {
       setError(
@@ -397,7 +392,9 @@ export default function ConnectedAccounts({
                 emailOk ? 'text-emerald-300' : 'text-semantic-warning'
               }`}
             >
-              {emailOk ? 'Verified' : 'Not verified — check your inbox for a confirmation link'}
+              {emailOk
+                ? 'Verified'
+                : `Not verified. Look for mail from ${AUTH_FROM_HINT}.`}
             </div>
           </div>
         </div>

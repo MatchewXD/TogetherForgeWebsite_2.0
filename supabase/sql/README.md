@@ -98,6 +98,7 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 39. `supabase_stripe_subscriptions.sql` — webhook events + subscription rows  
 40. `supabase_donations_public_feed.sql` — MRR + recent public feed RPCs  
 40b. `supabase_kofi_runway.sql` — Ko-fi personal runway payments + coverage settings  
+40c. `supabase_kofi_runway_stack.sql` — runway totals from Ko-fi ledger only; optional PayPal net  
 41. `supabase_billing_account.sql` — My Plan / Billing RPCs + own-row RLS  
 42. `supabase_subscription_renewal_credit.sql` — subscription credit identity columns  
 43. `supabase_donation_project_attribution.sql` — attach studio donations to active project  
@@ -114,6 +115,7 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 46. `supabase_legal_acceptance.sql` — `profiles` Terms + Community Guidelines version columns  
 46b. `supabase_payments_policy_acceptance.sql` — `profiles` Payments and refunds policy version columns  
 47. `supabase_ai_tokens.sql` — AI token balances, immutable ledger, purchases, generation log, caps  
+47b. `supabase_ai_token_ledger_security_invoker.sql` — ledger user view SECURITY INVOKER + safe column grants  
 48. `supabase_ai_tokens_scale_50k.sql` — one-time migrate legacy pack sizes (250/700/1600 → 250k/600k/1.25M)  
 48b. `supabase_ai_token_pack_grants.sql` — canonical pack grants + top-up under-credited purchases  
 
@@ -213,6 +215,7 @@ supabase db query --linked -f supabase/sql/supabase_mfa_recovery_codes.sql
 supabase db query --linked -f supabase/sql/supabase_legal_acceptance.sql
 supabase db query --linked -f supabase/sql/supabase_payments_policy_acceptance.sql
 supabase db query --linked -f supabase/sql/supabase_ai_tokens.sql
+supabase db query --linked -f supabase/sql/supabase_ai_token_ledger_security_invoker.sql
 supabase db query --linked -f supabase/sql/supabase_ai_tokens_scale_50k.sql
 supabase db query --linked -f supabase/sql/supabase_ai_token_pack_grants.sql
 ```
@@ -279,6 +282,7 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_legal_acceptance.sql` | Terms + Guidelines acceptance columns on profiles |
 | `supabase_payments_policy_acceptance.sql` | Payments and refunds policy acceptance columns on profiles |
 | `supabase_ai_tokens.sql` | AI token balance, ledger, packs purchases, spend caps |
+| `supabase_ai_token_ledger_security_invoker.sql` | Ledger user view as SECURITY INVOKER; no cost-column grants |
 | `supabase_ai_tokens_scale_50k.sql` | Migrate old pack token amounts to 50k/$1 scale |
 | `supabase_ai_token_pack_grants.sql` | Canonical pack grants + top-up under-credited purchases |
 | `supabase_identity_gate_github.sql` | GitHub for identity gate |

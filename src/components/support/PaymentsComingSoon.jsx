@@ -1,13 +1,18 @@
 /**
- * Shown when live Stripe Checkout is paused (ENABLE_DONATIONS / VITE_ENABLE_DONATIONS).
+ * Coming Soon for a paused money path.
+ * studio: ENABLE_DONATIONS. runway: ENABLE_RUNWAY (Founder Runway only).
  */
 import { Clock } from 'lucide-react';
 import Card from '../ui/Card';
 
 /**
- * @param {{ variant?: string, className?: string }} props
+ * @param {{ variant?: 'studio'|'runway', className?: string }} props
  */
-export default function PaymentsComingSoon({ className = '' }) {
+export default function PaymentsComingSoon({
+  className = '',
+  variant = 'studio',
+}) {
+  const runway = variant === 'runway';
   return (
     <Card
       className={`bg-cyber-card/80 border-forge-gold/35 ${className}`}
@@ -22,7 +27,9 @@ export default function PaymentsComingSoon({ className = '' }) {
             Coming Soon
           </p>
           <p className="text-sm sm:text-base text-text-secondary leading-relaxed">
-            Studio Support is temporarily unavailable.
+            {runway
+              ? 'Founder Runway is temporarily unavailable.'
+              : 'Studio Support is temporarily unavailable.'}
           </p>
           <p className="text-sm sm:text-base text-text-secondary leading-relaxed mt-1">
             They will be back shortly.

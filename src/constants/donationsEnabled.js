@@ -1,21 +1,32 @@
 /**
- * Temporary live-checkout gate for Support, Runway, and other Stripe Checkout.
+ * Money flags — two independent switches.
  *
- * Switch: VITE_ENABLE_DONATIONS (client) / ENABLE_DONATIONS (Edge Functions).
+ * Studio (Together Forge LLC): VITE_ENABLE_DONATIONS / ENABLE_DONATIONS
+ *   Studio Support, subscriptions, AI Tokens, Stripe checkout.
+ *   Default when unset: on for pk_test_, off for pk_live_ or a missing key.
+ *   Keep off in production until banking is ready.
+ *
+ * Founder Runway (personal): VITE_ENABLE_RUNWAY / ENABLE_RUNWAY
+ *   Founder Runway page + compact card on Founders Thoughts.
+ *   Does not use Stripe. Unset defaults on; set false for Coming Soon.
+ *
  * Values: true/false, 1/0, on/off, yes/no.
- *
- * Default when unset:
- *   - Test Stripe keys (pk_test_ / sk_test_) → on  (staging/local can test)
- *   - Live keys or missing key → off  (production stays paused)
- *
- * Re-enable production: set both flags to true, then verify checkout.
- * Do not delete Stripe, webhook, Marks, or donation services — this is a gate.
  */
 
 export const DONATIONS_PAUSED_CODE = 'DONATIONS_PAUSED';
 
 export const DONATIONS_PAUSED_ERROR =
-  'Support and Runway are temporarily unavailable.';
+  'Studio support is temporarily unavailable.';
+
+export const RUNWAY_PAUSED_CODE = 'RUNWAY_PAUSED';
+
+export const RUNWAY_PAUSED_ERROR =
+  'Founder Runway is temporarily unavailable.';
+
+export const RUNWAY_NOT_STRIPE_CODE = 'RUNWAY_NOT_STRIPE';
+
+export const RUNWAY_NOT_STRIPE_ERROR =
+  'Personal runway is not billed through studio checkout.';
 
 /** @param {unknown} raw */
 export function parseEnableFlag(raw) {
@@ -28,6 +39,7 @@ export function parseEnableFlag(raw) {
 }
 
 /**
+ * LLC / Stripe checkout only. Never gates Founder Runway.
  * @param {{ VITE_ENABLE_DONATIONS?: string, VITE_STRIPE_PUBLISHABLE_KEY?: string }|undefined} env
  * @returns {boolean}
  */
@@ -37,4 +49,15 @@ export function areDonationsEnabled(env = import.meta.env) {
   const pk = String(env?.VITE_STRIPE_PUBLISHABLE_KEY || '').trim();
   if (pk.startsWith('pk_test_')) return true;
   return false;
+}
+
+/**
+ * Personal Founder Runway only. Independent of ENABLE_DONATIONS.
+ * @param {{ VITE_ENABLE_RUNWAY?: string }|undefined} env
+ * @returns {boolean}
+ */
+export function areRunwayEnabled(env = import.meta.env) {
+  const explicit = parseEnableFlag(env?.VITE_ENABLE_RUNWAY);
+  if (explicit !== null) return explicit;
+  return true;
 }

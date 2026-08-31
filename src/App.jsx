@@ -53,6 +53,7 @@ import ReleasedGameDetail from './pages/ReleasedGameDetail';
 import NotFound from './pages/NotFound';
 import Footer from './components/layout/Footer';
 import MfaSessionGate from './components/auth/MfaSessionGate';
+import EmailConfirmationGate from './components/auth/EmailConfirmationGate';
 import LegalAcceptanceGate from './components/legal/LegalAcceptanceGate';
 import { ReportConcernProvider } from './context/ReportConcernContext';
 import Terms from './pages/Terms';
@@ -79,6 +80,7 @@ function App() {
     return (
         <Router>
             <ScrollToTop />
+            <EmailConfirmationGate>
             <MfaSessionGate>
             <LegalAcceptanceGate>
             <ReportConcernProvider>
@@ -215,6 +217,7 @@ function App() {
             </ReportConcernProvider>
             </LegalAcceptanceGate>
             </MfaSessionGate>
+            </EmailConfirmationGate>
         </Router>
     );
 }

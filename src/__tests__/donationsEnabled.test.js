@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseEnableFlag,
   areDonationsEnabled,
+  areRunwayEnabled,
 } from '../constants/donationsEnabled';
 
 describe('parseEnableFlag', () => {
@@ -58,5 +59,50 @@ describe('areDonationsEnabled', () => {
         VITE_STRIPE_PUBLISHABLE_KEY: 'pk_test_abc',
       })
     ).toBe(false);
+  });
+
+  it('does not follow VITE_ENABLE_RUNWAY', () => {
+    expect(
+      areDonationsEnabled({
+        VITE_ENABLE_RUNWAY: 'true',
+        VITE_STRIPE_PUBLISHABLE_KEY: 'pk_live_abc',
+      })
+    ).toBe(false);
+    expect(
+      areDonationsEnabled({
+        VITE_ENABLE_DONATIONS: 'false',
+        VITE_ENABLE_RUNWAY: 'true',
+        VITE_STRIPE_PUBLISHABLE_KEY: 'pk_test_abc',
+      })
+    ).toBe(false);
+  });
+});
+
+describe('areRunwayEnabled', () => {
+  it('defaults on when unset', () => {
+    expect(areRunwayEnabled({})).toBe(true);
+    expect(
+      areRunwayEnabled({
+        VITE_ENABLE_DONATIONS: 'false',
+        VITE_STRIPE_PUBLISHABLE_KEY: 'pk_live_abc',
+      })
+    ).toBe(true);
+  });
+
+  it('follows VITE_ENABLE_RUNWAY only', () => {
+    expect(areRunwayEnabled({ VITE_ENABLE_RUNWAY: 'true' })).toBe(true);
+    expect(areRunwayEnabled({ VITE_ENABLE_RUNWAY: 'false' })).toBe(false);
+    expect(
+      areRunwayEnabled({
+        VITE_ENABLE_RUNWAY: 'false',
+        VITE_ENABLE_DONATIONS: 'true',
+      })
+    ).toBe(false);
+    expect(
+      areRunwayEnabled({
+        VITE_ENABLE_RUNWAY: 'true',
+        VITE_ENABLE_DONATIONS: 'false',
+      })
+    ).toBe(true);
   });
 });

@@ -19,7 +19,8 @@ Client (`VITE_*`) is only allowed to hold **publishable** keys:
 | `VITE_STRIPE_PUBLISHABLE_KEY` | `pk_test_` / `pk_live_` | Yes (intended) |
 | `VITE_STRIPE_CHECKOUT_API_URL` | public function URL | Yes |
 | `VITE_STRIPE_PAYMENT_LINKS` | public Payment Link URLs | Yes |
-| `VITE_ENABLE_DONATIONS` | checkout gate | Yes |
+| `VITE_ENABLE_DONATIONS` | LLC Stripe checkout gate | Yes |
+| `VITE_ENABLE_RUNWAY` | Founder Runway UI (not Stripe) | Yes |
 | `STRIPE_SECRET_KEY` | `sk_test_` / `sk_live_` | **No** — Edge Function env only |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_` | **No** — webhook function only |
 | `SUPABASE_SERVICE_ROLE_KEY` | DB admin | **No** — Edge Functions (auto on hosted) |
@@ -83,20 +84,23 @@ Paused-gate copy is clean: *“Payment processing is temporarily unavailable whi
 
 ## 4. Donation / payment gate
 
-Client: `src/constants/donationsEnabled.js` (`VITE_ENABLE_DONATIONS`)  
-Server: `supabase/functions/_shared/donationsEnabled.ts` (`ENABLE_DONATIONS`)
+Client: `src/constants/donationsEnabled.js` (`VITE_ENABLE_DONATIONS`, `VITE_ENABLE_RUNWAY`)  
+Server: `supabase/functions/_shared/donationsEnabled.ts` (`ENABLE_DONATIONS` for Stripe only)
 
 | Env | Explicit flag in examples | Unset default |
 |-----|---------------------------|---------------|
 | Production | `VITE_ENABLE_DONATIONS=false`, `ENABLE_DONATIONS=false` | Off for `pk_live_` / `sk_live_` / missing key |
-| Staging / local | flags `true` | On for `pk_test_` / `sk_test_` |
+| Staging / local | donations flags `true` | On for `pk_test_` / `sk_test_` |
+| Runway (all) | `VITE_ENABLE_RUNWAY=true` | On; set `false` for Coming Soon on Runway only |
 
 Covered in unit tests (`src/__tests__/donationsEnabled.test.js`, checkout tests).
 
-When off:
+When **donations** are off:
 
-- Client: Support / Runway / token pack UI shows `PaymentsComingSoon`; `startStripeCheckout` / `startTokenPackCheckout` **do not call** Stripe.
-- Edge: `create-checkout` and `create-token-checkout` return **503** `{ error: DONATIONS_PAUSED_ERROR, code: DONATIONS_PAUSED_CODE }` **before** creating a session.
+- Client: Studio Support / token pack UI shows `PaymentsComingSoon`; `startStripeCheckout` / `startTokenPackCheckout` **do not call** Stripe. Founder Runway is **not** hidden.
+- Edge: `create-checkout` and `create-token-checkout` return **503** `{ error: DONATIONS_PAUSED_ERROR, code: DONATIONS_PAUSED_CODE }` **before** creating a session. Runway `fundType` is rejected with `RUNWAY_NOT_STRIPE` and never creates a Stripe session.
+
+When **runway** is off: Founder Runway and the compact Founders Thoughts card show Coming Soon instead of the personal support button. Studio checkout is unchanged.
 
 **What the gate does not stop**
 

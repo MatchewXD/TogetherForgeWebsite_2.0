@@ -16,6 +16,8 @@ import {
   areDonationsEnabled,
   DONATIONS_PAUSED_CODE,
   DONATIONS_PAUSED_ERROR,
+  RUNWAY_NOT_STRIPE_CODE,
+  RUNWAY_NOT_STRIPE_ERROR,
 } from '../constants/donationsEnabled';
 
 const MIN_CENTS = 100;
@@ -124,6 +126,11 @@ export async function startStripeCheckout({
   displayName = null,
   isAnonymous = true,
 } = {}) {
+  if (fundType === 'runway') {
+    const err = new Error(RUNWAY_NOT_STRIPE_ERROR);
+    err.code = RUNWAY_NOT_STRIPE_CODE;
+    throw err;
+  }
   if (!areDonationsEnabled()) {
     const err = new Error(DONATIONS_PAUSED_ERROR);
     err.code = DONATIONS_PAUSED_CODE;
@@ -137,7 +144,7 @@ export async function startStripeCheckout({
   }
   const cents = validated.amountCents;
   const safeInterval = interval === 'month' ? 'month' : 'once';
-  const safeFund = fundType === 'runway' ? 'runway' : 'studio';
+  const safeFund = 'studio';
   const safeTier = String(tierId || 'custom').slice(0, 64);
   const safeLabel = String(label || 'Support').slice(0, 120);
 

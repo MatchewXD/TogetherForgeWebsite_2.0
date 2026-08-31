@@ -20,7 +20,14 @@ import {
   consumeOAuthIntent,
   resolveOAuthReturnState,
   authSignInRedirectUrl,
+  emailChangeRedirectUrl,
+  emailConfirmRedirectUrl,
+  hasProviderVerifiedEmail,
+  isAccountGatedPath,
+  isEmailNotConfirmedAuthError,
   linkedAccountsRedirectUrl,
+  needsEmailConfirmation,
+  passwordResetRedirectUrl,
   safeReturnToPath,
 } from '../utils/authIdentities';
 
@@ -38,6 +45,93 @@ describe('authIdentities', () => {
     expect(isEmailVerified(null)).toBe(false);
     expect(isEmailVerified({ email_confirmed_at: null })).toBe(false);
     expect(isEmailVerified({ email_confirmed_at: '2024-01-01' })).toBe(true);
+  });
+
+  it('requires confirm email only for unconfirmed email/password users', () => {
+    expect(
+      needsEmailConfirmation({
+        email_confirmed_at: null,
+        identities: [{ provider: 'email' }],
+      })
+    ).toBe(true);
+    expect(
+      needsEmailConfirmation({
+        email_confirmed_at: '2026-08-30',
+        identities: [{ provider: 'email' }],
+      })
+    ).toBe(false);
+    expect(
+      needsEmailConfirmation({
+        email_confirmed_at: null,
+        identities: [{ provider: 'google' }],
+      })
+    ).toBe(false);
+    expect(
+      needsEmailConfirmation({
+        email_confirmed_at: null,
+        identities: [
+          {
+            provider: 'github',
+            identity_data: { email_verified: true },
+          },
+        ],
+      })
+    ).toBe(false);
+    expect(needsEmailConfirmation(null)).toBe(false);
+  });
+
+  it('treats provider-verified OAuth as verified email for the confirm wall', () => {
+    expect(
+      hasProviderVerifiedEmail({
+        identities: [
+          { provider: 'google', identity_data: { email_verified: true } },
+        ],
+      })
+    ).toBe(true);
+    expect(
+      hasProviderVerifiedEmail({
+        identities: [{ provider: 'email', identity_data: { email_verified: true } }],
+      })
+    ).toBe(false);
+  });
+
+  it('builds confirm redirects from the current origin', () => {
+    expect(emailConfirmRedirectUrl('https://staging.togetherforge.net')).toBe(
+      'https://staging.togetherforge.net/dashboard'
+    );
+    expect(emailConfirmRedirectUrl('https://togetherforge.net')).toBe(
+      'https://togetherforge.net/dashboard'
+    );
+    expect(passwordResetRedirectUrl('https://staging.togetherforge.net')).toBe(
+      'https://staging.togetherforge.net/reset-password'
+    );
+    expect(emailChangeRedirectUrl('https://togetherforge.net')).toBe(
+      'https://togetherforge.net/account/security'
+    );
+  });
+
+  it('gates contribute/account paths but not public browsing', () => {
+    expect(isAccountGatedPath('/dashboard')).toBe(true);
+    expect(isAccountGatedPath('/account/profile')).toBe(true);
+    expect(isAccountGatedPath('/ideas/submit')).toBe(true);
+    expect(isAccountGatedPath('/ideas/abc/edit')).toBe(true);
+    expect(isAccountGatedPath('/ideas')).toBe(false);
+    expect(isAccountGatedPath('/ideas/abc')).toBe(false);
+    expect(isAccountGatedPath('/projects')).toBe(false);
+    expect(isAccountGatedPath('/support-runway')).toBe(false);
+    expect(isAccountGatedPath('/confirm-email')).toBe(false);
+  });
+
+  it('detects email-not-confirmed auth errors', () => {
+    expect(
+      isEmailNotConfirmedAuthError({ code: 'email_not_confirmed' })
+    ).toBe(true);
+    expect(
+      isEmailNotConfirmedAuthError({ message: 'Email not confirmed' })
+    ).toBe(true);
+    expect(isEmailNotConfirmedAuthError({ message: 'Invalid login' })).toBe(
+      false
+    );
   });
 
   it('detects SSO for identity gate', () => {

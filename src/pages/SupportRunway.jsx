@@ -10,9 +10,12 @@ import RunwayTransparency from '../components/ui/RunwayTransparency';
 import RecentDonationsList from '../components/support/RecentDonationsList';
 import FundContributorsCard from '../components/support/FundContributorsCard';
 import KofiRunwayButton from '../components/support/KofiRunwayButton';
+import PaymentsComingSoon from '../components/support/PaymentsComingSoon';
 import { getPublicRecentDonations } from '../services/donationsService';
+import { areRunwayEnabled } from '../constants/donationsEnabled';
 
 const SupportRunway = () => {
+  const runwayEnabled = areRunwayEnabled();
   const [recentItems, setRecentItems] = useState([]);
   const [recentSource, setRecentSource] = useState('empty');
   const [recentLoading, setRecentLoading] = useState(true);
@@ -60,7 +63,11 @@ const SupportRunway = () => {
               full time. Those two kinds of support never mix.
             </p>
             <div className="mt-6">
-              <KofiRunwayButton className="w-full sm:w-auto min-w-[14rem] px-6 py-3" />
+              {runwayEnabled ? (
+                <KofiRunwayButton className="w-full sm:w-auto min-w-[14rem] px-6 py-3" />
+              ) : (
+                <PaymentsComingSoon variant="runway" />
+              )}
             </div>
             <p className="mt-5 text-sm sm:text-base leading-relaxed">
               <Link
@@ -93,8 +100,8 @@ const SupportRunway = () => {
           title="Recent contributions"
           headingId="recent-runway-heading"
           emptyTitle="No public runway support yet"
-          emptyBody="Runway gifts appear here."
-          creditNote="Named gifts can appear below. Private gifts still count toward the total without a public name or message."
+          emptyBody="Runway payments appear here."
+          creditNote="Named support can appear below. Private payments still count toward the total without a public name or message."
         />
 
         <FundContributorsCard fundType="runway" />

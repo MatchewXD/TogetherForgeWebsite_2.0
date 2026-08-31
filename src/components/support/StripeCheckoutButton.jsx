@@ -21,7 +21,10 @@ import {
   isStripeConfigured,
   validateAmountCents,
 } from '../../services/supportService';
-import { areDonationsEnabled } from '../../constants/donationsEnabled';
+import {
+  areDonationsEnabled,
+  RUNWAY_NOT_STRIPE_ERROR,
+} from '../../constants/donationsEnabled';
 
 /**
  * @param {object} props
@@ -68,6 +71,11 @@ const StripeCheckoutButton = ({
 
   const handleClick = async () => {
     setError('');
+    if (fundType === 'runway') {
+      setError(RUNWAY_NOT_STRIPE_ERROR);
+      onError?.(RUNWAY_NOT_STRIPE_ERROR);
+      return;
+    }
     if (!donationsEnabled) return;
     const amountCents = Math.round(Number(amountDollars) * 100);
     const validated = validateAmountCents(amountCents);
@@ -159,8 +167,7 @@ const StripeCheckoutButton = ({
       )}
       {!donationsEnabled && (
         <p className="mt-2 text-sm text-text-secondary leading-relaxed">
-          Support and Runway are temporarily unavailable. They will be back
-          shortly.
+          Studio support is temporarily unavailable. They will be back shortly.
         </p>
       )}
       {donationsEnabled && !ready && !error && (

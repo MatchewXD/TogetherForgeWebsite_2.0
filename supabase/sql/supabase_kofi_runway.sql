@@ -9,6 +9,8 @@ create table if not exists public.kofi_runway_payments (
   kofi_transaction_id text,
   type text,
   amount_cents integer not null check (amount_cents > 0),
+  fee_cents integer,
+  net_cents integer,
   currency text not null default 'usd',
   from_name text,
   message text,
@@ -19,6 +21,11 @@ create table if not exists public.kofi_runway_payments (
   paid_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+alter table if exists public.kofi_runway_payments
+  add column if not exists fee_cents integer;
+alter table if exists public.kofi_runway_payments
+  add column if not exists net_cents integer;
 
 create index if not exists idx_kofi_runway_paid_at
   on public.kofi_runway_payments (paid_at desc nulls last);
@@ -105,27 +112,34 @@ as $$
   kofi as (
     select
       coalesce(sum(amount_cents), 0) as total_cents,
-      coalesce(count(*), 0) as n
+      coalesce(count(*), 0) as n,
+      case
+        when count(*) = 0 then 0
+        when count(*) filter (
+          where net_cents is not null
+        ) = count(*) then coalesce(sum(net_cents), 0)
+        else null
+      end as net_cents,
+      case
+        when count(*) = 0 then 0
+        when count(*) filter (
+          where fee_cents is not null
+        ) = count(*) then coalesce(sum(fee_cents), 0)
+        else null
+      end as fee_cents
     from public.kofi_runway_payments
     where lower(coalesce(currency, 'usd')) = 'usd'
       and amount_cents > 0
-  ),
-  stripe_runway as (
-    select
-      coalesce(sum(amount_cents), 0) as total_cents,
-      coalesce(count(*), 0) as n
-    from completed
-    where fund_type = 'runway'
   )
   select json_build_object(
     'studio_total_cents', coalesce((select sum(amount_cents) from studio), 0),
     'studio_payment_count', coalesce((select count(*) from studio), 0),
     'studio_mrr_cents', (select cents from mrr),
     'studio_subscriber_count', (select n from mrr),
-    'runway_total_cents',
-      (select total_cents from stripe_runway) + (select total_cents from kofi),
-    'runway_payment_count',
-      (select n from stripe_runway) + (select n from kofi),
+    'runway_total_cents', (select total_cents from kofi),
+    'runway_payment_count', (select n from kofi),
+    'runway_net_cents', (select net_cents from kofi),
+    'runway_fee_cents', (select fee_cents from kofi),
     'runway_monthly_cost_cents', coalesce(
       (select monthly_cost_cents from public.runway_fund_settings where id = 1),
       433800

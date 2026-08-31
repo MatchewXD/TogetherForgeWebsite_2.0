@@ -13,7 +13,7 @@
 
 // deno-lint-ignore-file
 // @ts-nocheck
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const token = String(Deno.env.get('KOFI_WEBHOOK_TOKEN') || '').trim();
 const supabaseUrl =
@@ -91,6 +91,7 @@ Deno.serve(async (req) => {
 
   const provided = String(payload.verification_token || '').trim();
   if (!tokensEqual(provided, token)) {
+    console.warn('[kofi-webhook] unauthorized');
     return json({ error: 'Unauthorized' }, 401);
   }
 
@@ -98,6 +99,7 @@ Deno.serve(async (req) => {
   const cents = amountToCents(payload.amount, payload.currency);
   if (!messageId || !cents) {
     // Acknowledge so Ko-fi does not retry junk forever
+    console.warn('[kofi-webhook] skipped incomplete payload');
     return json({ received: true, skipped: 'incomplete' });
   }
 
@@ -144,5 +146,6 @@ Deno.serve(async (req) => {
     return json({ error: 'Could not record payment' }, 500);
   }
 
+  console.log('[kofi-webhook] recorded', messageId, cents);
   return json({ received: true, message_id: messageId });
 });

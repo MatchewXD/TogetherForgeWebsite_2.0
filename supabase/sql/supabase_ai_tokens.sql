@@ -227,8 +227,13 @@ create policy "Users read own ai token purchases"
   to authenticated
   using (auth.uid() = user_id);
 
--- Ledger: users must not read raw table (has cost columns). Use safe view/RPC.
--- service_role bypasses RLS.
+-- Ledger: users may SELECT only safe columns (RLS: own rows). Cost columns stay
+-- ungranted. The user view is SECURITY INVOKER so it uses caller RLS, not owner.
+drop policy if exists "Users read own ai token ledger" on public.ai_token_ledger;
+create policy "Users read own ai token ledger"
+  on public.ai_token_ledger for select
+  to authenticated
+  using ((select auth.uid()) = user_id);
 
 drop policy if exists "No direct user select ai generation log" on public.ai_generation_log;
 -- no user policies → authenticated cannot read generation log
@@ -240,9 +245,10 @@ create policy "Authenticated read ai platform enabled flag"
   using (true);
 
 -- ── Safe user-facing ledger view (no cost/margin/provider internals) ──────────
--- security_invoker=false (default): runs with view owner rights so users can read
--- only the projected columns without SELECT on the raw ledger table.
-create or replace view public.ai_token_ledger_user as
+drop view if exists public.ai_token_ledger_user;
+create view public.ai_token_ledger_user
+with (security_invoker = true)
+as
 select
   id,
   user_id,
@@ -254,7 +260,7 @@ select
   pack_id,
   created_at
 from public.ai_token_ledger
-where user_id = auth.uid();
+where user_id = (select auth.uid());
 
 comment on view public.ai_token_ledger_user is
   'User-visible AI token history. Never exposes API cost or margins.';
@@ -792,14 +798,27 @@ grant select, insert, update on public.ai_token_balances to service_role;
 grant select on public.ai_token_purchases to authenticated, service_role;
 grant select, insert, update on public.ai_token_purchases to service_role;
 
--- Raw ledger: service only (users use RPC / safe view)
+-- Raw ledger: service_role full read/insert. Authenticated: safe columns only.
+revoke all on public.ai_token_ledger from anon, authenticated, public;
 grant select, insert on public.ai_token_ledger to service_role;
+grant select (
+  id,
+  user_id,
+  entry_type,
+  tokens_display,
+  status,
+  prompt_summary,
+  action_key,
+  pack_id,
+  created_at
+) on public.ai_token_ledger to authenticated;
 
 grant select, insert, update on public.ai_generation_log to service_role;
 
 grant select on public.ai_platform_config to authenticated, service_role;
 grant select, insert, update on public.ai_platform_config to service_role;
 
+revoke all on public.ai_token_ledger_user from anon, public;
 grant select on public.ai_token_ledger_user to authenticated;
 
 notify pgrst, 'reload schema';

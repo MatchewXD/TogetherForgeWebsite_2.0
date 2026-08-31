@@ -51,6 +51,7 @@ describe('startStripeCheckout credit metadata', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     delete env.VITE_ENABLE_DONATIONS;
+    delete env.VITE_ENABLE_RUNWAY;
     delete env.VITE_STRIPE_CHECKOUT_API_URL;
     delete env.VITE_SUPABASE_ANON_KEY;
   });
@@ -60,6 +61,15 @@ describe('startStripeCheckout credit metadata', () => {
     await expect(
       startStripeCheckout({ amountCents: 1000 })
     ).rejects.toMatchObject({ code: 'DONATIONS_PAUSED' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('never sends Founder Runway through Stripe', async () => {
+    env.VITE_ENABLE_DONATIONS = 'true';
+    env.VITE_ENABLE_RUNWAY = 'true';
+    await expect(
+      startStripeCheckout({ amountCents: 1000, fundType: 'runway' })
+    ).rejects.toMatchObject({ code: 'RUNWAY_NOT_STRIPE' });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -108,11 +118,11 @@ describe('startStripeCheckout credit metadata', () => {
     await startStripeCheckout({
       amountCents: 1000,
       interval: 'month',
-      fundType: 'runway',
+      fundType: 'studio',
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.mode).toBe('subscription');
-    expect(body.fundType).toBe('runway');
+    expect(body.fundType).toBe('studio');
     expect(body.interval).toBe('month');
   });
 

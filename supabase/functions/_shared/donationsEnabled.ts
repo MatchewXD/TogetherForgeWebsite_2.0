@@ -1,13 +1,21 @@
 /**
- * Temporary live-checkout gate for create-checkout / create-token-checkout.
- * Switch: ENABLE_DONATIONS (true/false, 1/0, on/off, yes/no).
+ * Studio Stripe checkout gate (create-checkout / create-token-checkout).
+ * Switch: ENABLE_DONATIONS. Does not control Founder Runway.
  * Unset + sk_test_ → on (staging/local). Unset + sk_live_ or missing key → off.
+ *
+ * ENABLE_RUNWAY is a client/UI flag for personal runway. Runway is never
+ * billed through these Stripe functions.
  */
 
 export const DONATIONS_PAUSED_CODE = 'DONATIONS_PAUSED';
 
 export const DONATIONS_PAUSED_ERROR =
-  'Support and Runway are temporarily unavailable.';
+  'Studio support is temporarily unavailable.';
+
+export const RUNWAY_NOT_STRIPE_CODE = 'RUNWAY_NOT_STRIPE';
+
+export const RUNWAY_NOT_STRIPE_ERROR =
+  'Personal runway is not billed through studio checkout.';
 
 export function parseEnableFlag(raw: string | null | undefined): boolean | null {
   if (raw == null) return null;

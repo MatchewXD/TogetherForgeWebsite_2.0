@@ -14,6 +14,8 @@ import { supabase } from '../lib/supabase';
  *   studioSubscriberCount: number,
  *   runwayTotalCents: number,
  *   runwayPaymentCount: number,
+ *   runwayFeeCents: number|null,
+ *   runwayAfterFeesCents: number|null,
  *   runwayMonthlyCostCents: number,
  *   lastPaymentAt: string|null,
  *   currency: string,
@@ -49,6 +51,10 @@ export async function getPublicSupportSummary() {
       studioSubscriberCount: Number(row.studio_subscriber_count) || 0,
       runwayTotalCents: Number(row.runway_total_cents) || 0,
       runwayPaymentCount: Number(row.runway_payment_count) || 0,
+      runwayFeeCents:
+        row.runway_fee_cents == null ? null : Number(row.runway_fee_cents),
+      runwayAfterFeesCents:
+        row.runway_net_cents == null ? null : Number(row.runway_net_cents),
       runwayMonthlyCostCents:
         Number(row.runway_monthly_cost_cents) || 433800,
       lastPaymentAt: row.last_payment_at || null,
@@ -68,15 +74,7 @@ export async function getPublicSupportSummary() {
         error: null,
       };
     }
-    if (fromRpc.runwayTotalCents === 0 && local.runwayTotalCents > 0) {
-      return {
-        ...fromRpc,
-        runwayTotalCents: local.runwayTotalCents,
-        runwayPaymentCount: local.runwayPaymentCount,
-        source: fromRpc.studioTotalCents > 0 ? 'supabase' : 'local',
-        error: null,
-      };
-    }
+    // Runway stack is Ko-fi ledger only — never fill from local Stripe checkout.
 
     return fromRpc;
   } catch (e) {
