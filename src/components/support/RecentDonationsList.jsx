@@ -96,6 +96,7 @@ const RecentDonationsList = ({
   emptyTitle = 'No public support yet',
   emptyBody = 'Your contribution can be the first on this list. Start small. Every dollar helps ship real work.',
   showCreditNote = true,
+  creditNote = 'Named supporters opted in to public credit. Private gifts show as Anonymous.',
   className = '',
 }) => {
   return (
@@ -110,8 +111,7 @@ const RecentDonationsList = ({
       </div>
       {showCreditNote ? (
         <p className="text-center text-sm text-text-secondary mb-6 max-w-lg mx-auto">
-          Named supporters opted in to public credit. Private gifts show as
-          Anonymous.
+          {creditNote}
         </p>
       ) : null}
 

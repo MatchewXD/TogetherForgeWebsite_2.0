@@ -34,6 +34,9 @@ import DonationCreditChoice, {
   resolveDonationCredit,
 } from '../components/support/DonationCreditChoice';
 import PaymentsComingSoon from '../components/support/PaymentsComingSoon';
+import PaymentsPolicyCheckbox from '../components/legal/PaymentsPolicyCheckbox';
+import usePaymentsPolicyAcceptance from '../hooks/usePaymentsPolicyAcceptance';
+import { LEGAL_PATHS } from '../constants/legal';
 import { areDonationsEnabled } from '../constants/donationsEnabled';
 import {
   getPublicSupportSummary,
@@ -124,12 +127,17 @@ const FAQ_ITEMS = [
   },
   {
     q: 'How do I cancel a subscription?',
-    a: 'Open Account → My Plan and cancel with confirmation, or use Billing to open the Stripe customer portal. You keep access until the current period ends.',
+    a: 'Open Account → My Plan and cancel with confirmation, or use Billing to open the customer portal. You keep access until the current period ends.',
+  },
+  {
+    q: 'What is the refund policy?',
+    a: 'After a payment succeeds it is not refunded, except a double charge or a payment that never appears on the account. Read Payments and refunds for the full policy.',
   },
 ];
 
 const SupportPage = () => {
   const [searchParams] = useSearchParams();
+  const paymentsPolicy = usePaymentsPolicyAcceptance();
   const [interval, setInterval] = useState('once'); // once | month
   const [customAmount, setCustomAmount] = useState('');
   const [busyKey, setBusyKey] = useState(null);
@@ -400,6 +408,12 @@ const SupportPage = () => {
       return;
     }
 
+    const gate = await paymentsPolicy.persistIfNeeded();
+    if (!gate.ok) {
+      setError(gate.error || 'Please agree to the Payments and refunds policy.');
+      return;
+    }
+
     const key = `${tierId}_${interval}_${amountCents}`;
     setBusyKey(key);
     try {
@@ -482,6 +496,14 @@ const SupportPage = () => {
               Community support keeps development independent. No venture
               capital. Transparent use of funds. Every dollar goes toward better
               games and stronger systems.
+            </p>
+            <p className="mt-4 text-sm sm:text-base">
+              <Link
+                to={LEGAL_PATHS.payments}
+                className="font-semibold text-neon-cyan hover:underline"
+              >
+                Payments and refunds
+              </Link>
             </p>
           </div>
         </div>
@@ -576,6 +598,16 @@ const SupportPage = () => {
             profileLoading={Boolean(authUser) && !authProfileReady}
           />
 
+          {paymentsPolicy.needed ? (
+            <PaymentsPolicyCheckbox
+              variant="agree"
+              className="mb-6"
+              checked={paymentsPolicy.agreed}
+              onChange={paymentsPolicy.setAgreed}
+              error={Boolean(paymentsPolicy.error)}
+            />
+          ) : null}
+
           {!stripeReady && (
             <p className="text-xs font-mono text-text-muted mb-4 tracking-wide">
               Online checkout is temporarily unavailable. Please try again
@@ -667,7 +699,11 @@ const SupportPage = () => {
                     size="lg"
                     variant={theme.buttonVariant || 'primary'}
                     className="w-full gap-2 py-3.5 text-lg sm:text-xl font-bold tracking-wide"
-                    disabled={!!busyKey}
+                    disabled={
+                      !!busyKey ||
+                      paymentsPolicy.loading ||
+                      (paymentsPolicy.needed && !paymentsPolicy.agreed)
+                    }
                     onClick={() =>
                       runCheckout({
                         amount: tier.amount,
@@ -746,7 +782,11 @@ const SupportPage = () => {
                 size="lg"
                 variant={interval === 'month' ? 'outline' : 'gold'}
                 className="gap-2 w-full sm:w-auto sm:shrink-0 px-8 py-3.5 text-lg sm:text-xl font-bold tracking-wide"
-                disabled={!!busyKey}
+                disabled={
+                  !!busyKey ||
+                  paymentsPolicy.loading ||
+                  (paymentsPolicy.needed && !paymentsPolicy.agreed)
+                }
               >
                 {busyKey?.startsWith('custom_') ? (
                   <>

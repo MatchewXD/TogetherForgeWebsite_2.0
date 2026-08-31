@@ -21,6 +21,8 @@
    Or Dashboard webhook to the same URL with events:
    - `checkout.session.completed`
    - `invoice.paid`
+   - `invoice.payment_failed`
+   - `payment_intent.payment_failed`
    - `charge.refunded`
 
 ## Automated tests
@@ -57,8 +59,16 @@ Covers amount validation, config detection, local ledger, and public summary RPC
 
 ### D. Card decline
 
-1. Use `4000 0000 0000 0002`.
-2. Stay on Stripe with error; no success redirect; no webhook completed payment.
+1. Use `4000 0000 0000 0002` on Checkout.
+2. Stay on Stripe with error; no success redirect; no completed `donations` row.
+3. `payment_intent.payment_failed` may fire; pending AI token purchases are marked `failed`.
+
+### D2. Subscription renewal failure
+
+1. Use a card that succeeds first, then fails renewals (`4000 0000 0000 0341` in Test mode), **or** Stripe Dashboard → invoice → fail payment.
+2. Webhook `invoice.payment_failed` (and often `payment_intent.payment_failed`) updates `stripe_subscriptions.status` to `past_due`.
+3. Account → **My Plan** shows **Past due** and points the member to Billing to update the card.
+4. No new public thank-you / `donations` row is written for the failed charge.
 
 ### E. Runway fund separation
 

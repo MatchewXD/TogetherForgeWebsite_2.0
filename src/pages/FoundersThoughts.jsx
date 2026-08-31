@@ -420,6 +420,7 @@ const FoundersThoughts = () => {
           })}
 
         <RunwayTransparency
+          variant="compact"
           footer={
             <Button
               className="gap-2 w-full sm:w-auto"

@@ -97,6 +97,7 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 38. `supabase_donations_stripe.sql` — Stripe donation columns + summary RPC  
 39. `supabase_stripe_subscriptions.sql` — webhook events + subscription rows  
 40. `supabase_donations_public_feed.sql` — MRR + recent public feed RPCs  
+40b. `supabase_kofi_runway.sql` — Ko-fi personal runway payments + coverage settings  
 41. `supabase_billing_account.sql` — My Plan / Billing RPCs + own-row RLS  
 42. `supabase_subscription_renewal_credit.sql` — subscription credit identity columns  
 43. `supabase_donation_project_attribution.sql` — attach studio donations to active project  
@@ -111,6 +112,7 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 44d. `supabase_role_management.sql` — Founder role, Founder-only `set_user_role()`, role change audit  
 45. `supabase_mfa_recovery_codes.sql` — hashed MFA recovery codes (Edge Function only)  
 46. `supabase_legal_acceptance.sql` — `profiles` Terms + Community Guidelines version columns  
+46b. `supabase_payments_policy_acceptance.sql` — `profiles` Payments and refunds policy version columns  
 47. `supabase_ai_tokens.sql` — AI token balances, immutable ledger, purchases, generation log, caps  
 48. `supabase_ai_tokens_scale_50k.sql` — one-time migrate legacy pack sizes (250/700/1600 → 250k/600k/1.25M)  
 48b. `supabase_ai_token_pack_grants.sql` — canonical pack grants + top-up under-credited purchases  
@@ -209,6 +211,7 @@ supabase db query --linked -f supabase/sql/supabase_badges.sql
 supabase db query --linked -f supabase/sql/supabase_badges_recognition.sql
 supabase db query --linked -f supabase/sql/supabase_mfa_recovery_codes.sql
 supabase db query --linked -f supabase/sql/supabase_legal_acceptance.sql
+supabase db query --linked -f supabase/sql/supabase_payments_policy_acceptance.sql
 supabase db query --linked -f supabase/sql/supabase_ai_tokens.sql
 supabase db query --linked -f supabase/sql/supabase_ai_tokens_scale_50k.sql
 supabase db query --linked -f supabase/sql/supabase_ai_token_pack_grants.sql
@@ -274,6 +277,7 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_badges_recognition.sql` | Starter / Impact / Giving / Collaboration auto-grants |
 | `supabase_mfa_recovery_codes.sql` | MFA recovery codes table |
 | `supabase_legal_acceptance.sql` | Terms + Guidelines acceptance columns on profiles |
+| `supabase_payments_policy_acceptance.sql` | Payments and refunds policy acceptance columns on profiles |
 | `supabase_ai_tokens.sql` | AI token balance, ledger, packs purchases, spend caps |
 | `supabase_ai_tokens_scale_50k.sql` | Migrate old pack token amounts to 50k/$1 scale |
 | `supabase_ai_token_pack_grants.sql` | Canonical pack grants + top-up under-credited purchases |
@@ -291,5 +295,6 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_founders_thoughts.sql` | Founders Thoughts + likes |
 | `supabase_donations_stripe.sql` | Stripe donation columns + summary |
 | `supabase_donations_public_feed.sql` | MRR + recent feed RPCs |
+| `supabase_kofi_runway.sql` | Ko-fi personal runway payments + months-of-coverage setting |
 | `supabase_stripe_subscriptions.sql` | Webhook log + subscriptions |
 | `supabase_mechanic_demos.sql` | Optional future Mechanic Lab tables |

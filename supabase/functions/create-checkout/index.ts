@@ -343,7 +343,17 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const amountCents = Math.round(Number(body.amountCents));
     const interval = body.interval === 'month' ? 'month' : 'once';
-    const fundType = body.fundType === 'runway' ? 'runway' : 'studio';
+    if (body.fundType === 'runway') {
+      return json(
+        {
+          error:
+            'Personal runway is funded on Ko-fi, not Stripe. Open /support-runway.',
+          code: 'RUNWAY_USE_KOFI',
+        },
+        400
+      );
+    }
+    const fundType = 'studio';
     const tierId = String(body.tierId || 'custom').slice(0, 64);
     const label = String(
       body.label ||

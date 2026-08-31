@@ -67,6 +67,19 @@ describe('mapPlan', () => {
     expect(p.cancelAtPeriodEnd).toBe(true);
     expect(p.expiryLine).toMatch(/expire/i);
   });
+
+  it('maps past_due after a failed charge', () => {
+    const p = mapPlan({
+      id: 'sub_due',
+      status: 'past_due',
+      amount_cents: 1500,
+      current_period_end: '2026-10-01T00:00:00.000Z',
+    });
+    expect(p.statusLabel).toBe('Past due');
+    expect(p.statusTone).toBe('danger');
+    expect(p.expiryLine).toMatch(/did not go through/i);
+    expect(p.expiryLine).toMatch(/Billing/);
+  });
 });
 
 describe('mapHistoryRow', () => {

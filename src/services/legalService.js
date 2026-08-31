@@ -1,11 +1,15 @@
 /**
- * Terms + Community Guidelines acceptance (profiles + user_metadata).
+ * Terms + Community Guidelines + Payments and refunds acceptance
+ * (profiles + user_metadata).
  */
 import { supabase } from '../lib/supabase';
 import {
   GUIDELINES_VERSION,
+  PAYMENTS_POLICY_VERSION,
   TERMS_VERSION,
 } from '../constants/legal';
+
+const PAYMENTS_POLICY_LS_KEY = `tf.payments_policy.${PAYMENTS_POLICY_VERSION}`;
 
 /**
  * Metadata payload for signUp / updateUser when the user accepts current versions.
@@ -98,5 +102,106 @@ export async function acceptCurrentLegal(userId) {
     /* ignore */
   }
 
+  return patch;
+}
+
+/**
+ * Metadata payload when the user accepts the current Payments and refunds policy.
+ */
+export function paymentsPolicyAcceptanceMetadata(
+  at = new Date().toISOString()
+) {
+  return {
+    payments_policy_version: PAYMENTS_POLICY_VERSION,
+    payments_policy_accepted_at: at,
+  };
+}
+
+/**
+ * @param {object|null} profile
+ * @param {object|null} user - auth user (metadata fallback)
+ */
+export function hasAcceptedCurrentPaymentsPolicy(profile, user = null) {
+  const meta = user?.user_metadata || user?.raw_user_meta_data || {};
+  return (
+    String(profile?.payments_policy_version || '') === PAYMENTS_POLICY_VERSION ||
+    String(meta.payments_policy_version || '') === PAYMENTS_POLICY_VERSION
+  );
+}
+
+export function readLocalPaymentsPolicyAcceptance() {
+  try {
+    return localStorage.getItem(PAYMENTS_POLICY_LS_KEY) === PAYMENTS_POLICY_VERSION;
+  } catch {
+    return false;
+  }
+}
+
+export function writeLocalPaymentsPolicyAcceptance() {
+  try {
+    localStorage.setItem(PAYMENTS_POLICY_LS_KEY, PAYMENTS_POLICY_VERSION);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Load Payments and refunds acceptance for the signed-in user.
+ * Separate select so missing payments columns never break Terms gating.
+ */
+export async function fetchPaymentsPolicyAcceptance(userId) {
+  if (!userId) return null;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, payments_policy_version, payments_policy_accepted_at')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) {
+    if (/column|schema cache|does not exist/i.test(error.message || '')) {
+      return { _columnsMissing: true };
+    }
+    console.warn('[legal] payments policy fetch', error.message);
+    return null;
+  }
+  return data;
+}
+
+/**
+ * Persist current Payments and refunds acceptance on the profile.
+ * @param {string} userId
+ */
+export async function acceptPaymentsPolicy(userId) {
+  if (!userId) throw new Error('Sign in required.');
+  const now = new Date().toISOString();
+  const meta = paymentsPolicyAcceptanceMetadata(now);
+  const patch = {
+    id: userId,
+    ...meta,
+  };
+
+  const { error } = await supabase
+    .from('profiles')
+    .upsert(patch, { onConflict: 'id' });
+
+  if (error) {
+    if (/column|schema cache|does not exist/i.test(error.message || '')) {
+      const err = new Error(
+        'Payments policy columns are missing. Run supabase/sql/supabase_payments_policy_acceptance.sql on this project.'
+      );
+      err.code = 'LEGAL_SQL_MISSING';
+      throw err;
+    }
+    throw error;
+  }
+
+  try {
+    await supabase.auth.updateUser({
+      data: meta,
+    });
+  } catch {
+    /* ignore */
+  }
+
+  writeLocalPaymentsPolicyAcceptance();
   return patch;
 }

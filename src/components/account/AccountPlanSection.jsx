@@ -241,6 +241,14 @@ export default function AccountPlanSection() {
           )}
 
           <div className="flex flex-wrap gap-2 pt-1">
+            {String(plan.status || '').toLowerCase() === 'past_due' ? (
+              <Link to="/account/billing">
+                <Button type="button" size="sm" className="gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5" />
+                  Update payment method
+                </Button>
+              </Link>
+            ) : null}
             {donationsEnabled ? (
             <Link to="/donate">
               <Button

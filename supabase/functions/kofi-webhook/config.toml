@@ -1,0 +1,2 @@
+# Ko-fi POSTs application/x-www-form-urlencoded with no JWT.
+verify_jwt = false

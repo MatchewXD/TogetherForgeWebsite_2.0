@@ -32,6 +32,9 @@ import {
 } from '../../services/aiTokensService';
 import TokenBalanceChip from '../ai/TokenBalanceChip';
 import PaymentsComingSoon from '../support/PaymentsComingSoon';
+import PaymentsPolicyCheckbox from '../legal/PaymentsPolicyCheckbox';
+import usePaymentsPolicyAcceptance from '../../hooks/usePaymentsPolicyAcceptance';
+import { LEGAL_PATHS } from '../../constants/legal';
 import { areDonationsEnabled } from '../../constants/donationsEnabled';
 
 function formatWhen(iso) {
@@ -48,6 +51,7 @@ function formatWhen(iso) {
 
 export default function AccountAiTokensSection() {
   const donationsEnabled = areDonationsEnabled();
+  const paymentsPolicy = usePaymentsPolicyAcceptance();
   const [status, setStatus] = useState(null);
   const [ledger, setLedger] = useState([]);
   const [purchases, setPurchases] = useState([]);
@@ -127,6 +131,11 @@ export default function AccountAiTokensSection() {
     setError('');
     setMessage('');
     try {
+      const gate = await paymentsPolicy.persistIfNeeded();
+      if (!gate.ok) {
+        setError(gate.error || 'Please agree to the Payments and refunds policy.');
+        return;
+      }
       const result = await startTokenPackCheckout({ packId });
       if (!result.ok) {
         setError(result.error || 'Checkout failed.');
@@ -157,7 +166,13 @@ export default function AccountAiTokensSection() {
           <p className="text-sm text-text-secondary mt-1 max-w-xl leading-relaxed">
             Tokens power upcoming AI tools (Idea Structuring, Gap Filling, and
             more). Purchases and balances are completely separate from studio
-            donations.
+            donations.{' '}
+            <Link
+              to={LEGAL_PATHS.payments}
+              className="text-neon-cyan hover:underline"
+            >
+              Payments and refunds
+            </Link>
           </p>
         </div>
         <Button
@@ -256,12 +271,22 @@ export default function AccountAiTokensSection() {
             Buy AI tokens
           </h3>
           <p className="text-sm text-text-secondary mt-1">
-            One-time packs via Stripe. Not a donation — no public donor credit.
+            One-time packs via Stripe. Not a donation. No public donor credit.
           </p>
         </div>
         {!donationsEnabled ? (
           <PaymentsComingSoon />
         ) : (
+        <>
+        {paymentsPolicy.needed ? (
+          <PaymentsPolicyCheckbox
+            variant="studio"
+            className="mb-4"
+            checked={paymentsPolicy.agreed}
+            onChange={paymentsPolicy.setAgreed}
+            error={Boolean(paymentsPolicy.error)}
+          />
+        ) : null}
         <div className="grid sm:grid-cols-3 gap-4">
           {packs.map((pack) => (
             <Card
@@ -298,7 +323,12 @@ export default function AccountAiTokensSection() {
               <Button
                 type="button"
                 className="mt-4 w-full gap-2"
-                disabled={Boolean(busyPack) || loading}
+                disabled={
+                  Boolean(busyPack) ||
+                  loading ||
+                  paymentsPolicy.loading ||
+                  (paymentsPolicy.needed && !paymentsPolicy.agreed)
+                }
                 onClick={() => void onBuy(pack.id)}
               >
                 {busyPack === pack.id ? (
@@ -310,6 +340,7 @@ export default function AccountAiTokensSection() {
             </Card>
           ))}
         </div>
+        </>
         )}
       </section>
 

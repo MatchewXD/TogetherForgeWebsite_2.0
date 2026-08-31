@@ -19,6 +19,8 @@ const OPEN_PATHS = [
   LEGAL_PATHS.terms,
   LEGAL_PATHS.privacy,
   LEGAL_PATHS.guidelines,
+  LEGAL_PATHS.payments,
+  '/payments-and-refunds',
   '/contact',
   '/confirm-email',
   '/reset-password',

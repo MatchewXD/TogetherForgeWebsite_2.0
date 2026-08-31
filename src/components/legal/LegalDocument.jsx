@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
  *     body?: string[],
  *     list?: string[],
  *     bodyAfter?: string[],
+ *     link?: { to: string, label: string },
  *   }>,
  * }} props
  */
@@ -63,6 +64,16 @@ export default function LegalDocument({ meta, sections = [] }) {
                   {p}
                 </p>
               ))}
+              {section.link ? (
+                <p className="mt-3">
+                  <Link
+                    to={section.link.to}
+                    className="text-neon-cyan hover:underline"
+                  >
+                    {section.link.label}
+                  </Link>
+                </p>
+              ) : null}
             </section>
           ))}
         </div>
@@ -79,6 +90,9 @@ export default function LegalDocument({ meta, sections = [] }) {
           </Link>
           <Link to="/guidelines" className="text-neon-cyan hover:underline">
             GUIDELINES
+          </Link>
+          <Link to="/payments" className="text-neon-cyan hover:underline">
+            PAYMENTS
           </Link>
           <Link to="/contact" className="text-text-muted hover:text-neon-cyan">
             CONTACT

@@ -20,6 +20,8 @@
  * ── Events to enable ───────────────────────────────────────────────────
  *   checkout.session.completed   → first payment + credit metadata
  *   invoice.paid                 → each subscription RENEWAL → new thank-you card
+ *   invoice.payment_failed       → mark subscription past_due (My Plan)
+ *   payment_intent.payment_failed → pending token purchases + sub invoice PIs
  *   customer.subscription.created
  *   customer.subscription.updated
  *   customer.subscription.deleted
@@ -998,6 +1000,159 @@ async function handleInvoicePaid(invoice: Stripe.Invoice, eventId: string) {
   return { ...result, recognition: true, is_anonymous: credit.isAnonymous };
 }
 
+/** Pull the latest Stripe subscription and upsert; fall back to a local status. */
+async function syncSubscriptionFromStripe(
+  subId: string | null,
+  fallbackStatus = 'past_due'
+) {
+  if (!subId) return { skipped: 'no_subscription' };
+  if (stripeKey) {
+    try {
+      const sub = await stripe.subscriptions.retrieve(subId);
+      return await upsertSubscription(sub);
+    } catch (e) {
+      wlog('sub_retrieve_on_failure', {
+        subId,
+        error: String(e?.message || e),
+      });
+    }
+  }
+  const { error } = await admin()
+    .from('stripe_subscriptions')
+    .update({
+      status: fallbackStatus,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', subId);
+  if (error) {
+    wlog('sub_fallback_status_FAILED', {
+      subId,
+      error: error.message,
+    });
+    return { ok: false, subId, error: error.message };
+  }
+  return { ok: true, fallback: true, subId, status: fallbackStatus };
+}
+
+/**
+ * Subscription renewal (or first invoice) failed to charge.
+ * Do not write a donations row — only update My Plan status.
+ */
+async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
+  const subId = idOf(invoice.subscription);
+  const pi = idOf(invoice.payment_intent);
+  wlog('invoice_payment_failed', {
+    invoiceId: invoice.id,
+    subId,
+    paymentIntent: pi,
+    attempt: invoice.attempt_count || null,
+    nextAttempt: invoice.next_payment_attempt || null,
+    billingReason: invoice.billing_reason || null,
+    amountDue: invoice.amount_due || null,
+  });
+  const subResult = await syncSubscriptionFromStripe(subId, 'past_due');
+  return {
+    failed: true,
+    invoice: invoice.id,
+    subscription: subId,
+    payment_intent: pi,
+    subscriptionSync: subResult,
+  };
+}
+
+/**
+ * Card decline / failed charge on a PaymentIntent (Checkout or invoice).
+ * Marks pending AI token purchases failed. Invoice-backed PIs also sync the sub.
+ */
+async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent) {
+  const piId = pi?.id ? String(pi.id) : null;
+  const invoiceId = idOf(pi?.invoice);
+  const meta = (pi?.metadata || {}) as Record<string, string>;
+  wlog('payment_intent_failed', {
+    paymentIntent: piId,
+    invoice: invoiceId,
+    checkoutKind: meta.checkoutKind || meta.checkout_kind || null,
+    lastError: pi?.last_payment_error?.code || null,
+  });
+
+  const sb = admin();
+  let tokensMarked = 0;
+
+  if (piId) {
+    const { data: byPi, error: piErr } = await sb
+      .from('ai_token_purchases')
+      .update({
+        status: 'failed',
+        stripe_payment_intent: piId,
+      })
+      .eq('stripe_payment_intent', piId)
+      .eq('status', 'pending')
+      .select('id');
+    if (piErr) {
+      wlog('token_fail_by_pi', { error: piErr.message, paymentIntent: piId });
+    } else {
+      tokensMarked += (byPi || []).length;
+    }
+  }
+
+  const checkoutKind = String(
+    meta.checkoutKind || meta.checkout_kind || ''
+  ).toLowerCase();
+  const tokenUser = meta.userId || meta.user_id || meta.together_forge_user_id;
+  const packId = meta.packId || meta.pack_id;
+  if (tokensMarked === 0 && tokenUser && (checkoutKind === 'ai_tokens' || checkoutKind === 'ai_token')) {
+    let q = sb
+      .from('ai_token_purchases')
+      .select('id')
+      .eq('user_id', tokenUser)
+      .eq('status', 'pending');
+    if (packId) q = q.eq('pack_id', packId);
+    const { data: pending, error: pendErr } = await q
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (pendErr) {
+      wlog('token_fail_pending_lookup', { error: pendErr.message });
+    } else if (pending?.id) {
+      const { data: updated, error: updErr } = await sb
+        .from('ai_token_purchases')
+        .update({
+          status: 'failed',
+          stripe_payment_intent: piId,
+        })
+        .eq('id', pending.id)
+        .eq('status', 'pending')
+        .select('id');
+      if (updErr) {
+        wlog('token_fail_pending_update', { error: updErr.message });
+      } else {
+        tokensMarked += (updated || []).length;
+      }
+    }
+  }
+
+  let subResult = null;
+  if (invoiceId && stripeKey) {
+    try {
+      const invoice = await stripe.invoices.retrieve(invoiceId);
+      subResult = await handleInvoicePaymentFailed(invoice);
+    } catch (e) {
+      wlog('invoice_retrieve_on_pi_fail', {
+        invoiceId,
+        error: String(e?.message || e),
+      });
+    }
+  }
+
+  return {
+    failed: true,
+    payment_intent: piId,
+    invoice: invoiceId,
+    tokensMarked,
+    subscriptionSync: subResult,
+  };
+}
+
 Deno.serve(async (req) => {
   const started = Date.now();
 
@@ -1078,6 +1233,18 @@ Deno.serve(async (req) => {
         result = await handleInvoicePaid(
           event.data.object as Stripe.Invoice,
           event.id
+        );
+        break;
+      }
+      case 'invoice.payment_failed': {
+        result = await handleInvoicePaymentFailed(
+          event.data.object as Stripe.Invoice
+        );
+        break;
+      }
+      case 'payment_intent.payment_failed': {
+        result = await handlePaymentIntentFailed(
+          event.data.object as Stripe.PaymentIntent
         );
         break;
       }

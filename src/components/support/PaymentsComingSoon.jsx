@@ -22,7 +22,7 @@ export default function PaymentsComingSoon({ className = '' }) {
             Coming Soon
           </p>
           <p className="text-sm sm:text-base text-text-secondary leading-relaxed">
-            Support and Runway are temporarily unavailable.
+            Studio Support is temporarily unavailable.
           </p>
           <p className="text-sm sm:text-base text-text-secondary leading-relaxed mt-1">
             They will be back shortly.

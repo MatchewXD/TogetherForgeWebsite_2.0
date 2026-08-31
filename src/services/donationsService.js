@@ -14,6 +14,7 @@ import { supabase } from '../lib/supabase';
  *   studioSubscriberCount: number,
  *   runwayTotalCents: number,
  *   runwayPaymentCount: number,
+ *   runwayMonthlyCostCents: number,
  *   lastPaymentAt: string|null,
  *   currency: string,
  *   source: 'supabase'|'local'|'empty',
@@ -48,6 +49,8 @@ export async function getPublicSupportSummary() {
       studioSubscriberCount: Number(row.studio_subscriber_count) || 0,
       runwayTotalCents: Number(row.runway_total_cents) || 0,
       runwayPaymentCount: Number(row.runway_payment_count) || 0,
+      runwayMonthlyCostCents:
+        Number(row.runway_monthly_cost_cents) || 433800,
       lastPaymentAt: row.last_payment_at || null,
       currency: row.currency || 'usd',
       source: 'supabase',
@@ -239,6 +242,7 @@ async function sumFromDonationsTable() {
       studioSubscriberCount: subLatest.size,
       runwayTotalCents,
       runwayPaymentCount,
+      runwayMonthlyCostCents: 433800,
       lastPaymentAt,
       currency: 'usd',
       source: 'supabase',
@@ -273,6 +277,7 @@ function sumFromLocalStorage() {
     studioSubscriberCount: studio.filter((d) => d.interval === 'month').length,
     runwayTotalCents: sum(runway),
     runwayPaymentCount: runway.length,
+    runwayMonthlyCostCents: 433800,
     lastPaymentAt: studio[0]?.timestamp || runway[0]?.timestamp || null,
     currency: 'usd',
   };

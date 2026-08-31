@@ -71,9 +71,14 @@ export const termsSections = [
     heading: '6. Donations, Subscriptions, and AI Tokens',
     list: [
       'Donations and membership subscriptions support the studio and are generally non-refundable except where required by law or at our discretion.',
+      'Founder Runway is personal support for the founder. It is not studio support and the two never mix.',
       'AI Token purchases are a separate system from donations. Tokens are consumed for specific AI-assisted features and are also generally non-refundable once used or expired according to the rules shown at purchase.',
       'We keep donation records and token purchase records separate in both the interface and the underlying data.',
     ],
+    link: {
+      to: '/payments',
+      label: 'Payments and refunds',
+    },
   },
   {
     heading: '7. Moderation, Restrictions, and Bans',

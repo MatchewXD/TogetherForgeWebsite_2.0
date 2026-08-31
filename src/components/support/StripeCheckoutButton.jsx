@@ -14,6 +14,8 @@
 import { useState } from 'react';
 import { Loader2, CreditCard } from 'lucide-react';
 import Button from '../ui/Buttons';
+import PaymentsPolicyCheckbox from '../legal/PaymentsPolicyCheckbox';
+import usePaymentsPolicyAcceptance from '../../hooks/usePaymentsPolicyAcceptance';
 import {
   startStripeCheckout,
   isStripeConfigured,
@@ -59,6 +61,7 @@ const StripeCheckoutButton = ({
 }) => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const paymentsPolicy = usePaymentsPolicyAcceptance();
 
   const ready = isStripeConfigured();
   const donationsEnabled = areDonationsEnabled();
@@ -79,6 +82,13 @@ const StripeCheckoutButton = ({
         'Checkout is not configured. Set VITE_SUPABASE_URL + run create-checkout with STRIPE_SECRET_KEY.';
       setError(msg);
       onError?.(msg);
+      return;
+    }
+
+    const gate = await paymentsPolicy.persistIfNeeded();
+    if (!gate.ok) {
+      setError(gate.error);
+      onError?.(gate.error);
       return;
     }
 
@@ -112,12 +122,26 @@ const StripeCheckoutButton = ({
 
   return (
     <div className={className}>
+      {donationsEnabled && paymentsPolicy.needed ? (
+        <PaymentsPolicyCheckbox
+          variant={fundType === 'runway' ? 'runway' : 'studio'}
+          className="mb-3"
+          checked={paymentsPolicy.agreed}
+          onChange={paymentsPolicy.setAgreed}
+          error={Boolean(paymentsPolicy.error)}
+        />
+      ) : null}
       <Button
         type="button"
         variant={variant}
         size={size}
         className="gap-2"
-        disabled={busy || !donationsEnabled}
+        disabled={
+          busy ||
+          !donationsEnabled ||
+          paymentsPolicy.loading ||
+          (paymentsPolicy.needed && !paymentsPolicy.agreed)
+        }
         onClick={handleClick}
       >
         {busy ? (

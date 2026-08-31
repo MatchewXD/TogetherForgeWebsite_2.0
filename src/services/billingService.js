@@ -80,8 +80,13 @@ export function mapPlan(raw) {
 
   let expiryLine = null;
   const endLabel = formatBillingDate(periodEnd);
-  if (endLabel) {
-    if (canceling || String(raw.status).toLowerCase() === 'canceled') {
+  const statusLower = String(raw.status || '').toLowerCase();
+  if (statusLower === 'past_due') {
+    expiryLine = endLabel
+      ? `The last charge did not go through. Update your payment method in Billing. Stripe will retry until ${endLabel}.`
+      : 'The last charge did not go through. Update your payment method in Billing.';
+  } else if (endLabel) {
+    if (canceling || statusLower === 'canceled') {
       expiryLine = `Your plan will expire on ${endLabel}.`;
     } else {
       expiryLine = `Renews on ${endLabel}.`;

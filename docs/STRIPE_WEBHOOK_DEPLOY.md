@@ -6,6 +6,8 @@
 2. Handles:
    - `checkout.session.completed` → insert/update `donations`
    - `invoice.paid` → recurring payments (skips first invoice if already recorded)
+   - `invoice.payment_failed` → mark the subscription `past_due` (My Plan)
+   - `payment_intent.payment_failed` → failed Checkout / invoice PI (pending token packs)
    - `customer.subscription.created|updated|deleted` → upsert `stripe_subscriptions`
    - `charge.refunded` → mark donation `status = refunded`
 3. Returns **200** `{ received: true }` so Stripe stops retrying after success
@@ -111,6 +113,8 @@ https://abcdefghijklmnop.supabase.co/functions/v1/stripe-webhook
 4. Select events:
    - `checkout.session.completed`
    - `invoice.paid`
+   - `invoice.payment_failed`
+   - `payment_intent.payment_failed`
    - `customer.subscription.created`
    - `customer.subscription.updated`
    - `customer.subscription.deleted`

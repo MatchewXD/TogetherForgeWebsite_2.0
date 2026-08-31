@@ -124,6 +124,12 @@ const Footer = () => {
                 GUIDELINES
               </Link>
               <Link
+                to="/payments"
+                className="hover:text-neon-cyan transition-colors"
+              >
+                PAYMENTS
+              </Link>
+              <Link
                 to="/founders-thoughts"
                 className="hover:text-neon-cyan transition-colors"
               >

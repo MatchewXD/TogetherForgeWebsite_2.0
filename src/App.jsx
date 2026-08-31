@@ -58,6 +58,7 @@ import { ReportConcernProvider } from './context/ReportConcernContext';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import Guidelines from './pages/Guidelines';
+import Payments from './pages/Payments';
 
 /** Old Prototype Systems URLs → /projects/tether */
 function RedirectPrototypeSystems() {
@@ -182,6 +183,11 @@ function App() {
                         <Route path="/terms" element={<Terms />} />
                         <Route path="/privacy" element={<Privacy />} />
                         <Route path="/guidelines" element={<Guidelines />} />
+                        <Route path="/payments" element={<Payments />} />
+                        <Route
+                          path="/payments-and-refunds"
+                          element={<Navigate to="/payments" replace />}
+                        />
                         <Route path="/community-guidelines" element={<Guidelines />} />
                         <Route path="/code-of-conduct" element={<Guidelines />} />
                         <Route path="/transparency" element={<TransparencyHub />} />
