@@ -23,7 +23,9 @@ import {
   getPublicRecentDonations,
 } from '../services/donationsService';
 import { listPublicDecisionLogs } from '../services/decisionLogsService';
+import { listPublicStudioExpenses } from '../services/studioExpensesService';
 import DecisionLogsManager from '../components/transparency/DecisionLogsManager';
+import StudioExpensesManager from '../components/transparency/StudioExpensesManager';
 import useStaffRole from '../hooks/useStaffRole';
 
 const TRANSPARENCY_BANNER_SRC = '/images/Transparency_Page.webp';
@@ -109,6 +111,7 @@ const TransparencyHub = () => {
     lastPaymentAt: null,
   });
   const [recentSupport, setRecentSupport] = useState([]);
+  const [studioExpenses, setStudioExpenses] = useState([]);
   const [financeLoading, setFinanceLoading] = useState(true);
   const [decisionLogs, setDecisionLogs] = useState([]);
   const { isStaff, userId, loading: staffLoading } = useStaffRole();
@@ -122,14 +125,24 @@ const TransparencyHub = () => {
     }
   }, []);
 
+  const loadStudioExpenses = useCallback(async () => {
+    try {
+      const { items } = await listPublicStudioExpenses();
+      setStudioExpenses(Array.isArray(items) ? items : []);
+    } catch {
+      setStudioExpenses([]);
+    }
+  }, []);
+
   useEffect(() => {
     let mounted = true;
     (async () => {
       setFinanceLoading(true);
       try {
-        const [summary, recent] = await Promise.all([
+        const [summary, recent, expenseList] = await Promise.all([
           getPublicSupportSummary(),
           getPublicRecentDonations(24),
+          listPublicStudioExpenses(),
         ]);
         if (!mounted) return;
         setSupportSummary(
@@ -142,6 +155,9 @@ const TransparencyHub = () => {
               }
         );
         setRecentSupport(Array.isArray(recent?.items) ? recent.items : []);
+        setStudioExpenses(
+          Array.isArray(expenseList?.items) ? expenseList.items : []
+        );
       } catch (err) {
         console.warn('[TransparencyHub] finance load failed', err);
         if (mounted) {
@@ -151,6 +167,7 @@ const TransparencyHub = () => {
             source: 'empty',
           });
           setRecentSupport([]);
+          setStudioExpenses([]);
         }
       } finally {
         if (mounted) setFinanceLoading(false);
@@ -284,9 +301,19 @@ const TransparencyHub = () => {
             </p>
           </div>
 
+          {!staffLoading && isStaff ? (
+            <div className="mb-6">
+              <StudioExpensesManager
+                userId={userId}
+                onChanged={loadStudioExpenses}
+              />
+            </div>
+          ) : null}
+
           <FinanceDashboard
             summary={supportSummary}
             recentItems={recentSupport}
+            expenses={studioExpenses}
             loading={financeLoading}
           />
 

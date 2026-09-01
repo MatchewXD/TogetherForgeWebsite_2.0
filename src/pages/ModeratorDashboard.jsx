@@ -27,6 +27,7 @@ import {
   BookOpen,
   UserCog,
   ScrollText,
+  Receipt,
   MessageSquare,
   Eye,
   EyeOff,
@@ -51,6 +52,7 @@ import { STATUS_LABELS, displayProjectTitle } from '../utils/ideaStatus';
 import { listShowcaseForModeration } from '../services/showcaseService';
 import IdeaTagsAdminPanel from '../components/ideas/IdeaTagsAdminPanel';
 import DecisionLogsManager from '../components/transparency/DecisionLogsManager';
+import StudioExpensesManager from '../components/transparency/StudioExpensesManager';
 import platformSuggestionsService from '../services/platformSuggestionsService';
 import {
   SUGGESTION_STATUSES,
@@ -64,6 +66,7 @@ const TABS = [
   { id: 'suggestions', label: 'Suggestions', icon: MessageSquare },
   { id: 'tags', label: 'Tags', icon: Tags },
   { id: 'decisions', label: 'Decision logs', icon: ScrollText },
+  { id: 'expenses', label: 'Studio expenses', icon: Receipt },
   { id: 'scope', label: 'Scope help', icon: SplitSquareVertical },
   { id: 'restrictions', label: 'Claim restrict', icon: Ban },
   { id: 'reports', label: 'Reports', icon: Flag },
@@ -1475,6 +1478,32 @@ const ModeratorDashboard = () => {
               </Link>
             </div>
             <DecisionLogsManager userId={userId} />
+          </section>
+        )}
+
+        {tab === 'expenses' && (
+          <section aria-labelledby="expenses-heading">
+            <div className="mb-4">
+              <h2
+                id="expenses-heading"
+                className="text-xl sm:text-2xl font-bold text-white tracking-tight"
+              >
+                Studio expenses
+              </h2>
+              <p className="text-sm text-text-secondary mt-1 max-w-xl">
+                Published Together Forge LLC spend from Relay Operating. This is
+                the Transparency expense report, not a bank feed. Do not add
+                Stripe payouts, tax withholding, refunds, or Runway/Ko-fi.
+              </p>
+              <Link
+                to="/transparency#financials"
+                className="inline-flex items-center gap-1 text-xs font-mono tracking-widest text-neon-cyan hover:underline mt-2"
+              >
+                View public report
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+            <StudioExpensesManager userId={userId} />
           </section>
         )}
 

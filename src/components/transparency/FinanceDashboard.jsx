@@ -24,37 +24,11 @@ import Badge from '../ui/Badge';
 import HudProgressBar from '../ui/dashboard/HudProgressBar';
 import SparkLine from '../ui/dashboard/SparkLine';
 import LoadingScreen from '../ui/LoadingScreen';
+import { STUDIO_EXPENSE_CATEGORIES } from '../../constants/studioExpenses';
+import { sumStudioExpenses } from '../../services/studioExpensesService';
 
 /** Share of net set aside for tax / legal obligations (policy target). */
 const TAX_RESERVE_PCT = 0.25;
-
-/** Spend categories for history (amounts stay 0 until a spend ledger exists). */
-const SPEND_CATEGORIES = [
-  {
-    key: 'dev',
-    label: 'Development & tools',
-    tone: 'cyan',
-    desc: 'Engines, licenses, pipelines, software that ship games.',
-  },
-  {
-    key: 'infra',
-    label: 'Tools & infrastructure',
-    tone: 'purple',
-    desc: 'Hosting, databases, build systems, and studio tooling.',
-  },
-  {
-    key: 'community',
-    label: 'Community',
-    tone: 'magenta',
-    desc: 'Site features, credit systems, moderation, volunteer tools.',
-  },
-  {
-    key: 'ops',
-    label: 'Operations',
-    tone: 'success',
-    desc: 'Day-to-day operating costs outside the tax reserve.',
-  },
-];
 
 function estimateProcessingFeesCents(grossCents, paymentCount) {
   const gross = Math.max(0, Number(grossCents) || 0);
@@ -105,9 +79,35 @@ function buildMonthlyInflow(items) {
   }
 }
 
+function formatExpenseUsd(cents) {
+  const amount = (Number(cents) || 0) / 100;
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return '$0.00';
+  }
+}
+
+function formatExpenseDate(iso) {
+  if (!iso) return '';
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 function FinanceDashboardView({
   summary,
   recentItems,
+  expenses = [],
   loading = false,
 }) {
   const data =
@@ -124,17 +124,16 @@ function FinanceDashboardView({
   const feesCents = estimateProcessingFeesCents(grossCents, paymentCount);
   const netReceivedCents = Math.max(0, grossCents - feesCents);
   const reservedCents = Math.round(netReceivedCents * TAX_RESERVE_PCT);
-  const spentCents = 0;
-  const availableToSpendCents = Math.max(
-    0,
-    netReceivedCents - reservedCents - spentCents
-  );
+  const expenseRows = Array.isArray(expenses) ? expenses : [];
+  const { totalCents: spentCents, byCategory } = sumStudioExpenses(expenseRows);
+  // Snapshot is Stripe net minus tax reserve only. Published spend is a
+  // separate report and is not subtracted from money-in.
+  const availableToSpendCents = Math.max(0, netReceivedCents - reservedCents);
 
   const gross = grossCents / 100;
   const fees = feesCents / 100;
   const netReceived = netReceivedCents / 100;
   const reserved = reservedCents / 100;
-  const spent = spentCents / 100;
   const availableToSpend = availableToSpendCents / 100;
   const reserveTargetPct = Math.round(TAX_RESERVE_PCT * 100);
   const inflowTrend = buildMonthlyInflow(items);
@@ -178,9 +177,9 @@ function FinanceDashboardView({
                 {formatMoney(availableToSpend)}
               </div>
               <p className="text-sm text-text-secondary mt-3 max-w-lg">
-                Net received after fees, minus the tax and obligations reserve
-                {hasSpendHistory ? ' and recorded spending' : ''}. This is the
-                amount ready for projects and expenses.
+                Net received after fees, minus the tax and obligations reserve.
+                This is the amount ready for projects and expenses. Published
+                spending below is a separate report and is not subtracted here.
               </p>
             </div>
             {mrrCents > 0 && (
@@ -272,8 +271,10 @@ function FinanceDashboardView({
               What has come in and where it went
             </h3>
             <p className="text-sm text-text-secondary mt-1 max-w-2xl">
-              Lifetime support and recorded spending. Separate from current
-              balances so cumulative spend does not confuse available funds.
+              Lifetime studio support (Stripe) and published Together Forge LLC
+              expenses from Relay Operating. This is a published expense report,
+              not a bank feed. Stripe payouts, tax withholding transfers,
+              refunds, and Runway/Ko-fi are not listed here.
             </p>
           </div>
           <Badge variant="default" className="self-start sm:self-auto">
@@ -306,12 +307,12 @@ function FinanceDashboardView({
               </span>
             </div>
             <div className="text-3xl font-bold text-white tabular-nums">
-              {formatMoney(spent)}
+              {formatExpenseUsd(spentCents)}
             </div>
             <p className="text-xs text-text-muted mt-2">
               {hasSpendHistory
-                ? 'Recorded studio spending to date'
-                : 'No published spending yet - reports will list expenses here'}
+                ? 'Published LLC operating expenses to date'
+                : 'No published spending yet. $0 until the first expense is published.'}
             </p>
           </Card>
         </div>
@@ -327,22 +328,27 @@ function FinanceDashboardView({
               </h4>
               <p className="text-sm text-text-secondary mt-1">
                 {hasSpendHistory
-                  ? 'Breakdown of recorded spending across studio work.'
-                  : 'Categories are ready. Amounts stay at $0 until spending is published.'}
+                  ? 'Breakdown of published Relay Operating expenses.'
+                  : 'Categories stay at $0 until the first expense is published.'}
               </p>
             </div>
 
             <div className="space-y-5">
-              {SPEND_CATEGORIES.map((row) => (
-                <HudProgressBar
-                  key={row.key}
-                  label={row.label}
-                  pct={0}
-                  valueLabel={formatMoney(0)}
-                  desc={row.desc}
-                  tone={row.tone}
-                />
-              ))}
+              {STUDIO_EXPENSE_CATEGORIES.map((row) => {
+                const catCents = byCategory[row.key] || 0;
+                const pct =
+                  spentCents > 0 ? (catCents / spentCents) * 100 : 0;
+                return (
+                  <HudProgressBar
+                    key={row.key}
+                    label={row.label}
+                    pct={pct}
+                    valueLabel={formatExpenseUsd(catCents)}
+                    desc={row.desc}
+                    tone={row.tone}
+                  />
+                );
+              })}
             </div>
           </Card>
 
@@ -357,14 +363,66 @@ function FinanceDashboardView({
               Money in
             </h4>
             <p className="text-xs text-text-muted mb-4">
-              Monthly contributions. Money-out trend appears when spend reports
-              are live.
+              Monthly studio support (Stripe). Spend is listed as published
+              expenses, not imported from the bank.
             </p>
             <div className="flex-1 min-h-[6rem] flex items-center">
               <SparkLine values={inflowTrend} height={110} />
             </div>
           </Card>
         </div>
+
+        <Card className="!p-5 sm:!p-6">
+          <div className="mb-4">
+            <div className="text-[10px] font-sans font-semibold tracking-widest uppercase text-neon-purple mb-1">
+              Published expenses
+            </div>
+            <h4 className="text-lg font-semibold text-white">
+              Relay Operating (Together Forge LLC)
+            </h4>
+            <p className="text-sm text-text-secondary mt-1">
+              Each row is a staff-published operating expense. Totals above are
+              the sum of these rows.
+            </p>
+          </div>
+          {hasSpendHistory ? (
+            <ul className="divide-y divide-cyber-border border-y border-cyber-border">
+              {expenseRows.map((row) => (
+                <li key={row.id} className="py-3">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <span className="text-sm font-semibold text-white">
+                          {row.vendor}
+                        </span>
+                        <span className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
+                          {row.category}
+                        </span>
+                        <time
+                          dateTime={row.date}
+                          className="text-xs font-mono text-text-muted"
+                        >
+                          {formatExpenseDate(row.date)}
+                        </time>
+                      </div>
+                      <p className="text-sm text-text-secondary mt-1 leading-relaxed">
+                        {row.description}
+                      </p>
+                    </div>
+                    <span className="text-sm font-semibold tabular-nums text-white shrink-0">
+                      {formatExpenseUsd(row.amountCents)}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-text-muted">
+              No published expenses yet. $0 is correct until the first LLC
+              operating expense is added.
+            </p>
+          )}
+        </Card>
       </section>
 
       <div className="text-xs text-text-muted">
