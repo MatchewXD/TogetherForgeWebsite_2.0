@@ -4,31 +4,64 @@
  * Raised totals are personal runway only — never studio Support.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Wallet, Calendar, ListChecks } from 'lucide-react';
 import Card from './Card';
 import Badge from './Badge';
 import { getPublicSupportSummary } from '../../services/donationsService';
+import { parseEnableFlag } from '../../constants/donationsEnabled';
+import useStaffRole from '../../hooks/useStaffRole';
 import {
-  RUNWAY_AFTER_FEES_GOAL_USD,
   RUNWAY_LIVING_LINES,
   RUNWAY_MONTHLY_COST_CENTS,
   RUNWAY_MONTHLY_LIVING_USD,
-  RUNWAY_NET_GOAL_USD,
   RUNWAY_RAISE_GOAL_USD,
-  RUNWAY_TAX_RESERVE_USD,
   RUNWAY_TOTALS_COPY,
-  RUNWAY_YEAR_MONTHS,
   formatRunwayCoverage,
   formatRunwayUsd,
   runwayCoverageMonths,
+  runwayGoalProgress,
   runwayGoalTicks,
   runwayMoneyStack,
 } from '../../constants/runway';
 
+const PREVIEW_STORAGE_KEY = 'tf_runway_preview';
+
+function runwayPreviewAllowed(isStaff) {
+  const explicit = parseEnableFlag(import.meta.env.VITE_RUNWAY_PREVIEW);
+  if (explicit === false) return false;
+  if (explicit === true) return true;
+  return Boolean(import.meta.env.DEV) || Boolean(isStaff);
+}
+
+function readPreviewState() {
+  try {
+    const raw = sessionStorage.getItem(PREVIEW_STORAGE_KEY);
+    if (!raw) return { on: false, raisedUsd: String(RUNWAY_RAISE_GOAL_USD) };
+    const parsed = JSON.parse(raw);
+    return {
+      on: Boolean(parsed?.on),
+      raisedUsd:
+        parsed?.raisedUsd != null && parsed.raisedUsd !== ''
+          ? String(parsed.raisedUsd)
+          : String(RUNWAY_RAISE_GOAL_USD),
+    };
+  } catch {
+    return { on: false, raisedUsd: String(RUNWAY_RAISE_GOAL_USD) };
+  }
+}
+
+function writePreviewState(next) {
+  try {
+    sessionStorage.setItem(PREVIEW_STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
+
 const GOAL_TICKS = runwayGoalTicks();
 
-function useRunwayRaised() {
+function useRunwayRaised(preview) {
   const [raisedCents, setRaisedCents] = useState(0);
   const [paymentCount, setPaymentCount] = useState(0);
   const [feeCents, setFeeCents] = useState(null);
@@ -64,22 +97,95 @@ function useRunwayRaised() {
     };
   }, []);
 
-  const stack = runwayMoneyStack({
+  const stack = useMemo(() => {
+    if (preview?.on) {
+      const usd = Math.max(0, Number(preview.raisedUsd) || 0);
+      return runwayMoneyStack({
+        raisedCents: Math.round(usd * 100),
+        paymentCount: 1,
+        feeCents: null,
+        afterFeesCents: null,
+      });
+    }
+    return runwayMoneyStack({
+      raisedCents,
+      paymentCount,
+      feeCents,
+      afterFeesCents,
+    });
+  }, [
+    preview?.on,
+    preview?.raisedUsd,
     raisedCents,
     paymentCount,
     feeCents,
     afterFeesCents,
-  });
+  ]);
+
   const months = runwayCoverageMonths(
     stack.runwayNetCents,
     RUNWAY_MONTHLY_COST_CENTS
   );
-  const goalPct = Math.min(
-    100,
-    Math.round((stack.raisedCents / (RUNWAY_RAISE_GOAL_USD * 100)) * 100)
-  );
 
-  return { stack, months, goalPct };
+  return { stack, months };
+}
+
+function RunwayPreviewPanel({ preview, onChange }) {
+  return (
+    <div className="mb-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onChange({ ...preview, on: !preview.on })}
+          className={`text-[10px] font-mono tracking-wide px-2 py-0.5 rounded border ${
+            preview.on
+              ? 'border-semantic-warning/50 text-semantic-warning bg-semantic-warning/10'
+              : 'border-cyber-border text-text-muted hover:text-text-secondary'
+          }`}
+        >
+          {preview.on ? 'Preview on' : 'Preview'}
+        </button>
+        <p className="text-[10px] text-text-muted">Only staff see this option</p>
+      </div>
+      {preview.on ? (
+        <div className="mt-2">
+          <label
+            htmlFor="runway-preview-raised"
+            className="block text-[10px] font-mono tracking-widest uppercase text-text-muted mb-1"
+          >
+            Raised USD
+          </label>
+          <input
+            id="runway-preview-raised"
+            type="number"
+            min="0"
+            step="1"
+            value={preview.raisedUsd}
+            onChange={(e) =>
+              onChange({ ...preview, raisedUsd: e.target.value })
+            }
+            className="w-36 bg-cyber-surface border border-cyber-border rounded px-2 py-1 text-xs text-white font-mono tabular-nums focus:border-neon-cyan outline-none"
+          />
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {[0, 200, RUNWAY_RAISE_GOAL_USD, Math.round(RUNWAY_RAISE_GOAL_USD * 3.3)].map(
+              (n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-cyber-border text-text-muted hover:text-white hover:border-neon-cyan/50"
+                  onClick={() =>
+                    onChange({ ...preview, on: true, raisedUsd: String(n) })
+                  }
+                >
+                  {formatRunwayUsd(n)}
+                </button>
+              )
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function StackRow({ label, amountUsd, hint, strong = false }) {
@@ -106,11 +212,11 @@ function StackRow({ label, amountUsd, hint, strong = false }) {
 
 function RunwayLedgerStack({ stack }) {
   const feeHint = stack.feesEstimated
-    ? 'Estimated PayPal fees (about 3.49% + $0.49 per payment). Ko-fi one-time tip fee is 0%. Replaced when a real PayPal net is stored.'
+    ? 'Estimated PayPal fees (about 3.49% + $0.49 per payment).'
     : 'From stored PayPal net on the runway ledger.';
 
   return (
-    <div className="rounded-xl border border-cyber-border bg-cyber-surface/80 p-5 mb-6">
+    <div className="rounded-xl border border-cyber-border bg-cyber-surface/80 p-5">
       <h3 className="text-sm font-semibold text-white mb-3">Runway ledger</h3>
       <ul className="divide-y divide-cyber-border">
         <StackRow label="Raised" amountUsd={stack.raisedCents / 100} />
@@ -130,40 +236,44 @@ function RunwayLedgerStack({ stack }) {
           strong
         />
       </ul>
-      <p className="text-xs text-text-muted mt-4 pt-3 border-t border-cyber-border leading-relaxed">
-        Goal: raise {formatRunwayUsd(RUNWAY_RAISE_GOAL_USD)} so about{' '}
-        {formatRunwayUsd(RUNWAY_AFTER_FEES_GOAL_USD)} lands after fees. Then{' '}
-        {formatRunwayUsd(RUNWAY_TAX_RESERVE_USD)} tax reserve (25%) and{' '}
-        {formatRunwayUsd(RUNWAY_NET_GOAL_USD)} runway net. Studio support is not
-        part of these figures.
-      </p>
     </div>
   );
 }
 
-function GoalProgress({ raisedUsd, goalPct }) {
-  const fillPct = Math.min(
-    100,
-    Math.max(0, (Number(raisedUsd) / RUNWAY_RAISE_GOAL_USD) * 100)
-  );
+function GoalProgress({ raisedUsd }) {
+  const { fillPct, multiplier, showMultiplier } = runwayGoalProgress(raisedUsd);
+  const labelPct = Math.round(fillPct);
 
   return (
     <div>
-      <div className="flex justify-between items-baseline gap-3 mb-2">
+      <div className="flex justify-between items-center gap-3 mb-2">
         <span className="text-xs font-mono tracking-widest uppercase text-text-muted">
           Goal
         </span>
-        <span className="text-sm font-mono font-semibold tabular-nums text-neon-cyan">
-          {goalPct}% of {formatRunwayUsd(RUNWAY_RAISE_GOAL_USD)}
-        </span>
+        <div className="flex items-baseline gap-2 tabular-nums">
+          {showMultiplier ? (
+            <span className="text-2xl sm:text-3xl font-mono font-bold text-neon-cyan leading-none">
+              {multiplier}×
+            </span>
+          ) : null}
+          <span className="text-sm font-mono font-semibold text-neon-cyan">
+            {showMultiplier
+              ? `${labelPct}%`
+              : `${labelPct}% of ${formatRunwayUsd(RUNWAY_RAISE_GOAL_USD)}`}
+          </span>
+        </div>
       </div>
       <div
         className="relative h-4 rounded-md border border-cyber-border bg-cyber-surface overflow-hidden"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={goalPct}
-        aria-label={`Personal runway ${goalPct} percent of ${formatRunwayUsd(RUNWAY_RAISE_GOAL_USD)} raise goal`}
+        aria-valuenow={labelPct}
+        aria-label={
+          showMultiplier
+            ? `Personal runway ${multiplier} times the ${formatRunwayUsd(RUNWAY_RAISE_GOAL_USD)} goal, ${labelPct} percent into the next`
+            : `Personal runway ${labelPct} percent of ${formatRunwayUsd(RUNWAY_RAISE_GOAL_USD)} raise goal`
+        }
       >
         <div
           className="absolute inset-y-0 left-0 bg-gradient-to-r from-neon-purple/80 to-neon-cyan transition-[width] duration-500 ease-out"
@@ -194,7 +304,7 @@ function GoalProgress({ raisedUsd, goalPct }) {
   );
 }
 
-function RaisedAndCoverage({ stack, months, goalPct }) {
+function RaisedAndCoverage({ stack, months }) {
   const paymentLabel =
     stack.paymentCount > 0
       ? ` · ${stack.paymentCount} payment${stack.paymentCount === 1 ? '' : 's'}`
@@ -211,7 +321,7 @@ function RaisedAndCoverage({ stack, months, goalPct }) {
             </span>
           </div>
           <div className="text-3xl sm:text-4xl font-mono font-bold text-neon-cyan">
-            {formatRunwayUsd(stack.raisedCents / 100, { cents: true })}
+            {formatRunwayUsd(stack.raisedCents / 100)}
           </div>
           <p className="text-xs text-text-muted mt-2">
             Personal runway ledger
@@ -229,14 +339,11 @@ function RaisedAndCoverage({ stack, months, goalPct }) {
             {formatRunwayCoverage(months)}
           </div>
           <p className="text-xs text-text-muted mt-2">
-            Runway net at {formatRunwayUsd(RUNWAY_MONTHLY_LIVING_USD)} / month
-            {months >= RUNWAY_YEAR_MONTHS
-              ? ' · a full year of living costs'
-              : ` · ${formatRunwayCoverage(Math.max(0, RUNWAY_YEAR_MONTHS - months))} to a living year`}
+            At 12 months we go full time Together Forge!
           </p>
         </div>
       </div>
-      <GoalProgress raisedUsd={stack.raisedCents / 100} goalPct={goalPct} />
+      <GoalProgress raisedUsd={stack.raisedCents / 100} />
     </div>
   );
 }
@@ -254,8 +361,16 @@ const RunwayTransparency = ({
   className = '',
   footer = null,
 }) => {
-  const raised = useRunwayRaised();
+  const { isStaff } = useStaffRole();
+  const [preview, setPreview] = useState(readPreviewState);
+  const showPreviewPanel = runwayPreviewAllowed(isStaff);
+  const raised = useRunwayRaised(showPreviewPanel ? preview : { on: false });
   const compact = variant === 'compact';
+
+  const onPreviewChange = (next) => {
+    setPreview(next);
+    writePreviewState(next);
+  };
 
   return (
     <section
@@ -287,8 +402,11 @@ const RunwayTransparency = ({
           )}
         </div>
 
+        {showPreviewPanel ? (
+          <RunwayPreviewPanel preview={preview} onChange={onPreviewChange} />
+        ) : null}
+
         <RaisedAndCoverage {...raised} />
-        <RunwayLedgerStack stack={raised.stack} />
 
         {compact ? null : (
           <>
@@ -321,14 +439,22 @@ const RunwayTransparency = ({
                 Monthly living total {formatRunwayUsd(RUNWAY_MONTHLY_LIVING_USD)}
               </p>
             </div>
-
-            <p className="text-sm text-text-secondary leading-relaxed mb-6">
-              {RUNWAY_TOTALS_COPY.grandNote}
-            </p>
           </>
         )}
 
+        {compact ? null : (
+          <div className="mb-6">
+            <RunwayLedgerStack stack={raised.stack} />
+          </div>
+        )}
+
         {footer}
+
+        {compact ? null : (
+          <p className="text-sm text-text-secondary leading-relaxed">
+            {RUNWAY_TOTALS_COPY.grandNote}
+          </p>
+        )}
       </Card>
     </section>
   );

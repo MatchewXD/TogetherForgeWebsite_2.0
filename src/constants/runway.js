@@ -86,7 +86,7 @@ export const RUNWAY_TOTALS_COPY = {
   afterFees: 'After fees: $69,408',
   raise: 'Public raise goal: $79,000',
   grandNote:
-    'The public raise goal is $79,000 so about $69,408 lands after estimated PayPal fees (about 3.49% + $0.49 per payment). Ko-fi one-time tip fee is 0%. $17,352 of what lands is a 25% tax reserve. $52,056 is a year of living costs. Studio support is not part of this fund. This is personal support for Matthew Seagren. It is not tax-deductible.',
+    'The public raise goal is $79,000 so about $69,408 lands after estimated PayPal fees (about 3.49% + $0.49 per payment). $17,352 of what lands is a 25% tax reserve. $52,056 is a year of living costs. Studio support is not part of this fund. This is personal support for the Founder (MatchewXD | Matthew Seagren).',
 };
 
 /**
@@ -160,27 +160,65 @@ export function runwayCoverageMonths(
  * @param {number} months
  * @returns {string}
  */
+/**
+ * Progress bar for the $79,000 raise. After the goal, the bar is the
+ * leftover fraction of the next $79,000 and multiplier is floor(raised/goal).
+ * 3.3× → 3× and 30% fill.
+ * @param {number} raisedUsd
+ * @param {number} [goalUsd]
+ */
+export function runwayGoalProgress(
+  raisedUsd,
+  goalUsd = RUNWAY_RAISE_GOAL_USD
+) {
+  const goal = Math.max(1, Number(goalUsd) || RUNWAY_RAISE_GOAL_USD);
+  const raised = Math.max(0, Number(raisedUsd) || 0);
+  const ratio = raised / goal;
+  if (ratio < 1) {
+    const fillPct = Math.min(100, Math.max(0, ratio * 100));
+    return {
+      ratio,
+      multiplier: 0,
+      fillPct,
+      showMultiplier: false,
+    };
+  }
+  const multiplier = Math.floor(ratio);
+  const frac = ratio - multiplier;
+  const fillPct = frac === 0 ? 100 : Math.min(100, Math.max(0, frac * 100));
+  return {
+    ratio,
+    multiplier,
+    fillPct,
+    showMultiplier: true,
+  };
+}
+
 export function formatRunwayCoverage(months) {
   const n = Number(months);
-  if (!Number.isFinite(n) || n <= 0) return '0 months';
-  if (n < 1 / 30) return 'less than a day';
-  if (n < 1) {
-    const days = Math.max(1, Math.round(n * 30));
-    return `${days} day${days === 1 ? '' : 's'}`;
+  if (!Number.isFinite(n) || n <= 0) return '0 days';
+  const wholeDays = Math.floor(n * 30);
+  if (wholeDays < 1) return 'less than a day';
+  const wholeMonths = Math.floor(wholeDays / 30);
+  const days = wholeDays % 30;
+  const parts = [];
+  if (wholeMonths > 0) {
+    parts.push(`${wholeMonths} month${wholeMonths === 1 ? '' : 's'}`);
   }
-  const rounded = Math.round(n * 10) / 10;
-  if (Number.isInteger(rounded)) {
-    return `${rounded} month${rounded === 1 ? '' : 's'}`;
+  if (days > 0) {
+    parts.push(`${days} day${days === 1 ? '' : 's'}`);
   }
-  return `${rounded.toFixed(1)} months`;
+  return parts.join(' ') || '0 days';
 }
 
 export function formatRunwayUsd(n, { cents = false } = {}) {
+  const value = Number(n) || 0;
+  const display = cents ? value : Math.floor(Math.max(0, value));
   const digits = cents ? 2 : 0;
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
-  }).format(n || 0);
+  }).format(display);
 }

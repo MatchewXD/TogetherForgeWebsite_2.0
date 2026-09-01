@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   estimateRunwayServiceFeesCents,
   formatRunwayCoverage,
+  formatRunwayUsd,
   runwayCoverageMonths,
+  runwayGoalProgress,
   runwayGoalTicks,
   runwayMoneyStack,
   RUNWAY_AFTER_FEES_GOAL_USD,
@@ -89,12 +91,48 @@ describe('runwayGoalTicks', () => {
   });
 });
 
+describe('runwayGoalProgress', () => {
+  it('fills 0–100% before the raise goal and does not show a multiplier', () => {
+    const mid = runwayGoalProgress(39500, 79000);
+    expect(mid.showMultiplier).toBe(false);
+    expect(mid.fillPct).toBe(50);
+    expect(runwayGoalProgress(0, 79000).fillPct).toBe(0);
+  });
+
+  it('shows floor(times) and the leftover fraction after the goal', () => {
+    const justOver = runwayGoalProgress(79000 * 1.01, 79000);
+    expect(justOver.showMultiplier).toBe(true);
+    expect(justOver.multiplier).toBe(1);
+    expect(justOver.fillPct).toBeCloseTo(1);
+
+    const triple = runwayGoalProgress(79000 * 3.3, 79000);
+    expect(triple.multiplier).toBe(3);
+    expect(triple.fillPct).toBeCloseTo(30);
+
+    const exact = runwayGoalProgress(79000 * 2, 79000);
+    expect(exact.multiplier).toBe(2);
+    expect(exact.fillPct).toBe(100);
+  });
+});
+
+describe('formatRunwayUsd', () => {
+  it('floors whole dollars and keeps cents when asked', () => {
+    expect(formatRunwayUsd(3.99)).toBe('$3');
+    expect(formatRunwayUsd(3.01)).toBe('$3');
+    expect(formatRunwayUsd(3)).toBe('$3');
+    expect(formatRunwayUsd(3.99, { cents: true })).toBe('$3.99');
+  });
+});
+
 describe('formatRunwayCoverage', () => {
-  it('formats months and short coverage', () => {
-    expect(formatRunwayCoverage(0)).toBe('0 months');
+  it('shows days, then months and days, and omits months when zero', () => {
+    expect(formatRunwayCoverage(0)).toBe('0 days');
+    expect(formatRunwayCoverage(1 / 60)).toBe('less than a day');
+    expect(formatRunwayCoverage(1 / 30)).toBe('1 day');
+    expect(formatRunwayCoverage(0.5)).toBe('15 days');
     expect(formatRunwayCoverage(1)).toBe('1 month');
+    expect(formatRunwayCoverage(1 + 1 / 30)).toBe('1 month 1 day');
+    expect(formatRunwayCoverage(1.5)).toBe('1 month 15 days');
     expect(formatRunwayCoverage(3)).toBe('3 months');
-    expect(formatRunwayCoverage(1.5)).toBe('1.5 months');
-    expect(formatRunwayCoverage(0.5)).toMatch(/day/);
   });
 });
