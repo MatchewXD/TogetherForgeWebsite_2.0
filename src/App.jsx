@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import ScrollToTop from './components/ScrollToTop';
+import TrafficBeacon from './components/traffic/TrafficBeacon';
 import HomePage from './pages/HomePage';
 import AboutPage from './pages/AboutPage';
 import GameIdeas from './pages/GameIdeas';
@@ -80,6 +81,7 @@ function App() {
     return (
         <Router>
             <ScrollToTop />
+            <TrafficBeacon />
             <EmailConfirmationGate>
             <MfaSessionGate>
             <LegalAcceptanceGate>

@@ -19,7 +19,7 @@ import CommunityAwardStrip from '../awards/CommunityAwardStrip';
  * Shared idea listing card for GameIdeas + Project Workspace.
  *
  * Compact balanced layout (no empty side columns):
- *  [category] ……………………………… [status]
+ *  [category] [linked] ……………… [awards] [status]
  *  title / summary / tags …………… [image]
  *  [vote] · avatar · date · comments
  */
@@ -30,10 +30,8 @@ const IdeaCard = ({
   voting = false,
   onVote,
   onOpen,
-  /** Kept for callers that still pass project chip props */
-  projectName: _projectName = null,
-  projectSlug: _projectSlug = null,
-  onProjectClick: _onProjectClick,
+  projectName = null,
+  projectHref = null,
   commentCount,
   showTags = true,
   className = '',
@@ -84,13 +82,37 @@ const IdeaCard = ({
         }
       }}
     >
-      {/* Header: category left, awards immediately left of Adopted / Under Review */}
+      {/* Header: category + linked hub, awards + Adopted / Under Review */}
       <div className="flex items-center gap-2 mb-2.5 min-w-0">
         {category && (
           <Badge variant="default" className="!normal-case tracking-wide shrink-0">
             {category}
           </Badge>
         )}
+        {projectName ? (
+          projectHref ? (
+            <Link
+              to={projectHref}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+              className="shrink-0 min-w-0 max-w-[9.5rem] focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan/50 rounded-full"
+            >
+              <Badge
+                variant="default"
+                className="!normal-case tracking-wide !text-neon-cyan !border-neon-cyan/40 hover:!bg-neon-cyan/10"
+              >
+                <span className="truncate">{projectName}</span>
+              </Badge>
+            </Link>
+          ) : (
+            <Badge
+              variant="default"
+              className="!normal-case tracking-wide shrink-0 min-w-0 max-w-[9.5rem]"
+            >
+              <span className="truncate">{projectName}</span>
+            </Badge>
+          )
+        ) : null}
         <div className="flex-1 min-w-0" />
         <div
           className="flex items-center gap-2 min-w-0 shrink-0"

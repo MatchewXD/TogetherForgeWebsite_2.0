@@ -48,6 +48,7 @@ import {
   statusLabel,
   isStudioStageKey,
   resolveLinkDisplayName,
+  ideaLinkMeta,
 } from '../utils/ideaStatus';
 import { markIdeaViewed } from '../utils/ideaActivity';
 import {
@@ -344,18 +345,16 @@ const IdeaDetail = () => {
     [idea]
   );
 
-  const projectPath = useMemo(() => {
-    if (!linkedProject?.slug) return null;
-    // Stages open the public hub (not a project workspace)
-    if (linkedProject?.isStage) {
-      const k = String(linkedProject.slug).toLowerCase();
-      if (k.startsWith('early')) return '/projects/early';
-      if (k.startsWith('mid')) return '/projects/mid';
-      if (k.startsWith('late')) return '/projects/late';
-      return null;
-    }
-    return `/projects/${linkedProject.slug}`;
-  }, [linkedProject]);
+  const linkMeta = useMemo(
+    () =>
+      ideaLinkMeta(
+        linkedProject?.slug || idea?.project_id || idea?.projectId,
+        linkedProject?.title
+      ),
+    [linkedProject, idea?.project_id, idea?.projectId]
+  );
+  const projectPath = linkMeta.href;
+  const projectCtaLabel = linkMeta.ctaLabel;
 
   const tags = useMemo(() => parseTags(idea?.tags), [idea?.tags]);
   const supportingImageUrl = useMemo(
@@ -676,7 +675,9 @@ const IdeaDetail = () => {
                 className="inline-flex items-center gap-2 rounded-lg border border-neon-cyan/40 bg-cyber-surface/80 px-3 py-2 text-sm text-neon-cyan hover:bg-neon-cyan/10 hover:border-neon-cyan transition-colors"
               >
                 <Hammer className="w-4 h-4 shrink-0" />
-                <span className="font-mono tracking-wide">View Project</span>
+                <span className="font-mono tracking-wide">
+                  {projectCtaLabel || 'View Project'}
+                </span>
                 <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-70" />
               </Link>
             )}

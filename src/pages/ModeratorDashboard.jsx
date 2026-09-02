@@ -28,6 +28,7 @@ import {
   UserCog,
   ScrollText,
   Receipt,
+  Activity,
   MessageSquare,
   Eye,
   EyeOff,
@@ -53,6 +54,7 @@ import { listShowcaseForModeration } from '../services/showcaseService';
 import IdeaTagsAdminPanel from '../components/ideas/IdeaTagsAdminPanel';
 import DecisionLogsManager from '../components/transparency/DecisionLogsManager';
 import StudioExpensesManager from '../components/transparency/StudioExpensesManager';
+import TrafficPanel from '../components/moderation/TrafficPanel';
 import platformSuggestionsService from '../services/platformSuggestionsService';
 import {
   SUGGESTION_STATUSES,
@@ -61,6 +63,7 @@ import {
 import UserNameWithBadge from '../components/badges/UserNameWithBadge';
 
 const TABS = [
+  { id: 'traffic', label: 'Traffic', icon: Activity },
   { id: 'users', label: 'Users', icon: Users },
   { id: 'ideas', label: 'Ideas', icon: Lightbulb },
   { id: 'suggestions', label: 'Suggestions', icon: MessageSquare },
@@ -740,11 +743,13 @@ const ModeratorDashboard = () => {
           </Card>
         )}
 
-        {loading && !users.length && !ideas.length && (
+        {loading && !users.length && !ideas.length && tab !== 'traffic' && (
           <LoadingScreen variant="section" message="Loading…" />
         )}
 
         {/* ---------- Scope help (task breakdown requests) ---------- */}
+        {tab === 'traffic' && <TrafficPanel />}
+
         {tab === 'scope' && (
           <section aria-labelledby="scope-heading">
             <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">

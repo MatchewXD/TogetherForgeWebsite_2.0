@@ -457,7 +457,7 @@ const ProjectWorkspace = () => {
   const [ideasError, setIdeasError] = useState(null);
   // Same pattern as GameIdeas: Set of idea ids the user has voted on
   const [userIdeaVotes, setUserIdeaVotes] = useState(() => new Set());
-  const [ideaSortMode, setIdeaSortMode] = useState('popular'); // popular | votes | newest | title
+  const [ideaSortMode, setIdeaSortMode] = useState('newest'); // newest | votes | title
   const [ideaSearch, setIdeaSearch] = useState('');
   const [ideaCategoryFilter, setIdeaCategoryFilter] = useState([]);
   const [ideaFilterOpen, setIdeaFilterOpen] = useState(false);
@@ -888,18 +888,6 @@ const ProjectWorkspace = () => {
   }, [tasks, selectedTaskId]);
 
   const sortedIdeas = useMemo(() => {
-    const now = Date.now();
-    const DECAY_RATE = 0.0000001;
-    const popularity = (idea) => {
-      const votes = idea.votes || 0;
-      const last =
-        idea.lastVoteTime || idea.createdAt
-          ? new Date(idea.lastVoteTime || idea.createdAt).getTime()
-          : now;
-      const age = Math.max(0, now - last);
-      return votes * Math.exp(-DECAY_RATE * age);
-    };
-
     const q = ideaSearch.trim().toLowerCase();
     return [...projectIdeas]
       .filter((idea) => {
@@ -911,17 +899,16 @@ const ProjectWorkspace = () => {
         return matchesSearch && matchesCategory;
       })
       .sort((a, b) => {
-        if (ideaSortMode === 'popular') return popularity(b) - popularity(a);
         if (ideaSortMode === 'votes') {
           return (b.votes || 0) - (a.votes || 0);
         }
-        if (ideaSortMode === 'newest') {
-          return (
-            new Date(b.createdAt || 0).getTime() -
-            new Date(a.createdAt || 0).getTime()
-          );
+        if (ideaSortMode === 'title') {
+          return (a.title || '').localeCompare(b.title || '');
         }
-        return (a.title || '').localeCompare(b.title || '');
+        return (
+          new Date(b.createdAt || b.created_at || 0).getTime() -
+          new Date(a.createdAt || a.created_at || 0).getTime()
+        );
       });
   }, [projectIdeas, ideaSortMode, ideaSearch, ideaCategoryFilter]);
 
@@ -3458,10 +3445,9 @@ const ProjectWorkspace = () => {
               onChange={(e) => setIdeaSortMode(e.target.value)}
               className="bg-cyber-surface border border-cyber-border rounded-lg px-4 py-3 text-text-primary focus:border-neon-cyan outline-none text-sm"
             >
-              <option value="popular">Most Popular</option>
-              <option value="votes">Most Votes</option>
               <option value="newest">Newest</option>
-              <option value="title">Sort by Title</option>
+              <option value="votes">Most Voted</option>
+              <option value="title">Title A–Z</option>
             </select>
 
             <div className="relative">
@@ -3570,13 +3556,11 @@ const ProjectWorkspace = () => {
                     onVote={(e, ideaRow) => handleVoteIdea(e, ideaRow.id)}
                     onOpen={openIdeaDetail}
                     projectName={projectLabel}
-                    projectSlug={projectKey}
-                    onProjectClick={() => {
-                      // From workspace: jump to global Ideas filtered to this project
-                      navigate(
-                        `/ideas?project=${encodeURIComponent(projectKey)}&feed=together`
-                      );
-                    }}
+                    projectHref={
+                      projectKey
+                        ? `/projects/${canonicalProjectSlug(projectKey) || projectKey}`
+                        : null
+                    }
                     commentCount={idea.commentCount || 0}
                     showTags
                   />

@@ -7,6 +7,8 @@ import {
   normalizeProjectKeys,
   ideaMatchesProject,
   buildSafeIdeaPayload,
+  escapePostgrestOrValue,
+  IDEAS_PAGE_SIZE,
 } from '../services/ideasService';
 import { canonicalProjectSlug } from '../utils/ideaStatus';
 
@@ -169,6 +171,11 @@ describe('ideasService', () => {
     expect(result).toEqual([{ id: 1 }]);
   });
 
+  it('escapePostgrestOrValue strips or-filter breakers', () => {
+    expect(escapePostgrestOrValue('hello, world%_')).toBe('hello world');
+    expect(IDEAS_PAGE_SIZE).toBe(12);
+  });
+
   it('createIdea inserts and returns new idea', async () => {
     const idea = { title: 'Test' };
     const result = await ideasService.createIdea(idea);
@@ -217,5 +224,77 @@ describe('ideasService', () => {
     expect(supabase.from).toHaveBeenCalled();
     expect(supabase.rpc).not.toHaveBeenCalled();
     expect(result.ok).toBe(true);
+  });
+
+  it('getIdeasListingPage fetches one page with range and bounded comment counts', async () => {
+    const range = vi.fn(() =>
+      Promise.resolve({
+        data: [
+          {
+            id: 7,
+            user_id: 'u1',
+            status: 'Proposed',
+            title: 'A',
+            votes: 2,
+          },
+        ],
+        error: null,
+        count: 40,
+      })
+    );
+    const ideasChain = {
+      or: vi.fn(() => ideasChain),
+      in: vi.fn(() => ideasChain),
+      eq: vi.fn(() => ideasChain),
+      gte: vi.fn(() => ideasChain),
+      lt: vi.fn(() => ideasChain),
+      not: vi.fn(() => ideasChain),
+      order: vi.fn(() => ideasChain),
+      range,
+      select: vi.fn(() => ideasChain),
+    };
+    const commentIn = vi.fn(() =>
+      Promise.resolve({ data: [{ idea_id: 7 }], error: null })
+    );
+    const profileIn = vi.fn(() =>
+      Promise.resolve({
+        data: [{ id: 'u1', username: 'forge', avatar_url: null }],
+        error: null,
+      })
+    );
+
+    supabase.from.mockImplementation((table) => {
+      if (table === 'ideas') {
+        return ideasChain;
+      }
+      if (table === 'comments') {
+        return {
+          select: () => ({ in: commentIn }),
+        };
+      }
+      if (table === 'profiles') {
+        return {
+          select: () => ({
+            in: profileIn,
+            ilike: () => ({
+              limit: () => Promise.resolve({ data: [], error: null }),
+            }),
+          }),
+        };
+      }
+      return { select: () => ({}) };
+    });
+
+    const result = await ideasService.getIdeasListingPage({
+      limit: 12,
+      offset: 12,
+      sort: 'newest',
+    });
+    expect(range).toHaveBeenCalledWith(12, 23);
+    expect(commentIn).toHaveBeenCalled();
+    expect(result.total).toBe(40);
+    expect(result.hasMore).toBe(true);
+    expect(result.ideas).toHaveLength(1);
+    expect(result.ideas[0].commentCount).toBe(1);
   });
 });

@@ -11,7 +11,12 @@ import {
   isMissingRpcError,
 } from '../utils/abuseErrors';
 import { rpcWithFreshAuth } from '../utils/ensureAuthSession';
-import { canonicalProjectSlug, expandProjectSlugAliases } from '../utils/ideaStatus';
+import {
+  canonicalProjectSlug,
+  expandProjectSlugAliases,
+  HOT_MIN_VOTES,
+  PROMISING_MIN_VOTES,
+} from '../utils/ideaStatus';
 
 /** Optional supporting image on ideas */
 export const IDEA_IMAGE_BUCKET = 'idea-images';
@@ -77,6 +82,20 @@ export function displayIdeaVotes(idea) {
 export function mapPublicIdeaMetrics(idea) {
   if (!idea) return idea;
   return { ...idea, votes: displayIdeaVotes(idea) };
+}
+
+/** Page size for the public Ideas hub (server-side fetch). */
+export const IDEAS_PAGE_SIZE = 12;
+
+/**
+ * Strip characters that break PostgREST `or=()` values.
+ * @param {unknown} raw
+ */
+export function escapePostgrestOrValue(raw) {
+  return String(raw || '')
+    .replace(/[%_,()]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /** Attach creator profiles to idea rows. */
@@ -536,7 +555,9 @@ export const ideasService = {
   },
 
   /**
-   * Comment counts keyed by idea_id (for listing cards / "most discussed").
+   * Comment counts keyed by idea_id (for listing cards).
+   * Prefer getCommentCountsForIds on paginated views so we do not scan
+   * the whole comments table.
    */
   async getCommentCounts() {
     const { data, error } = await supabase.from('comments').select('idea_id');
@@ -550,6 +571,190 @@ export const ideasService = {
       counts[row.idea_id] = (counts[row.idea_id] || 0) + 1;
     }
     return counts;
+  },
+
+  async getCommentCountsForIds(ids = []) {
+    const list = [...new Set((ids || []).filter((id) => id != null))];
+    if (!list.length) return {};
+    const { data, error } = await supabase
+      .from('comments')
+      .select('idea_id')
+      .in('idea_id', list);
+    if (error) {
+      console.warn('[ideasService.getCommentCountsForIds]', error);
+      return {};
+    }
+    const counts = {};
+    for (const row of data || []) {
+      if (row.idea_id == null) continue;
+      counts[row.idea_id] = (counts[row.idea_id] || 0) + 1;
+    }
+    return counts;
+  },
+
+  /**
+   * One page of the public Ideas hub, filtered/sorted in the database.
+   * Does not download the full ideas or comments tables.
+   *
+   * @param {{
+   *   limit?: number,
+   *   offset?: number,
+   *   search?: string,
+   *   sort?: string,
+   *   categories?: string[],
+   *   tags?: string[],
+   *   statusFilter?: string,
+   *   feedMode?: string,
+   *   projectKeys?: string[],
+   * }} [opts]
+   */
+  async getIdeasListingPage(opts = {}) {
+    const limit = Math.max(1, Math.min(48, Number(opts.limit) || IDEAS_PAGE_SIZE));
+    const offset = Math.max(0, Number(opts.offset) || 0);
+    const search = escapePostgrestOrValue(opts.search || '');
+    const sort = String(opts.sort || 'newest');
+    const categories = Array.isArray(opts.categories)
+      ? opts.categories.filter(Boolean)
+      : [];
+    const tags = Array.isArray(opts.tags)
+      ? opts.tags.map(escapePostgrestOrValue).filter(Boolean)
+      : [];
+    const statusFilter = String(opts.statusFilter || 'all');
+    const feedMode = String(opts.feedMode || 'community');
+    const projectKeys = Array.isArray(opts.projectKeys)
+      ? [...new Set(opts.projectKeys.map((k) => String(k).trim()).filter(Boolean))]
+      : [];
+
+    let creatorIds = [];
+    if (search) {
+      try {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id')
+          .ilike('username', `%${search}%`)
+          .limit(25);
+        creatorIds = (profiles || []).map((p) => p.id).filter(Boolean);
+      } catch {
+        creatorIds = [];
+      }
+    }
+
+    const applyFilters = (query) => {
+      let q = query.or('status.is.null,status.not.ilike.draft');
+
+      if (categories.length) q = q.in('category', categories);
+
+      if (tags.length) {
+        q = q.or(tags.map((t) => `tags.ilike.%${t}%`).join(','));
+      }
+
+      if (search) {
+        const parts = [
+          `title.ilike.%${search}%`,
+          `summary.ilike.%${search}%`,
+          `tags.ilike.%${search}%`,
+        ];
+        if (creatorIds.length) {
+          parts.push(`user_id.in.(${creatorIds.join(',')})`);
+        }
+        q = q.or(parts.join(','));
+      }
+
+      if (statusFilter === 'Adopted') {
+        q = q.eq('status', 'Adopted');
+      } else if (statusFilter === 'UnderReview') {
+        q = q.eq('status', 'UnderReview');
+      } else if (statusFilter === 'Promising') {
+        q = q.gte('votes', PROMISING_MIN_VOTES).lt('votes', HOT_MIN_VOTES);
+      } else if (statusFilter === 'Hot') {
+        q = q.gte('votes', HOT_MIN_VOTES);
+      }
+
+      if (projectKeys.length) {
+        const parts = projectKeys.flatMap((k) => {
+          const safe = escapePostgrestOrValue(k);
+          return safe
+            ? [`project_id.eq.${safe}`, `project_slug.eq.${safe}`]
+            : [];
+        });
+        if (parts.length) q = q.or(parts.join(','));
+      } else if (feedMode === 'together') {
+        q = q.or('project_id.not.is.null,project_slug.not.is.null');
+      }
+
+      if (sort === 'votes') {
+        q = q.order('votes', { ascending: false, nullsFirst: false });
+      } else if (sort === 'title') {
+        q = q.order('title', { ascending: true });
+      } else {
+        q = q.order('created_at', { ascending: false });
+      }
+
+      return q.range(offset, offset + limit - 1);
+    };
+
+    let { data, error, count } = await applyFilters(
+      supabase.from('ideas').select('*', { count: 'exact' })
+    );
+
+    if (error && /project_slug|column .* does not exist/i.test(String(error.message || ''))) {
+      const retry = supabase
+        .from('ideas')
+        .select('*', { count: 'exact' })
+        .or('status.is.null,status.not.ilike.draft');
+      let q = retry;
+      if (categories.length) q = q.in('category', categories);
+      if (search) {
+        const parts = [
+          `title.ilike.%${search}%`,
+          `summary.ilike.%${search}%`,
+          `tags.ilike.%${search}%`,
+        ];
+        if (creatorIds.length) {
+          parts.push(`user_id.in.(${creatorIds.join(',')})`);
+        }
+        q = q.or(parts.join(','));
+      }
+      if (projectKeys.length) {
+        q = q.in('project_id', projectKeys);
+      } else if (feedMode === 'together') {
+        q = q.not('project_id', 'is', null);
+      }
+      if (sort === 'votes') {
+        q = q.order('votes', { ascending: false, nullsFirst: false });
+      } else if (sort === 'title') {
+        q = q.order('title', { ascending: true });
+      } else {
+        q = q.order('created_at', { ascending: false });
+      }
+      const second = await q.range(offset, offset + limit - 1);
+      data = second.data;
+      error = second.error;
+      count = second.count;
+    }
+
+    if (error) throw error;
+
+    const rows = filterPublicIdeas(data || []);
+    const withCreators = await this._withCreators(rows);
+    const withParents = await this._attachParentSummaries(withCreators);
+    const ids = withParents.map((idea) => idea.id).filter((id) => id != null);
+    const commentCounts = await this.getCommentCountsForIds(ids);
+    const ideas = withParents.map((idea) => ({
+      ...idea,
+      commentCount: commentCounts[idea.id] || 0,
+    }));
+    const fetched = (data || []).length;
+    const total = typeof count === 'number' ? count : offset + ideas.length;
+    return {
+      ideas,
+      total,
+      hasMore:
+        typeof count === 'number'
+          ? offset + fetched < count
+          : fetched >= limit,
+      commentCounts,
+    };
   },
 
   /**

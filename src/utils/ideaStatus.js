@@ -244,6 +244,76 @@ export function isStudioStageKey(key) {
   return STUDIO_STAGE_KEYS.has(String(key).trim().toLowerCase());
 }
 
+/** Old phase_games catalog ids — not real workspaces and not stage hubs. */
+const RETIRED_CATALOG_SLUGS = new Set(['core-features', 'polish-playtests']);
+
+/**
+ * Matching keys for a stage so Early ideas stored as `early` or `early-phase` both hit.
+ * @param {string|null|undefined} key
+ * @returns {string[]}
+ */
+export function expandStudioStageKeys(key) {
+  if (!isStudioStageKey(key)) return [];
+  const k = String(key).trim().toLowerCase();
+  if (k.startsWith('early')) return ['early', 'early-phase'];
+  if (k.startsWith('mid')) return ['mid', 'mid-phase'];
+  if (k.startsWith('late')) return ['late', 'late-phase'];
+  return [k];
+}
+
+/**
+ * Public hub path for a stage key (`/projects/early` etc.).
+ * @param {string|null|undefined} key
+ * @returns {string|null}
+ */
+export function studioStageHubPath(key) {
+  if (!isStudioStageKey(key)) return null;
+  const k = String(key).trim().toLowerCase();
+  if (k.startsWith('early')) return '/projects/early';
+  if (k.startsWith('mid')) return '/projects/mid';
+  if (k.startsWith('late')) return '/projects/late';
+  return null;
+}
+
+/**
+ * Label + href for an idea's Related-to value.
+ * Stages go to Early/Mid/Late hubs. Real projects go to `/projects/:slug`.
+ * Retired catalog placeholders are named only (no link).
+ *
+ * @param {string|null|undefined} key
+ * @param {string|null|undefined} [optionalTitle]
+ * @returns {{ name: string|null, href: string|null, isStage: boolean, ctaLabel: string|null }}
+ */
+export function ideaLinkMeta(key, optionalTitle = null) {
+  if (key == null || String(key).trim() === '') {
+    return { name: null, href: null, isStage: false, ctaLabel: null };
+  }
+  const raw = String(key).trim();
+  const lower = raw.toLowerCase();
+  const isStage = isStudioStageKey(raw);
+  const name = isStage
+    ? getProjectDisplayName(raw)
+    : resolveLinkDisplayName(raw, optionalTitle);
+  if (RETIRED_CATALOG_SLUGS.has(lower)) {
+    return { name, href: null, isStage: false, ctaLabel: null };
+  }
+  if (isStage) {
+    return {
+      name,
+      href: studioStageHubPath(raw),
+      isStage: true,
+      ctaLabel: name,
+    };
+  }
+  const slug = canonicalProjectSlug(raw);
+  return {
+    name,
+    href: slug ? `/projects/${slug}` : null,
+    isStage: false,
+    ctaLabel: name ? `View ${name}` : 'View Project',
+  };
+}
+
 /**
  * @param {string|null|undefined} key - slug / project_id
  * @returns {string|null}

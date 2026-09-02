@@ -1,8 +1,8 @@
 /**
  * GameIdeas - global Ideas hub (SDD: community idea listing)
  *
- * Features: search, category/tag/status filters, sort (newest / voted / discussed),
- * fire-vote, UserAvatar cards, pagination, empty/loading states, project feed.
+ * Features: search, category/tag/status filters, sort (newest / voted / title),
+ * fire-vote, UserAvatar cards, server-paged "Load more", empty/loading states, project feed.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -17,13 +17,20 @@ import {
 } from 'lucide-react';
 
 import { supabase } from '../lib/supabase';
-import { ideasService, ideaMatchesProject } from '../services/ideasService';
 import {
-  getIdeaVoteHeat,
-  getPublicIdeaLabel,
-  parseTags,
-  resolveLinkDisplayName,
+  ideasService,
+  IDEAS_PAGE_SIZE,
+  normalizeProjectKeys,
+} from '../services/ideasService';
+import {
+  expandStudioStageKeys,
+  ideaLinkMeta,
+  isStudioStageKey,
 } from '../utils/ideaStatus';
+import {
+  RELATED_PHASE_OPTIONS,
+  loadRelatedProjectOptions,
+} from '../utils/relatedToOptions';
 import IdeaCard from '../components/ui/IdeaCard';
 import Badge from '../components/ui/Badge';
 import Card from '../components/ui/Card';
@@ -67,7 +74,7 @@ const FILTER_OPTIONS = [
   { value: 'Adopted', label: 'Adopted by Together Forge' },
 ];
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = IDEAS_PAGE_SIZE;
 const IDEAS_BANNER_SRC = '/images/Ideas_Page_Background.webp';
 
 /** Normalize idea/vote ids so Set lookups are stable across number|string */
@@ -89,8 +96,13 @@ const GameIdeas = () => {
   const categoryMenuRef = useRef(null);
 
   const [allIdeas, setAllIdeas] = useState([]);
+  const allIdeasRef = useRef([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState(null);
+  const listingRequestRef = useRef(0);
   const [message, setMessage] = useState('');
   /** Idea ids the current user has voted on (string keys via voteKey) */
   const [userVotes, setUserVotes] = useState(() => new Set());
@@ -104,9 +116,12 @@ const GameIdeas = () => {
   const [searchTerm, setSearchTerm] = useState(
     () => searchParams.get('q') || ''
   );
-  const [sortMode, setSortMode] = useState(
-    () => searchParams.get('sort') || 'newest'
-  );
+  const [sortMode, setSortMode] = useState(() => {
+    const raw = searchParams.get('sort') || 'newest';
+    if (raw === 'discussed') return 'newest';
+    if (raw === 'popular') return 'votes';
+    return raw;
+  });
   const [selectedCategories, setSelectedCategories] = useState([]);
   const selectedTags = useMemo(
     () => parseIdeaListTagParams(searchParams),
@@ -142,11 +157,14 @@ const GameIdeas = () => {
   const [feedMode, setFeedMode] = useState(
     () => searchParams.get('feed') || 'community'
   ); // community | together
-  const [projects, setProjects] = useState([]);
+  const [stageLinks] = useState(() =>
+    RELATED_PHASE_OPTIONS.filter((p) => p.id)
+  );
+  const [projectLinks, setProjectLinks] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
 
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [awardsByIdea, setAwardsByIdea] = useState({});
+  const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
 
   useEffect(() => {
     userVotesRef.current = userVotes;
@@ -183,18 +201,102 @@ const GameIdeas = () => {
     }
   }, []);
 
-  const loadListing = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const { ideas } = await ideasService.getIdeasListing();
-      setAllIdeas(
-        (ideas || []).map((idea) => ({
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => window.clearTimeout(t);
+  }, [searchTerm]);
+
+  const listingFilters = useMemo(
+    () => ({
+      search: debouncedSearch,
+      sort: sortMode,
+      categories: selectedCategories,
+      tags: selectedTags,
+      statusFilter,
+      feedMode,
+      projectKeys: selectedProject
+        ? isStudioStageKey(selectedProject.slug || selectedProject.id)
+          ? expandStudioStageKeys(selectedProject.slug || selectedProject.id)
+          : normalizeProjectKeys(
+              selectedProject.slug || selectedProject.id || selectedProject.title
+            )
+        : [],
+    }),
+    [
+      debouncedSearch,
+      sortMode,
+      selectedCategories,
+      selectedTags,
+      statusFilter,
+      feedMode,
+      selectedProject,
+    ]
+  );
+
+  const loadListing = useCallback(
+    async ({ append = false } = {}) => {
+      const requestId = listingRequestRef.current + 1;
+      listingRequestRef.current = requestId;
+      if (append) setLoadingMore(true);
+      else {
+        setLoading(true);
+        setLoadError(null);
+      }
+      try {
+        const offset = append ? allIdeasRef.current.length : 0;
+        const { ideas, total, hasMore: more } =
+          await ideasService.getIdeasListingPage({
+            limit: PAGE_SIZE,
+            offset,
+            ...listingFilters,
+          });
+        if (requestId !== listingRequestRef.current) return;
+        const mapped = (ideas || []).map((idea) => ({
           ...idea,
           votes: Math.max(0, Number(idea.votes) || 0),
-        }))
-      );
+        }));
+        const next = append
+          ? [
+              ...allIdeasRef.current,
+              ...mapped.filter(
+                (idea) =>
+                  !allIdeasRef.current.some(
+                    (row) => voteKey(row.id) === voteKey(idea.id)
+                  )
+              ),
+            ]
+          : mapped;
+        allIdeasRef.current = next;
+        setAllIdeas(next);
+        setTotalCount(typeof total === 'number' ? total : next.length);
+        setHasMore(Boolean(more));
+      } catch (err) {
+        if (requestId !== listingRequestRef.current) return;
+        console.error('[GameIdeas] load failed', err);
+        if (!append) {
+          allIdeasRef.current = [];
+          setAllIdeas([]);
+          setTotalCount(0);
+          setHasMore(false);
+        }
+        setLoadError(err?.message || 'Could not load ideas.');
+      } finally {
+        if (requestId === listingRequestRef.current) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
+      }
+    },
+    [listingFilters]
+  );
 
+  useEffect(() => {
+    void loadListing({ append: false });
+  }, [loadListing]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
       let uid = null;
       const { data: sessionData } = await supabase.auth.getSession();
       uid = sessionData?.session?.user?.id || null;
@@ -202,20 +304,14 @@ const GameIdeas = () => {
         const { data: userData } = await supabase.auth.getUser();
         uid = userData?.user?.id || null;
       }
+      if (cancelled) return;
       setCurrentUserId(uid);
       await loadUserVotes(uid);
-    } catch (err) {
-      console.error('[GameIdeas] load failed', err);
-      setAllIdeas([]);
-      setLoadError(err?.message || 'Could not load ideas.');
-    } finally {
-      setLoading(false);
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [loadUserVotes]);
-
-  useEffect(() => {
-    loadListing();
-  }, [loadListing]);
 
   // Refresh liked set on sign-in / sign-out only
   useEffect(() => {
@@ -259,168 +355,45 @@ const GameIdeas = () => {
     };
   }, [categoryOpen]);
 
-  // Projects for Together Forge feed (workspace projects + phase_games)
+  // Linked-to options: studio stages + live workspace projects (not phase_games).
   useEffect(() => {
-    const fetchProjects = async () => {
+    let mounted = true;
+    (async () => {
       try {
-        const results = [];
-        const { data: workspace } = await supabase
-          .from('projects')
-          .select('id, slug, title, phase, status')
-          .order('created_at', { ascending: false });
-        if (workspace?.length) {
-          results.push(
-            ...workspace.map((p) => ({
-              id: p.slug || p.id,
-              slug: p.slug,
-              title: p.title,
-              phase: p.phase,
-              source: 'workspace',
-            }))
-          );
-        }
-        const { data: phase } = await supabase.from('phase_games').select('*');
-        if (phase?.length) {
-          for (const p of phase) {
-            const id = p.id || p.slug || p.title;
-            if (!results.some((r) => String(r.id) === String(id))) {
-              results.push({
-                id,
-                slug: p.slug || p.id,
-                title: p.title || p.name || String(id),
-                phase: p.phase,
-                source: 'phase',
-              });
-            }
-          }
-        }
-        setProjects(results);
-
+        const rows = await loadRelatedProjectOptions();
+        if (!mounted) return;
+        setProjectLinks(rows);
         const qp = searchParams.get('project');
-        if (qp && results.length) {
-          const match = results.find(
-            (p) =>
-              String(p.id) === qp ||
-              String(p.slug) === qp ||
-              String(p.title).toLowerCase() === qp.toLowerCase()
-          );
-          if (match) setSelectedProject(match);
-          else setSelectedProject({ id: qp, slug: qp, title: qp });
+        if (!qp) return;
+        const all = [
+          ...RELATED_PHASE_OPTIONS.filter((p) => p.id),
+          ...rows,
+        ];
+        const match = all.find(
+          (p) =>
+            String(p.id) === qp ||
+            String(p.id).toLowerCase() === String(qp).toLowerCase()
+        );
+        if (match) {
+          setSelectedProject({
+            id: match.id,
+            slug: match.id,
+            title: match.label,
+          });
+        } else {
+          setSelectedProject({ id: qp, slug: qp, title: qp });
         }
       } catch {
-        setProjects([]);
+        if (mounted) setProjectLinks([]);
       }
+    })();
+    return () => {
+      mounted = false;
     };
-    fetchProjects();
   }, [searchParams]);
 
-  // Reset pagination when filters change
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [
-    searchTerm,
-    sortMode,
-    selectedCategories,
-    selectedTags,
-    statusFilter,
-    feedMode,
-    selectedProject,
-  ]);
-
-  const filteredIdeas = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    const now = Date.now();
-    const DECAY = 0.0000001;
-    const selectedTagLower = selectedTags.map((t) => t.toLowerCase());
-
-    const popularity = (idea) => {
-      const votes = idea.votes || 0;
-      const last = idea.last_vote_time || idea.created_at
-        ? new Date(idea.last_vote_time || idea.created_at).getTime()
-        : now;
-      return votes * Math.exp(-DECAY * Math.max(0, now - last));
-    };
-
-    let list = allIdeas.filter((idea) => {
-      const title = (idea.title || '').toLowerCase();
-      const summary = (idea.summary || '').toLowerCase();
-      const tags = parseTags(idea.tags);
-      const tagsLower = tags.map((t) => t.toLowerCase());
-      const matchesSearch =
-        !q ||
-        title.includes(q) ||
-        summary.includes(q) ||
-        tagsLower.some((t) => t.includes(q)) ||
-        (idea.creator?.username || '').toLowerCase().includes(q);
-
-      const matchesCategory =
-        selectedCategories.length === 0 ||
-        selectedCategories.includes(idea.category);
-
-      // Multi-select tags: match if idea has ANY selected tag (OR)
-      const matchesTags =
-        selectedTagLower.length === 0 ||
-        selectedTagLower.some((t) => tagsLower.includes(t));
-
-      let matchesFilter = true;
-      if (statusFilter === 'Adopted') {
-        matchesFilter = getPublicIdeaLabel(idea) === 'Adopted';
-      } else if (statusFilter === 'UnderReview') {
-        matchesFilter = getPublicIdeaLabel(idea) === 'UnderReview';
-      } else if (statusFilter === 'Promising' || statusFilter === 'Hot') {
-        matchesFilter = getIdeaVoteHeat(idea) === statusFilter;
-      }
-
-      return matchesSearch && matchesCategory && matchesTags && matchesFilter;
-    });
-
-    // Dedicated Projects filter (any feed)
-    if (selectedProject) {
-      const keys = [
-        selectedProject.id,
-        selectedProject.slug,
-        selectedProject.title,
-      ].filter(Boolean);
-      list = list.filter((i) => ideaMatchesProject(i, keys));
-    } else if (feedMode === 'together') {
-      list = list.filter(
-        (i) => i.project_id || i.projectId || i.project_slug
-      );
-    }
-
-    list = [...list].sort((a, b) => {
-      if (sortMode === 'votes') return (b.votes || 0) - (a.votes || 0);
-      if (sortMode === 'discussed') {
-        return (b.commentCount || 0) - (a.commentCount || 0);
-      }
-      if (sortMode === 'popular') return popularity(b) - popularity(a);
-      if (sortMode === 'title') {
-        return (a.title || '').localeCompare(b.title || '');
-      }
-      // newest (default)
-      return (
-        new Date(b.created_at || 0).getTime() -
-        new Date(a.created_at || 0).getTime()
-      );
-    });
-
-    return list;
-  }, [
-    allIdeas,
-    searchTerm,
-    selectedCategories,
-    selectedTags,
-    statusFilter,
-    sortMode,
-    feedMode,
-    selectedProject,
-  ]);
-
-  const visibleIdeas = useMemo(
-    () => filteredIdeas.slice(0, visibleCount),
-    [filteredIdeas, visibleCount]
-  );
-  const hasMore = visibleCount < filteredIdeas.length;
+  const visibleIdeas = allIdeas;
+  const filteredIdeas = allIdeas;
 
   const visibleIdeaIds = useMemo(
     () => visibleIdeas.map((i) => String(i.id)).filter(Boolean),
@@ -456,52 +429,15 @@ const GameIdeas = () => {
     [userVotes]
   );
 
-  /** Map project_id → display name / slug from loaded project list */
-  const resolveProjectMeta = useCallback(
-    (idea) => {
-      const key =
-        idea?.project_id || idea?.projectId || idea?.project_slug || null;
-      if (!key) return { name: null, slug: null };
-      const match = projects.find(
-        (p) =>
-          String(p.id) === String(key) ||
-          String(p.slug) === String(key) ||
-          String(p.title || '').toLowerCase() === String(key).toLowerCase()
-      );
-      // Stages → Early/Mid/Late Game; projects → Tether etc. Never raw slugs.
-      const name = resolveLinkDisplayName(key, match?.title);
-      return {
-        name,
-        slug: match?.slug || match?.id || String(key),
-      };
-    },
-    [projects]
-  );
-
-  const handleProjectChipClick = useCallback(
-    ({ slug, name, key }) => {
-      // Filter global list to this project (Together Forge feed)
-      setFeedMode('together');
-      const match = projects.find(
-        (p) =>
-          String(p.id) === String(slug || key) ||
-          String(p.slug) === String(slug || key)
-      );
-      setSelectedProject(
-        match || {
-          id: slug || key,
-          slug: slug || key,
-          title: name || slug || key,
-        }
-      );
-      window.setTimeout(() => {
-        document
-          .getElementById('ideas-project-filter')
-          ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }, 50);
-    },
-    [projects]
-  );
+  const resolveProjectMeta = useCallback((idea) => {
+    const key =
+      idea?.project_id || idea?.projectId || idea?.project_slug || null;
+    if (!key) return { name: null, href: null };
+    const match = projectLinks.find(
+      (p) => String(p.id).toLowerCase() === String(key).toLowerCase()
+    );
+    return ideaLinkMeta(key, match?.label);
+  }, [projectLinks]);
 
   /**
    * Simple vote toggle:
@@ -541,13 +477,15 @@ const GameIdeas = () => {
       userVotesRef.current = next;
       return next;
     });
-    setAllIdeas((prev) =>
-      prev.map((i) =>
+    setAllIdeas((prev) => {
+      const next = prev.map((i) =>
         voteKey(i.id) === key
           ? { ...i, votes: optimisticPublicCount(prevCount, !wasVoted) }
           : i
-      )
-    );
+      );
+      allIdeasRef.current = next;
+      return next;
+    });
 
     try {
       const { voted, votes } = await ideasService.toggleVote(ideaId, user.id);
@@ -560,13 +498,15 @@ const GameIdeas = () => {
         return next;
       });
 
-      setAllIdeas((prev) =>
-        prev.map((i) =>
+      setAllIdeas((prev) => {
+        const next = prev.map((i) =>
           voteKey(i.id) === key
             ? { ...i, votes: reconcilePublicCount(prevCount, votes) }
             : i
-        )
-      );
+        );
+        allIdeasRef.current = next;
+        return next;
+      });
     } catch (err) {
       setUserVotes((prev) => {
         const next = new Set(prev);
@@ -575,11 +515,13 @@ const GameIdeas = () => {
         userVotesRef.current = next;
         return next;
       });
-      setAllIdeas((prev) =>
-        prev.map((i) =>
+      setAllIdeas((prev) => {
+        const next = prev.map((i) =>
           voteKey(i.id) === key ? { ...i, votes: prevCount } : i
-        )
-      );
+        );
+        allIdeasRef.current = next;
+        return next;
+      });
       setMessage(err?.message || 'Could not update vote.');
     } finally {
       togglingRef.current.delete(key);
@@ -644,12 +586,12 @@ const GameIdeas = () => {
             <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mt-2">
               {feedMode === 'community'
                 ? 'Community idea forge'
-                : 'Project-linked ideas'}
+                : 'Linked ideas'}
             </h1>
             <p className="text-white/85 mt-4 text-base sm:text-lg leading-relaxed">
               {feedMode === 'community'
                 ? 'Browse every community pitch. Vote, discuss, and spark the next build. Project leads can adopt ideas into workspaces.'
-                : 'Ideas tied to Together Forge projects. Pick a project or browse everything already linked.'}
+                : 'Ideas linked to Early, Mid, or Late Game, or to a live project like Tether.'}
             </p>
             <p className="mt-3 text-sm text-white/70">
               Want to talk through a pitch live?{' '}
@@ -744,8 +686,6 @@ const GameIdeas = () => {
             >
               <option value="newest">Newest</option>
               <option value="votes">Most Voted</option>
-              <option value="discussed">Most Discussed</option>
-              <option value="popular">Most Popular</option>
               <option value="title">Title A–Z</option>
             </select>
           </div>
@@ -776,32 +716,39 @@ const GameIdeas = () => {
                   setSelectedProject(null);
                   return;
                 }
-                const match = projects.find(
-                  (p) =>
-                    String(p.slug) === val ||
-                    String(p.id) === val
+                setFeedMode('together');
+                const match = [...stageLinks, ...projectLinks].find(
+                  (p) => String(p.id) === val
                 );
                 setSelectedProject(
-                  match || { id: val, slug: val, title: val }
+                  match
+                    ? { id: match.id, slug: match.id, title: match.label }
+                    : { id: val, slug: val, title: val }
                 );
               }}
               className={`${controlClass} w-full min-w-0 sm:w-auto`}
               id="ideas-project-filter"
-              aria-label="Projects"
+              aria-label="Linked ideas"
             >
-              <option value="">Projects</option>
-              {projects.map((p) => {
-                const value = String(p.slug || p.id);
-                const label =
-                  resolveLinkDisplayName(p.slug || p.id, p.title) ||
-                  p.title ||
-                  value;
-                return (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                );
-              })}
+              <option value="">Linked ideas</option>
+              {stageLinks.length > 0 && (
+                <optgroup label="Stages">
+                  {stageLinks.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {projectLinks.length > 0 && (
+                <optgroup label="Projects">
+                  {projectLinks.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
 
             {/* Category multi-select */}
@@ -938,7 +885,7 @@ const GameIdeas = () => {
         {feedMode === 'together' && (
           <div id="ideas-project-picker" className="max-w-3xl mx-auto mb-8">
             <div className="text-xs font-mono tracking-widest text-text-muted uppercase mb-2">
-              Filter by project
+              Filter by link
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1">
               <button
@@ -952,27 +899,27 @@ const GameIdeas = () => {
               >
                 All linked
               </button>
-              {projects.length === 0 ? (
-                <span className="text-sm text-text-muted py-2">
-                  No projects loaded yet.
-                </span>
-              ) : (
-                projects.map((p) => (
-                  <button
-                    key={String(p.id)}
-                    type="button"
-                    onClick={() => setSelectedProject(p)}
-                    className={`shrink-0 px-3 py-2 rounded-lg text-sm border transition-colors ${
-                      selectedProject &&
-                      String(selectedProject.id) === String(p.id)
-                        ? 'bg-neon-cyan text-cyber-bg border-neon-cyan'
-                        : 'bg-cyber-surface text-text-secondary border-cyber-border hover:border-neon-cyan/50'
-                    }`}
-                  >
-                    {p.title || p.slug || p.id}
-                  </button>
-                ))
-              )}
+              {[...stageLinks, ...projectLinks].map((p) => (
+                <button
+                  key={String(p.id)}
+                  type="button"
+                  onClick={() =>
+                    setSelectedProject({
+                      id: p.id,
+                      slug: p.id,
+                      title: p.label,
+                    })
+                  }
+                  className={`shrink-0 px-3 py-2 rounded-lg text-sm border transition-colors ${
+                    selectedProject &&
+                    String(selectedProject.id) === String(p.id)
+                      ? 'bg-neon-cyan text-cyber-bg border-neon-cyan'
+                      : 'bg-cyber-surface text-text-secondary border-cyber-border hover:border-neon-cyan/50'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -982,12 +929,10 @@ const GameIdeas = () => {
           <p className="text-xs font-mono text-text-muted tracking-widest uppercase">
             {loading
               ? 'Loading…'
-              : `${filteredIdeas.length} idea${
-                  filteredIdeas.length === 1 ? '' : 's'
-                }`}
+              : `${totalCount} idea${totalCount === 1 ? '' : 's'}`}
           </p>
           <Badge variant="neon">
-            {feedMode === 'community' ? 'Community feed' : 'Project feed'}
+            {feedMode === 'community' ? 'Community feed' : 'Linked feed'}
           </Badge>
         </div>
 
@@ -1000,7 +945,7 @@ const GameIdeas = () => {
             <button
               type="button"
               className="ml-3 text-neon-cyan hover:underline"
-              onClick={loadListing}
+              onClick={() => void loadListing({ append: false })}
             >
               Retry
             </button>
@@ -1018,17 +963,17 @@ const GameIdeas = () => {
             <Card className="bg-cyber-card/80 border-neon-cyan/20 text-center py-12 px-6 max-w-3xl mx-auto">
               <Lightbulb className="w-10 h-10 text-neon-cyan mx-auto mb-4 opacity-80" />
               <h2 className="text-xl font-semibold text-white mb-2">
-                {allIdeas.length === 0
-                  ? 'No ideas yet - spark the first one'
-                  : 'No ideas match your filters'}
+                {activeFilterCount > 0 || feedMode === 'together'
+                  ? 'No ideas match your filters'
+                  : 'No ideas yet - spark the first one'}
               </h2>
               <p className="text-sm text-text-secondary mb-6 max-w-md mx-auto">
-                {allIdeas.length === 0
-                  ? 'Share a mechanic, a setting, or a full game vision. The community votes and Project Leads adopt what ships next.'
-                  : 'Try clearing filters or switching feeds. Your next favorite pitch might be one toggle away.'}
+                {activeFilterCount > 0 || feedMode === 'together'
+                  ? 'Try clearing filters or switching feeds. Your next favorite pitch might be one toggle away.'
+                  : 'Share a mechanic, a setting, or a full game vision. The community votes and Project Leads adopt what ships next.'}
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                {allIdeas.length > 0 && (
+                {(activeFilterCount > 0 || feedMode === 'together') && (
                   <Button variant="secondary" size="sm" onClick={clearFilters}>
                     Clear filters
                   </Button>
@@ -1060,8 +1005,7 @@ const GameIdeas = () => {
                     onVote={handleVote}
                     onOpen={(id) => navigate(`/ideas/${id}`)}
                     projectName={projectMeta.name}
-                    projectSlug={projectMeta.slug}
-                    onProjectClick={handleProjectChipClick}
+                    projectHref={projectMeta.href}
                     commentCount={idea.commentCount || 0}
                     showTags
                     className="h-full"
@@ -1078,9 +1022,10 @@ const GameIdeas = () => {
           <div className="max-w-3xl mx-auto mt-8 flex justify-center">
             <Button
               variant="secondary"
-              onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+              disabled={loadingMore}
+              onClick={() => void loadListing({ append: true })}
             >
-              Load more ideas
+              {loadingMore ? 'Loading…' : 'Load more ideas'}
             </Button>
           </div>
         )}

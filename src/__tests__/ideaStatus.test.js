@@ -5,6 +5,8 @@ import {
   getPublicIdeaLabel,
   PROMISING_MIN_VOTES,
   HOT_MIN_VOTES,
+  ideaLinkMeta,
+  expandStudioStageKeys,
 } from '../utils/ideaStatus';
 
 describe('idea vote heat thresholds', () => {
@@ -36,5 +38,32 @@ describe('public idea labels', () => {
     expect(getPublicIdeaLabel({ status: 'Adopted', votes: 200 })).toBe(
       'Adopted'
     );
+  });
+});
+
+describe('idea link meta', () => {
+  it('sends stages to Early/Mid/Late hubs with hub names as the CTA', () => {
+    expect(ideaLinkMeta('early')).toEqual({
+      name: 'Early Game',
+      href: '/projects/early',
+      isStage: true,
+      ctaLabel: 'Early Game',
+    });
+    expect(ideaLinkMeta('mid')).toMatchObject({
+      href: '/projects/mid',
+      ctaLabel: 'Mid Game',
+      isStage: true,
+    });
+    expect(expandStudioStageKeys('early')).toEqual(['early', 'early-phase']);
+  });
+
+  it('sends real projects to the workspace and does not treat catalog placeholders as projects', () => {
+    expect(ideaLinkMeta('tether')).toMatchObject({
+      name: 'Tether',
+      href: '/projects/tether',
+      isStage: false,
+      ctaLabel: 'View Tether',
+    });
+    expect(ideaLinkMeta('core-features').href).toBeNull();
   });
 });

@@ -45,7 +45,7 @@ function groupBySubcategory(rows, orderedSubs) {
 function PersonRow({ person }) {
   const name = person.displayName || person.username || 'Contributor';
   return (
-    <li className="flex items-center gap-3 py-2">
+    <li className="flex items-center gap-3 py-2 min-w-0">
       <UserAvatar
         src={person.avatarUrl}
         name={name}
@@ -250,7 +250,7 @@ const ProjectContributors = () => {
                       the total above.
                     </p>
                   ) : (
-                    <ul className="divide-y divide-cyber-border/60">
+                    <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1">
                       {donations.namedDonors.map((d) => (
                         <PersonRow
                           key={d.userId || d.username || d.displayName}
