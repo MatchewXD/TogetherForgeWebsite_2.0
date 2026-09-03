@@ -59,6 +59,7 @@ import UserNameWithBadge from '../components/badges/UserNameWithBadge';
 import LoadingScreen from '../components/ui/LoadingScreen';
 import IdeaCard from '../components/ui/IdeaCard';
 import { useIsModerator } from '../hooks/useIsModerator';
+import OpenConductCaseButton from '../components/conduct/OpenConductCaseButton';
 import {
   tasksService,
   getChildTasks,
@@ -4477,6 +4478,17 @@ const ProjectWorkspace = () => {
                           ? 'Rejecting…'
                           : 'Reject as fake work'}
                       </Button>
+                      {selectedTask.claim?.userId ? (
+                        <OpenConductCaseButton
+                          targetUserId={selectedTask.claim.userId}
+                          contentType="task"
+                          contentId={String(
+                            selectedTask.claim.id || selectedTask.id || ''
+                          )}
+                          projectId={projectUuid || null}
+                          contentPath={`/projects/${projectSlug}/board`}
+                        />
+                      ) : null}
                     </div>
                     <p className="text-[11px] text-text-muted leading-relaxed">
                       “Reject as fake work” releases the claim (frees the board)

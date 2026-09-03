@@ -48,9 +48,31 @@ export const CONTRIBUTION_CATEGORIES = [
     title: 'Community & Support',
     description: 'Moderation, playtests, feedback, and day-to-day care.',
     accountRequired: true,
-    subcategories: ['Moderation', 'Playtesting', 'Feedback', 'Other'],
+    subcategories: ['Moderation', 'Playtesting', 'Feedback', 'Organizing', 'Other'],
   },
 ];
+
+/**
+ * Subtitle under a person on All Contributors.
+ * Prefer the public credit line; never show a bare "Other".
+ */
+export function contributorContextLine(row, projectTitle) {
+  const title = String(
+    projectTitle || row?.projectTitleSnapshot || ''
+  ).trim();
+  const line = String(row?.roleLabel || '').trim();
+  const sub = String(row?.subcategory || '').trim();
+  const subIsGeneric = !sub || /^other$/i.test(sub);
+
+  if (line) {
+    if (!title || title === 'Together Forge') return line;
+    return `${title} · ${line}`;
+  }
+  if (!subIsGeneric) {
+    return title ? `${title} · ${sub}` : sub;
+  }
+  return title || null;
+}
 
 /** Map task board categories → development subcategories */
 export const TASK_CATEGORY_TO_DEV_SUB = {

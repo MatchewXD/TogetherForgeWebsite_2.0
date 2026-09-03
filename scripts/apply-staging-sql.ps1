@@ -108,6 +108,8 @@ $ordered = @(
   "supabase/sql/supabase_forge_marks_awards.sql",
   "supabase/sql/supabase_studio_published_expenses.sql",
   "supabase/sql/supabase_traffic.sql",
+  "supabase/sql/supabase_staff_credit.sql",
+  "supabase/sql/supabase_conduct.sql",
 
   # 5. Badges + MFA + legal acceptance + AI tokens
   "supabase/sql/supabase_badges.sql",

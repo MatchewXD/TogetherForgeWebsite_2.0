@@ -86,6 +86,7 @@ import AccountPlanSection from '../components/account/AccountPlanSection';
 import AccountBillingSection from '../components/account/AccountBillingSection';
 import AccountAiTokensSection from '../components/account/AccountAiTokensSection';
 import AccountForgeMarksSection from '../components/account/AccountForgeMarksSection';
+import AccountConductSection from '../components/account/AccountConductSection';
 import AccountMfaSection from '../components/account/AccountMfaSection';
 
 const SSO_FLASH_KEY = 'tf_sso_flash';
@@ -1548,7 +1549,26 @@ const Account = () => {
       );
     }
     if (section === 'security') {
-      return <SecuritySection user={user} />;
+      return (
+        <div className="space-y-8">
+          <AccountConductSection />
+          <SecuritySection user={user} />
+        </div>
+      );
+    }
+    if (section === 'notices') {
+      return (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-xl font-bold text-white">Notices</h2>
+            <p className="text-sm text-text-secondary mt-1">
+              Conduct notices, strike count, and restrictions on this account.
+              Staff notes and reporter names stay private.
+            </p>
+          </div>
+          <AccountConductSection />
+        </div>
+      );
     }
     if (section === 'plan') {
       return <AccountPlanSection />;

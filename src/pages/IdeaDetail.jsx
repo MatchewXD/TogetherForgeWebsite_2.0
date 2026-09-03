@@ -59,10 +59,14 @@ import CommunityAwardStrip from '../components/awards/CommunityAwardStrip';
 import PlaceCommunityAward from '../components/awards/PlaceCommunityAward';
 import AwardNotesSection from '../components/awards/AwardNotesSection';
 import { listForgeAwardsForTargets } from '../services/forgeMarksService';
+import ReportContentButton from '../components/conduct/ReportContentButton';
+import OpenConductCaseButton from '../components/conduct/OpenConductCaseButton';
+import useIsModerator from '../hooks/useIsModerator';
 
 const IdeaDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isModerator } = useIsModerator();
   const [comment, setComment] = useState('');
   const [comments, setComments] = useState([]);
   const [idea, setIdea] = useState(null);
@@ -637,6 +641,22 @@ const IdeaDetail = () => {
                   <Pencil className="w-3.5 h-3.5" /> EDIT
                 </Link>
               )}
+              {idea.user_id && idea.user_id !== user?.id && (
+                <ReportContentButton
+                  contentType="idea"
+                  contentId={String(idea.id || ideaId)}
+                  targetUserId={idea.user_id}
+                  contentPath={`/ideas/${idea.id || ideaId}`}
+                />
+              )}
+              {isModerator && idea.user_id && (
+                <OpenConductCaseButton
+                  targetUserId={idea.user_id}
+                  contentType="idea"
+                  contentId={String(idea.id || ideaId)}
+                  contentPath={`/ideas/${idea.id || ideaId}`}
+                />
+              )}
             </div>
           </div>
 
@@ -1120,6 +1140,16 @@ const IdeaDetail = () => {
                             >
                               Reply
                             </button>
+                            {c.user_id && c.user_id !== user?.id ? (
+                              <ReportContentButton
+                                contentType="idea_comment"
+                                contentId={String(c.id)}
+                                targetUserId={c.user_id}
+                                contentPath={`/ideas/${ideaId}`}
+                                label="Report"
+                                className="!px-1 !py-0"
+                              />
+                            ) : null}
                           </div>
                         </div>
                         {replyTo && replyTo.id === c.id && (

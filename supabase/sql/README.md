@@ -106,6 +106,8 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 43c. `supabase_forge_marks_awards.sql` — Spark/Hammer/Anvil/Masterwork placement on posts  
 43d. `supabase_studio_published_expenses.sql` — Transparency published LLC expense report (Relay Operating; not a bank feed)  
 43e. `supabase_traffic.sql` — Staff Traffic tab (first-party presence + pageviews; no public counter)  
+43f. `supabase_staff_credit.sql` — Staff Grant Credit (off-site help on Contributors + profile; pending-email bind)  
+43g. `supabase_conduct.sql` — Staff Conduct cases, reports, notices, strikes, restrictions (not a public shame board)  
 
 ### 5. Badges + MFA + legal acceptance + AI tokens
 
@@ -211,6 +213,8 @@ supabase db query --linked -f supabase/sql/supabase_forge_marks.sql
 supabase db query --linked -f supabase/sql/supabase_forge_marks_awards.sql
 supabase db query --linked -f supabase/sql/supabase_studio_published_expenses.sql
 supabase db query --linked -f supabase/sql/supabase_traffic.sql
+supabase db query --linked -f supabase/sql/supabase_staff_credit.sql
+supabase db query --linked -f supabase/sql/supabase_conduct.sql
 
 # 5. Badges + MFA
 supabase db query --linked -f supabase/sql/supabase_badges.sql
@@ -274,6 +278,8 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_decision_logs.sql` | Staff-managed Transparency decision logs |
 | `supabase_studio_published_expenses.sql` | Published LLC operating expenses (Transparency; Relay Operating only) |
 | `supabase_traffic.sql` | Staff Traffic dashboard (first-party; staff aggregates only) |
+| `supabase_staff_credit.sql` | Staff Grant Credit (off-site help; pending email bind; audit) |
+| `supabase_conduct.sql` | Staff Conduct queue (reports, strikes, restrictions; private) |
 | `supabase_claim_limit.sql` | **Superseded** by anti-hoarding |
 | `supabase_claim_anti_hoarding.sql` | Claim limits, cooldown, join requests |
 | `supabase_claim_auto_release.sql` | Idle + hard-max auto-release |

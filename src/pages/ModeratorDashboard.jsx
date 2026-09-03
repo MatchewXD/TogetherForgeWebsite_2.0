@@ -32,6 +32,8 @@ import {
   MessageSquare,
   Eye,
   EyeOff,
+  Award,
+  Scale,
 } from 'lucide-react';
 
 import Card from '../components/ui/Card';
@@ -55,6 +57,9 @@ import IdeaTagsAdminPanel from '../components/ideas/IdeaTagsAdminPanel';
 import DecisionLogsManager from '../components/transparency/DecisionLogsManager';
 import StudioExpensesManager from '../components/transparency/StudioExpensesManager';
 import TrafficPanel from '../components/moderation/TrafficPanel';
+import GrantCreditPanel from '../components/staff/GrantCreditPanel';
+import ConductPanel from '../components/conduct/ConductPanel';
+import OpenConductCaseButton from '../components/conduct/OpenConductCaseButton';
 import platformSuggestionsService from '../services/platformSuggestionsService';
 import {
   SUGGESTION_STATUSES,
@@ -65,6 +70,8 @@ import UserNameWithBadge from '../components/badges/UserNameWithBadge';
 const TABS = [
   { id: 'traffic', label: 'Traffic', icon: Activity },
   { id: 'users', label: 'Users', icon: Users },
+  { id: 'conduct', label: 'Conduct', icon: Scale },
+  { id: 'credit', label: 'Grant Credit', icon: Award },
   { id: 'ideas', label: 'Ideas', icon: Lightbulb },
   { id: 'suggestions', label: 'Suggestions', icon: MessageSquare },
   { id: 'tags', label: 'Tags', icon: Tags },
@@ -743,12 +750,40 @@ const ModeratorDashboard = () => {
           </Card>
         )}
 
-        {loading && !users.length && !ideas.length && tab !== 'traffic' && (
+        {loading &&
+          !users.length &&
+          !ideas.length &&
+          tab !== 'traffic' &&
+          tab !== 'credit' &&
+          tab !== 'conduct' && (
           <LoadingScreen variant="section" message="Loading…" />
         )}
 
         {/* ---------- Scope help (task breakdown requests) ---------- */}
         {tab === 'traffic' && <TrafficPanel />}
+
+        {tab === 'conduct' && <ConductPanel />}
+
+        {tab === 'credit' && (
+          <section aria-labelledby="credit-heading">
+            <div className="mb-4">
+              <h2
+                id="credit-heading"
+                className="text-xl sm:text-2xl font-bold text-white tracking-tight"
+              >
+                Grant Credit
+              </h2>
+              <p className="text-sm text-text-secondary mt-1 max-w-2xl leading-relaxed">
+                Credit people who helped the studio or a project off the task
+                board — Discord moderation, playtests, videos, writing,
+                organizing. They appear on Contributors and their profile as
+                Staff credited. This does not complete a task or change board
+                counts.
+              </p>
+            </div>
+            <GrantCreditPanel />
+          </section>
+        )}
 
         {tab === 'scope' && (
           <section aria-labelledby="scope-heading">
@@ -1676,6 +1711,14 @@ const ModeratorDashboard = () => {
                         >
                           Open <ExternalLink className="w-3 h-3" />
                         </Link>
+                        {idea.user_id ? (
+                          <OpenConductCaseButton
+                            targetUserId={idea.user_id}
+                            contentType="idea"
+                            contentId={String(idea.id)}
+                            contentPath={`/ideas/${idea.id}`}
+                          />
+                        ) : null}
                         <select
                           className="text-xs bg-cyber-surface border border-cyber-border rounded-lg px-2 py-1.5 text-text-primary focus:outline-none focus:border-neon-cyan"
                           value={

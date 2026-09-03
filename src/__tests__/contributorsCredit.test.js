@@ -3,7 +3,14 @@
  */
 import { describe, it, expect } from 'vitest';
 import { formatUsdFromCents } from '../services/contributorsService';
-import { mapTaskCategoryToDevSub } from '../constants/contributionCategories';
+import {
+  contributorContextLine,
+  mapTaskCategoryToDevSub,
+} from '../constants/contributionCategories';
+import {
+  shouldListOnProjectContributors,
+  staffCreditSourceKey,
+} from '../constants/staffCredit';
 import {
   taskMatchesCategoryFilter,
   normalizeTaskCategoryKey,
@@ -18,6 +25,53 @@ describe('formatUsdFromCents (public totals, not individual gifts on cards)', ()
   it('handles zero and invalid', () => {
     expect(formatUsdFromCents(0)).toMatch(/\$0/);
     expect(formatUsdFromCents(null)).toMatch(/\$0/);
+  });
+});
+
+describe('staff-granted credits on project Contributors', () => {
+  it('lists pending staff credits next to task credit and never as donations', () => {
+    expect(
+      shouldListOnProjectContributors({
+        category: 'community',
+        userId: null,
+        sourceKey: staffCreditSourceKey('grant-1'),
+      })
+    ).toBe(true);
+    expect(
+      shouldListOnProjectContributors({
+        category: 'development',
+        userId: 'user-1',
+        sourceKey: 'task:abc',
+      })
+    ).toBe(true);
+    expect(
+      shouldListOnProjectContributors({
+        category: 'donations',
+        userId: 'user-1',
+        sourceKey: staffCreditSourceKey('grant-1'),
+      })
+    ).toBe(false);
+  });
+});
+
+describe('contributorContextLine (All Contributors subtitle)', () => {
+  it('shows the public credit line instead of Together Forge · Other', () => {
+    expect(
+      contributorContextLine(
+        {
+          roleLabel: 'Discord moderation, September 2026',
+          subcategory: 'Other',
+          projectTitleSnapshot: 'Together Forge',
+        },
+        'Together Forge'
+      )
+    ).toBe('Discord moderation, September 2026');
+  });
+
+  it('keeps project name with a specific subcategory when there is no public line', () => {
+    expect(
+      contributorContextLine({ subcategory: 'Coding', roleLabel: null }, 'Tether')
+    ).toBe('Tether · Coding');
   });
 });
 

@@ -12,7 +12,10 @@ import {
   isProjectCompleted,
 } from './projectsService';
 import { displayProjectTitle } from '../utils/ideaStatus';
-import { mapTaskCategoryToDevSub } from '../constants/contributionCategories';
+import {
+  contributorContextLine,
+  mapTaskCategoryToDevSub,
+} from '../constants/contributionCategories';
 import {
   isDemoReleaseEnabled,
   isDemoReleaseKey,
@@ -29,6 +32,11 @@ import {
   parseOfficialMediaSourceKey,
   groupOfficialMediaCreditsByVideo,
 } from '../utils/officialMediaCredit';
+import {
+  STAFF_CREDIT_SOURCE_PREFIX,
+  isStaffCreditSourceKey,
+  shouldListOnProjectContributors,
+} from '../constants/staffCredit';
 
 // re-export helpers for pages
 export { isProjectInDevelopment, isProjectCompleted };
@@ -95,6 +103,8 @@ function mapContribRow(row) {
     profile?.username || row.username_snapshot || null;
   const pinnedBadgeKey =
     profile?.pinned_badge_key || profile?.pinnedBadgeKey || null;
+  const staffCredited = isStaffCreditSourceKey(row.source_key);
+  const pendingAccount = staffCredited && !row.user_id;
   return {
     id: row.id,
     projectId: row.project_id,
@@ -104,11 +114,12 @@ function mapContribRow(row) {
     avatarUrl: profile?.avatar_url || null,
     pinnedBadgeKey,
     pinned_badge_key: pinnedBadgeKey,
-    displayName:
-      username ||
-      row.display_name ||
-      row.username_snapshot ||
-      (row.is_anonymous ? 'Anonymous' : 'Contributor'),
+    displayName: pendingAccount
+      ? row.role_label || row.display_name || 'Pending account'
+      : username ||
+        row.display_name ||
+        row.username_snapshot ||
+        (row.is_anonymous ? 'Anonymous' : 'Contributor'),
     category: row.category,
     subcategory: row.subcategory || null,
     isAnonymous: Boolean(row.is_anonymous),
@@ -118,6 +129,9 @@ function mapContribRow(row) {
     sortOrder: Number(row.sort_order) || 0,
     sourceKey: row.source_key || null,
     source: row.source_key ? 'memorial' : 'manual',
+    createdAt: row.created_at || null,
+    staffCredited,
+    pendingAccount,
   };
 }
 
@@ -433,6 +447,64 @@ export async function listOfficialMediaCreditsByVideoIds(videoIds = []) {
   } catch (err) {
     console.warn('[contributors] listOfficialMediaCreditsByVideoIds', err);
     return {};
+  }
+}
+
+/** A user's staff-granted credits for their public profile (memorial rows only). */
+export async function listUserStaffCredits(userId) {
+  const uid = String(userId || '').trim();
+  if (!uid) return [];
+  try {
+    let { data, error } = await supabase
+      .from('project_contributions')
+      .select(
+        `${CONTRIB_SELECT},
+        projects:project_id ( title, slug )`
+      )
+      .eq('user_id', uid)
+      .like('source_key', `${STAFF_CREDIT_SOURCE_PREFIX}%`)
+      .is('archived_at', null)
+      .order('created_at', { ascending: false });
+
+    if (
+      error &&
+      /column|schema cache|could not find/i.test(error.message || '')
+    ) {
+      ({ data, error } = await supabase
+        .from('project_contributions')
+        .select(CONTRIB_SELECT_BASIC)
+        .eq('user_id', uid)
+        .like('source_key', `${STAFF_CREDIT_SOURCE_PREFIX}%`)
+        .order('created_at', { ascending: false }));
+    }
+
+    if (error) {
+      if (/does not exist|relation/i.test(error.message || '')) return [];
+      console.warn('[contributors] listUserStaffCredits', error);
+      return [];
+    }
+
+    return (data || [])
+      .map((raw) => {
+        const row = mapContribRow(raw);
+        if (!row) return null;
+        const project = raw.projects || null;
+        return {
+          id: row.id,
+          title: row.roleLabel || row.displayName,
+          projectTitle:
+            row.projectTitleSnapshot ||
+            project?.title ||
+            'Together Forge',
+          projectSlug: project?.slug || null,
+          kind: 'staff',
+          createdAt: row.createdAt,
+        };
+      })
+      .filter(Boolean);
+  } catch (err) {
+    console.warn('[contributors] listUserStaffCredits', err);
+    return [];
   }
 }
 
@@ -819,13 +891,16 @@ export async function getProjectCredits(projectId) {
     getProjectDonationCredits(projectId),
   ]);
 
-  // Memorial first (never evaporates), then live task rows fill any gap
+  // Memorial first (never evaporates), then live task rows fill any gap.
+  // Staff-granted credits are extra lines; they must not hide task credit.
   const merged = [...manual];
   const seen = new Set(
-    manual.map(
-      (r) =>
-        `${r.category}|${r.subcategory || ''}|${r.userId || personKey(r)}`
-    )
+    manual
+      .filter((r) => !r.staffCredited)
+      .map(
+        (r) =>
+          `${r.category}|${r.subcategory || ''}|${r.userId || personKey(r)}`
+      )
   );
 
   for (const row of fromTasks) {
@@ -879,7 +954,7 @@ export async function getProjectCredits(projectId) {
       .reduce((sum, r) => sum + (Number(r.amountCents) || 0), 0);
   }
 
-  // Development / marketing / community: account holders only
+  // Development / marketing / community: account holders, plus pending staff credits
   const byCategory = {
     development: [],
     marketing: [],
@@ -887,8 +962,7 @@ export async function getProjectCredits(projectId) {
   };
 
   for (const r of merged) {
-    if (r.category === 'donations') continue;
-    if (!r.userId) continue; // enforce account rule
+    if (!shouldListOnProjectContributors(r)) continue;
     if (!byCategory[r.category]) byCategory[r.category] = [];
     byCategory[r.category].push(r);
   }
@@ -959,6 +1033,9 @@ export function formatUsdFromCents(cents) {
 
 function personDedupeKey(person) {
   if (person?.userId) return `u:${person.userId}`;
+  if (isStaffCreditSourceKey(person?.sourceKey) && person?.id) {
+    return `sc:${person.id}`;
+  }
   const name = String(person?.username || person?.displayName || '')
     .trim()
     .toLowerCase();
@@ -1000,6 +1077,7 @@ function upsertPerson(map, person, context = null) {
     return;
   }
   map.set(key, {
+    id: person.id || null,
     userId: person.userId || null,
     username: person.username || null,
     avatarUrl: person.avatarUrl || null,
@@ -1010,6 +1088,9 @@ function upsertPerson(map, person, context = null) {
     displayName:
       person.displayName || person.username || 'Contributor',
     roleLabel: person.roleLabel || null,
+    sourceKey: person.sourceKey || null,
+    staffCredited: Boolean(person.staffCredited),
+    pendingAccount: Boolean(person.pendingAccount),
     contexts: context ? [context] : [],
   });
 }
@@ -1042,9 +1123,7 @@ function foldMemorialRowIntoSections(row, sections, fallbackTitle = null) {
   if (!row || row.isAnonymous) return;
   const projectTitle =
     row.projectTitleSnapshot || fallbackTitle || 'Together Forge';
-  const ctx = [projectTitle, row.subcategory || row.roleLabel]
-    .filter(Boolean)
-    .join(' · ');
+  const ctx = contributorContextLine(row, projectTitle);
 
   if (row.category === 'donations') {
     if (!row.isAnonymous) {
@@ -1053,7 +1132,7 @@ function foldMemorialRowIntoSections(row, sections, fallbackTitle = null) {
     return;
   }
   if (row.category === 'development') {
-    if (!row.userId) return;
+    if (!row.userId && !isStaffCreditSourceKey(row.sourceKey)) return;
     upsertPerson(sections.projectContributors, row, ctx || projectTitle);
     return;
   }
@@ -1070,7 +1149,8 @@ function foldMemorialRowIntoSections(row, sections, fallbackTitle = null) {
     } else if (
       sub === 'moderation' ||
       sub === 'playtesting' ||
-      sub === 'playtest'
+      sub === 'playtest' ||
+      sub === 'organizing'
     ) {
       upsertPerson(sections.communityModeration, row, ctx || projectTitle);
     } else if (sub === 'other' || !sub) {
@@ -1125,9 +1205,7 @@ export async function listAllContributorsGrouped() {
     const projectTitle = displayProjectTitle(project);
 
     for (const row of credits.development || []) {
-      const ctx = [projectTitle, row.subcategory || row.roleLabel]
-        .filter(Boolean)
-        .join(' · ');
+      const ctx = contributorContextLine(row, projectTitle);
       upsertPerson(projectContributors, row, ctx || projectTitle);
     }
 
@@ -1136,23 +1214,20 @@ export async function listAllContributorsGrouped() {
     }
 
     for (const row of credits.marketing || []) {
-      const ctx = [projectTitle, row.subcategory || row.roleLabel]
-        .filter(Boolean)
-        .join(' · ');
+      const ctx = contributorContextLine(row, projectTitle);
       upsertPerson(contentShowcase, row, ctx || projectTitle);
     }
 
     for (const row of credits.community || []) {
       const sub = String(row.subcategory || '').toLowerCase();
-      const ctx = [projectTitle, row.subcategory || row.roleLabel]
-        .filter(Boolean)
-        .join(' · ');
+      const ctx = contributorContextLine(row, projectTitle);
       if (sub === 'feedback') {
         upsertPerson(ideasFeedback, row, ctx || projectTitle);
       } else if (
         sub === 'moderation' ||
         sub === 'playtesting' ||
-        sub === 'playtest'
+        sub === 'playtest' ||
+        sub === 'organizing'
       ) {
         upsertPerson(communityModeration, row, ctx || projectTitle);
       } else if (sub === 'other' || !sub) {
@@ -1379,6 +1454,7 @@ export const contributorsService = {
   listOfficialMediaCredits,
   listOfficialMediaCreditsByVideoIds,
   listUserOfficialMediaCredits,
+  listUserStaffCredits,
   searchProfilesForCredit,
   resolveProjectByTag,
   formatUsdFromCents,

@@ -52,7 +52,11 @@ import {
 import { badgesService } from '../services/badgesService';
 import { sortBadgesByCatalog } from '../constants/badges';
 import BadgeIcon from '../components/badges/BadgeIcon';
-import { listUserOfficialMediaCredits } from '../services/contributorsService';
+import {
+  listUserOfficialMediaCredits,
+  listUserStaffCredits,
+} from '../services/contributorsService';
+import { STAFF_CREDIT_SOURCE_LABEL } from '../constants/staffCredit';
 import { fetchPublicForgeMarksProfile } from '../services/forgeMarksService';
 import {
   formatForgeMarks,
@@ -61,6 +65,9 @@ import {
 } from '../utils/forgeMarks';
 import ForgeMarksHoverHint from '../components/awards/ForgeMarksHoverHint';
 import { AwardTierIcon } from '../components/awards/awardIcons';
+import ReportContentButton from '../components/conduct/ReportContentButton';
+import OpenConductCaseButton from '../components/conduct/OpenConductCaseButton';
+import useIsModerator from '../hooks/useIsModerator';
 
 const chip = (text) =>
   (text || '')
@@ -132,6 +139,8 @@ const PublicProfile = () => {
   const [pinBusy, setPinBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
+  const { isModerator } = useIsModerator();
   const [viewerId, setViewerId] = useState(null);
   const [viewerShell, setViewerShell] = useState(null);
   const [loadError, setLoadError] = useState(null);
@@ -159,6 +168,7 @@ const PublicProfile = () => {
 
       setLoading(true);
       setNotFound(false);
+      setUnavailable(false);
       setLoadError(null);
 
       const { data, error } = await fetchPublicProfileByUsername(username);
@@ -187,13 +197,15 @@ const PublicProfile = () => {
       }
 
       if (data.moderation_status === 'banned') {
-        setNotFound(true);
+        setUnavailable(true);
+        setNotFound(false);
         setProfile(null);
         setOfficialMediaCredits([]);
         setForgeMarks(null);
         setLoading(false);
         return;
       }
+      setUnavailable(false);
 
       const {
         moderation_status: _ms,
@@ -222,6 +234,7 @@ const PublicProfile = () => {
         supportRes,
         officialMediaRes,
         forgeMarksRes,
+        staffCreditsRes,
       ] = await Promise.all([
         supabase
           .from('ideas')
@@ -262,6 +275,7 @@ const PublicProfile = () => {
         }),
         listUserOfficialMediaCredits(data.id),
         fetchPublicForgeMarksProfile(data.id).catch(() => null),
+        listUserStaffCredits(data.id),
       ]);
 
       if (!mounted) return;
@@ -277,11 +291,16 @@ const PublicProfile = () => {
       ideas.sort((a, b) => (Number(b.votes) || 0) - (Number(a.votes) || 0));
       setRecentIdeas(ideas);
 
-      if (!completedListRes.error && completedListRes.data) {
-        setCompletedTasks(completedListRes.data.map(mapClaimRow));
-      } else {
-        setCompletedTasks([]);
-      }
+      const taskCredits = !completedListRes.error && completedListRes.data
+        ? completedListRes.data.map((row) => ({
+            ...mapClaimRow(row),
+            kind: 'task',
+          }))
+        : [];
+      const staffCredits = Array.isArray(staffCreditsRes)
+        ? staffCreditsRes
+        : [];
+      setCompletedTasks([...taskCredits, ...staffCredits]);
 
       if (!activeListRes.error && activeListRes.data) {
         setActiveClaims(activeListRes.data.map(mapClaimRow));
@@ -367,6 +386,23 @@ const PublicProfile = () => {
     return (
       <div className="pt-20 min-h-screen bg-cyber-bg">
         <LoadingScreen variant="section" message="Loading profile…" />
+      </div>
+    );
+  }
+
+  if (unavailable) {
+    return (
+      <div className="pt-20 min-h-screen bg-cyber-bg">
+        <div className="container-custom py-12 max-w-3xl">
+          <Card className="bg-cyber-card/80 text-center py-12 px-6 space-y-3">
+            <h1 className="text-2xl font-bold text-white">
+              This profile is unavailable
+            </h1>
+            <p className="text-text-secondary text-sm max-w-md mx-auto leading-relaxed">
+              This account is not listed right now.
+            </p>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -562,6 +598,22 @@ const PublicProfile = () => {
                     <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-widest bg-neon-cyan text-cyber-bg border-2 border-neon-cyan shadow-[0_2px_10px_rgba(0,0,0,0.65)]">
                       You
                     </span>
+                  )}
+                  {!isOwn && profile.id && (
+                    <ReportContentButton
+                      contentType="profile"
+                      contentId={profile.id}
+                      targetUserId={profile.id}
+                      contentPath={`/u/${encodeURIComponent(profile.username || '')}`}
+                    />
+                  )}
+                  {isModerator && !isOwn && profile.id && (
+                    <OpenConductCaseButton
+                      targetUserId={profile.id}
+                      contentType="profile"
+                      contentId={profile.id}
+                      contentPath={`/u/${encodeURIComponent(profile.username || '')}`}
+                    />
                   )}
                   {support?.isSupporter &&
                     !earnedBadges.some((b) => b.key === 'status_donor') && (
@@ -948,32 +1000,42 @@ const PublicProfile = () => {
               <SectionLabel tone="purple">COMPLETED TASKS</SectionLabel>
               {completedTasks.length === 0 ? (
                 <p className="text-text-muted text-sm">
-                  No completed task credits yet.
+                  No credits yet.
                 </p>
               ) : (
                 <ul className={scrollCardBody}>
                   {completedTasks.map((t) => (
-                    <li key={t.id} className="py-2.5 first:pt-0">
+                    <li key={`${t.kind || 'task'}-${t.id}`} className="py-2.5 first:pt-0">
                       <div className="flex items-start gap-2 min-w-0">
                         <CheckCircle2 className="w-3.5 h-3.5 text-neon-purple shrink-0 mt-0.5" />
                         <div className="min-w-0">
                           <div className="text-sm text-white truncate">
                             {t.title}
                           </div>
-                          {t.projectTitle && (
-                            <div className="text-[11px] font-mono text-text-muted mt-0.5">
-                              {t.projectSlug ? (
-                                <Link
-                                  to={`/projects/${t.projectSlug}`}
-                                  className="hover:text-neon-cyan"
-                                >
-                                  {t.projectTitle}
-                                </Link>
-                              ) : (
-                                t.projectTitle
-                              )}
-                            </div>
-                          )}
+                          <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                            {t.projectTitle && (
+                              <span className="text-[11px] font-mono text-text-muted">
+                                {t.projectSlug ? (
+                                  <Link
+                                    to={`/projects/${t.projectSlug}`}
+                                    className="hover:text-neon-cyan"
+                                  >
+                                    {t.projectTitle}
+                                  </Link>
+                                ) : (
+                                  t.projectTitle
+                                )}
+                              </span>
+                            )}
+                            {t.kind === 'staff' && (
+                              <Badge
+                                variant="default"
+                                className="!normal-case text-[10px]"
+                              >
+                                {STAFF_CREDIT_SOURCE_LABEL}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </li>

@@ -23,6 +23,12 @@ export const ACCOUNT_SECTIONS = [
     group: 'account',
   },
   {
+    id: 'notices',
+    label: 'Notices',
+    description: 'Conduct notices, strikes, and restrictions',
+    group: 'account',
+  },
+  {
     id: 'privacy',
     label: 'Privacy',
     description: 'What appears on your profile',
@@ -71,7 +77,7 @@ export const ACCOUNT_SECTION_GROUPS = [
   {
     id: 'account',
     label: 'Account',
-    sectionIds: ['profile', 'linked', 'security', 'privacy', 'danger'],
+    sectionIds: ['profile', 'linked', 'security', 'notices', 'privacy', 'danger'],
   },
   {
     id: 'billing',

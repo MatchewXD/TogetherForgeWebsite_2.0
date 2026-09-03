@@ -21,6 +21,7 @@ import UserAvatar from '../components/ui/UserAvatar';
 import UserNameWithBadge from '../components/badges/UserNameWithBadge';
 import { listAllContributorsGrouped } from '../services/contributorsService';
 import { isDemoContributorsEnabled } from '../data/demoAllContributors';
+import { STAFF_CREDIT_PENDING_LABEL } from '../constants/staffCredit';
 
 const SECTIONS = [
   {
@@ -70,9 +71,13 @@ const SECTIONS = [
 ];
 
 function PersonRow({ person }) {
-  const name = person.displayName || person.username || 'Contributor';
-  const context =
-    Array.isArray(person.contexts) && person.contexts.length > 0
+  const pending = Boolean(person.pendingAccount);
+  const name = pending
+    ? person.roleLabel || person.displayName || STAFF_CREDIT_PENDING_LABEL
+    : person.displayName || person.username || 'Contributor';
+  const context = pending
+    ? STAFF_CREDIT_PENDING_LABEL
+    : Array.isArray(person.contexts) && person.contexts.length > 0
       ? person.contexts.slice(0, 2).join(' · ')
       : person.roleLabel || null;
 
@@ -86,10 +91,12 @@ function PersonRow({ person }) {
       />
       <div className="min-w-0">
         <UserNameWithBadge
-          username={person.username}
+          username={pending ? null : person.username}
           displayName={name}
           pinnedBadgeKey={
-            person.pinnedBadgeKey || person.pinned_badge_key || null
+            pending
+              ? null
+              : person.pinnedBadgeKey || person.pinned_badge_key || null
           }
           linkClassName="font-semibold text-white truncate"
         />
@@ -154,8 +161,8 @@ const AllContributors = () => {
             </h1>
             <p className="text-base sm:text-lg text-text-secondary leading-relaxed max-w-2xl">
               A lasting memorial of everyone who has helped build Together
-              Forge. Credits are kept permanently — finishing a project does
-              not remove anyone from this list. Public credit is part of how we
+              Forge. Credits are kept permanently. Finishing a project does not
+              remove anyone from this list. Public credit is part of how we
               work.
             </p>
             {!loading && data && (

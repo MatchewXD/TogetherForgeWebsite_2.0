@@ -10,6 +10,7 @@ import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import UserAvatar from '../components/ui/UserAvatar';
 import UserNameWithBadge from '../components/badges/UserNameWithBadge';
+import GrantCreditPanel from '../components/staff/GrantCreditPanel';
 import { tasksService } from '../services/tasksService';
 import {
   getProjectCredits,
@@ -18,6 +19,8 @@ import {
 import { displayProjectTitle } from '../utils/ideaStatus';
 import { CONTRIBUTION_CATEGORIES } from '../constants/contributionCategories';
 import { isProjectCompleted } from '../services/projectsService';
+import { STAFF_CREDIT_PENDING_LABEL } from '../constants/staffCredit';
+import useStaffRole from '../hooks/useStaffRole';
 
 function groupBySubcategory(rows, orderedSubs) {
   const map = new Map();
@@ -31,11 +34,13 @@ function groupBySubcategory(rows, orderedSubs) {
     if (!map.has(sub)) map.set(sub, []);
     // Dedupe person within subcategory
     const list = map.get(sub);
-    const key = row.userId || row.username || row.displayName;
-    if (list.some((p) => (p.userId || p.username || p.displayName) === key)) {
+    const key = row.staffCredited
+      ? `sc:${row.id}`
+      : row.userId || row.username || row.displayName;
+    if (list.some((p) => (p._groupKey || p.userId || p.username || p.displayName) === key)) {
       continue;
     }
-    list.push(row);
+    list.push({ ...row, _groupKey: key });
   }
 
   // People can appear in multiple subcategories (separate rows) — already separate
@@ -43,7 +48,10 @@ function groupBySubcategory(rows, orderedSubs) {
 }
 
 function PersonRow({ person }) {
-  const name = person.displayName || person.username || 'Contributor';
+  const pending = Boolean(person.pendingAccount);
+  const name = pending
+    ? person.roleLabel || person.displayName || STAFF_CREDIT_PENDING_LABEL
+    : person.displayName || person.username || 'Contributor';
   return (
     <li className="flex items-center gap-3 py-2 min-w-0">
       <UserAvatar
@@ -54,16 +62,20 @@ function PersonRow({ person }) {
       />
       <div className="min-w-0">
         <UserNameWithBadge
-          username={person.username}
+          username={pending ? null : person.username}
           displayName={name}
           pinnedBadgeKey={
-            person.pinnedBadgeKey || person.pinned_badge_key || null
+            pending
+              ? null
+              : person.pinnedBadgeKey || person.pinned_badge_key || null
           }
           linkClassName="font-semibold text-white truncate"
         />
-        {person.roleLabel && (
+        {pending ? (
+          <p className="text-xs text-text-muted">{STAFF_CREDIT_PENDING_LABEL}</p>
+        ) : person.roleLabel ? (
           <p className="text-xs text-text-muted truncate">{person.roleLabel}</p>
-        )}
+        ) : null}
       </div>
     </li>
   );
@@ -71,10 +83,12 @@ function PersonRow({ person }) {
 
 const ProjectContributors = () => {
   const { id: projectSlug } = useParams();
+  const { isModerator, loading: roleLoading } = useStaffRole();
   const [project, setProject] = useState(null);
   const [credits, setCredits] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [creditTick, setCreditTick] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -103,7 +117,7 @@ const ProjectContributors = () => {
     return () => {
       mounted = false;
     };
-  }, [projectSlug]);
+  }, [projectSlug, creditTick]);
 
   const title = useMemo(
     () => (project ? displayProjectTitle(project) : projectSlug),
@@ -199,6 +213,15 @@ const ProjectContributors = () => {
 
         {error && !loading && (
           <Card className="p-6 text-text-secondary text-sm">{error}</Card>
+        )}
+
+        {!roleLoading && isModerator && project?.id && (
+          <GrantCreditPanel
+            projectId={project.id}
+            lockProject
+            compact
+            onChanged={() => setCreditTick((n) => n + 1)}
+          />
         )}
 
         {!loading && !error && credits && (
@@ -338,8 +361,8 @@ const ProjectContributors = () => {
                 Community &amp; Support
               </h2>
               <p className="text-sm text-text-muted mb-4 max-w-xl">
-                Moderation, playtesting, and feedback from signed-in community
-                members.
+                Moderation, playtesting, and community care — including off-site
+                help credited by staff.
               </p>
               {communityBySub.length === 0 ? (
                 <Card className="p-5 text-sm text-text-muted">

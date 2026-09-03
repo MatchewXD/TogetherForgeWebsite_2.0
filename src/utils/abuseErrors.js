@@ -36,6 +36,9 @@ export function humanizeAbuseError(error, fallback = GENERIC_COPY) {
   if (/SIGN_IN_REQUIRED|signed in|not authenticated/i.test(raw)) {
     return SIGN_IN_COPY;
   }
+  if (/CONDUCT_RESTRICTED/i.test(raw)) {
+    return 'This account cannot do that right now. Check Account → Notices for details.';
+  }
   if (
     /permission denied|42501|rls|row-level|violates row-level/i.test(raw)
   ) {

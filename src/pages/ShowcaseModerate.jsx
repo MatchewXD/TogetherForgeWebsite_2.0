@@ -30,6 +30,7 @@ import {
   showcaseHref,
   showcaseThumb,
 } from '../services/showcaseService';
+import OpenConductCaseButton from '../components/conduct/OpenConductCaseButton';
 
 const QUEUE_TABS = [
   { id: 'pending', label: 'Pending' },
@@ -332,6 +333,14 @@ const ShowcaseModerate = () => {
                           />
                         </div>
                         <div className="flex flex-wrap gap-2">
+                          {post.creatorUserId ? (
+                            <OpenConductCaseButton
+                              targetUserId={post.creatorUserId}
+                              contentType="showcase"
+                              contentId={String(post.id)}
+                              contentPath="/showcase"
+                            />
+                          ) : null}
                           {post.status !== 'approved' && (
                             <Button
                               size="sm"

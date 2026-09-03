@@ -1025,9 +1025,18 @@ export const ideasService = {
     // Prefer parent_id for threads; fall back if column missing
     ({ data: commentsData, error } = await supabase
       .from('comments')
-      .select('id, content, created_at, user_id, parent_id')
+      .select('id, content, created_at, user_id, parent_id, hidden_at')
       .eq('idea_id', ideaId)
+      .is('hidden_at', null)
       .order('created_at', { ascending: true }));
+
+    if (error && isMissingColumnError(error, 'hidden_at')) {
+      ({ data: commentsData, error } = await supabase
+        .from('comments')
+        .select('id, content, created_at, user_id, parent_id')
+        .eq('idea_id', ideaId)
+        .order('created_at', { ascending: true }));
+    }
 
     if (error && isMissingColumnError(error, 'parent_id')) {
       ({ data: commentsData, error } = await supabase
