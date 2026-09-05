@@ -77,7 +77,9 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 27. `supabase_join_request_no_dupes.sql` — no duplicate join requests  
 27b. `supabase_task_staff_only.sql` — Staff Only flag; volunteers can view, only staff can claim  
 27c. `supabase_task_board_scope.sql` — Staging vs Public board; staff-only staging; publish Epic/Medium  
-27d. `supabase_open_questions.sql` — staff-initiated Open Questions; community Suggestions (support, reply, staff Adopt / close note)  
+27d. `supabase_tether_task_tree_v06.sql` — Tether Task Breakdown v0.6 onto staging only (Staff Only / Blocked / Parked; not public Ready)  
+27e. `supabase_tether_archive_legacy_tasks.sql` — Archive leftover Tether demo/public cards; hide from boards; do not delete v0.6  
+27f. `supabase_open_questions.sql` — staff-initiated Open Questions; community Suggestions (support, reply, staff Adopt / close note)  
 
 ### 3. Contributions + media + community
 
@@ -189,6 +191,8 @@ supabase db query --linked -f supabase/sql/supabase_helpers_join_dedupe.sql
 supabase db query --linked -f supabase/sql/supabase_join_request_no_dupes.sql
 supabase db query --linked -f supabase/sql/supabase_task_staff_only.sql
 supabase db query --linked -f supabase/sql/supabase_task_board_scope.sql
+supabase db query --linked -f supabase/sql/supabase_tether_task_tree_v06.sql
+supabase db query --linked -f supabase/sql/supabase_tether_archive_legacy_tasks.sql
 
 # 3. Community / content
 supabase db query --linked -f supabase/sql/supabase_project_contributions.sql
@@ -301,6 +305,8 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_task_dependencies.sql` | Task blocked-by edges |
 | `supabase_task_staff_only.sql` | Staff Only tasks (viewable by all, claimable by staff) |
 | `supabase_task_board_scope.sql` | Staging vs Public task boards + publish RPC |
+| `supabase_tether_task_tree_v06.sql` | Tether v0.6 task tree on staff staging board only |
+| `supabase_tether_archive_legacy_tasks.sql` | Hide leftover Tether demo/public cards (archive, do not delete v0.6) |
 | `supabase_project_tether_slug.sql` | Rename public project slug to `tether` |
 | `supabase_open_questions.sql` | Staff Open Questions; community Suggestions with support, rank, Adopt, close note |
 | `supabase_task_scope_requests.sql` | Scope help requests |

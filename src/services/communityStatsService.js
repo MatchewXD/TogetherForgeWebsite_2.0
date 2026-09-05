@@ -88,6 +88,7 @@ function isPublicTaskRow(row, taskMetaById) {
   const meta = taskMetaById.get(String(row.target_id));
   if (!meta) return true;
   if (meta.staffOnly) return false;
+  if (meta.archived) return false;
   return String(meta.boardScope || 'public') !== 'staging';
 }
 
@@ -158,8 +159,16 @@ async function loadPublicTaskMeta(taskIds) {
   if (!ids.length) return map;
   let { data, error } = await supabase
     .from('tasks')
-    .select('id, board_scope, staff_only')
+    .select('id, board_scope, staff_only, archived_at')
     .in('id', ids);
+  if (error && /archived_at/i.test(error.message || '')) {
+    const retry = await supabase
+      .from('tasks')
+      .select('id, board_scope, staff_only')
+      .in('id', ids);
+    data = retry.data;
+    error = retry.error;
+  }
   if (error && /board_scope|staff_only/i.test(error.message || '')) {
     const retry = await supabase.from('tasks').select('id').in('id', ids);
     data = retry.data;
@@ -173,6 +182,7 @@ async function loadPublicTaskMeta(taskIds) {
     map.set(String(row.id), {
       boardScope: row.board_scope || 'public',
       staffOnly: Boolean(row.staff_only),
+      archived: Boolean(row.archived_at),
     });
   }
   return map;

@@ -257,8 +257,10 @@ export function progressFromChecklist(items) {
   return Math.round((100 * done) / list.length);
 }
 
+export const STAFF_CONTACT_EMAIL = 'contact@togetherforge.net';
+
 export const STAFF_ONLY_TASK_MESSAGE =
-  'This task is Staff Only. Volunteers can view it, but only staff can claim or join it.';
+  'Only staff can claim and complete this task. If your work is waiting on it, please be patient. If you need it sooner, email contact@togetherforge.net or reach us on Discord.';
 
 export const BOARD_SCOPE_PUBLIC = 'public';
 export const BOARD_SCOPE_STAGING = 'staging';
@@ -806,6 +808,7 @@ export function mapTaskRow(row) {
     sortOrder: Number(row.sort_order) || 0,
     publishedTaskId: row.published_task_id || null,
     publishedAt: row.published_at || null,
+    archivedAt: row.archived_at || null,
     /** Filled by attachTaskDependencies */
     blockedBy: [],
     blockedByIds: [],
@@ -1050,6 +1053,7 @@ const TASK_SELECT = `
   sort_order,
   published_task_id,
   published_at,
+  archived_at,
   task_claims (
     id,
     user_id,
@@ -1234,9 +1238,25 @@ export const tasksService = {
       .select(TASK_SELECT)
       .eq('project_id', projectId)
       .eq('board_scope', boardScope)
+      .is('archived_at', null)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true });
     let { data, error } = await query;
+
+    if (
+      error &&
+      /archived_at|column .* does not exist/i.test(error.message || '')
+    ) {
+      const retry = await supabase
+        .from('tasks')
+        .select(TASK_SELECT.replace(/archived_at,\s*/g, ''))
+        .eq('project_id', projectId)
+        .eq('board_scope', boardScope)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (
       error &&
@@ -1288,7 +1308,8 @@ export const tasksService = {
       error = legacy.error;
     }
     if (error) throw error;
-    let mapped = attachTaskHierarchy((data || []).map(mapTaskRow));
+    const liveRows = (data || []).filter((row) => !row.archived_at);
+    let mapped = attachTaskHierarchy(liveRows.map(mapTaskRow));
 
     // "Blocked by" edges (optional table — ignore if migration not run)
     try {
@@ -1615,6 +1636,7 @@ export const tasksService = {
         id,
         status,
         board_scope,
+        archived_at,
         task_claims (
           id,
           user_id,
@@ -1627,6 +1649,18 @@ export const tasksService = {
       .select(pulseSelect)
       .eq('project_id', projectId)
       .eq('board_scope', BOARD_SCOPE_PUBLIC);
+
+    if (taskErr && /archived_at/i.test(taskErr.message || '')) {
+      const retry = await supabase
+        .from('tasks')
+        .select(
+          pulseSelect.replace(/archived_at,\s*/g, '')
+        )
+        .eq('project_id', projectId)
+        .eq('board_scope', BOARD_SCOPE_PUBLIC);
+      taskRows = retry.data;
+      taskErr = retry.error;
+    }
 
     if (taskErr && /board_scope/i.test(taskErr.message || '')) {
       const retry = await supabase
@@ -1656,6 +1690,7 @@ export const tasksService = {
     const claimerIds = new Set();
 
     for (const t of taskRows || []) {
+      if (t.archived_at) continue;
       if (String(t.board_scope || BOARD_SCOPE_PUBLIC) === BOARD_SCOPE_STAGING) {
         continue;
       }

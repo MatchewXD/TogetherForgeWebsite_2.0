@@ -22,7 +22,7 @@ const LINK_HINTS = {
   sound:
     'Link to playable files or the folder where audio assets live (Drive, repo path, Discord).',
   writing:
-    'Link to the document (Google Doc, PR with markdown, Notion, etc.) or the file location.',
+    'Link to the document (Google Doc, PR with markdown, Notion, etc.).',
   'level design':
     'Link to screenshots, video, map files, or a PR that contains the level content.',
   leveldesign:

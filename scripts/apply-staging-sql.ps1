@@ -79,6 +79,8 @@ $ordered = @(
   "supabase/sql/supabase_join_request_no_dupes.sql",
   "supabase/sql/supabase_task_staff_only.sql",
   "supabase/sql/supabase_task_board_scope.sql",
+  "supabase/sql/supabase_tether_task_tree_v06.sql",
+  "supabase/sql/supabase_tether_archive_legacy_tasks.sql",
   "supabase/sql/supabase_open_questions.sql",
 
   # 3. Community

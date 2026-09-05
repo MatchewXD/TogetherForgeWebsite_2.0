@@ -67,6 +67,7 @@ import {
   taskLevelLabel,
   getUserTaskClaimBlockedReason,
   STAFF_ONLY_TASK_MESSAGE,
+  STAFF_CONTACT_EMAIL,
   STAGING_TASK_CLAIM_MESSAGE,
   BOARD_SCOPE_STAGING,
   BOARD_SCOPE_PUBLIC,
@@ -450,6 +451,7 @@ const ProjectWorkspace = () => {
   const [autoReleaseBusy, setAutoReleaseBusy] = useState(false);
   const [stagingBusyId, setStagingBusyId] = useState(null);
   const [publishingId, setPublishingId] = useState(null);
+  const [publishConfirmTask, setPublishConfirmTask] = useState(null);
   /** Notices for claims auto-released under this user */
   const [autoReleaseNotices, setAutoReleaseNotices] = useState([]);
 
@@ -1182,24 +1184,22 @@ const ProjectWorkspace = () => {
     }
   };
 
-  const handlePublishStaging = async (task) => {
+  const handlePublishStaging = (task) => {
     if (!isModerator || !task?.id || !isStagingBoard) return;
     if (!canPublishStagingTask(task)) {
       showToast('Publish a Medium or Epic. Small tasks go with their parent.', 'warn');
       return;
     }
-    const kind = (Number(task.depth) || 0) === 0 ? 'Epic' : 'Medium';
-    const extra =
-      task.publishedTaskId
-        ? '\n\nSome of this was published before. New nested work will be copied; existing public tasks stay in place.'
-        : '';
-    const ok = window.confirm(
-      `Publish “${task.title}” (${kind}) to the public task board?\n\nThis copies it and nested staging tasks to the live board. Staff Only flags are kept. The Staging copy stays here for further prep.${extra}`
-    );
-    if (!ok) return;
+    setPublishConfirmTask(task);
+  };
+
+  const confirmPublishStaging = async () => {
+    const task = publishConfirmTask;
+    if (!task?.id) return;
     setPublishingId(task.id);
     try {
       const result = await tasksService.publishStagingTask(task.id);
+      setPublishConfirmTask(null);
       await refreshBoard(projectUuid);
       const created = Number(result?.created_count) || 0;
       showToast(
@@ -3813,9 +3813,16 @@ const ProjectWorkspace = () => {
                     Staff Only
                   </p>
                   <p className="text-sm text-text-secondary leading-relaxed">
-                    {isModerator
-                      ? 'Staff and founders can claim, work, and complete this task. Volunteers can see it on the board but cannot claim it.'
-                      : 'This work is reserved for staff. It stays on the board so progress stays visible, but volunteers cannot claim it.'}
+                    Only staff can claim and complete this task. If your work is
+                    waiting on it, please be patient. If you need it sooner,
+                    email{' '}
+                    <a
+                      href={`mailto:${STAFF_CONTACT_EMAIL}`}
+                      className="text-neon-cyan hover:underline"
+                    >
+                      {STAFF_CONTACT_EMAIL}
+                    </a>{' '}
+                    or reach us on Discord.
                   </p>
                 </div>
               )}
@@ -4560,7 +4567,16 @@ const ProjectWorkspace = () => {
                     Staff Only
                   </Badge>
                   <p className="text-sm text-text-secondary leading-relaxed">
-                    {STAFF_ONLY_TASK_MESSAGE}
+                    Only staff can claim and complete this task. If your work is
+                    waiting on it, please be patient. If you need it sooner,
+                    email{' '}
+                    <a
+                      href={`mailto:${STAFF_CONTACT_EMAIL}`}
+                      className="text-neon-cyan hover:underline"
+                    >
+                      {STAFF_CONTACT_EMAIL}
+                    </a>{' '}
+                    or reach us on Discord.
                   </p>
                 </div>
               )}
@@ -4845,12 +4861,6 @@ const ProjectWorkspace = () => {
                       : 'Drive, Figma, Discord, GitHub all fine by craft'}
                   </p>
                 )}
-                <div
-                  className="rounded-lg border border-dashed border-cyber-border/60 px-3 py-2 text-[11px] text-text-muted"
-                  data-future-attachments="true"
-                >
-                  File uploads can be added later; a link is enough for now.
-                </div>
               </section>
 
               {claimQuota?.signedIn && (
@@ -5333,6 +5343,57 @@ const ProjectWorkspace = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        isOpen={!!publishConfirmTask}
+        onClose={() => !publishingId && setPublishConfirmTask(null)}
+        title="Publish to the public board?"
+        size="md"
+      >
+        {publishConfirmTask ? (
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary leading-relaxed">
+              Publish{' '}
+              <span className="text-white font-medium">
+                {publishConfirmTask.title}
+              </span>{' '}
+              (
+              {(Number(publishConfirmTask.depth) || 0) === 0
+                ? 'Epic'
+                : 'Medium'}
+              ) to the public task board?
+            </p>
+            <p className="text-sm text-text-secondary leading-relaxed">
+              This copies it and any nested staging tasks to the live board.
+              Staff Only flags are kept. The staging copy stays here for further
+              prep.
+            </p>
+            {publishConfirmTask.publishedTaskId ? (
+              <p className="text-sm text-text-secondary leading-relaxed">
+                Some of this was published before. New nested work will be
+                copied; existing public tasks stay in place.
+              </p>
+            ) : null}
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={Boolean(publishingId)}
+                onClick={() => setPublishConfirmTask(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={Boolean(publishingId)}
+                onClick={() => void confirmPublishStaging()}
+              >
+                {publishingId ? 'Publishing…' : 'Publish'}
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </Modal>
 
       {/* Above task modals (z-200) so validation/errors stay readable while a modal is open */}

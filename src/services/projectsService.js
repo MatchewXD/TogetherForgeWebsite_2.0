@@ -747,9 +747,19 @@ export async function listActiveTaskBoards() {
     try {
       let { data, error } = await supabase
         .from('tasks')
-        .select('project_id, status, board_scope')
+        .select('project_id, status, board_scope, archived_at')
         .in('project_id', uuids)
-        .eq('board_scope', 'public');
+        .eq('board_scope', 'public')
+        .is('archived_at', null);
+      if (error && /archived_at/i.test(error.message || '')) {
+        const retry = await supabase
+          .from('tasks')
+          .select('project_id, status, board_scope')
+          .in('project_id', uuids)
+          .eq('board_scope', 'public');
+        data = retry.data;
+        error = retry.error;
+      }
       if (error && /board_scope/i.test(error.message || '')) {
         const retry = await supabase
           .from('tasks')
@@ -762,6 +772,7 @@ export async function listActiveTaskBoards() {
         const openBy = new Map();
         const totalBy = new Map();
         for (const row of data) {
+          if (row.archived_at) continue;
           if (String(row.board_scope || 'public') === 'staging') continue;
           const pid = row.project_id;
           if (!pid) continue;

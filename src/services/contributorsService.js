@@ -734,13 +734,14 @@ export async function listAllMemorialContributions({ limit = 2000 } = {}) {
 export async function listDevelopmentFromTasks(projectId) {
   if (!projectId) return [];
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('tasks')
       .select(
         `
         id,
         category,
         status,
+        archived_at,
         task_claims (
           id,
           status,
@@ -756,6 +757,36 @@ export async function listDevelopmentFromTasks(projectId) {
       )
       .eq('project_id', projectId);
 
+    if (error && /archived_at/i.test(error.message || '')) {
+      const retry = await supabase
+        .from('tasks')
+        .select(
+          `
+        id,
+        category,
+        status,
+        task_claims (
+          id,
+          status,
+          user_id,
+          profiles:user_id (
+            id,
+            username,
+            avatar_url,
+            pinned_badge_key
+          )
+        )
+      `
+        )
+        .eq('project_id', projectId);
+      if (retry.error) {
+        console.warn('[contributors] tasks for credits', retry.error);
+        return [];
+      }
+      data = retry.data;
+      error = null;
+    }
+
     if (error) {
       console.warn('[contributors] tasks for credits', error);
       return [];
@@ -764,6 +795,7 @@ export async function listDevelopmentFromTasks(projectId) {
     const byPersonSub = new Map();
 
     for (const task of data || []) {
+      if (task.archived_at) continue;
       const taskDone =
         String(task.status || '').toLowerCase() === 'completed';
       const sub = mapTaskCategoryToDevSub(task.category);

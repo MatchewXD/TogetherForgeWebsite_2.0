@@ -181,11 +181,20 @@ describe('assembleHomeActivity', () => {
           created_at: '2026-08-22T12:00:00Z',
           profiles: { username: 'maya' },
         },
+        {
+          id: 'arch',
+          action: 'completed',
+          target_id: 't-archived',
+          target_title: 'Legacy demo',
+          created_at: '2026-08-23T12:00:00Z',
+          profiles: { username: 'maya' },
+        },
       ],
       taskMetaById: new Map([
         ['t-public', { boardScope: 'public', staffOnly: false }],
         ['t-staging', { boardScope: 'staging', staffOnly: false }],
         ['t-staff', { boardScope: 'public', staffOnly: true }],
+        ['t-archived', { boardScope: 'public', staffOnly: false, archived: true }],
       ]),
     });
     expect(items.map((i) => i.id)).toEqual(['pub']);
