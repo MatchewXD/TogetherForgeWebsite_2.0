@@ -27,6 +27,7 @@ import {
   isTaskVisibleWithLockedToggle,
   isTaskDependencyLocked,
   normalizeChecklist,
+  isVisibleProjectHubActivity,
 } from '../services/tasksService';
 
 function task(partial) {
@@ -512,5 +513,15 @@ describe('attachTaskHierarchy parent Ready for Review', () => {
     const parent = tree.find((t) => t.id === 'med');
     expect(parent.isFullyDone).toBe(true);
     expect(parent.readyForParentReview).toBe(false);
+  });
+});
+
+describe('project hub recent activity', () => {
+  it('hides checklist progress ticks from the hub feed', () => {
+    expect(isVisibleProjectHubActivity('updated progress on')).toBe(false);
+    expect(isVisibleProjectHubActivity('progress')).toBe(false);
+    expect(isVisibleProjectHubActivity('claimed')).toBe(true);
+    expect(isVisibleProjectHubActivity('completed')).toBe(true);
+    expect(isVisibleProjectHubActivity('submitted_for_review')).toBe(true);
   });
 });

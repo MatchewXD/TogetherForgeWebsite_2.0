@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { TASK_CATEGORIES } from '../constants/taskCategories';
 import {
-  TETHER_READY_PROMOTE_NOTE,
   TETHER_V06_TASKS,
   buildTetherV06Description,
   isTetherV06Title,
@@ -33,18 +32,20 @@ describe('Tether Task Breakdown v0.6 tree', () => {
     ]);
   });
 
-  it('marks Epic 1, Epic 2, Ready lane, 9.1, and Epic 10 Staff Only', () => {
+  it('marks Epic 1, Epic 2, P.3/P.4, 9.1, and Epic 10 Staff Only', () => {
     const staffCodes = TETHER_V06_TASKS.filter((t) => tetherV06StaffOnly(t.state)).map(
       (t) => t.code
     );
     expect(staffCodes).toContain('Tether-1');
     expect(staffCodes).toContain('Tether-1.1.1');
     expect(staffCodes).toContain('Tether-2.3.2');
-    expect(staffCodes).toContain('Tether-P.1.1');
+    expect(staffCodes).toContain('Tether-P.3.1');
+    expect(staffCodes).toContain('Tether-P.4.1');
     expect(staffCodes).toContain('Tether-9.1');
     expect(staffCodes).toContain('Tether-10');
     expect(staffCodes).not.toContain('Tether-3');
     expect(staffCodes).not.toContain('Tether-9.2');
+    expect(staffCodes).not.toContain('Tether-P.2.1');
   });
 
   it('blocks later epics on the named previous epic, and 9.2 on style lock', () => {
@@ -58,14 +59,27 @@ describe('Tether Task Breakdown v0.6 tree', () => {
     expect(byCode['Tether-9.2'].state).toBe('Blocked');
   });
 
-  it('keeps the Ready lane Staff Only with the Epic 1 promote note', () => {
-    const ready = TETHER_V06_TASKS.filter((t) => t.code.startsWith('Tether-P'));
-    expect(ready.length).toBeGreaterThan(0);
-    for (const task of ready) {
-      expect(task.state).toBe('Staff Only');
-      expect(task.staffNote).toBe(TETHER_READY_PROMOTE_NOTE);
+  it('rehomes P cards off the Ready lane and does not recreate P.1', () => {
+    const byCode = Object.fromEntries(TETHER_V06_TASKS.map((t) => [t.code, t]));
+    expect(byCode['Tether-P']).toBeUndefined();
+    expect(byCode['Tether-P.1']).toBeUndefined();
+    expect(byCode['Tether-P.1.1']).toBeUndefined();
+    expect(byCode['Tether-P.1.2']).toBeUndefined();
+    expect(byCode['Tether-P.2'].parentCode).toBe('Tether-9');
+    expect(byCode['Tether-P.2'].state).toBe('Ready');
+    expect(byCode['Tether-P.2'].skill).toBe('Art');
+    expect(byCode['Tether-P.3'].parentCode).toBe('Tether-2');
+    expect(byCode['Tether-P.3'].state).toBe('Staff Only');
+    expect(byCode['Tether-P.3'].skill).toBe('QA');
+    expect(byCode['Tether-P.4'].parentCode).toBeNull();
+    expect(byCode['Tether-P.4'].state).toBe('Staff Only');
+    expect(byCode['Tether-P.4'].blocker).toMatch(/Grant Credit/i);
+    for (const task of TETHER_V06_TASKS.filter((t) => t.code.startsWith('Tether-P'))) {
+      const desc = buildTetherV06Description(task);
+      expect(desc).not.toMatch(/Promote to public Ready/i);
+      expect(desc).not.toMatch(/WhatThisIsNot/i);
+      expect(task.staffNote).toBeUndefined();
     }
-    expect(ready.some((t) => t.code === 'Tether-P.4.1')).toBe(true);
   });
 
   it('locks the product at 1-4 players and keeps two pawns only on Epic 2 feel-test cards', () => {

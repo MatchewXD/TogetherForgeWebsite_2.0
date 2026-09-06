@@ -112,14 +112,10 @@ function RowActions({
           className="gap-1 !py-1 !px-2 text-xs"
           onClick={() => onPublish(task)}
           disabled={busy || publishing}
-          title="Copy this work to the public task board"
+          title="Move this work to the public task board"
         >
           <Upload className="w-3.5 h-3.5" />
-          {publishing
-            ? 'Publishing…'
-            : task.publishedTaskId
-              ? 'Publish updates'
-              : 'Publish'}
+          {publishing ? 'Publishing…' : 'Publish'}
         </Button>
       )}
       <Button

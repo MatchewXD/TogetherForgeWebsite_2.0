@@ -1,7 +1,8 @@
 /**
  * Tether Task Breakdown v0.6 — source of truth for the staging-board import.
  * Codes match the doc (Tether-1.1.1). Do not invent extra Smalls.
- * All rows import to board_scope = staging. None are Ready for public claim.
+ * Most rows import to board_scope = staging. Tether-P.2 look exploration is
+ * public Ready under Epic 9. Do not recreate Tether-P.1.
  */
 
 export const TETHER_V06_VERSION = 'v0.6';
@@ -13,8 +14,6 @@ export const TETHER_V06_TITLE_RE = /^Tether-(P|[1-9]|1[0-3])([. ]|$)/;
 export function isTetherV06Title(title) {
   return TETHER_V06_TITLE_RE.test(String(title || '').trim());
 }
-export const TETHER_READY_PROMOTE_NOTE =
-  'Promote to public Ready only after Epic 1 is Done in the Unreal repo.';
 
 function t(partial) {
   return partial;
@@ -24,7 +23,7 @@ function t(partial) {
  *  code: string,
  *  parentCode: string|null,
  *  shortTitle: string,
- *  state: 'Staff Only'|'Blocked'|'Parked',
+ *  state: 'Staff Only'|'Blocked'|'Parked'|'Ready',
  *  size: 'First Spark'|'Small'|'Medium',
  *  skill: 'Code'|'Art'|'Design'|'Writing'|'Level Design'|'Audio'|'QA'|'Other',
  *  purpose: string,
@@ -181,120 +180,75 @@ export const TETHER_V06_TASKS = [
   }),
 
   t({
-    code: 'Tether-P',
-    parentCode: null,
-    shortTitle: 'Ready lane',
-    state: 'Staff Only',
-    size: 'Medium',
-    skill: 'Writing',
-    purpose:
-      'Staging Ready lane. These cards stay Staff Only and off the public board until Epic 1 is Done in the Unreal repo.',
-    staffNote: TETHER_READY_PROMOTE_NOTE,
-    sortOrder: 15,
-  }),
-  t({
-    code: 'Tether-P.1',
-    parentCode: 'Tether-P',
-    shortTitle: 'Contributor docs',
-    state: 'Staff Only',
-    size: 'First Spark',
-    skill: 'Writing',
-    purpose: 'Contributor docs for running Tether and onboarding.',
-    staffNote: TETHER_READY_PROMOTE_NOTE,
-    sortOrder: 10,
-  }),
-  t({
-    code: 'Tether-P.1.1',
-    parentCode: 'Tether-P.1',
-    shortTitle: 'How to run Tether',
-    state: 'Staff Only',
-    size: 'First Spark',
-    skill: 'Writing',
-    purpose: 'How to run Tether.',
-    output: 'README how-to-run plus two screenshots in Docs/images/.',
-    dod: [
-      'README how-to-run is written.',
-      'Two screenshots live in Docs/images/.',
-    ],
-    staffNote: TETHER_READY_PROMOTE_NOTE,
-    sortOrder: 10,
-  }),
-  t({
-    code: 'Tether-P.1.2',
-    parentCode: 'Tether-P.1',
-    shortTitle: 'First Spark onboarding note',
-    state: 'Staff Only',
-    size: 'First Spark',
-    skill: 'Writing',
-    purpose: 'First Spark onboarding note.',
-    output:
-      'Docs/FirstSpark.md covering claim, review, Grant Credit, conduct@togetherforge.net.',
-    dod: [
-      'Docs/FirstSpark.md covers claim, review, Grant Credit, and conduct@togetherforge.net.',
-    ],
-    staffNote: TETHER_READY_PROMOTE_NOTE,
-    sortOrder: 20,
-  }),
-  t({
     code: 'Tether-P.2',
-    parentCode: 'Tether-P',
+    parentCode: 'Tether-9',
     shortTitle: 'Art exploration',
-    state: 'Staff Only',
+    state: 'Ready',
     size: 'First Spark',
     skill: 'Art',
-    purpose: 'Art exploration for player, tether, and scale.',
-    staffNote: TETHER_READY_PROMOTE_NOTE,
-    sortOrder: 20,
+    purpose:
+      'Art exploration for player, beam, and scale. Not final production art. StyleLock.md is Draft. Cite Docs/Vision.md and Docs/StyleLock.md.',
+    sortOrder: 30,
   }),
   t({
     code: 'Tether-P.2.1',
     parentCode: 'Tether-P.2',
     shortTitle: 'Player stand-in silhouettes',
-    state: 'Staff Only',
+    state: 'Ready',
     size: 'First Spark',
     skill: 'Art',
-    purpose: 'Player stand-in silhouettes.',
-    output: 'Three thumbnails in Docs/art-explorations/player/.',
-    dod: ['Three thumbnails exist in Docs/art-explorations/player/.'],
-    staffNote: TETHER_READY_PROMOTE_NOTE,
+    purpose:
+      'Three readable silhouette thumbnails for a suited colony crew stand-in. Do not model a final character. Do not change the prototype mesh unless staff ask. Cite Docs/StyleLock.md.',
+    output:
+      'Docs/art-explorations/player/ plus a short note saying which silhouette reads at a distance.',
+    dod: [
+      'Three readable silhouette thumbnails exist in Docs/art-explorations/player/.',
+      'A short note says which silhouette reads at a distance.',
+    ],
     sortOrder: 10,
   }),
   t({
     code: 'Tether-P.2.2',
     parentCode: 'Tether-P.2',
     shortTitle: 'Tether visual directions',
-    state: 'Staff Only',
+    state: 'Ready',
     size: 'First Spark',
     skill: 'Art',
-    purpose: 'Tether visual directions.',
-    output: 'Three Low vs High stills in Docs/art-explorations/tether/.',
-    dod: ['Three Low vs High stills exist in Docs/art-explorations/tether/.'],
-    staffNote: TETHER_READY_PROMOTE_NOTE,
+    purpose:
+      'Three stills or overlays of the shared energy beam at Low vs High tension. Stay a beam between bodies. Cite Docs/StyleLock.md and Docs/TetherRules.txt.',
+    output: 'Docs/art-explorations/tether/.',
+    dod: [
+      'Three stills or overlays of Low vs High tension exist in Docs/art-explorations/tether/.',
+      'The tether stays a beam between bodies, not a physical cable.',
+    ],
     sortOrder: 20,
   }),
   t({
     code: 'Tether-P.2.3',
     parentCode: 'Tether-P.2',
     shortTitle: 'Modular kit scale sheet',
-    state: 'Staff Only',
+    state: 'Ready',
     size: 'First Spark',
     skill: 'Art',
-    purpose: 'Modular kit scale sheet.',
-    output: 'Docs/art-explorations/scale-sheet.md.',
-    dod: ['Docs/art-explorations/scale-sheet.md exists.'],
-    staffNote: TETHER_READY_PROMOTE_NOTE,
+    purpose:
+      'One scale sheet so later blockout pieces match. Starting sizes are already in Docs/StyleLock.md. Cite Docs/StyleLock.md.',
+    output:
+      'Docs/art-explorations/scale-sheet.md with player height, airlock height, ramp, resource size, one floor tile, and a simple diagram.',
+    dod: [
+      'Docs/art-explorations/scale-sheet.md documents player height, airlock height, ramp, resource size, and one floor tile.',
+      'The sheet includes a simple diagram.',
+    ],
     sortOrder: 30,
   }),
   t({
     code: 'Tether-P.3',
-    parentCode: 'Tether-P',
+    parentCode: 'Tether-2',
     shortTitle: 'QA templates',
     state: 'Staff Only',
     size: 'First Spark',
     skill: 'QA',
-    purpose: 'QA templates for playtests.',
-    staffNote: TETHER_READY_PROMOTE_NOTE,
-    sortOrder: 30,
+    purpose: 'Templates for the first beam playtests. Staff Only.',
+    sortOrder: 40,
   }),
   t({
     code: 'Tether-P.3.1',
@@ -303,10 +257,16 @@ export const TETHER_V06_TASKS = [
     state: 'Staff Only',
     size: 'First Spark',
     skill: 'QA',
-    purpose: 'Control checklist for playtests.',
-    output: 'Docs/qa/DualControlChecklist.md.',
-    dod: ['Docs/qa/DualControlChecklist.md exists.'],
-    staffNote: TETHER_READY_PROMOTE_NOTE,
+    purpose:
+      'Write Docs/qa/DualControlChecklist.md. Leave result rows blank. Do not tune physics in this task.',
+    output:
+      'Docs/qa/DualControlChecklist.md with rows: one player moves, two players move apart, one jumps, one walks off a ledge, short hang on the beam, tension readable from a spectator view. Leave a row for 3-4 when that layout is no longer Open.',
+    dod: [
+      'Docs/qa/DualControlChecklist.md exists with the listed rows.',
+      'A 3-4 player row is left for when that layout is no longer Open.',
+      'Result rows are blank.',
+      'This task does not tune physics.',
+    ],
     sortOrder: 10,
   }),
   t({
@@ -316,22 +276,25 @@ export const TETHER_V06_TASKS = [
     state: 'Staff Only',
     size: 'First Spark',
     skill: 'QA',
-    purpose: 'Playtest note template.',
+    purpose:
+      'Write Docs/qa/PlaytestNote.md with fields: date, build, testers, what felt good, what broke, recommended task change (not a new feature).',
     output: 'Docs/qa/PlaytestNote.md.',
-    dod: ['Docs/qa/PlaytestNote.md exists.'],
-    staffNote: TETHER_READY_PROMOTE_NOTE,
+    dod: [
+      'Docs/qa/PlaytestNote.md exists with date, build, testers, what felt good, what broke, and recommended task change (not a new feature).',
+    ],
     sortOrder: 20,
   }),
   t({
     code: 'Tether-P.4',
-    parentCode: 'Tether-P',
+    parentCode: null,
     shortTitle: 'Community credit',
     state: 'Staff Only',
     size: 'Small',
     skill: 'Other',
-    purpose: 'Credit current off-site helpers.',
-    staffNote: TETHER_READY_PROMOTE_NOTE,
-    sortOrder: 40,
+    purpose:
+      'Credit current off-site helpers. Blocked until the Grant Credit staff tool exists on the site.',
+    blocker: 'Blocked until the Grant Credit staff tool exists on the site.',
+    sortOrder: 16,
   }),
   t({
     code: 'Tether-P.4.1',
@@ -340,12 +303,14 @@ export const TETHER_V06_TASKS = [
     state: 'Staff Only',
     size: 'Small',
     skill: 'Other',
-    purpose: 'Credit current off-site helpers with Grant Credit.',
-    output: 'Staff Grant Credit entries for current off-site helpers.',
+    purpose:
+      'Staff: use Grant Credit for current Discord moderators and any off-site help already given. Public line example: Discord moderation, September 2026. Pending email credits are allowed if they do not yet have a site account. Do not invent placeholder people. Do not complete this card without the real tool.',
+    output: 'Grant Credit entries for current off-site helpers (no invented people).',
     dod: [
-      'Current off-site helpers are credited with Grant Credit (no fake tasks).',
+      'Current Discord moderators and existing off-site help are credited with the Grant Credit staff tool.',
+      'No placeholder people were invented.',
     ],
-    staffNote: TETHER_READY_PROMOTE_NOTE,
+    blocker: 'Blocked until the Grant Credit staff tool exists on the site.',
     sortOrder: 10,
   }),
 

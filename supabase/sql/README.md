@@ -68,6 +68,7 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 18. `supabase_claim_auto_release.sql` — idle 14d + hard max 30d release  
 19. `supabase_task_claim_hierarchy_rules.sql` — claim leaf Medium/Small only  
 20. `supabase_task_review_workflow.sql` — submit for review / accept / reject  
+20b. `supabase_activity_log_drop_progress.sql` — do not log checklist/progress ticks in activity_log  
 21. `supabase_parent_ready_for_review.sql` — parent → InReview when children done  
 22. `supabase_task_anti_abuse.sql` — trust, velocity, identity gate, fake-work  
 23. `supabase_identity_gate_github.sql` — GitHub counts for identity gate  
@@ -77,8 +78,10 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 27. `supabase_join_request_no_dupes.sql` — no duplicate join requests  
 27b. `supabase_task_staff_only.sql` — Staff Only flag; volunteers can view, only staff can claim  
 27c. `supabase_task_board_scope.sql` — Staging vs Public board; staff-only staging; publish Epic/Medium  
+27c2. `supabase_publish_staging_archive.sql` — After publish, archive staging copies so they leave the staging board  
 27d. `supabase_tether_task_tree_v06.sql` — Tether Task Breakdown v0.6 onto staging only (Staff Only / Blocked / Parked; not public Ready)  
 27e. `supabase_tether_archive_legacy_tasks.sql` — Archive leftover Tether demo/public cards; hide from boards; do not delete v0.6  
+27eb. `supabase_tether_p_ready_lane_rehome.sql` — Rehome Tether-P cards in place; archive Ready lane; do not recreate P.1  
 27f. `supabase_open_questions.sql` — staff-initiated Open Questions; community Suggestions (support, reply, staff Adopt / close note)  
 
 ### 3. Contributions + media + community
@@ -182,6 +185,7 @@ supabase db query --linked -f supabase/sql/supabase_claim_anti_hoarding.sql
 supabase db query --linked -f supabase/sql/supabase_claim_auto_release.sql
 supabase db query --linked -f supabase/sql/supabase_task_claim_hierarchy_rules.sql
 supabase db query --linked -f supabase/sql/supabase_task_review_workflow.sql
+supabase db query --linked -f supabase/sql/supabase_activity_log_drop_progress.sql
 supabase db query --linked -f supabase/sql/supabase_parent_ready_for_review.sql
 supabase db query --linked -f supabase/sql/supabase_task_anti_abuse.sql
 supabase db query --linked -f supabase/sql/supabase_identity_gate_github.sql
@@ -191,6 +195,7 @@ supabase db query --linked -f supabase/sql/supabase_helpers_join_dedupe.sql
 supabase db query --linked -f supabase/sql/supabase_join_request_no_dupes.sql
 supabase db query --linked -f supabase/sql/supabase_task_staff_only.sql
 supabase db query --linked -f supabase/sql/supabase_task_board_scope.sql
+supabase db query --linked -f supabase/sql/supabase_publish_staging_archive.sql
 supabase db query --linked -f supabase/sql/supabase_tether_task_tree_v06.sql
 supabase db query --linked -f supabase/sql/supabase_tether_archive_legacy_tasks.sql
 
@@ -288,6 +293,7 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_claim_anti_hoarding.sql` | Claim limits, cooldown, join requests |
 | `supabase_claim_auto_release.sql` | Idle + hard-max auto-release |
 | `supabase_task_review_workflow.sql` | Submit for review workflow |
+| `supabase_activity_log_drop_progress.sql` | Stop logging checklist/progress ticks in activity_log |
 | `supabase_task_anti_abuse.sql` | Progressive trust + identity gate |
 | `supabase_task_limit_bypass.sql` | Optional staff/test claim limit bypass |
 | `supabase_project_github.sql` | Project GitHub URL / meta |
@@ -305,8 +311,10 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_task_dependencies.sql` | Task blocked-by edges |
 | `supabase_task_staff_only.sql` | Staff Only tasks (viewable by all, claimable by staff) |
 | `supabase_task_board_scope.sql` | Staging vs Public task boards + publish RPC |
+| `supabase_publish_staging_archive.sql` | Publish then archive staging copies (leave staging board) |
 | `supabase_tether_task_tree_v06.sql` | Tether v0.6 task tree on staff staging board only |
 | `supabase_tether_archive_legacy_tasks.sql` | Hide leftover Tether demo/public cards (archive, do not delete v0.6) |
+| `supabase_tether_p_ready_lane_rehome.sql` | Rehome Tether-P cards; archive Ready lane; no P.1 recreate |
 | `supabase_project_tether_slug.sql` | Rename public project slug to `tether` |
 | `supabase_open_questions.sql` | Staff Open Questions; community Suggestions with support, rank, Adopt, close note |
 | `supabase_task_scope_requests.sql` | Scope help requests |

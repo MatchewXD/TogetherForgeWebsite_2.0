@@ -999,6 +999,7 @@ const ACTIVITY_ACTION_LABELS = {
   completed: 'completed',
   returned: 'returned',
   progress: 'updated',
+  'updated progress on': 'updated',
   scope_help: 'flagged as larger than expected',
   scope_help_resolved: 'resolved scope help on',
   submitted_for_review: 'submitted for review',
@@ -1007,6 +1008,16 @@ const ACTIVITY_ACTION_LABELS = {
   auto_released: 'was auto-released from',
   published: 'published to the public board',
 };
+
+/** Checklist ticks are logged, but they should not fill the project hub feed. */
+const HIDDEN_PROJECT_HUB_ACTIVITY_ACTIONS = new Set([
+  'updated progress on',
+  'progress',
+]);
+
+export function isVisibleProjectHubActivity(action) {
+  return !HIDDEN_PROJECT_HUB_ACTIVITY_ACTIONS.has(String(action || '').trim());
+}
 
 export function mapActivityRow(row) {
   const profile = pickProfile(row);
@@ -1570,6 +1581,7 @@ export const tasksService = {
 
   async getActivityForProject(projectId, { limit = 20 } = {}) {
     if (!projectId) return [];
+    const cap = Math.max(1, Number(limit) || 20);
     const { data, error } = await supabase
       .from('activity_log')
       .select(
@@ -1591,10 +1603,15 @@ export const tasksService = {
       `
       )
       .eq('project_id', projectId)
+      .neq('action', 'updated progress on')
+      .neq('action', 'progress')
       .order('created_at', { ascending: false })
-      .limit(limit);
+      .limit(cap);
     if (error) throw error;
-    return (data || []).map(mapActivityRow);
+    return (data || [])
+      .filter((row) => isVisibleProjectHubActivity(row.action))
+      .slice(0, cap)
+      .map(mapActivityRow);
   },
 
   /**
@@ -3144,7 +3161,8 @@ export const tasksService = {
   },
 
   /**
-   * Staff: copy a Staging Epic or Medium (and nested work) onto the public board.
+   * Staff: copy a Staging Epic or Medium (and nested work) onto the public
+   * board, then archive those Staging rows so they leave the staging board.
    */
   async publishStagingTask(taskId) {
     if (!taskId) throw new Error('Task not found');

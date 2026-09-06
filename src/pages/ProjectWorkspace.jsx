@@ -1203,10 +1203,13 @@ const ProjectWorkspace = () => {
       setPublishConfirmTask(null);
       await refreshBoard(projectUuid);
       const created = Number(result?.created_count) || 0;
+      const archived = Number(result?.archived_count) || 0;
       showToast(
         created > 0
-          ? `Published ${created} task${created === 1 ? '' : 's'} to the public board.`
-          : 'Already on the public board. New nested work will appear the next time you publish.',
+          ? `Moved ${created} task${created === 1 ? '' : 's'} to the public board.`
+          : archived > 0
+            ? 'Removed from Staging. Public copies were already live.'
+            : 'Nothing new to publish.',
         'success'
       );
     } catch (err) {
@@ -5366,14 +5369,13 @@ const ProjectWorkspace = () => {
               ) to the public task board?
             </p>
             <p className="text-sm text-text-secondary leading-relaxed">
-              This copies it and any nested staging tasks to the live board.
-              Staff Only flags are kept. The staging copy stays here for further
-              prep.
+              This copies it and any nested staging tasks to the live board,
+              then removes those cards from Staging. Staff Only flags are kept.
             </p>
             {publishConfirmTask.publishedTaskId ? (
               <p className="text-sm text-text-secondary leading-relaxed">
-                Some of this was published before. New nested work will be
-                copied; existing public tasks stay in place.
+                Public copies already exist and stay in place. Staging copies of
+                this work will still leave Staging.
               </p>
             ) : null}
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">

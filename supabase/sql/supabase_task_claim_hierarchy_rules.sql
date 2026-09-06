@@ -233,20 +233,6 @@ begin
     update tasks set subtasks = p_subtasks where id = p_task_id;
   end if;
 
-  insert into activity_log (project_id, user_id, action, target_type, target_id, target_title, metadata)
-  values (
-    v_task.project_id,
-    v_uid,
-    'progress',
-    'task',
-    p_task_id,
-    v_task.title,
-    jsonb_build_object(
-      'claim_id', v_claim.id,
-      'progress_percent', v_claim.progress_percent
-    )
-  );
-
   return jsonb_build_object('claim', to_jsonb(v_claim), 'task_id', p_task_id);
 end;
 $$;

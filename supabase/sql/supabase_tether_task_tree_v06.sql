@@ -101,86 +101,56 @@ Definition of Done:
 - Docs/StyleLock.md exists and is labeled Draft until approved.
 - Docs/TetherRules.txt exists with starting bands and Open items labeled.
 - README links Vision, WhatThisIsNot, StyleLock, and TetherRules.', 'Writing', 'Easy', 'Small', true, 20, null, '[{"id":"s1","label":"Docs/StyleLock.md exists and is labeled Draft until approved.","done":false},{"id":"s2","label":"Docs/TetherRules.txt exists with starting bands and Open items labeled.","done":false},{"id":"s3","label":"README links Vision, WhatThisIsNot, StyleLock, and TetherRules.","done":false}]'::jsonb),
-    ('Tether-P', null, 'Tether-P Ready lane', 'Staging Ready lane. These cards stay Staff Only and off the public board until Epic 1 is Done in the Unreal repo.
+    ('Tether-P.2', 'Tether-9', 'Tether-P.2 Art exploration', 'Art exploration for player, beam, and scale. Not final production art. StyleLock.md is Draft. Cite Docs/Vision.md and Docs/StyleLock.md.', 'Art', 'Easy', 'First Spark', false, 30, null, '[]'::jsonb),
+    ('Tether-P.2.1', 'Tether-P.2', 'Tether-P.2.1 Player stand-in silhouettes', 'Three readable silhouette thumbnails for a suited colony crew stand-in. Do not model a final character. Do not change the prototype mesh unless staff ask. Cite Docs/StyleLock.md.
 
-Staff note: Promote to public Ready only after Epic 1 is Done in the Unreal repo.', 'Writing', 'Medium', 'Medium', true, 15, null, '[]'::jsonb),
-    ('Tether-P.1', 'Tether-P', 'Tether-P.1 Contributor docs', 'Contributor docs for running Tether and onboarding.
-
-Staff note: Promote to public Ready only after Epic 1 is Done in the Unreal repo.', 'Writing', 'Easy', 'First Spark', true, 10, null, '[]'::jsonb),
-    ('Tether-P.1.1', 'Tether-P.1', 'Tether-P.1.1 How to run Tether', 'How to run Tether.
-
-Output: README how-to-run plus two screenshots in Docs/images/.
+Output: Docs/art-explorations/player/ plus a short note saying which silhouette reads at a distance.
 
 Definition of Done:
-- README how-to-run is written.
-- Two screenshots live in Docs/images/.
+- Three readable silhouette thumbnails exist in Docs/art-explorations/player/.
+- A short note says which silhouette reads at a distance.', 'Art', 'Easy', 'First Spark', false, 10, null, '[{"id":"s1","label":"Three readable silhouette thumbnails exist in Docs/art-explorations/player/.","done":false},{"id":"s2","label":"A short note says which silhouette reads at a distance.","done":false}]'::jsonb),
+    ('Tether-P.2.2', 'Tether-P.2', 'Tether-P.2.2 Tether visual directions', 'Three stills or overlays of the shared energy beam at Low vs High tension. Stay a beam between bodies. Cite Docs/StyleLock.md and Docs/TetherRules.txt.
 
-Staff note: Promote to public Ready only after Epic 1 is Done in the Unreal repo.', 'Writing', 'Easy', 'First Spark', true, 10, null, '[{"id":"s1","label":"README how-to-run is written.","done":false},{"id":"s2","label":"Two screenshots live in Docs/images/.","done":false}]'::jsonb),
-    ('Tether-P.1.2', 'Tether-P.1', 'Tether-P.1.2 First Spark onboarding note', 'First Spark onboarding note.
-
-Output: Docs/FirstSpark.md covering claim, review, Grant Credit, conduct@togetherforge.net.
+Output: Docs/art-explorations/tether/.
 
 Definition of Done:
-- Docs/FirstSpark.md covers claim, review, Grant Credit, and conduct@togetherforge.net.
+- Three stills or overlays of Low vs High tension exist in Docs/art-explorations/tether/.
+- The tether stays a beam between bodies, not a physical cable.', 'Art', 'Easy', 'First Spark', false, 20, null, '[{"id":"s1","label":"Three stills or overlays of Low vs High tension exist in Docs/art-explorations/tether/.","done":false},{"id":"s2","label":"The tether stays a beam between bodies, not a physical cable.","done":false}]'::jsonb),
+    ('Tether-P.2.3', 'Tether-P.2', 'Tether-P.2.3 Modular kit scale sheet', 'One scale sheet so later blockout pieces match. Starting sizes are already in Docs/StyleLock.md. Cite Docs/StyleLock.md.
 
-Staff note: Promote to public Ready only after Epic 1 is Done in the Unreal repo.', 'Writing', 'Easy', 'First Spark', true, 20, null, '[{"id":"s1","label":"Docs/FirstSpark.md covers claim, review, Grant Credit, and conduct@togetherforge.net.","done":false}]'::jsonb),
-    ('Tether-P.2', 'Tether-P', 'Tether-P.2 Art exploration', 'Art exploration for player, tether, and scale.
-
-Staff note: Promote to public Ready only after Epic 1 is Done in the Unreal repo.', 'Art', 'Easy', 'First Spark', true, 20, null, '[]'::jsonb),
-    ('Tether-P.2.1', 'Tether-P.2', 'Tether-P.2.1 Player stand-in silhouettes', 'Player stand-in silhouettes.
-
-Output: Three thumbnails in Docs/art-explorations/player/.
+Output: Docs/art-explorations/scale-sheet.md with player height, airlock height, ramp, resource size, one floor tile, and a simple diagram.
 
 Definition of Done:
-- Three thumbnails exist in Docs/art-explorations/player/.
+- Docs/art-explorations/scale-sheet.md documents player height, airlock height, ramp, resource size, and one floor tile.
+- The sheet includes a simple diagram.', 'Art', 'Easy', 'First Spark', false, 30, null, '[{"id":"s1","label":"Docs/art-explorations/scale-sheet.md documents player height, airlock height, ramp, resource size, and one floor tile.","done":false},{"id":"s2","label":"The sheet includes a simple diagram.","done":false}]'::jsonb),
+    ('Tether-P.3', 'Tether-2', 'Tether-P.3 QA templates', 'Templates for the first beam playtests. Staff Only.', 'QA', 'Easy', 'First Spark', true, 40, null, '[]'::jsonb),
+    ('Tether-P.3.1', 'Tether-P.3', 'Tether-P.3.1 Dual-control checklist', 'Write Docs/qa/DualControlChecklist.md. Leave result rows blank. Do not tune physics in this task.
 
-Staff note: Promote to public Ready only after Epic 1 is Done in the Unreal repo.', 'Art', 'Easy', 'First Spark', true, 10, null, '[{"id":"s1","label":"Three thumbnails exist in Docs/art-explorations/player/.","done":false}]'::jsonb),
-    ('Tether-P.2.2', 'Tether-P.2', 'Tether-P.2.2 Tether visual directions', 'Tether visual directions.
-
-Output: Three Low vs High stills in Docs/art-explorations/tether/.
-
-Definition of Done:
-- Three Low vs High stills exist in Docs/art-explorations/tether/.
-
-Staff note: Promote to public Ready only after Epic 1 is Done in the Unreal repo.', 'Art', 'Easy', 'First Spark', true, 20, null, '[{"id":"s1","label":"Three Low vs High stills exist in Docs/art-explorations/tether/.","done":false}]'::jsonb),
-    ('Tether-P.2.3', 'Tether-P.2', 'Tether-P.2.3 Modular kit scale sheet', 'Modular kit scale sheet.
-
-Output: Docs/art-explorations/scale-sheet.md.
+Output: Docs/qa/DualControlChecklist.md with rows: one player moves, two players move apart, one jumps, one walks off a ledge, short hang on the beam, tension readable from a spectator view. Leave a row for 3-4 when that layout is no longer Open.
 
 Definition of Done:
-- Docs/art-explorations/scale-sheet.md exists.
-
-Staff note: Promote to public Ready only after Epic 1 is Done in the Unreal repo.', 'Art', 'Easy', 'First Spark', true, 30, null, '[{"id":"s1","label":"Docs/art-explorations/scale-sheet.md exists.","done":false}]'::jsonb),
-    ('Tether-P.3', 'Tether-P', 'Tether-P.3 QA templates', 'QA templates for playtests.
-
-Staff note: Promote to public Ready only after Epic 1 is Done in the Unreal repo.', 'QA', 'Easy', 'First Spark', true, 30, null, '[]'::jsonb),
-    ('Tether-P.3.1', 'Tether-P.3', 'Tether-P.3.1 Dual-control checklist', 'Control checklist for playtests.
-
-Output: Docs/qa/DualControlChecklist.md.
-
-Definition of Done:
-- Docs/qa/DualControlChecklist.md exists.
-
-Staff note: Promote to public Ready only after Epic 1 is Done in the Unreal repo.', 'QA', 'Easy', 'First Spark', true, 10, null, '[{"id":"s1","label":"Docs/qa/DualControlChecklist.md exists.","done":false}]'::jsonb),
-    ('Tether-P.3.2', 'Tether-P.3', 'Tether-P.3.2 Playtest note template', 'Playtest note template.
+- Docs/qa/DualControlChecklist.md exists with the listed rows.
+- A 3-4 player row is left for when that layout is no longer Open.
+- Result rows are blank.
+- This task does not tune physics.', 'QA', 'Easy', 'First Spark', true, 10, null, '[{"id":"s1","label":"Docs/qa/DualControlChecklist.md exists with the listed rows.","done":false},{"id":"s2","label":"A 3-4 player row is left for when that layout is no longer Open.","done":false},{"id":"s3","label":"Result rows are blank.","done":false},{"id":"s4","label":"This task does not tune physics.","done":false}]'::jsonb),
+    ('Tether-P.3.2', 'Tether-P.3', 'Tether-P.3.2 Playtest note template', 'Write Docs/qa/PlaytestNote.md with fields: date, build, testers, what felt good, what broke, recommended task change (not a new feature).
 
 Output: Docs/qa/PlaytestNote.md.
 
 Definition of Done:
-- Docs/qa/PlaytestNote.md exists.
+- Docs/qa/PlaytestNote.md exists with date, build, testers, what felt good, what broke, and recommended task change (not a new feature).', 'QA', 'Easy', 'First Spark', true, 20, null, '[{"id":"s1","label":"Docs/qa/PlaytestNote.md exists with date, build, testers, what felt good, what broke, and recommended task change (not a new feature).","done":false}]'::jsonb),
+    ('Tether-P.4', null, 'Tether-P.4 Community credit', 'Credit current off-site helpers. Blocked until the Grant Credit staff tool exists on the site.
 
-Staff note: Promote to public Ready only after Epic 1 is Done in the Unreal repo.', 'QA', 'Easy', 'First Spark', true, 20, null, '[{"id":"s1","label":"Docs/qa/PlaytestNote.md exists.","done":false}]'::jsonb),
-    ('Tether-P.4', 'Tether-P', 'Tether-P.4 Community credit', 'Credit current off-site helpers.
+Blocker: Blocked until the Grant Credit staff tool exists on the site.', 'Other', 'Easy', 'Small', true, 16, null, '[]'::jsonb),
+    ('Tether-P.4.1', 'Tether-P.4', 'Tether-P.4.1 Credit current off-site helpers', 'Staff: use Grant Credit for current Discord moderators and any off-site help already given. Public line example: Discord moderation, September 2026. Pending email credits are allowed if they do not yet have a site account. Do not invent placeholder people. Do not complete this card without the real tool.
 
-Staff note: Promote to public Ready only after Epic 1 is Done in the Unreal repo.', 'Other', 'Easy', 'Small', true, 40, null, '[]'::jsonb),
-    ('Tether-P.4.1', 'Tether-P.4', 'Tether-P.4.1 Credit current off-site helpers', 'Credit current off-site helpers with Grant Credit.
-
-Output: Staff Grant Credit entries for current off-site helpers.
+Output: Grant Credit entries for current off-site helpers (no invented people).
 
 Definition of Done:
-- Current off-site helpers are credited with Grant Credit (no fake tasks).
+- Current Discord moderators and existing off-site help are credited with the Grant Credit staff tool.
+- No placeholder people were invented.
 
-Staff note: Promote to public Ready only after Epic 1 is Done in the Unreal repo.', 'Other', 'Easy', 'Small', true, 10, null, '[{"id":"s1","label":"Current off-site helpers are credited with Grant Credit (no fake tasks).","done":false}]'::jsonb),
+Blocker: Blocked until the Grant Credit staff tool exists on the site.', 'Other', 'Easy', 'Small', true, 10, null, '[{"id":"s1","label":"Current Discord moderators and existing off-site help are credited with the Grant Credit staff tool.","done":false},{"id":"s2","label":"No placeholder people were invented.","done":false}]'::jsonb),
     ('Tether-2', null, 'Tether-2 Core tether physics', 'Shared tether feels good and is readable. First feel test uses two pawns. Do not unlock later gameplay until that test is playtested and TetherRules.txt is updated. Solo behavior and 3-4 tether topology stay Open.', 'Code', 'Medium', 'Medium', true, 20, null, '[]'::jsonb),
     ('Tether-2.1', 'Tether-2', 'Tether-2.1 Basic tether between two pawns', 'First feel test: a basic tether between two pawns.', 'Code', 'Medium', 'Medium', true, 10, null, '[]'::jsonb),
     ('Tether-2.1.1', 'Tether-2.1', 'Tether-2.1.1 Player stand-ins', 'Player stand-ins.
