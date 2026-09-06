@@ -452,6 +452,7 @@ const ProjectWorkspace = () => {
   const [stagingBusyId, setStagingBusyId] = useState(null);
   const [publishingId, setPublishingId] = useState(null);
   const [publishConfirmTask, setPublishConfirmTask] = useState(null);
+  const [deleteConfirmTask, setDeleteConfirmTask] = useState(null);
   /** Notices for claims auto-released under this user */
   const [autoReleaseNotices, setAutoReleaseNotices] = useState([]);
 
@@ -1149,18 +1150,18 @@ const ProjectWorkspace = () => {
     openDuplicateTaskForm(task);
   };
 
-  const handleStagingDelete = async (task) => {
+  const handleStagingDelete = (task) => {
     if (!isModerator || !task?.id || !isStagingBoard) return;
-    const nested = task.childCount || 0;
-    const ok = window.confirm(
-      nested > 0
-        ? `Delete “${task.title}” and ${nested} nested staging task${nested === 1 ? '' : 's'}?\n\nPublic copies already published stay on the live board.`
-        : `Delete “${task.title}” from Staging?\n\nPublic copies already published stay on the live board.`
-    );
-    if (!ok) return;
+    setDeleteConfirmTask(task);
+  };
+
+  const confirmStagingDelete = async () => {
+    const task = deleteConfirmTask;
+    if (!task?.id) return;
     setStagingBusyId(task.id);
     try {
       await tasksService.deleteTask(task.id);
+      setDeleteConfirmTask(null);
       if (selectedTaskId === task.id) setSelectedTaskId(null);
       await refreshBoard(projectUuid);
       showToast('Removed from Staging.', 'success');
@@ -5390,6 +5391,58 @@ const ProjectWorkspace = () => {
                 onClick={() => void confirmPublishStaging()}
               >
                 {publishingId ? 'Publishing…' : 'Publish'}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+
+      <Modal
+        isOpen={!!deleteConfirmTask}
+        onClose={() => !stagingBusyId && setDeleteConfirmTask(null)}
+        title="Delete from Staging?"
+        size="md"
+      >
+        {deleteConfirmTask ? (
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary leading-relaxed">
+              {(Number(deleteConfirmTask.childCount) || 0) > 0 ? (
+                <>
+                  Delete{' '}
+                  <span className="text-white font-medium">
+                    {deleteConfirmTask.title}
+                  </span>{' '}
+                  and {deleteConfirmTask.childCount} nested staging task
+                  {deleteConfirmTask.childCount === 1 ? '' : 's'}?
+                </>
+              ) : (
+                <>
+                  Delete{' '}
+                  <span className="text-white font-medium">
+                    {deleteConfirmTask.title}
+                  </span>{' '}
+                  from Staging?
+                </>
+              )}
+            </p>
+            <p className="text-sm text-text-secondary leading-relaxed">
+              Public copies already published stay on the live board.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={Boolean(stagingBusyId)}
+                onClick={() => setDeleteConfirmTask(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={Boolean(stagingBusyId)}
+                onClick={() => void confirmStagingDelete()}
+              >
+                {stagingBusyId ? 'Deleting…' : 'Delete'}
               </Button>
             </div>
           </div>
