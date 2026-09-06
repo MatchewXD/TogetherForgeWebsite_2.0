@@ -1,6 +1,7 @@
 import Button from './Buttons';
 import Badge from './Badge';
 import TaskCategoryBadge from './TaskCategoryBadge';
+import StaffToolsBar from './StaffToolsBar';
 import UserAvatar from './UserAvatar';
 import UserNameWithBadge from '../badges/UserNameWithBadge';
 import {
@@ -52,6 +53,9 @@ const TaskCard = ({
   isStaff = false,
   /** Staff: open create form pre-filled from this task */
   onDuplicate = null,
+  /** Staff: move a public Epic/Medium back to Staging */
+  onMoveToStaging = null,
+  movingToStaging = false,
 }) => {
   const isCompleted =
     task.status === 'completed' || task.dbStatus === 'Completed';
@@ -150,6 +154,12 @@ const TaskCard = ({
 
   const isEpic = depth === 0;
   const isMedium = depth === 1;
+  const showMoveToStaging =
+    canStaffUpdate && onMoveToStaging && (depth === 0 || depth === 1);
+  const showStaffTools =
+    showMoveToStaging ||
+    (canStaffUpdate && onDuplicate) ||
+    (isCompleted && canStaffUpdate && onUpdate);
 
   return (
     <div
@@ -169,7 +179,8 @@ const TaskCard = ({
       data-locked={isLocked ? 'true' : undefined}
     >
       {/* Level chip first so hierarchy is obvious in All tasks */}
-      <div className="flex flex-wrap items-center gap-1.5 mb-2">
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
         <Badge
           variant={levelBadgeVariant(depth)}
           className={`!normal-case tracking-widest ${
@@ -237,6 +248,50 @@ const TaskCard = ({
             {completedChildren}/{childCount} sub-tasks
           </Badge>
         )}
+        </div>
+        {showStaffTools ? (
+          <StaffToolsBar compact className="shrink-0 max-w-[min(100%,14.5rem)]">
+            {showMoveToStaging ? (
+              <Button
+                size="sm"
+                variant="gold"
+                className="!py-1 !px-2 text-xs"
+                onClick={(e) => {
+                  e?.stopPropagation?.();
+                  onMoveToStaging(task);
+                }}
+                disabled={movingToStaging}
+                title="Move this work back to the staging board"
+              >
+                {movingToStaging ? 'Moving…' : 'To Staging'}
+              </Button>
+            ) : null}
+            {canStaffUpdate && onDuplicate ? (
+              <Button
+                size="sm"
+                variant="gold"
+                className="!py-1 !px-2 text-xs"
+                onClick={(e) => {
+                  e?.stopPropagation?.();
+                  onDuplicate(task.id);
+                }}
+                title="Duplicate as a new To Do task"
+              >
+                Duplicate
+              </Button>
+            ) : null}
+            {isCompleted && canStaffUpdate && onUpdate ? (
+              <Button
+                size="sm"
+                variant="gold"
+                className="!py-1 !px-2 text-xs"
+                onClick={() => onUpdate(task.id)}
+              >
+                Update
+              </Button>
+            ) : null}
+          </StaffToolsBar>
+        ) : null}
       </div>
 
       <div className="flex justify-between items-start gap-2 mb-2">
@@ -407,28 +462,6 @@ const TaskCard = ({
               : isMine
                 ? 'Update'
                 : 'View Details'}
-          </Button>
-        )}
-        {canStaffUpdate && onDuplicate && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={(e) => {
-              e?.stopPropagation?.();
-              onDuplicate(task.id);
-            }}
-            title="Duplicate as a new To Do task"
-          >
-            Duplicate
-          </Button>
-        )}
-        {isCompleted && canStaffUpdate && onUpdate && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onUpdate(task.id)}
-          >
-            Update
           </Button>
         )}
       </div>

@@ -79,6 +79,7 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 27b. `supabase_task_staff_only.sql` — Staff Only flag; volunteers can view, only staff can claim  
 27c. `supabase_task_board_scope.sql` — Staging vs Public board; staff-only staging; publish Epic/Medium  
 27c2. `supabase_publish_staging_archive.sql` — After publish, archive staging copies so they leave the staging board  
+27c3. `supabase_move_public_to_staging.sql` — Staff can move public Epic/Medium work back to Staging  
 27d. `supabase_tether_task_tree_v06.sql` — Tether Task Breakdown v0.6 onto staging only (Staff Only / Blocked / Parked; not public Ready)  
 27e. `supabase_tether_archive_legacy_tasks.sql` — Archive leftover Tether demo/public cards; hide from boards; do not delete v0.6  
 27eb. `supabase_tether_p_ready_lane_rehome.sql` — Rehome Tether-P cards in place; archive Ready lane; do not recreate P.1  
@@ -196,6 +197,7 @@ supabase db query --linked -f supabase/sql/supabase_join_request_no_dupes.sql
 supabase db query --linked -f supabase/sql/supabase_task_staff_only.sql
 supabase db query --linked -f supabase/sql/supabase_task_board_scope.sql
 supabase db query --linked -f supabase/sql/supabase_publish_staging_archive.sql
+supabase db query --linked -f supabase/sql/supabase_move_public_to_staging.sql
 supabase db query --linked -f supabase/sql/supabase_tether_task_tree_v06.sql
 supabase db query --linked -f supabase/sql/supabase_tether_archive_legacy_tasks.sql
 
@@ -312,6 +314,7 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_task_staff_only.sql` | Staff Only tasks (viewable by all, claimable by staff) |
 | `supabase_task_board_scope.sql` | Staging vs Public task boards + publish RPC |
 | `supabase_publish_staging_archive.sql` | Publish then archive staging copies (leave staging board) |
+| `supabase_move_public_to_staging.sql` | Staff move public Epic/Medium work back to Staging |
 | `supabase_tether_task_tree_v06.sql` | Tether v0.6 task tree on staff staging board only |
 | `supabase_tether_archive_legacy_tasks.sql` | Hide leftover Tether demo/public cards (archive, do not delete v0.6) |
 | `supabase_tether_p_ready_lane_rehome.sql` | Rehome Tether-P cards; archive Ready lane; no P.1 recreate |

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Badge from './Badge';
 import Button from './Buttons';
+import StaffToolsBar from './StaffToolsBar';
 import TaskCategoryBadge from './TaskCategoryBadge';
 import {
   canPublishStagingTask,
@@ -73,7 +74,8 @@ function RowActions({
   const publishing = publishingId === task.id;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+    <StaffToolsBar compact className="shrink-0">
+    <div className="flex flex-wrap items-center gap-1.5">
       <button
         type="button"
         className="p-1.5 rounded-md border border-cyber-border text-text-muted hover:text-white hover:border-neon-cyan/40 disabled:opacity-30"
@@ -139,6 +141,7 @@ function RowActions({
         <Trash2 className="w-3.5 h-3.5" />
       </button>
     </div>
+    </StaffToolsBar>
   );
 }
 

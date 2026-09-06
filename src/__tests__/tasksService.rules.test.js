@@ -16,6 +16,7 @@ import {
   isTaskStaffOnly,
   isStagingTask,
   canPublishStagingTask,
+  canMovePublicTaskToStaging,
   isVolunteerClaimable,
   STAFF_ONLY_TASK_MESSAGE,
   STAGING_TASK_CLAIM_MESSAGE,
@@ -193,6 +194,21 @@ describe('Staging vs Public board scope', () => {
     ).toBe(false);
     expect(
       canPublishStagingTask(task({ depth: 0, boardScope: 'public' }))
+    ).toBe(false);
+  });
+
+  it('lets staff move public Epics and Mediums back to Staging, not Smalls', () => {
+    expect(
+      canMovePublicTaskToStaging(task({ id: 'e', depth: 0, boardScope: 'public' }))
+    ).toBe(true);
+    expect(
+      canMovePublicTaskToStaging(task({ id: 'm', depth: 1, boardScope: 'public' }))
+    ).toBe(true);
+    expect(
+      canMovePublicTaskToStaging(task({ id: 's', depth: 2, boardScope: 'public' }))
+    ).toBe(false);
+    expect(
+      canMovePublicTaskToStaging(task({ id: 'st', depth: 0, boardScope: 'staging' }))
     ).toBe(false);
   });
 

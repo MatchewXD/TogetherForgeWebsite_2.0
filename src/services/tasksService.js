@@ -279,6 +279,13 @@ export function canPublishStagingTask(task) {
   return depth === 0 || depth === 1;
 }
 
+/** Epic or Medium on the public board can be moved back to Staging. */
+export function canMovePublicTaskToStaging(task) {
+  if (!task?.id || isStagingTask(task)) return false;
+  const depth = Number(task.depth) || 0;
+  return depth === 0 || depth === 1;
+}
+
 export function compareTaskBoardOrder(a, b) {
   const so = (Number(a?.sortOrder) || 0) - (Number(b?.sortOrder) || 0);
   if (so !== 0) return so;
@@ -1007,12 +1014,14 @@ const ACTIVITY_ACTION_LABELS = {
   review_rejected: 'sent back',
   auto_released: 'was auto-released from',
   published: 'published to the public board',
+  moved_to_staging: 'moved to Staging',
 };
 
 /** Checklist ticks are logged, but they should not fill the project hub feed. */
 const HIDDEN_PROJECT_HUB_ACTIVITY_ACTIONS = new Set([
   'updated progress on',
   'progress',
+  'moved_to_staging',
 ]);
 
 export function isVisibleProjectHubActivity(action) {
@@ -3174,6 +3183,26 @@ export const tasksService = {
       if (/could not find the function|schema cache/i.test(msg)) {
         throw new Error(
           'Staging publish is not set up yet. Run supabase/sql/supabase_task_board_scope.sql in Supabase.'
+        );
+      }
+      throw error;
+    }
+    return data;
+  },
+
+  /**
+   * Staff: move a Public Epic or Medium (and nested work) back to Staging.
+   */
+  async movePublicTaskToStaging(taskId) {
+    if (!taskId) throw new Error('Task not found');
+    const { data, error } = await supabase.rpc('move_public_task_to_staging', {
+      p_task_id: taskId,
+    });
+    if (error) {
+      const msg = error.message || '';
+      if (/could not find the function|schema cache/i.test(msg)) {
+        throw new Error(
+          'Move to Staging is not set up yet. Run supabase/sql/supabase_move_public_to_staging.sql in Supabase.'
         );
       }
       throw error;

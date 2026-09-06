@@ -37,6 +37,7 @@ import {
   ExternalLink,
   Github,
   Upload,
+  Undo2,
 } from 'lucide-react';
 
 import Button from '../components/ui/Buttons';
@@ -46,6 +47,7 @@ import TaskCard from '../components/ui/TaskCard';
 import SubTaskList from '../components/ui/SubTaskList';
 import TaskDependencyPicker from '../components/ui/TaskDependencyPicker';
 import TaskStagingTree from '../components/ui/TaskStagingTree';
+import StaffToolsBar from '../components/ui/StaffToolsBar';
 import OpenQuestionsSection from '../components/projects/OpenQuestionsSection';
 import BannerImage from '../components/ui/BannerImage';
 import ActivityItem from '../components/ui/ActivityItem';
@@ -72,6 +74,7 @@ import {
   BOARD_SCOPE_STAGING,
   BOARD_SCOPE_PUBLIC,
   canPublishStagingTask,
+  canMovePublicTaskToStaging,
   normalizeChecklist,
   progressFromChecklist,
   isChecklistComplete,
@@ -452,6 +455,8 @@ const ProjectWorkspace = () => {
   const [stagingBusyId, setStagingBusyId] = useState(null);
   const [publishingId, setPublishingId] = useState(null);
   const [publishConfirmTask, setPublishConfirmTask] = useState(null);
+  const [unpublishConfirmTask, setUnpublishConfirmTask] = useState(null);
+  const [unpublishingId, setUnpublishingId] = useState(null);
   const [deleteConfirmTask, setDeleteConfirmTask] = useState(null);
   /** Notices for claims auto-released under this user */
   const [autoReleaseNotices, setAutoReleaseNotices] = useState([]);
@@ -1216,6 +1221,41 @@ const ProjectWorkspace = () => {
       showToast(friendlyError(err), 'error');
     } finally {
       setPublishingId(null);
+    }
+  };
+
+  const handleMovePublicToStaging = (task) => {
+    if (!isModerator || !task?.id || isStagingBoard) return;
+    if (!canMovePublicTaskToStaging(task)) {
+      showToast('Move a Medium or Epic. Small tasks go with their parent.', 'warn');
+      return;
+    }
+    setUnpublishConfirmTask(task);
+  };
+
+  const confirmMovePublicToStaging = async () => {
+    const task = unpublishConfirmTask;
+    if (!task?.id) return;
+    setUnpublishingId(task.id);
+    try {
+      const result = await tasksService.movePublicTaskToStaging(task.id);
+      setUnpublishConfirmTask(null);
+      if (selectedTaskId === task.id) setSelectedTaskId(null);
+      await refreshBoard(projectUuid);
+      const n =
+        (Number(result?.flipped_count) || 0) +
+        (Number(result?.restored_count) || 0) +
+        (Number(result?.created_count) || 0);
+      showToast(
+        n > 0
+          ? `Moved ${n} task${n === 1 ? '' : 's'} back to Staging.`
+          : 'Moved to Staging.',
+        'success'
+      );
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
+    } finally {
+      setUnpublishingId(null);
     }
   };
 
@@ -2373,8 +2413,9 @@ const ProjectWorkspace = () => {
                     Build Epics, Mediums, and Smalls here. Reorder and delete
                     freely. When a Medium or Epic is ready,{' '}
                     <span className="text-white font-medium">Publish</span> it
-                    to the public board. Staff Only flags copy with the live
-                    tasks. Volunteers never see Staging.
+                    to the public board. Staff can move public work back to
+                    Staging. Staff Only flags are kept. Volunteers never see
+                    Staging.
                   </>
                 ) : (
                   <>
@@ -2444,6 +2485,89 @@ const ProjectWorkspace = () => {
                 </Button>
               </div>
             )}
+
+            {isModerator ? (
+                <StaffToolsBar className="mb-3">
+                  {!projectGithubUrl ? (
+                    <Button
+                      variant="gold"
+                      className="gap-2"
+                      size="sm"
+                      onClick={openGithubEdit}
+                      disabled={!projectUuid}
+                      title="Set the GitHub repo so contributors know where technical work lives"
+                    >
+                      <Github className="w-4 h-4" />
+                      Set GitHub repo
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="gold"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={openGithubEdit}
+                      title="Edit project GitHub URL"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      Edit repo
+                    </Button>
+                  )}
+                  {!isStagingBoard ? (
+                    <Button
+                      variant="gold"
+                      className="gap-2"
+                      size="sm"
+                      to={stagingPath}
+                      disabled={!projectUuid || loading}
+                      title="Staff-only preparation board. Volunteers cannot see it."
+                    >
+                      <Upload className="w-4 h-4" />
+                      Staging
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="gold"
+                      className="gap-2"
+                      size="sm"
+                      to={boardPath}
+                    >
+                      <LayoutGrid className="w-4 h-4" />
+                      Public board
+                    </Button>
+                  )}
+                  {!isStagingBoard ? (
+                    <Button
+                      variant="gold"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => openCreateTaskForm(null)}
+                      disabled={!projectUuid || loading}
+                      title={
+                        !projectUuid
+                          ? 'Project must be loaded from Supabase first'
+                          : 'Create a new top-level task on this board'
+                      }
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add New Task
+                    </Button>
+                  ) : null}
+                  {!isStagingBoard ? (
+                    <Button
+                      variant="gold"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => void handleRunAutoReleaseCheck()}
+                      disabled={autoReleaseBusy || !projectUuid}
+                      title={`TEST: Release Active claims as if they have been idle for ${CLAIM_IDLE_RELEASE_DAYS} days (no real wait). Staff only.`}
+                    >
+                      {autoReleaseBusy
+                        ? 'Testing…'
+                        : 'Run auto-release check now'}
+                    </Button>
+                  ) : null}
+                </StaffToolsBar>
+              ) : null}
 
             <div className="w-full rounded-xl border border-cyber-border bg-cyber-surface/70 px-3 py-3 sm:px-4 sm:py-3.5">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
@@ -2515,7 +2639,7 @@ const ProjectWorkspace = () => {
                   </div>
                 </div>
 
-                {/* Actions */}
+                {/* Volunteer / everyone actions */}
                 <div className="flex flex-wrap items-center gap-2 lg:flex-1 lg:justify-end">
                   {projectGithubUrl ? (
                     <a
@@ -2528,81 +2652,7 @@ const ProjectWorkspace = () => {
                       <Github className="w-4 h-4" />
                       View on GitHub
                     </a>
-                  ) : isModerator ? (
-                    <Button
-                      variant="outline"
-                      className="gap-2"
-                      size="sm"
-                      onClick={openGithubEdit}
-                      disabled={!projectUuid}
-                      title="Set the GitHub repo so contributors know where technical work lives"
-                    >
-                      <Github className="w-4 h-4" />
-                      Set GitHub repo
-                    </Button>
                   ) : null}
-                  {isModerator && projectGithubUrl && (
-                    <button
-                      type="button"
-                      onClick={openGithubEdit}
-                      className="inline-flex items-center gap-1 text-[11px] font-mono text-text-muted hover:text-neon-cyan"
-                      title="Edit project GitHub URL"
-                    >
-                      <Pencil className="w-3 h-3" />
-                      Edit repo
-                    </button>
-                  )}
-                  {isModerator && !isStagingBoard && (
-                    <Button
-                      variant="outline"
-                      className="gap-2"
-                      to={stagingPath}
-                      disabled={!projectUuid || loading}
-                      title="Staff-only preparation board. Volunteers cannot see it."
-                    >
-                      <Upload className="w-4 h-4" />
-                      Staging
-                    </Button>
-                  )}
-                  {isStagingBoard && (
-                    <Button
-                      variant="outline"
-                      className="gap-2"
-                      to={boardPath}
-                    >
-                      <LayoutGrid className="w-4 h-4" />
-                      Public board
-                    </Button>
-                  )}
-                  {isModerator && !isStagingBoard && (
-                    <Button
-                      className="gap-2"
-                      onClick={() => openCreateTaskForm(null)}
-                      disabled={!projectUuid || loading}
-                      title={
-                        !projectUuid
-                          ? 'Project must be loaded from Supabase first'
-                          : 'Create a new top-level task on this board'
-                      }
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add New Task
-                    </Button>
-                  )}
-                  {isModerator && !isStagingBoard && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => void handleRunAutoReleaseCheck()}
-                      disabled={autoReleaseBusy || !projectUuid}
-                      title={`TEST: Release Active claims as if they have been idle for ${CLAIM_IDLE_RELEASE_DAYS} days (no real wait). Staff only.`}
-                    >
-                      {autoReleaseBusy
-                        ? 'Testing…'
-                        : 'Run auto-release check now'}
-                    </Button>
-                  )}
                   <Button
                     variant="outline"
                     className="gap-2"
@@ -3041,6 +3091,12 @@ const ProjectWorkspace = () => {
                                 onDuplicate={
                                   isModerator ? handleDuplicateTask : undefined
                                 }
+                                onMoveToStaging={
+                                  isModerator
+                                    ? handleMovePublicToStaging
+                                    : undefined
+                                }
+                                movingToStaging={unpublishingId === task.id}
                               />
                             </div>
                           ))
@@ -3110,6 +3166,12 @@ const ProjectWorkspace = () => {
                                       ? handleDuplicateTask
                                       : undefined
                                   }
+                                  onMoveToStaging={
+                                    isModerator
+                                      ? handleMovePublicToStaging
+                                      : undefined
+                                  }
+                                  movingToStaging={unpublishingId === task.id}
                                 />
                               </div>
                             ))}
@@ -3182,6 +3244,12 @@ const ProjectWorkspace = () => {
                                       ? handleDuplicateTask
                                       : undefined
                                   }
+                                  onMoveToStaging={
+                                    isModerator
+                                      ? handleMovePublicToStaging
+                                      : undefined
+                                  }
+                                  movingToStaging={unpublishingId === task.id}
                                 />
                               </div>
                             ))}
@@ -3785,31 +3853,48 @@ const ProjectWorkspace = () => {
                       </span>
                     </>
                   )}
-                  {isModerator && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="gap-1.5 shrink-0 !py-1 !px-2 text-xs sm:ml-1"
-                        onClick={() => openDuplicateTaskForm(selectedTask)}
-                        title="Create a new To Do task with the same details"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                        Duplicate
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="gap-1.5 shrink-0 !py-1 !px-2 text-xs"
-                        onClick={() => openEditTaskForm(selectedTask)}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                        Edit Task
-                      </Button>
-                    </>
-                  )}
                 </div>
               </div>
+
+              {isModerator ? (
+                <StaffToolsBar>
+                  {!isStagingBoard &&
+                  canMovePublicTaskToStaging(selectedTask) ? (
+                    <Button
+                      size="sm"
+                      variant="gold"
+                      className="gap-1.5 !py-1 !px-2 text-xs"
+                      onClick={() => handleMovePublicToStaging(selectedTask)}
+                      disabled={Boolean(unpublishingId)}
+                      title="Move this work back to the staging board"
+                    >
+                      <Undo2 className="w-3.5 h-3.5" />
+                      {unpublishingId === selectedTask.id
+                        ? 'Moving…'
+                        : 'To Staging'}
+                    </Button>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    variant="gold"
+                    className="gap-1.5 !py-1 !px-2 text-xs"
+                    onClick={() => openDuplicateTaskForm(selectedTask)}
+                    title="Create a new To Do task with the same details"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Duplicate
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="gold"
+                    className="gap-1.5 !py-1 !px-2 text-xs"
+                    onClick={() => openEditTaskForm(selectedTask)}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    Edit Task
+                  </Button>
+                </StaffToolsBar>
+              ) : null}
 
               {selectedTask.staffOnly && (
                 <div className="rounded-lg border border-semantic-achievement/30 bg-semantic-achievement/10 px-3 py-2.5">
@@ -5393,6 +5478,50 @@ const ProjectWorkspace = () => {
                 onClick={() => void confirmPublishStaging()}
               >
                 {publishingId ? 'Publishing…' : 'Publish'}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+
+      <Modal
+        isOpen={!!unpublishConfirmTask}
+        onClose={() => !unpublishingId && setUnpublishConfirmTask(null)}
+        title="Move back to Staging?"
+        size="md"
+      >
+        {unpublishConfirmTask ? (
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary leading-relaxed">
+              Move{' '}
+              <span className="text-white font-medium">
+                {unpublishConfirmTask.title}
+              </span>{' '}
+              (
+              {(Number(unpublishConfirmTask.depth) || 0) === 0
+                ? 'Epic'
+                : 'Medium'}
+              ) and any nested tasks back to Staging?
+            </p>
+            <p className="text-sm text-text-secondary leading-relaxed">
+              They will leave the public board. Active claims on this work are
+              returned. Staff Only flags are kept.
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={Boolean(unpublishingId)}
+                onClick={() => setUnpublishConfirmTask(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={Boolean(unpublishingId)}
+                onClick={() => void confirmMovePublicToStaging()}
+              >
+                {unpublishingId ? 'Moving…' : 'Move to Staging'}
               </Button>
             </div>
           </div>
