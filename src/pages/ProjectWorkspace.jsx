@@ -3708,7 +3708,7 @@ const ProjectWorkspace = () => {
         size="lg"
       >
         {selectedTask && (
-          <div className="task-scroll space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+          <div className="space-y-4">
             {/* Header: path then meta (stacked on mobile so they never collide) */}
             <div className="space-y-2">
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-x-3 sm:gap-y-1.5">
@@ -4702,7 +4702,7 @@ const ProjectWorkspace = () => {
         size="lg"
       >
         {selectedTask && (
-          <div className="task-scroll space-y-5 max-h-[75vh] overflow-y-auto pr-1">
+          <div className="space-y-5">
             <div>
               <p className="text-xs font-mono tracking-widest text-text-muted uppercase mb-1">
                 Task
@@ -5075,7 +5075,7 @@ const ProjectWorkspace = () => {
         }
         size="lg"
       >
-        <form onSubmit={handleTaskFormSubmit} className="task-scroll space-y-6 max-h-[70vh] overflow-y-auto pr-1">
+        <form onSubmit={handleTaskFormSubmit} className="space-y-6">
           <p className="text-sm text-text-secondary leading-relaxed">
             {taskFormMode === 'edit'
               ? isStagingBoard
