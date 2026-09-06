@@ -84,6 +84,7 @@ Output: Docs/art-explorations/tether/.
 Definition of Done:
 - Three stills or overlays of Low vs High tension exist in Docs/art-explorations/tether/.
 - The tether stays a beam between bodies, not a physical cable.', '[{"id":"s1","label":"Three stills or overlays of Low vs High tension exist in Docs/art-explorations/tether/.","done":false},{"id":"s2","label":"The tether stays a beam between bodies, not a physical cable.","done":false}]'::jsonb),
+    ('Tether-P.3', 'Tether-P.3 QA templates', 'Templates for the first beam playtests. Staff Only.', '[]'::jsonb),
     ('Tether-P.3.2', 'Tether-P.3.2 Playtest note template', 'Write Docs/qa/PlaytestNote.md with fields: date, build, testers, what felt good, what broke, recommended task change (not a new feature).
 
 Output: Docs/qa/PlaytestNote.md.

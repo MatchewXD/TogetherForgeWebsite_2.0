@@ -87,9 +87,9 @@ describe('Tether Task Breakdown v0.6 tree', () => {
     expect(byCode['Tether-P.2.1'].parentCode).toBe('Tether-P.2');
     expect(byCode['Tether-P.2.2'].parentCode).toBe('Tether-P.2');
     expect(byCode['Tether-P.2.3']).toBeUndefined();
-    expect(byCode['Tether-P.3']).toBeUndefined();
+    expect(byCode['Tether-P.3'].parentCode).toBe('Tether-P');
     expect(byCode['Tether-P.3.1']).toBeUndefined();
-    expect(byCode['Tether-P.3.2'].parentCode).toBe('Tether-P');
+    expect(byCode['Tether-P.3.2'].parentCode).toBe('Tether-P.3');
     expect(byCode['Tether-P.4']).toBeUndefined();
     expect(byCode['Tether-P.4.1']).toBeUndefined();
     const pCodes = TETHER_V06_TASKS.filter((t) => t.code.startsWith('Tether-P')).map(
@@ -100,6 +100,7 @@ describe('Tether Task Breakdown v0.6 tree', () => {
       'Tether-P.2',
       'Tether-P.2.1',
       'Tether-P.2.2',
+      'Tether-P.3',
       'Tether-P.3.2',
     ]);
     for (const task of TETHER_V06_TASKS.filter((t) => t.code.startsWith('Tether-P'))) {

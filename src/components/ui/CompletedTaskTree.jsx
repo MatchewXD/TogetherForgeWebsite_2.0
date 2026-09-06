@@ -22,12 +22,12 @@ function CompletedNode({
     : 0;
 
   return (
-    <div className="space-y-2">
+    <div className={open && depth === 0 ? 'sm:col-span-2 xl:col-span-3' : ''}>
       <div className="flex items-start gap-1.5">
         {hasKids ? (
           <button
             type="button"
-            className="shrink-0 mt-4 p-1 rounded text-text-muted hover:text-white"
+            className="shrink-0 mt-3 p-1 rounded text-text-muted hover:text-white"
             aria-expanded={open}
             aria-label={
               open ? `Collapse ${task.title}` : `Expand ${task.title}`
@@ -40,33 +40,28 @@ function CompletedNode({
               <ChevronRight className="w-4 h-4" />
             )}
           </button>
-        ) : (
-          <span className="w-6 shrink-0" aria-hidden />
-        )}
+        ) : null}
         <div className="min-w-0 flex-1" id={`task-${task.id}`}>
           <TaskCard
+            {...cardProps}
             task={task}
             indentByDepth={false}
-            {...cardProps}
+            hideStaffTools
             movingToStaging={cardProps.unpublishingId === task.id}
           />
-          {hasKids && !open ? (
+          {hasKids ? (
             <button
               type="button"
               className="mt-1.5 text-[10px] font-mono text-text-muted hover:text-white"
               onClick={() => onToggle(task.id)}
             >
-              Show {nestedCount} nested completed
+              {open ? 'Hide' : 'Show'} {nestedCount} nested completed
             </button>
           ) : null}
         </div>
       </div>
       {hasKids && open ? (
-        <div
-          className={`space-y-2 ${
-            depth === 0 ? 'pl-6 sm:pl-8' : 'pl-4 sm:pl-6'
-          }`}
-        >
+        <div className="mt-2 ml-6 sm:ml-8 space-y-2 border-l border-semantic-success/25 pl-3 sm:pl-4">
           {kids.map((child) => (
             <CompletedNode
               key={child.id}

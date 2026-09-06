@@ -58,6 +58,8 @@ const TaskCard = ({
   movingToStaging = false,
   /** When false, skip the depth-based left offset (used in nested completed groups). */
   indentByDepth = true,
+  /** Hide the gold Staff strip (completed board keeps cards compact). */
+  hideStaffTools = false,
 }) => {
   const isCompleted =
     task.status === 'completed' || task.dbStatus === 'Completed';
@@ -159,9 +161,10 @@ const TaskCard = ({
   const showMoveToStaging =
     canStaffUpdate && onMoveToStaging && (depth === 0 || depth === 1);
   const showStaffTools =
-    showMoveToStaging ||
-    (canStaffUpdate && onDuplicate) ||
-    (isCompleted && canStaffUpdate && onUpdate);
+    !hideStaffTools &&
+    (showMoveToStaging ||
+      (canStaffUpdate && onDuplicate) ||
+      (isCompleted && canStaffUpdate && onUpdate));
 
   return (
     <div
