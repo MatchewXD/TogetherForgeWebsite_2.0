@@ -1,8 +1,8 @@
 /**
  * Tether Task Breakdown v0.6 — source of truth for the staging-board import.
  * Codes match the doc (Tether-1.1.1). Do not invent extra Smalls.
- * Most rows import to board_scope = staging. Tether-P.2 look exploration is
- * public Ready under Epic 9. Do not recreate Tether-P.1.
+ * Tether-P is staging-only game work not already in the Unreal repo.
+ * Do not recreate Tether-P.1, P.2.3, P.3.1, or P.4. Do not publish Tether-P.
  */
 
 export const TETHER_V06_VERSION = 'v0.6';
@@ -180,21 +180,32 @@ export const TETHER_V06_TASKS = [
   }),
 
   t({
+    code: 'Tether-P',
+    parentCode: null,
+    shortTitle: 'Open game work',
+    state: 'Staff Only',
+    size: 'Medium',
+    skill: 'Art',
+    purpose:
+      'Tether game work that is not already in the Unreal repo. Staging only. Do not publish. Networking stays Tether-10.',
+    sortOrder: 15,
+  }),
+  t({
     code: 'Tether-P.2',
-    parentCode: 'Tether-9',
+    parentCode: 'Tether-P',
     shortTitle: 'Art exploration',
-    state: 'Ready',
+    state: 'Staff Only',
     size: 'First Spark',
     skill: 'Art',
     purpose:
       'Art exploration for player, beam, and scale. Not final production art. StyleLock.md is Draft. Cite Docs/Vision.md and Docs/StyleLock.md.',
-    sortOrder: 30,
+    sortOrder: 10,
   }),
   t({
     code: 'Tether-P.2.1',
     parentCode: 'Tether-P.2',
     shortTitle: 'Player stand-in silhouettes',
-    state: 'Ready',
+    state: 'Staff Only',
     size: 'First Spark',
     skill: 'Art',
     purpose:
@@ -211,7 +222,7 @@ export const TETHER_V06_TASKS = [
     code: 'Tether-P.2.2',
     parentCode: 'Tether-P.2',
     shortTitle: 'Tether visual directions',
-    state: 'Ready',
+    state: 'Staff Only',
     size: 'First Spark',
     skill: 'Art',
     purpose:
@@ -224,54 +235,8 @@ export const TETHER_V06_TASKS = [
     sortOrder: 20,
   }),
   t({
-    code: 'Tether-P.2.3',
-    parentCode: 'Tether-P.2',
-    shortTitle: 'Modular kit scale sheet',
-    state: 'Ready',
-    size: 'First Spark',
-    skill: 'Art',
-    purpose:
-      'One scale sheet so later blockout pieces match. Starting sizes are already in Docs/StyleLock.md. Cite Docs/StyleLock.md.',
-    output:
-      'Docs/art-explorations/scale-sheet.md with player height, airlock height, ramp, resource size, one floor tile, and a simple diagram.',
-    dod: [
-      'Docs/art-explorations/scale-sheet.md documents player height, airlock height, ramp, resource size, and one floor tile.',
-      'The sheet includes a simple diagram.',
-    ],
-    sortOrder: 30,
-  }),
-  t({
-    code: 'Tether-P.3',
-    parentCode: 'Tether-2',
-    shortTitle: 'QA templates',
-    state: 'Staff Only',
-    size: 'First Spark',
-    skill: 'QA',
-    purpose: 'Templates for the first beam playtests. Staff Only.',
-    sortOrder: 40,
-  }),
-  t({
-    code: 'Tether-P.3.1',
-    parentCode: 'Tether-P.3',
-    shortTitle: 'Dual-control checklist',
-    state: 'Staff Only',
-    size: 'First Spark',
-    skill: 'QA',
-    purpose:
-      'Write Docs/qa/DualControlChecklist.md. Leave result rows blank. Do not tune physics in this task.',
-    output:
-      'Docs/qa/DualControlChecklist.md with rows: one player moves, two players move apart, one jumps, one walks off a ledge, short hang on the beam, tension readable from a spectator view. Leave a row for 3-4 when that layout is no longer Open.',
-    dod: [
-      'Docs/qa/DualControlChecklist.md exists with the listed rows.',
-      'A 3-4 player row is left for when that layout is no longer Open.',
-      'Result rows are blank.',
-      'This task does not tune physics.',
-    ],
-    sortOrder: 10,
-  }),
-  t({
     code: 'Tether-P.3.2',
-    parentCode: 'Tether-P.3',
+    parentCode: 'Tether-P',
     shortTitle: 'Playtest note template',
     state: 'Staff Only',
     size: 'First Spark',
@@ -283,35 +248,6 @@ export const TETHER_V06_TASKS = [
       'Docs/qa/PlaytestNote.md exists with date, build, testers, what felt good, what broke, and recommended task change (not a new feature).',
     ],
     sortOrder: 20,
-  }),
-  t({
-    code: 'Tether-P.4',
-    parentCode: null,
-    shortTitle: 'Community credit',
-    state: 'Staff Only',
-    size: 'Small',
-    skill: 'Other',
-    purpose:
-      'Credit current off-site helpers. Blocked until the Grant Credit staff tool exists on the site.',
-    blocker: 'Blocked until the Grant Credit staff tool exists on the site.',
-    sortOrder: 16,
-  }),
-  t({
-    code: 'Tether-P.4.1',
-    parentCode: 'Tether-P.4',
-    shortTitle: 'Credit current off-site helpers',
-    state: 'Staff Only',
-    size: 'Small',
-    skill: 'Other',
-    purpose:
-      'Staff: use Grant Credit for current Discord moderators and any off-site help already given. Public line example: Discord moderation, September 2026. Pending email credits are allowed if they do not yet have a site account. Do not invent placeholder people. Do not complete this card without the real tool.',
-    output: 'Grant Credit entries for current off-site helpers (no invented people).',
-    dod: [
-      'Current Discord moderators and existing off-site help are credited with the Grant Credit staff tool.',
-      'No placeholder people were invented.',
-    ],
-    blocker: 'Blocked until the Grant Credit staff tool exists on the site.',
-    sortOrder: 10,
   }),
 
   t({
@@ -334,6 +270,26 @@ export const TETHER_V06_TASKS = [
     skill: 'Code',
     purpose: 'First feel test: a basic tether between two pawns.',
     sortOrder: 10,
+  }),
+  t({
+    code: 'Tether-2.1.0',
+    parentCode: 'Tether-2.1',
+    shortTitle: 'Prototype graybox',
+    state: 'Staff Only',
+    size: 'Small',
+    skill: 'Level Design',
+    purpose:
+      'The live Unreal map TetherPrototype is a black void. Build a walkable graybox before stand-ins or the tether line. Follow Docs/TetherPrototype.md. No art, enemies, resources, or Level 1 work.',
+    output:
+      'A walkable Content/Tether/Maps/TetherPrototype instead of a void: lit floor, collision, 200 cm tiles, at least 20 x 20 m, one ledge 250 to 400 cm high, two Player Starts about 300 cm apart.',
+    dod: [
+      'Map is lit.',
+      'Floor holds a pawn.',
+      'Ledge exists (250 to 400 cm).',
+      'Two Player Starts exist about 300 cm apart.',
+      'Editor opens Content/Tether/Maps/TetherPrototype.',
+    ],
+    sortOrder: 0,
   }),
   t({
     code: 'Tether-2.1.1',
@@ -390,6 +346,8 @@ export const TETHER_V06_TASKS = [
     size: 'Medium',
     skill: 'Code',
     purpose: 'Tension states tethered players can read.',
+    blocker: 'Do not start until a TetherPrototype graybox exists.',
+    blockedByCode: 'Tether-2.1.0',
     sortOrder: 20,
   }),
   t({
@@ -442,6 +400,8 @@ export const TETHER_V06_TASKS = [
     size: 'Medium',
     skill: 'Code',
     purpose: 'Over-stretch and recovery.',
+    blocker: 'Do not start until a TetherPrototype graybox exists.',
+    blockedByCode: 'Tether-2.1.0',
     sortOrder: 30,
   }),
   t({

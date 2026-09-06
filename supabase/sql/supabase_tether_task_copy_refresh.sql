@@ -68,6 +68,7 @@ Definition of Done:
 - Docs/StyleLock.md exists and is labeled Draft until approved.
 - Docs/TetherRules.txt exists with starting bands and Open items labeled.
 - README links Vision, WhatThisIsNot, StyleLock, and TetherRules.', '[{"id":"s1","label":"Docs/StyleLock.md exists and is labeled Draft until approved.","done":false},{"id":"s2","label":"Docs/TetherRules.txt exists with starting bands and Open items labeled.","done":false},{"id":"s3","label":"README links Vision, WhatThisIsNot, StyleLock, and TetherRules.","done":false}]'::jsonb),
+    ('Tether-P', 'Tether-P Open game work', 'Tether game work that is not already in the Unreal repo. Staging only. Do not publish. Networking stays Tether-10.', '[]'::jsonb),
     ('Tether-P.2', 'Tether-P.2 Art exploration', 'Art exploration for player, beam, and scale. Not final production art. StyleLock.md is Draft. Cite Docs/Vision.md and Docs/StyleLock.md.', '[]'::jsonb),
     ('Tether-P.2.1', 'Tether-P.2.1 Player stand-in silhouettes', 'Three readable silhouette thumbnails for a suited colony crew stand-in. Do not model a final character. Do not change the prototype mesh unless staff ask. Cite Docs/StyleLock.md.
 
@@ -83,43 +84,24 @@ Output: Docs/art-explorations/tether/.
 Definition of Done:
 - Three stills or overlays of Low vs High tension exist in Docs/art-explorations/tether/.
 - The tether stays a beam between bodies, not a physical cable.', '[{"id":"s1","label":"Three stills or overlays of Low vs High tension exist in Docs/art-explorations/tether/.","done":false},{"id":"s2","label":"The tether stays a beam between bodies, not a physical cable.","done":false}]'::jsonb),
-    ('Tether-P.2.3', 'Tether-P.2.3 Modular kit scale sheet', 'One scale sheet so later blockout pieces match. Starting sizes are already in Docs/StyleLock.md. Cite Docs/StyleLock.md.
-
-Output: Docs/art-explorations/scale-sheet.md with player height, airlock height, ramp, resource size, one floor tile, and a simple diagram.
-
-Definition of Done:
-- Docs/art-explorations/scale-sheet.md documents player height, airlock height, ramp, resource size, and one floor tile.
-- The sheet includes a simple diagram.', '[{"id":"s1","label":"Docs/art-explorations/scale-sheet.md documents player height, airlock height, ramp, resource size, and one floor tile.","done":false},{"id":"s2","label":"The sheet includes a simple diagram.","done":false}]'::jsonb),
-    ('Tether-P.3', 'Tether-P.3 QA templates', 'Templates for the first beam playtests. Staff Only.', '[]'::jsonb),
-    ('Tether-P.3.1', 'Tether-P.3.1 Dual-control checklist', 'Write Docs/qa/DualControlChecklist.md. Leave result rows blank. Do not tune physics in this task.
-
-Output: Docs/qa/DualControlChecklist.md with rows: one player moves, two players move apart, one jumps, one walks off a ledge, short hang on the beam, tension readable from a spectator view. Leave a row for 3-4 when that layout is no longer Open.
-
-Definition of Done:
-- Docs/qa/DualControlChecklist.md exists with the listed rows.
-- A 3-4 player row is left for when that layout is no longer Open.
-- Result rows are blank.
-- This task does not tune physics.', '[{"id":"s1","label":"Docs/qa/DualControlChecklist.md exists with the listed rows.","done":false},{"id":"s2","label":"A 3-4 player row is left for when that layout is no longer Open.","done":false},{"id":"s3","label":"Result rows are blank.","done":false},{"id":"s4","label":"This task does not tune physics.","done":false}]'::jsonb),
     ('Tether-P.3.2', 'Tether-P.3.2 Playtest note template', 'Write Docs/qa/PlaytestNote.md with fields: date, build, testers, what felt good, what broke, recommended task change (not a new feature).
 
 Output: Docs/qa/PlaytestNote.md.
 
 Definition of Done:
 - Docs/qa/PlaytestNote.md exists with date, build, testers, what felt good, what broke, and recommended task change (not a new feature).', '[{"id":"s1","label":"Docs/qa/PlaytestNote.md exists with date, build, testers, what felt good, what broke, and recommended task change (not a new feature).","done":false}]'::jsonb),
-    ('Tether-P.4', 'Tether-P.4 Community credit', 'Credit current off-site helpers. Blocked until the Grant Credit staff tool exists on the site.
-
-Blocker: Blocked until the Grant Credit staff tool exists on the site.', '[]'::jsonb),
-    ('Tether-P.4.1', 'Tether-P.4.1 Credit current off-site helpers', 'Staff: use Grant Credit for current Discord moderators and any off-site help already given. Public line example: Discord moderation, September 2026. Pending email credits are allowed if they do not yet have a site account. Do not invent placeholder people. Do not complete this card without the real tool.
-
-Output: Grant Credit entries for current off-site helpers (no invented people).
-
-Definition of Done:
-- Current Discord moderators and existing off-site help are credited with the Grant Credit staff tool.
-- No placeholder people were invented.
-
-Blocker: Blocked until the Grant Credit staff tool exists on the site.', '[{"id":"s1","label":"Current Discord moderators and existing off-site help are credited with the Grant Credit staff tool.","done":false},{"id":"s2","label":"No placeholder people were invented.","done":false}]'::jsonb),
     ('Tether-2', 'Tether-2 Core tether physics', 'Shared tether feels good and is readable. First feel test uses two pawns. Do not unlock later gameplay until that test is playtested and TetherRules.txt is updated. Solo behavior and 3-4 tether topology stay Open.', '[]'::jsonb),
     ('Tether-2.1', 'Tether-2.1 Basic tether between two pawns', 'First feel test: a basic tether between two pawns.', '[]'::jsonb),
+    ('Tether-2.1.0', 'Tether-2.1.0 Prototype graybox', 'The live Unreal map TetherPrototype is a black void. Build a walkable graybox before stand-ins or the tether line. Follow Docs/TetherPrototype.md. No art, enemies, resources, or Level 1 work.
+
+Output: A walkable Content/Tether/Maps/TetherPrototype instead of a void: lit floor, collision, 200 cm tiles, at least 20 x 20 m, one ledge 250 to 400 cm high, two Player Starts about 300 cm apart.
+
+Definition of Done:
+- Map is lit.
+- Floor holds a pawn.
+- Ledge exists (250 to 400 cm).
+- Two Player Starts exist about 300 cm apart.
+- Editor opens Content/Tether/Maps/TetherPrototype.', '[{"id":"s1","label":"Map is lit.","done":false},{"id":"s2","label":"Floor holds a pawn.","done":false},{"id":"s3","label":"Ledge exists (250 to 400 cm).","done":false},{"id":"s4","label":"Two Player Starts exist about 300 cm apart.","done":false},{"id":"s5","label":"Editor opens Content/Tether/Maps/TetherPrototype.","done":false}]'::jsonb),
     ('Tether-2.1.1', 'Tether-2.1.1 Player stand-ins', 'Player stand-ins.
 
 Output: Content/Tether/Characters/BP_PlayerStandIn, two stand-ins in TetherPrototype for the first feel test.
@@ -141,7 +123,9 @@ Output: Docs/Controls.md.
 
 Definition of Done:
 - Docs/Controls.md exists and documents local controls for the two-pawn feel test.', '[{"id":"s1","label":"Docs/Controls.md exists and documents local controls for the two-pawn feel test.","done":false}]'::jsonb),
-    ('Tether-2.2', 'Tether-2.2 Tension states', 'Tension states tethered players can read.', '[]'::jsonb),
+    ('Tether-2.2', 'Tether-2.2 Tension states', 'Tension states tethered players can read.
+
+Blocker: Do not start until a TetherPrototype graybox exists.', '[]'::jsonb),
     ('Tether-2.2.1', 'Tether-2.2.1 Tension calculation', 'Tension calculation.
 
 Output: Low 0–50, Medium 50–85, High 85–100. Write thresholds in TetherRules.txt.
@@ -162,7 +146,9 @@ Output: Spectator can read the state.
 Definition of Done:
 - A spectator can read Low / Medium / High from the visual.
 - Placeholder High-tension audio plays.', '[{"id":"s1","label":"A spectator can read Low / Medium / High from the visual.","done":false},{"id":"s2","label":"Placeholder High-tension audio plays.","done":false}]'::jsonb),
-    ('Tether-2.3', 'Tether-2.3 Over-stretch and recovery', 'Over-stretch and recovery.', '[]'::jsonb),
+    ('Tether-2.3', 'Tether-2.3 Over-stretch and recovery', 'Over-stretch and recovery.
+
+Blocker: Do not start until a TetherPrototype graybox exists.', '[]'::jsonb),
     ('Tether-2.3.1', 'Tether-2.3.1 Over-stretch behavior', 'Over-stretch behavior.
 
 Output: Documented in TetherRules.txt and implemented.

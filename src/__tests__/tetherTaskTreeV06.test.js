@@ -32,20 +32,20 @@ describe('Tether Task Breakdown v0.6 tree', () => {
     ]);
   });
 
-  it('marks Epic 1, Epic 2, P.3/P.4, 9.1, and Epic 10 Staff Only', () => {
+  it('marks Epic 1, Epic 2, Tether-P, 9.1, and Epic 10 Staff Only', () => {
     const staffCodes = TETHER_V06_TASKS.filter((t) => tetherV06StaffOnly(t.state)).map(
       (t) => t.code
     );
     expect(staffCodes).toContain('Tether-1');
     expect(staffCodes).toContain('Tether-1.1.1');
     expect(staffCodes).toContain('Tether-2.3.2');
-    expect(staffCodes).toContain('Tether-P.3.1');
-    expect(staffCodes).toContain('Tether-P.4.1');
+    expect(staffCodes).toContain('Tether-P');
+    expect(staffCodes).toContain('Tether-P.2.1');
+    expect(staffCodes).toContain('Tether-P.3.2');
     expect(staffCodes).toContain('Tether-9.1');
     expect(staffCodes).toContain('Tether-10');
     expect(staffCodes).not.toContain('Tether-3');
     expect(staffCodes).not.toContain('Tether-9.2');
-    expect(staffCodes).not.toContain('Tether-P.2.1');
   });
 
   it('blocks later epics on the named previous epic, and 9.2 on style lock', () => {
@@ -57,23 +57,51 @@ describe('Tether Task Breakdown v0.6 tree', () => {
     expect(byCode['Tether-6'].blockedByCode).toBe('Tether-5');
     expect(byCode['Tether-9.2'].blockedByCode).toBe('Tether-9.1');
     expect(byCode['Tether-9.2'].state).toBe('Blocked');
+    expect(byCode['Tether-2.2'].blockedByCode).toBe('Tether-2.1.0');
+    expect(byCode['Tether-2.3'].blockedByCode).toBe('Tether-2.1.0');
   });
 
-  it('rehomes P cards off the Ready lane and does not recreate P.1', () => {
+  it('puts the prototype graybox first under Tether-2.1', () => {
+    const smalls = TETHER_V06_TASKS.filter((t) => t.parentCode === 'Tether-2.1').sort(
+      (a, b) => a.sortOrder - b.sortOrder
+    );
+    expect(smalls.map((t) => t.code)).toEqual([
+      'Tether-2.1.0',
+      'Tether-2.1.1',
+      'Tether-2.1.2',
+      'Tether-2.1.3',
+    ]);
+    expect(smalls[0].shortTitle).toMatch(/graybox/i);
+    expect(smalls[1].shortTitle).toMatch(/stand-in/i);
+    expect(smalls[2].shortTitle).toMatch(/constraint|visual|tether/i);
+  });
+
+  it('keeps Tether-P as staging-only leftover game work and does not recreate removed P cards', () => {
     const byCode = Object.fromEntries(TETHER_V06_TASKS.map((t) => [t.code, t]));
-    expect(byCode['Tether-P']).toBeUndefined();
+    expect(byCode['Tether-P'].parentCode).toBeNull();
+    expect(byCode['Tether-P'].state).toBe('Staff Only');
     expect(byCode['Tether-P.1']).toBeUndefined();
     expect(byCode['Tether-P.1.1']).toBeUndefined();
     expect(byCode['Tether-P.1.2']).toBeUndefined();
-    expect(byCode['Tether-P.2'].parentCode).toBe('Tether-9');
-    expect(byCode['Tether-P.2'].state).toBe('Ready');
-    expect(byCode['Tether-P.2'].skill).toBe('Art');
-    expect(byCode['Tether-P.3'].parentCode).toBe('Tether-2');
-    expect(byCode['Tether-P.3'].state).toBe('Staff Only');
-    expect(byCode['Tether-P.3'].skill).toBe('QA');
-    expect(byCode['Tether-P.4'].parentCode).toBeNull();
-    expect(byCode['Tether-P.4'].state).toBe('Staff Only');
-    expect(byCode['Tether-P.4'].blocker).toMatch(/Grant Credit/i);
+    expect(byCode['Tether-P.2'].parentCode).toBe('Tether-P');
+    expect(byCode['Tether-P.2.1'].parentCode).toBe('Tether-P.2');
+    expect(byCode['Tether-P.2.2'].parentCode).toBe('Tether-P.2');
+    expect(byCode['Tether-P.2.3']).toBeUndefined();
+    expect(byCode['Tether-P.3']).toBeUndefined();
+    expect(byCode['Tether-P.3.1']).toBeUndefined();
+    expect(byCode['Tether-P.3.2'].parentCode).toBe('Tether-P');
+    expect(byCode['Tether-P.4']).toBeUndefined();
+    expect(byCode['Tether-P.4.1']).toBeUndefined();
+    const pCodes = TETHER_V06_TASKS.filter((t) => t.code.startsWith('Tether-P')).map(
+      (t) => t.code
+    );
+    expect(pCodes).toEqual([
+      'Tether-P',
+      'Tether-P.2',
+      'Tether-P.2.1',
+      'Tether-P.2.2',
+      'Tether-P.3.2',
+    ]);
     for (const task of TETHER_V06_TASKS.filter((t) => t.code.startsWith('Tether-P'))) {
       const desc = buildTetherV06Description(task);
       expect(desc).not.toMatch(/Promote to public Ready/i);

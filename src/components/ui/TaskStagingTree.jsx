@@ -3,9 +3,12 @@
  * Preparation area: create/edit/reorder/delete, then Publish to the public board.
  */
 
+import { useMemo, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
+  ChevronDown,
+  ChevronRight,
   Pencil,
   Plus,
   Trash2,
@@ -151,6 +154,8 @@ function StagingRow({
   allTasks,
   busyId,
   publishingId,
+  collapsedIds,
+  onToggleCollapsed,
   onAddChild,
   onEdit,
   onDelete,
@@ -159,6 +164,8 @@ function StagingRow({
 }) {
   const depth = Number(task.depth) || 0;
   const children = sortSiblings(getChildTasks(allTasks, task.id));
+  const hasKids = children.length > 0;
+  const collapsed = hasKids && collapsedIds.has(task.id);
   const accent =
     depth === 0
       ? 'border-l-semantic-achievement/70'
@@ -174,6 +181,25 @@ function StagingRow({
         <div className="flex flex-col lg:flex-row lg:items-start gap-2 lg:gap-3">
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex flex-wrap items-center gap-1.5">
+              {hasKids ? (
+                <button
+                  type="button"
+                  className="shrink-0 p-0.5 -ml-0.5 rounded text-text-muted hover:text-white"
+                  aria-expanded={!collapsed}
+                  aria-label={
+                    collapsed
+                      ? `Expand ${task.title}`
+                      : `Collapse ${task.title}`
+                  }
+                  onClick={() => onToggleCollapsed(task.id)}
+                >
+                  {collapsed ? (
+                    <ChevronRight className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
+                </button>
+              ) : null}
               <LevelChip task={task} />
               {task.category && (
                 <TaskCategoryBadge category={task.category} size="sm" />
@@ -189,11 +215,16 @@ function StagingRow({
                 {task.description}
               </p>
             ) : null}
-            {children.length > 0 && (
-              <p className="text-[10px] font-mono text-text-muted">
-                {children.length} nested · {task.completedChildCount || 0}/
+            {hasKids && (
+              <button
+                type="button"
+                className="text-[10px] font-mono text-text-muted hover:text-white"
+                onClick={() => onToggleCollapsed(task.id)}
+              >
+                {collapsed ? 'Show' : 'Hide'} {children.length} nested ·{' '}
+                {task.completedChildCount || 0}/
                 {task.childCount || children.length} marked done
-              </p>
+              </button>
             )}
           </div>
           <RowActions
@@ -209,7 +240,7 @@ function StagingRow({
           />
         </div>
       </div>
-      {children.length > 0 && (
+      {hasKids && !collapsed && (
         <ul className="space-y-2 pl-3 sm:pl-5">
           {children.map((child) => (
             <StagingRow
@@ -219,6 +250,8 @@ function StagingRow({
               allTasks={allTasks}
               busyId={busyId}
               publishingId={publishingId}
+              collapsedIds={collapsedIds}
+              onToggleCollapsed={onToggleCollapsed}
               onAddChild={onAddChild}
               onEdit={onEdit}
               onDelete={onDelete}
@@ -246,6 +279,35 @@ const TaskStagingTree = ({
   const roots = sortSiblings(
     (tasks || []).filter((t) => !t.parentTaskId)
   );
+  const collapsibleIds = useMemo(() => {
+    const ids = [];
+    for (const task of tasks || []) {
+      if (getChildTasks(tasks, task.id).length > 0) ids.push(task.id);
+    }
+    return ids;
+  }, [tasks]);
+  const [collapsedIds, setCollapsedIds] = useState(() => new Set());
+
+  const toggleCollapsed = (id) => {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const collapseAll = () => {
+    setCollapsedIds(new Set(collapsibleIds));
+  };
+
+  const expandAll = () => {
+    setCollapsedIds(new Set());
+  };
+
+  const allCollapsed =
+    collapsibleIds.length > 0 &&
+    collapsibleIds.every((id) => collapsedIds.has(id));
 
   return (
     <div className="space-y-4">
@@ -253,12 +315,24 @@ const TaskStagingTree = ({
         <p className="text-xs font-mono tracking-widest text-text-muted uppercase">
           {tasks.length} staging task{tasks.length === 1 ? '' : 's'}
         </p>
-        {onAddEpic && (
-          <Button size="sm" className="gap-1.5" onClick={onAddEpic}>
-            <Plus className="w-3.5 h-3.5" />
-            Add Epic
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {collapsibleIds.length > 0 ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs"
+              onClick={allCollapsed ? expandAll : collapseAll}
+            >
+              {allCollapsed ? 'Expand all' : 'Collapse all'}
+            </Button>
+          ) : null}
+          {onAddEpic && (
+            <Button size="sm" className="gap-1.5" onClick={onAddEpic}>
+              <Plus className="w-3.5 h-3.5" />
+              Add Epic
+            </Button>
+          )}
+        </div>
       </div>
 
       {roots.length === 0 ? (
@@ -284,6 +358,8 @@ const TaskStagingTree = ({
               allTasks={tasks}
               busyId={busyId}
               publishingId={publishingId}
+              collapsedIds={collapsedIds}
+              onToggleCollapsed={toggleCollapsed}
               onAddChild={onAddChild}
               onEdit={onEdit}
               onDelete={onDelete}
