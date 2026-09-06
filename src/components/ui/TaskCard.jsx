@@ -56,6 +56,8 @@ const TaskCard = ({
   /** Staff: move a public Epic/Medium back to Staging */
   onMoveToStaging = null,
   movingToStaging = false,
+  /** When false, skip the depth-based left offset (used in nested completed groups). */
+  indentByDepth = true,
 }) => {
   const isCompleted =
     task.status === 'completed' || task.dbStatus === 'Completed';
@@ -171,7 +173,7 @@ const TaskCard = ({
           : ''
       }`}
       style={
-        depth > 0
+        indentByDepth && depth > 0
           ? { marginLeft: Math.min(depth, 2) * 14 }
           : undefined
       }

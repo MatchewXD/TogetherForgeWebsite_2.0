@@ -29,6 +29,7 @@ import {
   isTaskDependencyLocked,
   normalizeChecklist,
   isVisibleProjectHubActivity,
+  groupCompletedTaskForest,
 } from '../services/tasksService';
 
 function task(partial) {
@@ -539,5 +540,34 @@ describe('project hub recent activity', () => {
     expect(isVisibleProjectHubActivity('claimed')).toBe(true);
     expect(isVisibleProjectHubActivity('completed')).toBe(true);
     expect(isVisibleProjectHubActivity('submitted_for_review')).toBe(true);
+  });
+});
+
+describe('groupCompletedTaskForest', () => {
+  it('nests completed mediums and smalls under a completed epic', () => {
+    const epic = task({ id: 'e', title: 'Epic', parentTaskId: null, depth: 0 });
+    const med = task({ id: 'm', title: 'Medium', parentTaskId: 'e', depth: 1 });
+    const small = task({
+      id: 's',
+      title: 'Small',
+      parentTaskId: 'm',
+      depth: 2,
+    });
+    const orphan = task({
+      id: 'o',
+      title: 'Orphan small',
+      parentTaskId: 'other',
+      depth: 2,
+    });
+    const { roots, childrenOf } = groupCompletedTaskForest([
+      small,
+      epic,
+      orphan,
+      med,
+    ]);
+    expect(roots.map((t) => t.id)).toEqual(['e', 'o']);
+    expect(childrenOf.get('e').map((t) => t.id)).toEqual(['m']);
+    expect(childrenOf.get('m').map((t) => t.id)).toEqual(['s']);
+    expect(childrenOf.get('o')).toBeUndefined();
   });
 });

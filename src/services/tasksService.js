@@ -967,6 +967,39 @@ export function attachTaskHierarchy(tasks) {
   });
 }
 
+/**
+ * Nest completed tasks under completed parents so the Completed column
+ * can show Epics (and Mediums) as collapsible groups instead of a flat list.
+ * A task is a root when its parent is missing or not in the completed set.
+ */
+export function groupCompletedTaskForest(completedTasks) {
+  const list = Array.isArray(completedTasks) ? completedTasks.filter(Boolean) : [];
+  const ids = new Set(list.map((t) => t.id).filter(Boolean));
+  const childrenOf = new Map();
+  for (const t of list) {
+    const pid = t.parentTaskId || null;
+    if (!pid || !ids.has(pid)) continue;
+    if (!childrenOf.has(pid)) childrenOf.set(pid, []);
+    childrenOf.get(pid).push(t);
+  }
+  for (const kids of childrenOf.values()) {
+    kids.sort(compareTaskBoardOrder);
+  }
+  const roots = list
+    .filter((t) => !t.parentTaskId || !ids.has(t.parentTaskId))
+    .sort(compareTaskBoardOrder);
+  return { roots, childrenOf };
+}
+
+export function countCompletedDescendants(taskId, childrenOf) {
+  const kids = childrenOf?.get(taskId) || [];
+  let n = kids.length;
+  for (const child of kids) {
+    n += countCompletedDescendants(child.id, childrenOf);
+  }
+  return n;
+}
+
 /** Direct children of a parent from an already-enriched list. */
 export function getChildTasks(tasks, parentId) {
   if (!parentId || !Array.isArray(tasks)) return [];

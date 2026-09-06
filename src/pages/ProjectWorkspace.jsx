@@ -47,6 +47,7 @@ import TaskCard from '../components/ui/TaskCard';
 import SubTaskList from '../components/ui/SubTaskList';
 import TaskDependencyPicker from '../components/ui/TaskDependencyPicker';
 import TaskStagingTree from '../components/ui/TaskStagingTree';
+import CompletedTaskTree from '../components/ui/CompletedTaskTree';
 import StaffToolsBar from '../components/ui/StaffToolsBar';
 import OpenQuestionsSection from '../components/projects/OpenQuestionsSection';
 import BannerImage from '../components/ui/BannerImage';
@@ -3224,37 +3225,23 @@ const ProjectWorkspace = () => {
                         id="completed-tasks-panel"
                         className="task-scroll p-3 sm:p-4 max-h-[28rem] overflow-y-auto"
                       >
-                        {completedTasks.length === 0 ? (
-                          <p className="text-sm text-text-muted text-center py-8 px-2">
-                            No completed tasks yet. Accepted work appears here.
-                          </p>
-                        ) : (
-                          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                            {completedTasks.map((task) => (
-                              <div key={task.id} id={`task-${task.id}`}>
-                                <TaskCard
-                                  task={task}
-                                  currentUserId={user?.id}
-                                  onView={handleViewTask}
-                                  canStaffUpdate={isModerator}
-                                  isStaff={isModerator}
-                                  onUpdate={handleUpdateTask}
-                                  onDuplicate={
-                                    isModerator
-                                      ? handleDuplicateTask
-                                      : undefined
-                                  }
-                                  onMoveToStaging={
-                                    isModerator
-                                      ? handleMovePublicToStaging
-                                      : undefined
-                                  }
-                                  movingToStaging={unpublishingId === task.id}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        <CompletedTaskTree
+                          tasks={completedTasks}
+                          cardProps={{
+                            currentUserId: user?.id,
+                            onView: handleViewTask,
+                            canStaffUpdate: isModerator,
+                            isStaff: isModerator,
+                            onUpdate: handleUpdateTask,
+                            onDuplicate: isModerator
+                              ? handleDuplicateTask
+                              : undefined,
+                            onMoveToStaging: isModerator
+                              ? handleMovePublicToStaging
+                              : undefined,
+                            unpublishingId,
+                          }}
+                        />
                       </div>
                     )}
                   </div>
