@@ -32,29 +32,38 @@ describe('Tether Task Breakdown v0.6 tree', () => {
     ]);
   });
 
-  it('marks Epic 1, Epic 2, Tether-P, 9.1, and Epic 10 Staff Only', () => {
+  it('keeps Staff Only on 10, 3.2, 9 / 9.1, and P.3 / P.3.2', () => {
     const staffCodes = TETHER_V06_TASKS.filter((t) => tetherV06StaffOnly(t.state)).map(
       (t) => t.code
     );
     expect(staffCodes).toContain('Tether-1');
-    expect(staffCodes).toContain('Tether-1.1.1');
-    expect(staffCodes).toContain('Tether-2.3.2');
-    expect(staffCodes).toContain('Tether-P');
-    expect(staffCodes).toContain('Tether-P.2.1');
-    expect(staffCodes).toContain('Tether-P.3.2');
-    expect(staffCodes).toContain('Tether-9.1');
+    expect(staffCodes).toContain('Tether-2');
     expect(staffCodes).toContain('Tether-10');
+    expect(staffCodes).toContain('Tether-10.1');
+    expect(staffCodes).toContain('Tether-10.2');
+    expect(staffCodes).toContain('Tether-3.2');
+    expect(staffCodes).toContain('Tether-9');
+    expect(staffCodes).toContain('Tether-9.1');
+    expect(staffCodes).toContain('Tether-P.3');
+    expect(staffCodes).toContain('Tether-P.3.2');
+    expect(staffCodes).not.toContain('Tether-P');
     expect(staffCodes).not.toContain('Tether-3');
+    expect(staffCodes).not.toContain('Tether-3.1');
+    expect(staffCodes).not.toContain('Tether-3.2.1');
     expect(staffCodes).not.toContain('Tether-9.2');
   });
 
-  it('blocks later epics on the named previous epic, and 9.2 on style lock', () => {
+  it('blocks later work on named Ready-lane blockers, and 9.2 on style lock', () => {
     const byCode = Object.fromEntries(TETHER_V06_TASKS.map((t) => [t.code, t]));
-    expect(byCode['Tether-3'].blockedByCode).toBe('Tether-2');
-    expect(byCode['Tether-3'].blocker).toMatch(/playtest/i);
-    expect(byCode['Tether-4'].blockedByCode).toBe('Tether-3');
-    expect(byCode['Tether-5'].blockedByCode).toBe('Tether-4');
-    expect(byCode['Tether-6'].blockedByCode).toBe('Tether-5');
+    expect(byCode['Tether-3'].blockedByCode).toBeUndefined();
+    expect(byCode['Tether-3.1'].state).toBe('Ready');
+    expect(byCode['Tether-3.2.1'].blockedByCode).toBe('Tether-3.2');
+    expect(byCode['Tether-4.1'].blockedByCode).toBe('Tether-3.1');
+    expect(byCode['Tether-4.2'].blockedByCode).toBe('Tether-4.1');
+    expect(byCode['Tether-5.1'].blockedByCode).toBe('Tether-4.2');
+    expect(byCode['Tether-6.1.1'].blockedByCode).toBe('Tether-5.1');
+    expect(byCode['Tether-6.1.2'].blockedByCode).toBe('Tether-6.1.1');
+    expect(byCode['Tether-6.2'].blockedByCode).toBe('Tether-6.1.2');
     expect(byCode['Tether-9.2'].blockedByCode).toBe('Tether-9.1');
     expect(byCode['Tether-9.2'].state).toBe('Blocked');
     expect(byCode['Tether-2.2'].blockedByCode).toBe('Tether-2.1.0');
@@ -76,17 +85,24 @@ describe('Tether Task Breakdown v0.6 tree', () => {
     expect(smalls[2].shortTitle).toMatch(/constraint|visual|tether/i);
   });
 
-  it('keeps Tether-P as staging-only leftover game work and does not recreate removed P cards', () => {
+  it('keeps Tether-P as the public First Spark lane and does not recreate removed P cards', () => {
     const byCode = Object.fromEntries(TETHER_V06_TASKS.map((t) => [t.code, t]));
     expect(byCode['Tether-P'].parentCode).toBeNull();
-    expect(byCode['Tether-P'].state).toBe('Staff Only');
+    expect(byCode['Tether-P'].state).toBe('Ready');
+    expect(byCode['Tether-P'].shortTitle).toMatch(/First Spark/i);
+    expect(buildTetherV06Description(byCode['Tether-P'])).not.toMatch(
+      /Staging only\. Do not publish/i
+    );
     expect(byCode['Tether-P.1']).toBeUndefined();
     expect(byCode['Tether-P.1.1']).toBeUndefined();
     expect(byCode['Tether-P.1.2']).toBeUndefined();
-    expect(byCode['Tether-P.2'].parentCode).toBe('Tether-P');
-    expect(byCode['Tether-P.2.1'].parentCode).toBe('Tether-P.2');
-    expect(byCode['Tether-P.2.2'].parentCode).toBe('Tether-P.2');
+    expect(byCode['Tether-P.2']).toBeUndefined();
+    expect(byCode['Tether-P.2.1']).toBeUndefined();
+    expect(byCode['Tether-P.2.2']).toBeUndefined();
     expect(byCode['Tether-P.2.3']).toBeUndefined();
+    expect(byCode['Tether-P.2.4']).toBeUndefined();
+    expect(byCode['Tether-P.2.5']).toBeUndefined();
+    expect(byCode['Tether-P.2.6']).toBeUndefined();
     expect(byCode['Tether-P.3'].parentCode).toBe('Tether-P');
     expect(byCode['Tether-P.3.1']).toBeUndefined();
     expect(byCode['Tether-P.3.2'].parentCode).toBe('Tether-P.3');
@@ -97,9 +113,6 @@ describe('Tether Task Breakdown v0.6 tree', () => {
     );
     expect(pCodes).toEqual([
       'Tether-P',
-      'Tether-P.2',
-      'Tether-P.2.1',
-      'Tether-P.2.2',
       'Tether-P.3',
       'Tether-P.3.2',
     ]);
@@ -121,7 +134,8 @@ describe('Tether Task Breakdown v0.6 tree', () => {
     expect(byCode['Tether-2'].purpose).toMatch(/Solo behavior and 3-4 tether topology stay Open/);
     expect(byCode['Tether-2.1'].purpose).toMatch(/two pawns/);
     expect(byCode['Tether-2.1.1'].output).toMatch(/two stand-ins/);
-    expect(byCode['Tether-5.1'].purpose).not.toMatch(/\bpair\b/i);
+    expect(byCode['Tether-5.1'].purpose).toMatch(/Energy Pulse/i);
+    expect(byCode['Tether-5.1'].purpose).toMatch(/pair-remove/i);
     expect(byCode['Tether-2.2'].purpose).not.toMatch(/\bpair\b/i);
   });
 

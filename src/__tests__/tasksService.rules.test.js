@@ -23,10 +23,12 @@ import {
   isChecklistComplete,
   progressFromChecklist,
   attachTaskHierarchy,
+  inferTaskBoardDepthFromTitle,
   attachTaskDependencies,
   wouldCreateDependencyCycle,
   isTaskVisibleWithLockedToggle,
   isTaskDependencyLocked,
+  isTaskVisuallyBlocked,
   normalizeChecklist,
   isVisibleProjectHubActivity,
   groupCompletedTaskForest,
@@ -330,6 +332,90 @@ describe('attachTaskDependencies (Blocked by / Locked)', () => {
     expect(wouldCreateDependencyCycle('b', 'a', list)).toBe(true);
     expect(wouldCreateDependencyCycle('a', 'c', list)).toBe(false);
   });
+
+  it('marks a Medium blocked when every incomplete child is locked', () => {
+    const hierarchy = attachTaskHierarchy([
+      task({ id: 'epic1', title: 'Epic', parentTaskId: null }),
+      task({ id: 'gate', title: 'Locomotion', parentTaskId: 'epic1' }),
+      task({ id: 'mid1', title: 'Medium', parentTaskId: 'epic1' }),
+      task({ id: 'a', title: 'Small A', parentTaskId: 'mid1' }),
+      task({ id: 'b', title: 'Small B', parentTaskId: 'mid1' }),
+    ]);
+    const withDeps = attachTaskDependencies(hierarchy, [
+      { task_id: 'a', blocks_on_task_id: 'gate' },
+      { task_id: 'b', blocks_on_task_id: 'gate' },
+    ]);
+    const mid = withDeps.find((t) => t.id === 'mid1');
+    const epic = withDeps.find((t) => t.id === 'epic1');
+    expect(withDeps.find((t) => t.id === 'a').isLocked).toBe(true);
+    expect(mid.isLocked).toBe(false);
+    expect(mid.isBlockedGroup).toBe(true);
+    expect(mid.isVisuallyBlocked).toBe(true);
+    expect(isTaskVisuallyBlocked(mid)).toBe(true);
+    expect(epic.isBlockedGroup).toBe(false);
+    expect(epic.isVisuallyBlocked).toBe(false);
+    expect(isTaskVisibleWithLockedToggle(mid, false)).toBe(true);
+  });
+
+  it('does not grey a parent when any incomplete child is unblocked', () => {
+    const hierarchy = attachTaskHierarchy([
+      task({ id: 'epic1', title: 'Epic', parentTaskId: null }),
+      task({ id: 'gate', title: 'Locomotion', parentTaskId: 'epic1' }),
+      task({ id: 'mid1', title: 'Medium', parentTaskId: 'epic1' }),
+      task({ id: 'a', title: 'Small A', parentTaskId: 'mid1' }),
+      task({ id: 'b', title: 'Small B', parentTaskId: 'mid1' }),
+    ]);
+    const withDeps = attachTaskDependencies(hierarchy, [
+      { task_id: 'a', blocks_on_task_id: 'gate' },
+    ]);
+    const mid = withDeps.find((t) => t.id === 'mid1');
+    expect(mid.isBlockedGroup).toBe(false);
+    expect(mid.isVisuallyBlocked).toBe(false);
+    expect(isTaskVisuallyBlocked(mid)).toBe(false);
+  });
+
+  it('ignores completed children when rolling blocked state up', () => {
+    const hierarchy = attachTaskHierarchy([
+      task({ id: 'epic1', title: 'Epic', parentTaskId: null }),
+      task({ id: 'gate', title: 'Locomotion', parentTaskId: 'epic1' }),
+      task({ id: 'mid1', title: 'Medium', parentTaskId: 'epic1' }),
+      task({
+        id: 'done',
+        title: 'Done small',
+        parentTaskId: 'mid1',
+        dbStatus: 'Completed',
+        status: 'completed',
+      }),
+      task({ id: 'a', title: 'Small A', parentTaskId: 'mid1' }),
+    ]);
+    const withDeps = attachTaskDependencies(hierarchy, [
+      { task_id: 'a', blocks_on_task_id: 'gate' },
+    ]);
+    const mid = withDeps.find((t) => t.id === 'mid1');
+    expect(mid.isBlockedGroup).toBe(true);
+    expect(mid.isVisuallyBlocked).toBe(true);
+  });
+
+  it('greys an Epic when every Medium under it is blocked', () => {
+    const hierarchy = attachTaskHierarchy([
+      task({ id: 'epic1', title: 'Epic', parentTaskId: null }),
+      task({ id: 'gate', title: 'Locomotion', parentTaskId: null }),
+      task({ id: 'mid1', title: 'Medium A', parentTaskId: 'epic1' }),
+      task({ id: 'mid2', title: 'Medium B', parentTaskId: 'epic1' }),
+      task({ id: 'a', title: 'Small A', parentTaskId: 'mid1' }),
+      task({ id: 'b', title: 'Small B', parentTaskId: 'mid2' }),
+    ]);
+    const withDeps = attachTaskDependencies(hierarchy, [
+      { task_id: 'a', blocks_on_task_id: 'gate' },
+      { task_id: 'b', blocks_on_task_id: 'gate' },
+    ]);
+    expect(withDeps.find((t) => t.id === 'mid1').isBlockedGroup).toBe(true);
+    expect(withDeps.find((t) => t.id === 'mid2').isBlockedGroup).toBe(true);
+    const epic = withDeps.find((t) => t.id === 'epic1');
+    expect(epic.isLocked).toBe(false);
+    expect(epic.isBlockedGroup).toBe(true);
+    expect(epic.isVisuallyBlocked).toBe(true);
+  });
 });
 
 describe('isTaskVisibleWithLockedToggle (board visibility)', () => {
@@ -357,6 +443,35 @@ describe('isTaskVisibleWithLockedToggle (board visibility)', () => {
     expect(isTaskDependencyLocked(partial)).toBe(true);
     expect(isTaskVisibleWithLockedToggle(partial, false)).toBe(false);
     expect(isTaskVisibleWithLockedToggle(partial, true)).toBe(true);
+  });
+});
+
+describe('orphaned nested tasks (archived parent)', () => {
+  it('infers Epic / Medium / Small from Tether IDs', () => {
+    expect(inferTaskBoardDepthFromTitle('Tether-P First Spark')).toBe(0);
+    expect(inferTaskBoardDepthFromTitle('Tether-P.3 QA templates')).toBe(1);
+    expect(
+      inferTaskBoardDepthFromTitle('Tether-P.3.2 Playtest note template')
+    ).toBe(2);
+    expect(inferTaskBoardDepthFromTitle('Tether-10.1 Core netcode')).toBe(1);
+    expect(inferTaskBoardDepthFromTitle('Design core loop')).toBeNull();
+  });
+
+  it('does not label a nested Tether Small as Epic when its parent is missing', () => {
+    const rows = attachTaskHierarchy([
+      task({
+        id: 'orphan',
+        title: 'Tether-P.3.2 Playtest note template',
+        parentTaskId: 'missing-parent',
+        dbStatus: 'ToDo',
+        status: 'todo',
+      }),
+    ]);
+    const orphan = rows[0];
+    expect(orphan.depth).toBe(2);
+    expect(orphan.levelShort).toBe('Small');
+    expect(orphan.isEpic).toBe(false);
+    expect(canMovePublicTaskToStaging(orphan)).toBe(false);
   });
 });
 

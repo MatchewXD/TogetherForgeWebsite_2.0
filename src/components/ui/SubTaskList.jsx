@@ -5,7 +5,7 @@
 
 import Badge from './Badge';
 import Button from './Buttons';
-import { taskLevelLabel } from '../../services/tasksService';
+import { isTaskVisuallyBlocked, taskLevelLabel } from '../../services/tasksService';
 
 const isTaskDone = (task) =>
   Boolean(
@@ -97,6 +97,7 @@ const SubTaskList = ({
               child.claim?.status === 'Active' ||
               (Boolean(child.claimedBy) && !isDone);
             const isLocked = Boolean(child.isLocked);
+            const isBlocked = isTaskVisuallyBlocked(child);
             const isStaffOnly = Boolean(child.staffOnly || child.staff_only);
             const structurallyClaimable =
               canClaim &&
@@ -118,8 +119,10 @@ const SubTaskList = ({
             return (
               <li
                 key={child.id}
-                className={`rounded-lg border border-cyber-border bg-cyber-surface/60 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 ${accent} ${
-                  isLocked ? 'opacity-60 grayscale-[0.4]' : ''
+                className={`rounded-lg border border-cyber-border bg-cyber-surface/60 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 ${
+                  isBlocked
+                    ? 'task-blocked-surface'
+                    : accent
                 }`}
               >
                 <div className="min-w-0 flex-1">
@@ -127,19 +130,23 @@ const SubTaskList = ({
                     <button
                       type="button"
                       onClick={() => onOpen?.(child.id)}
-                      className="text-sm font-medium text-white hover:text-neon-cyan text-left truncate transition-colors"
+                      className={`text-sm font-medium text-left truncate transition-colors ${
+                        isBlocked
+                          ? 'text-text-muted hover:text-text-secondary'
+                          : 'text-white hover:text-neon-cyan'
+                      }`}
                     >
                       {child.title}
                     </button>
                     <Badge variant="default" className="!text-[10px] !normal-case">
                       {child.levelShort || taskLevelLabel(depth)}
                     </Badge>
-                    {isLocked && (
+                    {isBlocked && (
                       <Badge
-                        variant="default"
-                        className="!text-[10px] !normal-case !bg-white/5 !text-text-muted"
+                        variant="blocked"
+                        className="!text-[10px] !normal-case"
                       >
-                        Locked
+                        Blocked
                       </Badge>
                     )}
                     {isStaffOnly && (
@@ -159,11 +166,11 @@ const SubTaskList = ({
                       </span>
                     )}
                   </div>
-                  {isLocked && (
+                  {isBlocked && (
                     <p className="text-xs text-text-muted mt-0.5 line-clamp-1">
-                      Waiting on:{' '}
-                      {(child.lockedWaitingOn || []).join(', ') ||
-                        'blocking tasks'}
+                      {(child.lockedWaitingOn || []).length
+                        ? `Waiting on: ${(child.lockedWaitingOn || []).join(', ')}`
+                        : 'All nested tasks are blocked.'}
                     </p>
                   )}
                   {child.claimedBy && !child.hasChildren && (

@@ -350,7 +350,7 @@ const OpenQuestionsSection = ({
           <p className="text-text-secondary text-sm mt-1 max-w-xl leading-relaxed">
             Staff ask a focused question when the project needs a call. Post a
             Suggestion, support the ones you prefer, and reply if you want to
-            add detail. Ranked Suggestions inform staff — they adopt what fits
+            add detail. Ranked Suggestions inform staff, who adopt what fits
             the game.
           </p>
         </div>
@@ -396,7 +396,7 @@ const OpenQuestionsSection = ({
             <div>
               <p className="text-sm text-text-secondary leading-relaxed">
                 No open questions right now. When staff need a concrete call
-                for {projectTitle}, it will show up here — separate from the
+                for {projectTitle}, it will show up here, separate from the
                 Ideas board.
               </p>
               {isStaff && (

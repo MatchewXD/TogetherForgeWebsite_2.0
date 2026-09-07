@@ -7,6 +7,7 @@ import UserNameWithBadge from '../badges/UserNameWithBadge';
 import {
   formatClaimHeldSince,
   getClaimAutoReleaseInfo,
+  isTaskVisuallyBlocked,
 } from '../../services/tasksService';
 import { progressTone } from '../../utils/progressTone';
 
@@ -14,7 +15,7 @@ import { progressTone } from '../../utils/progressTone';
  * Hierarchy rail on chamfered panels (see index.css).
  * Level classes always apply; status can stack so Epic/Medium/Small stay clear.
  */
-function levelAccentClass(depth, { isCompleted, isStale } = {}) {
+function levelAccentClass(depth, { isCompleted, isStale, isBlocked } = {}) {
   const level =
     depth === 0
       ? 'task-card-accent-epic'
@@ -22,6 +23,7 @@ function levelAccentClass(depth, { isCompleted, isStale } = {}) {
         ? 'task-card-accent-medium'
         : 'task-card-accent-small';
   if (isCompleted) return `${level} task-card-accent-success`;
+  if (isBlocked) return `${level} task-card-accent-blocked`;
   if (isStale) return `${level} task-card-accent-warning`;
   return level;
 }
@@ -76,6 +78,7 @@ const TaskCard = ({
   const hasChildren = Boolean(task.hasChildren || task.childCount > 0);
   const depth = task.depth || 0;
   const isLocked = Boolean(task.isLocked);
+  const isBlocked = isTaskVisuallyBlocked(task);
   const lockedWaitingOn = Array.isArray(task.lockedWaitingOn)
     ? task.lockedWaitingOn
     : [];
@@ -151,10 +154,18 @@ const TaskCard = ({
     .filter(Boolean)
     .join(' · ');
 
-  const { text: progressColor, bar: progressBarColor } = progressTone(
-    isCompleted ? 100 : progress,
-    { isCompleted, isStale: stale }
-  );
+  const progressToneColors = progressTone(isCompleted ? 100 : progress, {
+    isCompleted,
+    isStale: stale,
+  });
+  const progressColor =
+    isBlocked && !isCompleted
+      ? 'text-text-muted'
+      : progressToneColors.text;
+  const progressBarColor =
+    isBlocked && !isCompleted
+      ? 'bg-white/25'
+      : progressToneColors.bar;
 
   const isEpic = depth === 0;
   const isMedium = depth === 1;
@@ -170,11 +181,11 @@ const TaskCard = ({
     <div
       className={`task-card cyber-card cyber-card-subtle transition-all group ${
         isEpic ? 'p-4 sm:p-5' : 'p-4'
-      } ${levelAccentClass(depth, { isCompleted, isStale: stale })} ${
-        isLocked
-          ? 'opacity-60 grayscale-[0.45] border-white/10 shadow-none'
-          : ''
-      }`}
+      } ${levelAccentClass(depth, {
+        isCompleted,
+        isStale: stale,
+        isBlocked: isBlocked && !isCompleted,
+      })} ${isBlocked && !isCompleted ? 'task-card-blocked' : ''}`}
       style={
         indentByDepth && depth > 0
           ? { marginLeft: Math.min(depth, 2) * 14 }
@@ -182,24 +193,24 @@ const TaskCard = ({
       }
       data-task-level={levelShort}
       data-locked={isLocked ? 'true' : undefined}
+      data-blocked={isBlocked && !isCompleted ? 'true' : undefined}
     >
       {/* Level chip first so hierarchy is obvious in All tasks */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex flex-wrap items-center gap-1.5 min-w-0">
         <Badge
-          variant={levelBadgeVariant(depth)}
+          variant={
+            isBlocked && !isCompleted ? 'blocked' : levelBadgeVariant(depth)
+          }
           className={`!normal-case tracking-widest ${
             isEpic ? 'text-[11px] px-3.5 py-1 shadow-sm' : 'tracking-wide'
           }`}
         >
           {levelShort}
         </Badge>
-        {isLocked && (
-          <Badge
-            variant="default"
-            className="!normal-case tracking-wide !bg-white/5 !text-text-muted !border-white/15"
-          >
-            Locked
+        {isBlocked && !isCompleted && (
+          <Badge variant="blocked" className="!normal-case tracking-wide">
+            Blocked
           </Badge>
         )}
         {isStaffOnly && (
@@ -302,11 +313,15 @@ const TaskCard = ({
       <div className="flex justify-between items-start gap-2 mb-2">
         <h4
           className={`leading-snug min-w-0 ${
-            isEpic
-              ? 'font-bold text-base sm:text-[1.05rem] text-white'
-              : isMedium
-                ? 'font-semibold text-sm text-text-primary'
-                : 'font-medium text-sm text-text-primary'
+            isBlocked && !isCompleted
+              ? isEpic
+                ? 'font-bold text-base sm:text-[1.05rem] text-text-muted'
+                : 'font-semibold text-sm text-text-muted'
+              : isEpic
+                ? 'font-bold text-base sm:text-[1.05rem] text-white'
+                : isMedium
+                  ? 'font-semibold text-sm text-text-primary'
+                  : 'font-medium text-sm text-text-primary'
           }`}
         >
           {task.title}
@@ -317,18 +332,22 @@ const TaskCard = ({
         <p className="text-xs font-mono text-text-muted mb-2">{effortLine}</p>
       )}
 
-      {isLocked && (
-        <div className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 mb-3">
+      {isBlocked && !isCompleted && (
+        <div className="rounded-lg border border-white/15 bg-white/[0.04] px-2.5 py-2 mb-3">
           <p className="text-[11px] font-mono tracking-wide text-text-muted uppercase mb-0.5">
-            Locked
+            Blocked
           </p>
           <p className="text-text-secondary text-xs leading-snug line-clamp-2">
-            Waiting on:{' '}
-            <span className="text-text-primary/90">
-              {lockedWaitingOn.length
-                ? lockedWaitingOn.join(', ')
-                : 'blocking tasks'}
-            </span>
+            {lockedWaitingOn.length ? (
+              <>
+                Waiting on:{' '}
+                <span className="text-text-primary/90">
+                  {lockedWaitingOn.join(', ')}
+                </span>
+              </>
+            ) : (
+              'All nested tasks are blocked.'
+            )}
           </p>
         </div>
       )}

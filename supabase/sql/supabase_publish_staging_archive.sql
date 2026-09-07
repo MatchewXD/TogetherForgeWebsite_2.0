@@ -72,6 +72,7 @@ begin
       from public.tasks c
       join tree t on c.parent_task_id = t.id
       where coalesce(c.board_scope, 'public') = 'staging'
+        and c.archived_at is null
     )
     select id from tree where id is distinct from p_task_id
   loop
@@ -91,7 +92,8 @@ begin
     if v_src.published_task_id is not null then
       select * into v_copy from public.tasks
       where id = v_src.published_task_id
-        and coalesce(board_scope, 'public') = 'public';
+        and coalesce(board_scope, 'public') = 'public'
+        and archived_at is null;
       if found then
         v_map := v_map || jsonb_build_object(v_src.id::text, v_copy.id::text);
         v_skipped := v_skipped || jsonb_build_array(
@@ -132,7 +134,10 @@ begin
       v_src.description,
       v_src.category,
       v_src.difficulty,
-      'ToDo',
+      case
+        when v_src.status = 'Completed' then 'Completed'
+        else 'ToDo'
+      end,
       v_src.estimated_effort,
       coalesce(v_src.subtasks, '[]'::jsonb),
       v_uid,

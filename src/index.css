@@ -437,6 +437,49 @@ a.cyber-card:focus-visible,
         inset 4px 0 0 0 rgb(var(--tf-neon-cyan)),
         inset 0 0 0 1px rgb(var(--tf-semantic-warning) / 0.5);
 }
+/* Blocked: monotone grey so unavailable work is obvious at a glance */
+.task-card-accent-blocked {
+    box-shadow: inset 3px 0 0 0 rgb(148 163 184 / 0.75);
+    background-image: linear-gradient(
+        105deg,
+        rgb(148 163 184 / 0.1) 0%,
+        transparent 40%
+    );
+}
+.task-card-accent-epic.task-card-accent-blocked {
+    box-shadow:
+        inset 5px 0 0 0 rgb(148 163 184 / 0.9),
+        inset 0 0 0 1px rgb(148 163 184 / 0.28);
+    background-image: linear-gradient(
+        105deg,
+        rgb(148 163 184 / 0.12) 0%,
+        transparent 46%
+    );
+}
+.task-card-accent-medium.task-card-accent-blocked {
+    box-shadow:
+        inset 4px 0 0 0 rgb(148 163 184 / 0.8),
+        inset 0 0 0 1px rgb(148 163 184 / 0.22);
+    background-image: linear-gradient(
+        105deg,
+        rgb(148 163 184 / 0.1) 0%,
+        transparent 38%
+    );
+}
+.task-card-accent-small.task-card-accent-blocked {
+    box-shadow:
+        inset 3px 0 0 0 rgb(148 163 184 / 0.7),
+        inset 0 0 0 1px rgb(148 163 184 / 0.2);
+}
+.task-card.task-card-blocked {
+    border-color: rgb(148 163 184 / 0.28);
+    background-color: rgb(12 16 22 / 0.72);
+}
+.task-blocked-surface {
+    border-color: rgb(148 163 184 / 0.28) !important;
+    background-color: rgb(148 163 184 / 0.06);
+    border-left-color: rgb(148 163 184 / 0.75) !important;
+}
 
 /* ---------- Exploration / featured panels ---------- */
 .cyber-card.cyber-card-panel {

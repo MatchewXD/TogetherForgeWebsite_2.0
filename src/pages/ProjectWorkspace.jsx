@@ -750,7 +750,7 @@ const ProjectWorkspace = () => {
    * - Category / Unclaimed filters stack on top (AND with scope).
    * - When filters are active in "top" mode, matching nested tasks are also
    *   included so an artist can find claimable Art work without switching scope.
-   * - "Show locked tasks" applies in BOTH scopes (and nested detail lists).
+   * - "Show blocked tasks" applies in BOTH scopes (and nested detail lists).
    */
   const boardTasks = useMemo(() => {
     const filtersActive =
@@ -882,7 +882,7 @@ const ProjectWorkspace = () => {
 
   /**
    * Direct children in the task detail hierarchy list.
-   * Respects "Show locked tasks" so tiered navigation matches the board toggle.
+   * Respects "Show blocked tasks" so tiered navigation matches the board toggle.
    */
   const selectedChildren = useMemo(() => {
     if (!selectedTaskId) return [];
@@ -2769,11 +2769,11 @@ const ProjectWorkspace = () => {
                     aria-pressed={boardShowLocked}
                     title={
                       boardShowLocked
-                        ? 'Hide locked tasks (blocked by incomplete work)'
-                        : 'Show locked tasks that are waiting on other tasks'
+                        ? 'Hide blocked tasks waiting on other work'
+                        : 'Show blocked tasks that are waiting on other tasks'
                     }
                   >
-                    Show locked tasks
+                    Show blocked tasks
                     {lockedTaskCount > 0 ? (
                       <span className="ml-1.5 tabular-nums opacity-80">
                         ({lockedTaskCount})
@@ -2789,7 +2789,7 @@ const ProjectWorkspace = () => {
                       ? ` · ${boardCategoryFilter.join(', ')}`
                       : ''}
                     {boardUnclaimedOnly ? ' · unclaimed only' : ''}
-                    {boardShowLocked ? ' · including locked' : ''}
+                    {boardShowLocked ? ' · including blocked' : ''}
                     {boardScope === 'top'
                       ? ' · includes matching nested tasks'
                       : ''}
@@ -3916,29 +3916,35 @@ const ProjectWorkspace = () => {
 
               {/* Locked / Blocked by */}
               {(selectedTask.isLocked ||
+                selectedTask.isVisuallyBlocked ||
                 (selectedTask.blockedBy &&
                   selectedTask.blockedBy.length > 0)) && (
                 <div
                   className={`rounded-lg border px-3 py-2.5 ${
-                    selectedTask.isLocked
-                      ? 'border-white/15 bg-white/[0.03]'
+                    selectedTask.isLocked || selectedTask.isVisuallyBlocked
+                      ? 'border-white/15 bg-white/[0.04]'
                       : 'border-cyber-border/80 bg-cyber-bg/40'
                   }`}
                 >
                   <p className="font-mono tracking-widest text-[10px] text-text-muted uppercase mb-1.5">
-                    {selectedTask.isLocked
-                      ? 'Locked'
+                    {selectedTask.isLocked || selectedTask.isVisuallyBlocked
+                      ? 'Blocked'
                       : selectedTask.dependencyOverride
                         ? 'Dependencies (override on)'
                         : 'Blocked by'}
                   </p>
-                  {selectedTask.isLocked ? (
+                  {selectedTask.isLocked || selectedTask.isVisuallyBlocked ? (
                     <p className="text-sm text-text-secondary leading-relaxed">
-                      Locked – waiting on:{' '}
-                      <span className="text-text-primary font-medium">
-                        {(selectedTask.lockedWaitingOn || []).join(', ') ||
-                          'blocking tasks'}
-                      </span>
+                      {(selectedTask.lockedWaitingOn || []).length ? (
+                        <>
+                          Waiting on:{' '}
+                          <span className="text-text-primary font-medium">
+                            {(selectedTask.lockedWaitingOn || []).join(', ')}
+                          </span>
+                        </>
+                      ) : (
+                        'All nested tasks are blocked.'
+                      )}
                     </p>
                   ) : (
                     <p className="text-sm text-text-secondary leading-relaxed">
@@ -4614,16 +4620,21 @@ const ProjectWorkspace = () => {
                 </p>
               )}
 
-            {selectedTask.isLocked &&
+            {(selectedTask.isLocked || selectedTask.isVisuallyBlocked) &&
               selectedTask.status === 'todo' &&
               !selectedTask.claimedBy && (
                 <div className="space-y-2 pt-2 border-t border-cyber-border">
                   <p className="text-sm text-text-secondary leading-relaxed">
-                    Locked – waiting on:{' '}
-                    <span className="text-text-primary font-medium">
-                      {(selectedTask.lockedWaitingOn || []).join(', ') ||
-                        'blocking tasks'}
-                    </span>
+                    {(selectedTask.lockedWaitingOn || []).length ? (
+                      <>
+                        Blocked – waiting on:{' '}
+                        <span className="text-text-primary font-medium">
+                          {(selectedTask.lockedWaitingOn || []).join(', ')}
+                        </span>
+                      </>
+                    ) : (
+                      'This task is blocked because every nested task is blocked.'
+                    )}
                   </p>
                   <p className="text-[11px] text-text-muted">
                     This task unlocks automatically when every blocker is
@@ -5026,11 +5037,6 @@ const ProjectWorkspace = () => {
               placeholder="https://github.com/org/repo"
               className="w-full bg-cyber-surface border border-cyber-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-neon-cyan focus:outline-none"
             />
-            <p className="text-[11px] text-text-muted mt-1.5">
-              Leave blank to clear. Requires{' '}
-              <code className="text-neon-cyan/80">supabase_project_github.sql</code>{' '}
-              if the column is not set up yet.
-            </p>
           </div>
           <div className="flex flex-wrap gap-2 pt-1">
             <Button

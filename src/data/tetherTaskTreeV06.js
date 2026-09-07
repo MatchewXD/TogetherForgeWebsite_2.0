@@ -1,8 +1,11 @@
 /**
  * Tether Task Breakdown v0.6 — source of truth for the staging-board import.
- * Codes match the doc (Tether-1.1.1). Do not invent extra Smalls.
- * Tether-P is staging-only game work not already in the Unreal repo.
- * Do not recreate Tether-P.1, P.2.3, P.3.1, or P.4. Do not publish Tether-P.
+ * Codes match the doc (Tether-1.1.1). Do not invent extra Smalls under parked 7, 8, 11, 12, 13.
+ * Tether-P is the public First Spark lane (docs and QA).
+ * Art suggestions belong in Open Questions; Tether-9 is the art section.
+ * Do not recreate Tether-P.1, P.2, P.2.1-P.2.6, P.3.1, or P.4.
+ * Staff Only only on: Tether-10 and children, Tether-3.2, Tether-9.1, Tether-P.3 / P.3.2.
+ * Do not make Tether-2 or Tether-10 claimable.
  */
 
 export const TETHER_V06_VERSION = 'v0.6';
@@ -23,7 +26,7 @@ function t(partial) {
  *  code: string,
  *  parentCode: string|null,
  *  shortTitle: string,
- *  state: 'Staff Only'|'Blocked'|'Parked'|'Ready',
+ *  state: 'Staff Only'|'Blocked'|'Parked'|'Ready'|'Done',
  *  size: 'First Spark'|'Small'|'Medium',
  *  skill: 'Code'|'Art'|'Design'|'Writing'|'Level Design'|'Audio'|'QA'|'Other',
  *  purpose: string,
@@ -33,6 +36,7 @@ function t(partial) {
  *  blockedByCode?: string,
  *  staffNote?: string,
  *  extra?: string,
+ *  completed?: boolean,
  *  sortOrder: number,
  * }>} */
 export const TETHER_V06_TASKS = [
@@ -182,57 +186,13 @@ export const TETHER_V06_TASKS = [
   t({
     code: 'Tether-P',
     parentCode: null,
-    shortTitle: 'Open game work',
-    state: 'Staff Only',
-    size: 'Medium',
-    skill: 'Art',
+    shortTitle: 'First Spark',
+    state: 'Ready',
+    size: 'First Spark',
+    skill: 'QA',
     purpose:
-      'Tether game work that is not already in the Unreal repo. Staging only. Do not publish. Networking stays Tether-10.',
+      'Public First Spark lane: docs and QA. Art suggestions go in Open Questions. Tether-9 is the art section. Networking stays Tether-10.',
     sortOrder: 15,
-  }),
-  t({
-    code: 'Tether-P.2',
-    parentCode: 'Tether-P',
-    shortTitle: 'Art exploration',
-    state: 'Staff Only',
-    size: 'First Spark',
-    skill: 'Art',
-    purpose:
-      'Art exploration for player, beam, and scale. Not final production art. StyleLock.md is Draft. Cite Docs/Vision.md and Docs/StyleLock.md.',
-    sortOrder: 10,
-  }),
-  t({
-    code: 'Tether-P.2.1',
-    parentCode: 'Tether-P.2',
-    shortTitle: 'Player stand-in silhouettes',
-    state: 'Staff Only',
-    size: 'First Spark',
-    skill: 'Art',
-    purpose:
-      'Three readable silhouette thumbnails for a suited colony crew stand-in. Do not model a final character. Do not change the prototype mesh unless staff ask. Cite Docs/StyleLock.md.',
-    output:
-      'Docs/art-explorations/player/ plus a short note saying which silhouette reads at a distance.',
-    dod: [
-      'Three readable silhouette thumbnails exist in Docs/art-explorations/player/.',
-      'A short note says which silhouette reads at a distance.',
-    ],
-    sortOrder: 10,
-  }),
-  t({
-    code: 'Tether-P.2.2',
-    parentCode: 'Tether-P.2',
-    shortTitle: 'Tether visual directions',
-    state: 'Staff Only',
-    size: 'First Spark',
-    skill: 'Art',
-    purpose:
-      'Three stills or overlays of the shared energy beam at Low vs High tension. Stay a beam between bodies. Cite Docs/StyleLock.md and Docs/TetherRules.txt.',
-    output: 'Docs/art-explorations/tether/.',
-    dod: [
-      'Three stills or overlays of Low vs High tension exist in Docs/art-explorations/tether/.',
-      'The tether stays a beam between bodies, not a physical cable.',
-    ],
-    sortOrder: 20,
   }),
   t({
     code: 'Tether-P.3',
@@ -242,6 +202,7 @@ export const TETHER_V06_TASKS = [
     size: 'First Spark',
     skill: 'QA',
     purpose: 'Templates for the first beam playtests. Staff Only.',
+    completed: true,
     sortOrder: 20,
   }),
   t({
@@ -257,6 +218,7 @@ export const TETHER_V06_TASKS = [
     dod: [
       'Docs/qa/PlaytestNote.md exists with date, build, testers, what felt good, what broke, and recommended task change (not a new feature).',
     ],
+    completed: true,
     sortOrder: 20,
   }),
 
@@ -450,37 +412,62 @@ export const TETHER_V06_TASKS = [
     code: 'Tether-3',
     parentCode: null,
     shortTitle: 'Tether-aware movement',
-    state: 'Blocked',
+    state: 'Ready',
     size: 'Medium',
     skill: 'Code',
-    purpose: 'Tether-aware movement.',
-    blocker: 'Epic 2 playtest not passed.',
-    blockedByCode: 'Tether-2',
+    purpose:
+      'Tether-aware movement. Epic 2 playtest is treated as passed. Community claims Tether-3.1. Staff retune pull on Tether-3.2.',
     sortOrder: 30,
   }),
   t({
     code: 'Tether-3.1',
     parentCode: 'Tether-3',
     shortTitle: 'Core locomotion and camera',
-    state: 'Blocked',
+    state: 'Ready',
     size: 'Medium',
     skill: 'Code',
-    purpose: 'Core locomotion and camera choice documented in Docs/.',
-    blocker: 'Epic 2 playtest not passed.',
-    blockedByCode: 'Tether-2',
+    purpose:
+      'Walk, run, jump, ground detect, keyboard and gamepad. Document speeds in Docs/ or TetherRules.txt. Camera is Open: third-person that keeps both pawns readable, or first-person plus a tether cue. Write the choice in Docs/Camera.md. Cite Docs/TetherRules.txt. Do not retune pull, L100, or Tether Health.',
+    output: 'Docs/Camera.md plus documented walk/run/jump speeds.',
+    dod: [
+      'Walk, run, jump, and ground detect work on keyboard and gamepad.',
+      'Speeds are documented in Docs/ or TetherRules.txt.',
+      'Camera choice is written in Docs/Camera.md.',
+      'This card does not retune pull, L100, or Tether Health.',
+    ],
     sortOrder: 10,
   }),
   t({
     code: 'Tether-3.2',
     parentCode: 'Tether-3',
     shortTitle: 'Pull/resist and failure-mode tests',
-    state: 'Blocked',
+    state: 'Staff Only',
     size: 'Medium',
     skill: 'Code',
-    purpose: 'Pull/resist and failure-mode tests.',
-    blocker: 'Epic 2 playtest not passed.',
-    blockedByCode: 'Tether-2',
+    purpose:
+      'Staff retune pull toward partner and optional resist. Community must not retune pull. Failure-mode playtest is Tether-3.2.1.',
     sortOrder: 20,
+  }),
+  t({
+    code: 'Tether-3.2.1',
+    parentCode: 'Tether-3.2',
+    shortTitle: 'Failure-mode playtest',
+    state: 'Blocked',
+    size: 'Small',
+    skill: 'QA',
+    purpose:
+      'Playtest failure modes. Do not change TetherRules numbers on this card.',
+    output: 'Dated Docs/qa/PlaytestNote.',
+    dod: [
+      'A dated Docs/qa/PlaytestNote exists.',
+      'Tested: one falls off a ledge.',
+      'Tested: both jump.',
+      'Tested: one sprints / one stands.',
+      'TetherRules numbers were not changed on this card.',
+    ],
+    blocker: 'Waiting on staff pull/resist work on Tether-3.2.',
+    blockedByCode: 'Tether-3.2',
+    sortOrder: 10,
   }),
 
   t({
@@ -491,8 +478,8 @@ export const TETHER_V06_TASKS = [
     size: 'Medium',
     skill: 'Code',
     purpose: 'Resources and warp.',
-    blocker: 'Epic 3 not stable.',
-    blockedByCode: 'Tether-3',
+    blocker: 'Waiting on Tether-3.1 Core locomotion and camera.',
+    blockedByCode: 'Tether-3.1',
     sortOrder: 40,
   }),
   t({
@@ -502,9 +489,15 @@ export const TETHER_V06_TASKS = [
     state: 'Blocked',
     size: 'Medium',
     skill: 'Code',
-    purpose: 'ResourceNode, carry limit 1 or 2, at least six nodes.',
-    blocker: 'Epic 3 not stable.',
-    blockedByCode: 'Tether-3',
+    purpose:
+      'ResourceNode prefab, interact volume, carry limit 1 or 2, deliberate drop. Place at least six nodes in the prototype or a test map.',
+    dod: [
+      'ResourceNode prefab exists with an interact volume.',
+      'Carry limit is 1 or 2 with a deliberate drop.',
+      'At least six nodes are placed in the prototype or a test map.',
+    ],
+    blocker: 'Waiting on Tether-3.1 Core locomotion and camera.',
+    blockedByCode: 'Tether-3.1',
     sortOrder: 10,
   }),
   t({
@@ -517,8 +510,8 @@ export const TETHER_V06_TASKS = [
     purpose: 'Checkpoint warp and session total.',
     output: 'Done at collect → carry → warp → total updates.',
     dod: ['Collect → carry → warp → session total updates in one loop.'],
-    blocker: 'Epic 3 not stable.',
-    blockedByCode: 'Tether-3',
+    blocker: 'Waiting on Tether-4.1 ResourceNode and carry limit.',
+    blockedByCode: 'Tether-4.1',
     sortOrder: 20,
   }),
 
@@ -529,9 +522,9 @@ export const TETHER_V06_TASKS = [
     state: 'Blocked',
     size: 'Medium',
     skill: 'Code',
-    purpose: 'Enemies that stress the tether.',
-    blocker: 'Epic 4 loop not working.',
-    blockedByCode: 'Tether-4',
+    purpose: 'Enemies that stress the tether. Threats whose job is coordination, not a DPS sponge.',
+    blocker: 'Waiting on Tether-4.2 Checkpoint warp and session total.',
+    blockedByCode: 'Tether-4.2',
     sortOrder: 50,
   }),
   t({
@@ -541,9 +534,15 @@ export const TETHER_V06_TASKS = [
     state: 'Blocked',
     size: 'Medium',
     skill: 'Code',
-    purpose: 'Latch enemy, attach penalty, Energy Pulse removal.',
-    blocker: 'Epic 4 loop not working.',
-    blockedByCode: 'Tether-4',
+    purpose:
+      'Latch enemy moves toward a pawn or the tether midpoint, attaches, applies a documented penalty (extra tension, slow, or drain), and shows a clear attached state. Removal is faster when both players use Energy Pulse inside a short window (pair-remove). Playtest with two people and confirm the pair advantage is obvious.',
+    dod: [
+      'Latch enemy attaches to a pawn or the tether midpoint with a clear attached state.',
+      'A documented penalty applies while attached.',
+      'Energy Pulse pair-remove is faster when both players use it in a short window.',
+    ],
+    blocker: 'Waiting on Tether-4.2 Checkpoint warp and session total.',
+    blockedByCode: 'Tether-4.2',
     sortOrder: 10,
   }),
 
@@ -555,8 +554,8 @@ export const TETHER_V06_TASKS = [
     size: 'Medium',
     skill: 'Level Design',
     purpose: 'First playable surface level.',
-    blocker: 'Epic 5 has no working enemy.',
-    blockedByCode: 'Tether-5',
+    blocker: 'Waiting on Tether-5.1 Latch enemy.',
+    blockedByCode: 'Tether-5.1',
     sortOrder: 60,
   }),
   t({
@@ -566,10 +565,44 @@ export const TETHER_V06_TASKS = [
     state: 'Blocked',
     size: 'Medium',
     skill: 'Level Design',
-    purpose: 'Modular graybox kit plus Level_01_Surface.',
-    blocker: 'Epic 5 has no working enemy.',
-    blockedByCode: 'Tether-5',
+    purpose:
+      'Parent for kit pieces and Level_01_Surface blockout. Claim the Smalls.',
+    blocker: 'Waiting on Tether-5.1 Latch enemy.',
+    blockedByCode: 'Tether-5.1',
     sortOrder: 10,
+  }),
+  t({
+    code: 'Tether-6.1.1',
+    parentCode: 'Tether-6.1',
+    shortTitle: 'Five modular graybox pieces',
+    state: 'Blocked',
+    size: 'Small',
+    skill: 'Level Design',
+    purpose: 'Five modular graybox pieces in Content/Tether/Modular.',
+    output: 'Content/Tether/Modular with at least five graybox pieces.',
+    dod: [
+      'At least five modular graybox pieces exist in Content/Tether/Modular.',
+    ],
+    blocker: 'Waiting on Tether-5.1 Latch enemy.',
+    blockedByCode: 'Tether-5.1',
+    sortOrder: 10,
+  }),
+  t({
+    code: 'Tether-6.1.2',
+    parentCode: 'Tether-6.1',
+    shortTitle: 'Block out Level_01_Surface',
+    state: 'Blocked',
+    size: 'Small',
+    skill: 'Level Design',
+    purpose:
+      'Block out Content/Tether/Maps/Level_01_Surface: start, two traversal sections, resources, one or two enemy points, end checkpoint.',
+    output: 'Content/Tether/Maps/Level_01_Surface.',
+    dod: [
+      'Level_01_Surface has a start, two traversal sections, resources, one or two enemy points, and an end checkpoint.',
+    ],
+    blocker: 'Waiting on Tether-6.1.1 Five modular graybox pieces.',
+    blockedByCode: 'Tether-6.1.1',
+    sortOrder: 20,
   }),
   t({
     code: 'Tether-6.2',
@@ -579,10 +612,13 @@ export const TETHER_V06_TASKS = [
     size: 'Medium',
     skill: 'QA',
     purpose:
-      'End-to-end 1-4 player cooperative loop with a recorded successful run. Solo behavior and 3-4 tether topology stay Open.',
-    dod: ['A recorded successful 1-4 player run exists.'],
-    blocker: 'Epic 5 has no working enemy.',
-    blockedByCode: 'Tether-5',
+      'Recorded 1-4 player loop. Two-window listen server is enough until Tether-10.2 exists. Solo behavior and 3-4 tether topology stay Open.',
+    dod: [
+      'A recorded successful 1-4 player run exists.',
+      'Two-window listen server is enough until Tether-10.2 exists.',
+    ],
+    blocker: 'Waiting on Tether-6.1.2 Block out Level_01_Surface.',
+    blockedByCode: 'Tether-6.1.2',
     sortOrder: 20,
   }),
 
@@ -593,7 +629,9 @@ export const TETHER_V06_TASKS = [
     state: 'Parked',
     size: 'Medium',
     skill: 'Code',
-    purpose: 'Parked placeholder. Do not invent extra Smalls.',
+    purpose: 'Parked chapter. Do not invent extra Smalls.',
+    blocker: 'Parked until Epic 6 is playtested.',
+    blockedByCode: 'Tether-6',
     sortOrder: 70,
   }),
   t({
@@ -603,7 +641,9 @@ export const TETHER_V06_TASKS = [
     state: 'Parked',
     size: 'Medium',
     skill: 'Design',
-    purpose: 'Parked placeholder: upgrade screen.',
+    purpose: 'Parked chapter card: upgrade screen. Do not invent extra Smalls.',
+    blocker: 'Parked until Epic 6 is playtested.',
+    blockedByCode: 'Tether-6',
     sortOrder: 10,
   }),
   t({
@@ -613,7 +653,9 @@ export const TETHER_V06_TASKS = [
     state: 'Parked',
     size: 'Medium',
     skill: 'Code',
-    purpose: 'Parked placeholder: first upgrades — max distance, Anchor, Shared Reinforcer.',
+    purpose: 'Parked chapter card: first upgrades — max distance, Anchor, Shared Reinforcer. Do not invent extra Smalls.',
+    blocker: 'Parked until Epic 6 is playtested.',
+    blockedByCode: 'Tether-6',
     sortOrder: 20,
   }),
 
@@ -624,7 +666,9 @@ export const TETHER_V06_TASKS = [
     state: 'Parked',
     size: 'Medium',
     skill: 'Level Design',
-    purpose: 'Parked placeholder. Do not invent extra Smalls.',
+    purpose: 'Parked chapter. Do not invent extra Smalls.',
+    blocker: 'Parked until Epic 6 is playtested.',
+    blockedByCode: 'Tether-6',
     sortOrder: 80,
   }),
   t({
@@ -634,7 +678,9 @@ export const TETHER_V06_TASKS = [
     state: 'Parked',
     size: 'Medium',
     skill: 'Level Design',
-    purpose: 'Parked placeholder: station blockout.',
+    purpose: 'Parked chapter card: station blockout. Do not invent extra Smalls.',
+    blocker: 'Parked until Epic 6 is playtested.',
+    blockedByCode: 'Tether-6',
     sortOrder: 10,
   }),
   t({
@@ -644,7 +690,9 @@ export const TETHER_V06_TASKS = [
     state: 'Parked',
     size: 'Medium',
     skill: 'Code',
-    purpose: 'Parked placeholder: creature drive-off.',
+    purpose: 'Parked chapter card: creature drive-off. Do not invent extra Smalls.',
+    blocker: 'Parked until Epic 6 is playtested.',
+    blockedByCode: 'Tether-6',
     sortOrder: 20,
   }),
 
@@ -655,7 +703,8 @@ export const TETHER_V06_TASKS = [
     state: 'Staff Only',
     size: 'Medium',
     skill: 'Art',
-    purpose: 'Art pipeline. Exploration is Staff Only until style lock is approved.',
+    purpose:
+      'Art pipeline. Style lock approval is Staff Only. Art suggestions belong in Open Questions until staff accept StyleLock.md.',
     sortOrder: 90,
   }),
   t({
@@ -665,7 +714,13 @@ export const TETHER_V06_TASKS = [
     state: 'Staff Only',
     size: 'Medium',
     skill: 'Art',
-    purpose: 'Style lock approval (exploration). Staff Only for now.',
+    purpose:
+      'Staff approve StyleLock.md (palette, silhouettes, materials). StyleLock.md stays Draft until staff accept.',
+    output: 'Docs/StyleLock.md accepted by staff.',
+    dod: [
+      'Staff accept Docs/StyleLock.md.',
+      'Until then StyleLock.md stays Draft.',
+    ],
     sortOrder: 10,
   }),
   t({
@@ -688,7 +743,7 @@ export const TETHER_V06_TASKS = [
     state: 'Staff Only',
     size: 'Medium',
     skill: 'Code',
-    purpose: 'Networking foundation. Founder-owned.',
+    purpose: 'Networking foundation. Staff Only. Not claimable.',
     extra: 'Founder-owned. Default candidate: Iris on UE 5.8.',
     sortOrder: 100,
   }),
@@ -700,8 +755,9 @@ export const TETHER_V06_TASKS = [
     size: 'Medium',
     skill: 'Code',
     purpose:
-      'Core netcode. Default candidate: Iris on UE 5.8. Host/join, pawn sync, tether sync later.',
-    extra: 'Founder-owned.',
+      'Two-window pawn + beam sync. Do not require two machines. Default candidate: Iris on UE 5.8.',
+    extra: 'Founder-owned. Staff Only Done.',
+    completed: true,
     sortOrder: 10,
   }),
   t({
@@ -711,8 +767,9 @@ export const TETHER_V06_TASKS = [
     state: 'Staff Only',
     size: 'Medium',
     skill: 'Code',
-    purpose: 'Two-machine test on TetherPrototype.',
+    purpose: 'Two-machine test on TetherPrototype. Deferred.',
     extra: 'Founder-owned.',
+    blocker: 'Two-machine test deferred.',
     sortOrder: 20,
   }),
 
@@ -723,7 +780,9 @@ export const TETHER_V06_TASKS = [
     state: 'Parked',
     size: 'Medium',
     skill: 'Design',
-    purpose: 'Parked placeholder. Do not invent extra Smalls.',
+    purpose: 'Parked chapter. Do not invent extra Smalls.',
+    blocker: 'Parked until Epic 6 is playtested.',
+    blockedByCode: 'Tether-6',
     sortOrder: 110,
   }),
   t({
@@ -733,7 +792,9 @@ export const TETHER_V06_TASKS = [
     state: 'Parked',
     size: 'Medium',
     skill: 'Audio',
-    purpose: 'Parked placeholder. Do not invent extra Smalls.',
+    purpose: 'Parked chapter. Do not invent extra Smalls.',
+    blocker: 'Parked until Epic 6 is playtested.',
+    blockedByCode: 'Tether-6',
     sortOrder: 120,
   }),
   t({
@@ -743,7 +804,9 @@ export const TETHER_V06_TASKS = [
     state: 'Parked',
     size: 'Medium',
     skill: 'QA',
-    purpose: 'Parked placeholder. Do not invent extra Smalls.',
+    purpose: 'Parked chapter. Do not invent extra Smalls.',
+    blocker: 'Parked until Epic 6 is playtested.',
+    blockedByCode: 'Tether-6',
     sortOrder: 130,
   }),
 ];
@@ -759,6 +822,10 @@ export function tetherV06Difficulty(size) {
 
 export function tetherV06StaffOnly(state) {
   return state === 'Staff Only';
+}
+
+export function tetherV06Completed(task) {
+  return Boolean(task?.completed) || task?.state === 'Done';
 }
 
 export function buildTetherV06Description(task) {

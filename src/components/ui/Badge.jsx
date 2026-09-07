@@ -18,6 +18,8 @@ const Badge = ({ children, variant = 'default', className = '' }) => {
     gold: 'bg-semantic-achievement/15 text-semantic-achievement border border-semantic-achievement/50',
     achievement:
       'bg-semantic-achievement/15 text-semantic-achievement border border-semantic-achievement/50',
+    blocked:
+      'bg-white/10 text-text-muted border border-white/25',
   };
 
   const resolved = variants[variant] || variants.default;

@@ -22,6 +22,7 @@ import {
   canPublishStagingTask,
   compareTaskBoardOrder,
   getChildTasks,
+  isTaskVisuallyBlocked,
   taskLevelLabel,
 } from '../../services/tasksService';
 
@@ -38,6 +39,15 @@ function StaffOnlyChip({ task }) {
   );
 }
 
+function BlockedChip({ task }) {
+  if (!isTaskVisuallyBlocked(task)) return null;
+  return (
+    <Badge variant="blocked" className="!normal-case tracking-wide !text-[10px] !py-0.5 !px-2">
+      Blocked
+    </Badge>
+  );
+}
+
 function PublishedChip({ task }) {
   if (!task?.publishedTaskId) return null;
   return (
@@ -49,7 +59,13 @@ function PublishedChip({ task }) {
 
 function LevelChip({ task }) {
   const depth = Number(task.depth) || 0;
-  const variant = depth === 0 ? 'gold' : depth === 1 ? 'neon' : 'default';
+  const variant = isTaskVisuallyBlocked(task)
+    ? 'blocked'
+    : depth === 0
+      ? 'gold'
+      : depth === 1
+        ? 'neon'
+        : 'default';
   return (
     <Badge variant={variant} className="!normal-case tracking-wide !text-[10px] !py-0.5 !px-2">
       {task.levelShort || taskLevelLabel(depth)}
@@ -166,8 +182,10 @@ function StagingRow({
   const children = sortSiblings(getChildTasks(allTasks, task.id));
   const hasKids = children.length > 0;
   const collapsed = hasKids && collapsedIds.has(task.id);
-  const accent =
-    depth === 0
+  const blocked = isTaskVisuallyBlocked(task);
+  const accent = blocked
+    ? 'task-blocked-surface'
+    : depth === 0
       ? 'border-l-semantic-achievement/70'
       : depth === 1
         ? 'border-l-neon-cyan/70'
@@ -204,12 +222,24 @@ function StagingRow({
               {task.category && (
                 <TaskCategoryBadge category={task.category} size="sm" />
               )}
+              <BlockedChip task={task} />
               <StaffOnlyChip task={task} />
               <PublishedChip task={task} />
             </div>
-            <p className="text-sm sm:text-base font-semibold text-white leading-snug">
+            <p
+              className={`text-sm sm:text-base font-semibold leading-snug ${
+                blocked ? 'text-text-muted' : 'text-white'
+              }`}
+            >
               {task.title}
             </p>
+            {blocked ? (
+              <p className="text-xs text-text-muted leading-relaxed">
+                {(task.lockedWaitingOn || []).length
+                  ? `Waiting on: ${(task.lockedWaitingOn || []).join(', ')}`
+                  : 'All nested tasks are blocked.'}
+              </p>
+            ) : null}
             {task.description ? (
               <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
                 {task.description}

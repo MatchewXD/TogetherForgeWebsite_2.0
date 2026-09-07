@@ -205,6 +205,20 @@ export function taskLevelShort(depth) {
 }
 
 /**
+ * When a parent row is missing from the live board (archived), do not
+ * treat a nested title like Tether-P.3.2 as an Epic.
+ * Tether-P → 0, Tether-4.1 → 1, Tether-P.3.2 → 2. Null if the title
+ * is not a Tether-style ID.
+ */
+export function inferTaskBoardDepthFromTitle(title) {
+  const head = String(title || '').trim().split(/\s+/)[0] || '';
+  const match = head.match(/^Tether-(P|\d+)((?:\.\d+)*)$/i);
+  if (!match) return null;
+  const extra = match[2] ? match[2].split('.').filter(Boolean).length : 0;
+  return Math.min(MAX_TASK_NESTING_DEPTH, extra);
+}
+
+/**
  * Normalize tasks.subtasks jsonb into a stable checklist array.
  * Handles array, JSON string, or empty/null.
  */
@@ -389,6 +403,19 @@ export function isTaskVisibleWithLockedToggle(task, showLocked = false) {
 }
 
 /**
+ * Grey “Blocked” treatment on the board.
+ * Own incomplete deps, or every incomplete child is blocked (Medium/Epic rollup).
+ * Does not hide the parent — visibility still uses isTaskDependencyLocked.
+ */
+export function isTaskVisuallyBlocked(task) {
+  if (!task || isTaskCompletedAccepted(task)) return false;
+  if (task.isVisuallyBlocked === true || task.isBlockedGroup === true) {
+    return true;
+  }
+  return isTaskDependencyLocked(task);
+}
+
+/**
  * Attach "Blocked by" edges and compute isLocked / lockedWaitingOn.
  * Call after attachTaskHierarchy so status/hierarchy fields are final.
  * Recomputes volunteerClaimable with the lock gate applied.
@@ -410,7 +437,7 @@ export function attachTaskDependencies(tasks, dependencyRows = []) {
     blockersOf.get(tid).push(bid);
   }
 
-  return tasks.map((t) => {
+  const withOwnLocks = tasks.map((t) => {
     const blockerIds = [...new Set(blockersOf.get(t.id) || [])];
     const blockedBy = blockerIds.map((id) => {
       const b = byId.get(id);
@@ -453,6 +480,64 @@ export function attachTaskDependencies(tasks, dependencyRows = []) {
       ...base,
       claimBlockedReason,
       volunteerClaimable: !claimBlockedReason,
+    };
+  });
+
+  const lockedById = new Map(withOwnLocks.map((t) => [t.id, t]));
+  const visualMemo = new Map();
+  const groupWaiting = new Map();
+
+  const computeVisual = (t) => {
+    if (!t || visualMemo.has(t.id)) return Boolean(visualMemo.get(t.id));
+    if (isTaskCompletedAccepted(t)) {
+      visualMemo.set(t.id, false);
+      return false;
+    }
+    if (t.isLocked) {
+      visualMemo.set(t.id, true);
+      groupWaiting.set(t.id, t.lockedWaitingOn || []);
+      return true;
+    }
+    const childIds = Array.isArray(t.childIds) ? t.childIds : [];
+    if (childIds.length === 0) {
+      visualMemo.set(t.id, false);
+      return false;
+    }
+    const incomplete = childIds
+      .map((id) => lockedById.get(id))
+      .filter((c) => c && !isTaskCompletedAccepted(c));
+    if (incomplete.length === 0) {
+      visualMemo.set(t.id, false);
+      return false;
+    }
+    const allBlocked = incomplete.every((c) => computeVisual(c));
+    visualMemo.set(t.id, allBlocked);
+    if (allBlocked) {
+      const names = [];
+      for (const c of incomplete) {
+        const wait = groupWaiting.get(c.id) || c.lockedWaitingOn || [];
+        for (const n of wait) {
+          if (n && !names.includes(n)) names.push(n);
+        }
+      }
+      groupWaiting.set(t.id, names);
+    }
+    return allBlocked;
+  };
+
+  return withOwnLocks.map((t) => {
+    const visually = computeVisual(t);
+    const isBlockedGroup = visually && !t.isLocked;
+    const waitingOn = t.isLocked
+      ? t.lockedWaitingOn
+      : isBlockedGroup
+        ? groupWaiting.get(t.id) || []
+        : t.lockedWaitingOn;
+    return {
+      ...t,
+      isBlockedGroup,
+      isVisuallyBlocked: visually,
+      lockedWaitingOn: waitingOn,
     };
   });
 }
@@ -821,6 +906,8 @@ export function mapTaskRow(row) {
     blockedByIds: [],
     blockedByIncomplete: [],
     isLocked: false,
+    isBlockedGroup: false,
+    isVisuallyBlocked: false,
     lockedWaitingOn: [],
   };
 }
@@ -879,8 +966,16 @@ export function attachTaskHierarchy(tasks) {
   const depthOf = (id, guard = 0) => {
     if (guard > 10) return 0;
     const t = byId.get(id);
-    if (!t?.parentTaskId || !byId.has(t.parentTaskId)) return 0;
-    return 1 + depthOf(t.parentTaskId, guard + 1);
+    if (!t) return 0;
+    if (!t.parentTaskId) return 0;
+    if (!byId.has(t.parentTaskId)) {
+      const inferred = inferTaskBoardDepthFromTitle(t.title);
+      return inferred == null ? 0 : inferred;
+    }
+    return Math.min(
+      MAX_TASK_NESTING_DEPTH,
+      1 + depthOf(t.parentTaskId, guard + 1)
+    );
   };
 
   const isStatusCompleted = (t) =>

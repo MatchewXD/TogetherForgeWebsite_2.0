@@ -68,22 +68,7 @@ Definition of Done:
 - Docs/StyleLock.md exists and is labeled Draft until approved.
 - Docs/TetherRules.txt exists with starting bands and Open items labeled.
 - README links Vision, WhatThisIsNot, StyleLock, and TetherRules.', '[{"id":"s1","label":"Docs/StyleLock.md exists and is labeled Draft until approved.","done":false},{"id":"s2","label":"Docs/TetherRules.txt exists with starting bands and Open items labeled.","done":false},{"id":"s3","label":"README links Vision, WhatThisIsNot, StyleLock, and TetherRules.","done":false}]'::jsonb),
-    ('Tether-P', 'Tether-P Open game work', 'Tether game work that is not already in the Unreal repo. Staging only. Do not publish. Networking stays Tether-10.', '[]'::jsonb),
-    ('Tether-P.2', 'Tether-P.2 Art exploration', 'Art exploration for player, beam, and scale. Not final production art. StyleLock.md is Draft. Cite Docs/Vision.md and Docs/StyleLock.md.', '[]'::jsonb),
-    ('Tether-P.2.1', 'Tether-P.2.1 Player stand-in silhouettes', 'Three readable silhouette thumbnails for a suited colony crew stand-in. Do not model a final character. Do not change the prototype mesh unless staff ask. Cite Docs/StyleLock.md.
-
-Output: Docs/art-explorations/player/ plus a short note saying which silhouette reads at a distance.
-
-Definition of Done:
-- Three readable silhouette thumbnails exist in Docs/art-explorations/player/.
-- A short note says which silhouette reads at a distance.', '[{"id":"s1","label":"Three readable silhouette thumbnails exist in Docs/art-explorations/player/.","done":false},{"id":"s2","label":"A short note says which silhouette reads at a distance.","done":false}]'::jsonb),
-    ('Tether-P.2.2', 'Tether-P.2.2 Tether visual directions', 'Three stills or overlays of the shared energy beam at Low vs High tension. Stay a beam between bodies. Cite Docs/StyleLock.md and Docs/TetherRules.txt.
-
-Output: Docs/art-explorations/tether/.
-
-Definition of Done:
-- Three stills or overlays of Low vs High tension exist in Docs/art-explorations/tether/.
-- The tether stays a beam between bodies, not a physical cable.', '[{"id":"s1","label":"Three stills or overlays of Low vs High tension exist in Docs/art-explorations/tether/.","done":false},{"id":"s2","label":"The tether stays a beam between bodies, not a physical cable.","done":false}]'::jsonb),
+    ('Tether-P', 'Tether-P First Spark', 'Public First Spark lane: docs and QA. Art suggestions go in Open Questions. Tether-9 is the art section. Networking stays Tether-10.', '[]'::jsonb),
     ('Tether-P.3', 'Tether-P.3 QA templates', 'Templates for the first beam playtests. Staff Only.', '[]'::jsonb),
     ('Tether-P.3.2', 'Tether-P.3.2 Playtest note template', 'Write Docs/qa/PlaytestNote.md with fields: date, build, testers, what felt good, what broke, recommended task change (not a new feature).
 
@@ -165,21 +150,40 @@ Definition of Done:
 - Recovery is implemented.
 - A two-pawn feel test was recorded with Docs/qa/PlaytestNote.md.
 - TetherRules.txt is updated from that playtest.', '[{"id":"s1","label":"Recovery is implemented.","done":false},{"id":"s2","label":"A two-pawn feel test was recorded with Docs/qa/PlaytestNote.md.","done":false},{"id":"s3","label":"TetherRules.txt is updated from that playtest.","done":false}]'::jsonb),
-    ('Tether-3', 'Tether-3 Tether-aware movement', 'Tether-aware movement.
+    ('Tether-3', 'Tether-3 Tether-aware movement', 'Tether-aware movement. Epic 2 playtest is treated as passed. Community claims Tether-3.1. Staff retune pull on Tether-3.2.', '[]'::jsonb),
+    ('Tether-3.1', 'Tether-3.1 Core locomotion and camera', 'Walk, run, jump, ground detect, keyboard and gamepad. Document speeds in Docs/ or TetherRules.txt. Camera is Open: third-person that keeps both pawns readable, or first-person plus a tether cue. Write the choice in Docs/Camera.md. Cite Docs/TetherRules.txt. Do not retune pull, L100, or Tether Health.
 
-Blocker: Epic 2 playtest not passed.', '[]'::jsonb),
-    ('Tether-3.1', 'Tether-3.1 Core locomotion and camera', 'Core locomotion and camera choice documented in Docs/.
+Output: Docs/Camera.md plus documented walk/run/jump speeds.
 
-Blocker: Epic 2 playtest not passed.', '[]'::jsonb),
-    ('Tether-3.2', 'Tether-3.2 Pull/resist and failure-mode tests', 'Pull/resist and failure-mode tests.
+Definition of Done:
+- Walk, run, jump, and ground detect work on keyboard and gamepad.
+- Speeds are documented in Docs/ or TetherRules.txt.
+- Camera choice is written in Docs/Camera.md.
+- This card does not retune pull, L100, or Tether Health.', '[{"id":"s1","label":"Walk, run, jump, and ground detect work on keyboard and gamepad.","done":false},{"id":"s2","label":"Speeds are documented in Docs/ or TetherRules.txt.","done":false},{"id":"s3","label":"Camera choice is written in Docs/Camera.md.","done":false},{"id":"s4","label":"This card does not retune pull, L100, or Tether Health.","done":false}]'::jsonb),
+    ('Tether-3.2', 'Tether-3.2 Pull/resist and failure-mode tests', 'Staff retune pull toward partner and optional resist. Community must not retune pull. Failure-mode playtest is Tether-3.2.1.', '[]'::jsonb),
+    ('Tether-3.2.1', 'Tether-3.2.1 Failure-mode playtest', 'Playtest failure modes. Do not change TetherRules numbers on this card.
 
-Blocker: Epic 2 playtest not passed.', '[]'::jsonb),
+Output: Dated Docs/qa/PlaytestNote.
+
+Definition of Done:
+- A dated Docs/qa/PlaytestNote exists.
+- Tested: one falls off a ledge.
+- Tested: both jump.
+- Tested: one sprints / one stands.
+- TetherRules numbers were not changed on this card.
+
+Blocker: Waiting on staff pull/resist work on Tether-3.2.', '[{"id":"s1","label":"A dated Docs/qa/PlaytestNote exists.","done":false},{"id":"s2","label":"Tested: one falls off a ledge.","done":false},{"id":"s3","label":"Tested: both jump.","done":false},{"id":"s4","label":"Tested: one sprints / one stands.","done":false},{"id":"s5","label":"TetherRules numbers were not changed on this card.","done":false}]'::jsonb),
     ('Tether-4', 'Tether-4 Resources and warp', 'Resources and warp.
 
-Blocker: Epic 3 not stable.', '[]'::jsonb),
-    ('Tether-4.1', 'Tether-4.1 ResourceNode and carry limit', 'ResourceNode, carry limit 1 or 2, at least six nodes.
+Blocker: Waiting on Tether-3.1 Core locomotion and camera.', '[]'::jsonb),
+    ('Tether-4.1', 'Tether-4.1 ResourceNode and carry limit', 'ResourceNode prefab, interact volume, carry limit 1 or 2, deliberate drop. Place at least six nodes in the prototype or a test map.
 
-Blocker: Epic 3 not stable.', '[]'::jsonb),
+Definition of Done:
+- ResourceNode prefab exists with an interact volume.
+- Carry limit is 1 or 2 with a deliberate drop.
+- At least six nodes are placed in the prototype or a test map.
+
+Blocker: Waiting on Tether-3.1 Core locomotion and camera.', '[{"id":"s1","label":"ResourceNode prefab exists with an interact volume.","done":false},{"id":"s2","label":"Carry limit is 1 or 2 with a deliberate drop.","done":false},{"id":"s3","label":"At least six nodes are placed in the prototype or a test map.","done":false}]'::jsonb),
     ('Tether-4.2', 'Tether-4.2 Checkpoint warp and session total', 'Checkpoint warp and session total.
 
 Output: Done at collect → carry → warp → total updates.
@@ -187,48 +191,96 @@ Output: Done at collect → carry → warp → total updates.
 Definition of Done:
 - Collect → carry → warp → session total updates in one loop.
 
-Blocker: Epic 3 not stable.', '[{"id":"s1","label":"Collect → carry → warp → session total updates in one loop.","done":false}]'::jsonb),
-    ('Tether-5', 'Tether-5 Enemies that stress the tether', 'Enemies that stress the tether.
+Blocker: Waiting on Tether-4.1 ResourceNode and carry limit.', '[{"id":"s1","label":"Collect → carry → warp → session total updates in one loop.","done":false}]'::jsonb),
+    ('Tether-5', 'Tether-5 Enemies that stress the tether', 'Enemies that stress the tether. Threats whose job is coordination, not a DPS sponge.
 
-Blocker: Epic 4 loop not working.', '[]'::jsonb),
-    ('Tether-5.1', 'Tether-5.1 Latch enemy', 'Latch enemy, attach penalty, Energy Pulse removal.
+Blocker: Waiting on Tether-4.2 Checkpoint warp and session total.', '[]'::jsonb),
+    ('Tether-5.1', 'Tether-5.1 Latch enemy', 'Latch enemy moves toward a pawn or the tether midpoint, attaches, applies a documented penalty (extra tension, slow, or drain), and shows a clear attached state. Removal is faster when both players use Energy Pulse inside a short window (pair-remove). Playtest with two people and confirm the pair advantage is obvious.
 
-Blocker: Epic 4 loop not working.', '[]'::jsonb),
+Definition of Done:
+- Latch enemy attaches to a pawn or the tether midpoint with a clear attached state.
+- A documented penalty applies while attached.
+- Energy Pulse pair-remove is faster when both players use it in a short window.
+
+Blocker: Waiting on Tether-4.2 Checkpoint warp and session total.', '[{"id":"s1","label":"Latch enemy attaches to a pawn or the tether midpoint with a clear attached state.","done":false},{"id":"s2","label":"A documented penalty applies while attached.","done":false},{"id":"s3","label":"Energy Pulse pair-remove is faster when both players use it in a short window.","done":false}]'::jsonb),
     ('Tether-6', 'Tether-6 First playable surface level', 'First playable surface level.
 
-Blocker: Epic 5 has no working enemy.', '[]'::jsonb),
-    ('Tether-6.1', 'Tether-6.1 Modular graybox kit plus Level_01_Surface', 'Modular graybox kit plus Level_01_Surface.
+Blocker: Waiting on Tether-5.1 Latch enemy.', '[]'::jsonb),
+    ('Tether-6.1', 'Tether-6.1 Modular graybox kit plus Level_01_Surface', 'Parent for kit pieces and Level_01_Surface blockout. Claim the Smalls.
 
-Blocker: Epic 5 has no working enemy.', '[]'::jsonb),
-    ('Tether-6.2', 'Tether-6.2 End-to-end 1-4 player loop', 'End-to-end 1-4 player cooperative loop with a recorded successful run. Solo behavior and 3-4 tether topology stay Open.
+Blocker: Waiting on Tether-5.1 Latch enemy.', '[]'::jsonb),
+    ('Tether-6.1.1', 'Tether-6.1.1 Five modular graybox pieces', 'Five modular graybox pieces in Content/Tether/Modular.
+
+Output: Content/Tether/Modular with at least five graybox pieces.
+
+Definition of Done:
+- At least five modular graybox pieces exist in Content/Tether/Modular.
+
+Blocker: Waiting on Tether-5.1 Latch enemy.', '[{"id":"s1","label":"At least five modular graybox pieces exist in Content/Tether/Modular.","done":false}]'::jsonb),
+    ('Tether-6.1.2', 'Tether-6.1.2 Block out Level_01_Surface', 'Block out Content/Tether/Maps/Level_01_Surface: start, two traversal sections, resources, one or two enemy points, end checkpoint.
+
+Output: Content/Tether/Maps/Level_01_Surface.
+
+Definition of Done:
+- Level_01_Surface has a start, two traversal sections, resources, one or two enemy points, and an end checkpoint.
+
+Blocker: Waiting on Tether-6.1.1 Five modular graybox pieces.', '[{"id":"s1","label":"Level_01_Surface has a start, two traversal sections, resources, one or two enemy points, and an end checkpoint.","done":false}]'::jsonb),
+    ('Tether-6.2', 'Tether-6.2 End-to-end 1-4 player loop', 'Recorded 1-4 player loop. Two-window listen server is enough until Tether-10.2 exists. Solo behavior and 3-4 tether topology stay Open.
 
 Definition of Done:
 - A recorded successful 1-4 player run exists.
+- Two-window listen server is enough until Tether-10.2 exists.
 
-Blocker: Epic 5 has no working enemy.', '[{"id":"s1","label":"A recorded successful 1-4 player run exists.","done":false}]'::jsonb),
-    ('Tether-7', 'Tether-7 Tools, upgrades, between-level flow', 'Parked placeholder. Do not invent extra Smalls.', '[]'::jsonb),
-    ('Tether-7.1', 'Tether-7.1 Upgrade screen', 'Parked placeholder: upgrade screen.', '[]'::jsonb),
-    ('Tether-7.2', 'Tether-7.2 First upgrades', 'Parked placeholder: first upgrades — max distance, Anchor, Shared Reinforcer.', '[]'::jsonb),
-    ('Tether-8', 'Tether-8 Final station sequence', 'Parked placeholder. Do not invent extra Smalls.', '[]'::jsonb),
-    ('Tether-8.1', 'Tether-8.1 Station blockout', 'Parked placeholder: station blockout.', '[]'::jsonb),
-    ('Tether-8.2', 'Tether-8.2 Creature drive-off', 'Parked placeholder: creature drive-off.', '[]'::jsonb),
-    ('Tether-9', 'Tether-9 Art pipeline', 'Art pipeline. Exploration is Staff Only until style lock is approved.', '[]'::jsonb),
-    ('Tether-9.1', 'Tether-9.1 Style lock approval', 'Style lock approval (exploration). Staff Only for now.', '[]'::jsonb),
+Blocker: Waiting on Tether-6.1.2 Block out Level_01_Surface.', '[{"id":"s1","label":"A recorded successful 1-4 player run exists.","done":false},{"id":"s2","label":"Two-window listen server is enough until Tether-10.2 exists.","done":false}]'::jsonb),
+    ('Tether-7', 'Tether-7 Tools, upgrades, between-level flow', 'Parked chapter. Do not invent extra Smalls.
+
+Blocker: Parked until Epic 6 is playtested.', '[]'::jsonb),
+    ('Tether-7.1', 'Tether-7.1 Upgrade screen', 'Parked chapter card: upgrade screen. Do not invent extra Smalls.
+
+Blocker: Parked until Epic 6 is playtested.', '[]'::jsonb),
+    ('Tether-7.2', 'Tether-7.2 First upgrades', 'Parked chapter card: first upgrades — max distance, Anchor, Shared Reinforcer. Do not invent extra Smalls.
+
+Blocker: Parked until Epic 6 is playtested.', '[]'::jsonb),
+    ('Tether-8', 'Tether-8 Final station sequence', 'Parked chapter. Do not invent extra Smalls.
+
+Blocker: Parked until Epic 6 is playtested.', '[]'::jsonb),
+    ('Tether-8.1', 'Tether-8.1 Station blockout', 'Parked chapter card: station blockout. Do not invent extra Smalls.
+
+Blocker: Parked until Epic 6 is playtested.', '[]'::jsonb),
+    ('Tether-8.2', 'Tether-8.2 Creature drive-off', 'Parked chapter card: creature drive-off. Do not invent extra Smalls.
+
+Blocker: Parked until Epic 6 is playtested.', '[]'::jsonb),
+    ('Tether-9', 'Tether-9 Art pipeline', 'Art pipeline. Style lock approval is Staff Only. Art suggestions belong in Open Questions until staff accept StyleLock.md.', '[]'::jsonb),
+    ('Tether-9.1', 'Tether-9.1 Style lock approval', 'Staff approve StyleLock.md (palette, silhouettes, materials). StyleLock.md stays Draft until staff accept.
+
+Output: Docs/StyleLock.md accepted by staff.
+
+Definition of Done:
+- Staff accept Docs/StyleLock.md.
+- Until then StyleLock.md stays Draft.', '[{"id":"s1","label":"Staff accept Docs/StyleLock.md.","done":false},{"id":"s2","label":"Until then StyleLock.md stays Draft.","done":false}]'::jsonb),
     ('Tether-9.2', 'Tether-9.2 Core final assets', 'Core final assets.
 
 Blocker: Style lock not approved.', '[]'::jsonb),
-    ('Tether-10', 'Tether-10 Networking foundation', 'Networking foundation. Founder-owned.
+    ('Tether-10', 'Tether-10 Networking foundation', 'Networking foundation. Staff Only. Not claimable.
 
 Founder-owned. Default candidate: Iris on UE 5.8.', '[]'::jsonb),
-    ('Tether-10.1', 'Tether-10.1 Core netcode', 'Core netcode. Default candidate: Iris on UE 5.8. Host/join, pawn sync, tether sync later.
+    ('Tether-10.1', 'Tether-10.1 Core netcode', 'Two-window pawn + beam sync. Do not require two machines. Default candidate: Iris on UE 5.8.
+
+Founder-owned. Staff Only Done.', '[]'::jsonb),
+    ('Tether-10.2', 'Tether-10.2 Two-machine test on TetherPrototype', 'Two-machine test on TetherPrototype. Deferred.
+
+Blocker: Two-machine test deferred.
 
 Founder-owned.', '[]'::jsonb),
-    ('Tether-10.2', 'Tether-10.2 Two-machine test on TetherPrototype', 'Two-machine test on TetherPrototype.
+    ('Tether-11', 'Tether-11 UI', 'Parked chapter. Do not invent extra Smalls.
 
-Founder-owned.', '[]'::jsonb),
-    ('Tether-11', 'Tether-11 UI', 'Parked placeholder. Do not invent extra Smalls.', '[]'::jsonb),
-    ('Tether-12', 'Tether-12 Audio', 'Parked placeholder. Do not invent extra Smalls.', '[]'::jsonb),
-    ('Tether-13', 'Tether-13 Playtesting and polish', 'Parked placeholder. Do not invent extra Smalls.', '[]'::jsonb);
+Blocker: Parked until Epic 6 is playtested.', '[]'::jsonb),
+    ('Tether-12', 'Tether-12 Audio', 'Parked chapter. Do not invent extra Smalls.
+
+Blocker: Parked until Epic 6 is playtested.', '[]'::jsonb),
+    ('Tether-13', 'Tether-13 Playtesting and polish', 'Parked chapter. Do not invent extra Smalls.
+
+Blocker: Parked until Epic 6 is playtested.', '[]'::jsonb);
 
   update public.tasks t
   set
