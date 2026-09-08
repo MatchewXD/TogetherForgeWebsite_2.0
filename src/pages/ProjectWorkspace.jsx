@@ -47,6 +47,7 @@ import TaskCard from '../components/ui/TaskCard';
 import SubTaskList from '../components/ui/SubTaskList';
 import TaskDependencyPicker from '../components/ui/TaskDependencyPicker';
 import TaskStagingTree from '../components/ui/TaskStagingTree';
+import WaitingOnLinks from '../components/ui/WaitingOnLinks';
 import CompletedTaskTree from '../components/ui/CompletedTaskTree';
 import StaffToolsBar from '../components/ui/StaffToolsBar';
 import OpenQuestionsSection from '../components/projects/OpenQuestionsSection';
@@ -76,10 +77,14 @@ import {
   BOARD_SCOPE_PUBLIC,
   canPublishStagingTask,
   canMovePublicTaskToStaging,
+  isStagingTask,
+  TASK_CANNOT_WAIT_ON_SELF,
   normalizeChecklist,
   progressFromChecklist,
   isChecklistComplete,
   isTaskVisibleWithLockedToggle,
+  isTaskDependencyLocked,
+  getTaskWaitingOnBlockers,
   CLAIM_IDLE_RELEASE_DAYS,
   CLAIM_MAX_DURATION_DAYS,
   CLAIM_AUTO_RELEASE_POLICY_COPY,
@@ -449,8 +454,8 @@ const ProjectWorkspace = () => {
   const [boardCategoryFilter, setBoardCategoryFilter] = useState([]);
   /** Only show claimable tasks with no active claim */
   const [boardUnclaimedOnly, setBoardUnclaimedOnly] = useState(false);
-  /** When false (default), locked (Blocked by incomplete) tasks are hidden */
-  const [boardShowLocked, setBoardShowLocked] = useState(false);
+  /** When true (default), blocked tasks stay visible on the board */
+  const [boardShowLocked, setBoardShowLocked] = useState(true);
   /** Staff: force dual-rule auto-release check */
   const [autoReleaseBusy, setAutoReleaseBusy] = useState(false);
   const [stagingBusyId, setStagingBusyId] = useState(null);
@@ -691,6 +696,23 @@ const ProjectWorkspace = () => {
     () => tasks.find((t) => t.id === selectedTaskId) || null,
     [tasks, selectedTaskId]
   );
+  const selectedTaskWaitBlockers = useMemo(
+    () => getTaskWaitingOnBlockers(selectedTask),
+    [selectedTask]
+  );
+  const selectedTaskShowsBlocked = Boolean(
+    selectedTask &&
+      !selectedTask.dependencyOverride &&
+      selectedTaskWaitBlockers.length > 0 &&
+      (selectedTask.isLocked || selectedTask.isVisuallyBlocked)
+  );
+  const selectedTaskCanClaim = Boolean(
+    selectedTask &&
+      selectedTask.status === 'todo' &&
+      !selectedTask.claimedBy &&
+      !getUserTaskClaimBlockedReason(selectedTask, { isStaff: isModerator }) &&
+      (!selectedTask.staffOnly || isModerator)
+  );
 
   /**
    * Sync modal drafts only when the user opens a *different* task.
@@ -750,7 +772,7 @@ const ProjectWorkspace = () => {
    * - Category / Unclaimed filters stack on top (AND with scope).
    * - When filters are active in "top" mode, matching nested tasks are also
    *   included so an artist can find claimable Art work without switching scope.
-   * - "Show blocked tasks" applies in BOTH scopes (and nested detail lists).
+   * - "Blocked Tasks" applies in BOTH scopes (and nested detail lists).
    */
   const boardTasks = useMemo(() => {
     const filtersActive =
@@ -795,15 +817,19 @@ const ProjectWorkspace = () => {
     if (boardScope === 'all') {
       list = tasks.filter(matchesFilters);
     } else if (!filtersActive) {
-      // Top-level / tiered overview
-      list = tasks.filter((t) => matchesFilters(t) && inTopScope(t));
+      // Top-level overview, plus nested blocked cards when Blocked Tasks is on
+      list = tasks.filter((t) => {
+        if (!matchesFilters(t)) return false;
+        if (inTopScope(t)) return true;
+        return boardShowLocked && isTaskDependencyLocked(t);
+      });
     } else {
       // Top-level mode + filters: keep top-scope tasks that match, plus any
       // nested match so skill filters surface claimable work under epics.
       list = tasks.filter((t) => {
         if (!matchesFilters(t)) return false;
         if (inTopScope(t)) return true;
-        // Nested match (e.g. unclaimed Art leaf under a Design epic)
+        if (boardShowLocked && isTaskDependencyLocked(t)) return true;
         return Boolean(t.parentTaskId);
       });
     }
@@ -828,7 +854,7 @@ const ProjectWorkspace = () => {
   );
 
   const boardFiltersActive =
-    boardCategoryFilter.length > 0 || boardUnclaimedOnly || boardShowLocked;
+    boardCategoryFilter.length > 0 || boardUnclaimedOnly || !boardShowLocked;
 
   const toggleBoardCategory = useCallback((cat) => {
     setBoardCategoryFilter((prev) => {
@@ -842,7 +868,7 @@ const ProjectWorkspace = () => {
   const clearBoardFilters = useCallback(() => {
     setBoardCategoryFilter([]);
     setBoardUnclaimedOnly(false);
-    setBoardShowLocked(false);
+    setBoardShowLocked(true);
   }, []);
 
   /**
@@ -882,14 +908,12 @@ const ProjectWorkspace = () => {
 
   /**
    * Direct children in the task detail hierarchy list.
-   * Respects "Show blocked tasks" so tiered navigation matches the board toggle.
+   * Always include blocked nested work so opening a parent never hides them.
    */
   const selectedChildren = useMemo(() => {
     if (!selectedTaskId) return [];
-    return getChildTasks(tasks, selectedTaskId).filter((t) =>
-      isTaskVisibleWithLockedToggle(t, boardShowLocked)
-    );
-  }, [tasks, selectedTaskId, boardShowLocked]);
+    return getChildTasks(tasks, selectedTaskId);
+  }, [tasks, selectedTaskId]);
 
   /** Root → … → current for compact orientation path only */
   const selectedBreadcrumb = useMemo(() => {
@@ -1093,11 +1117,13 @@ const ProjectWorkspace = () => {
           ? task.subtasks.map((s) => s.label || s.title || '')
           : [''],
       parentTaskId: task.parentTaskId || null,
-      blockedByTaskIds: Array.isArray(task.blockedByIds)
-        ? [...task.blockedByIds]
-        : Array.isArray(task.blockedBy)
-          ? task.blockedBy.map((b) => b.id).filter(Boolean)
-          : [],
+      blockedByTaskIds: (
+        Array.isArray(task.blockedByIds)
+          ? [...task.blockedByIds]
+          : Array.isArray(task.blockedBy)
+            ? task.blockedBy.map((b) => b.id).filter(Boolean)
+            : []
+      ).filter((id) => id && String(id) !== String(task.id)),
       dependencyOverride: Boolean(task.dependencyOverride),
       staffOnly: Boolean(task.staffOnly),
     });
@@ -1133,11 +1159,13 @@ const ProjectWorkspace = () => {
       subtaskLines: checklistLines.length ? checklistLines : [''],
       // Keep same parent so hierarchy stays sensible (lead can change later if we add parent field)
       parentTaskId: task.parentTaskId || null,
-      blockedByTaskIds: Array.isArray(task.blockedByIds)
-        ? [...task.blockedByIds]
-        : Array.isArray(task.blockedBy)
-          ? task.blockedBy.map((b) => b.id).filter(Boolean)
-          : [],
+      blockedByTaskIds: (
+        Array.isArray(task.blockedByIds)
+          ? [...task.blockedByIds]
+          : Array.isArray(task.blockedBy)
+            ? task.blockedBy.map((b) => b.id).filter(Boolean)
+            : []
+      ).filter((id) => id && String(id) !== String(task.id)),
       // Fresh copy should respect blockers unless lead re-enables override
       dependencyOverride: false,
       staffOnly: Boolean(task.staffOnly),
@@ -1157,7 +1185,20 @@ const ProjectWorkspace = () => {
   };
 
   const handleStagingDelete = (task) => {
-    if (!isModerator || !task?.id || !isStagingBoard) return;
+    if (!isModerator || !task?.id) return;
+    setDeleteConfirmTask(task);
+  };
+
+  const requestDeleteFromTaskForm = () => {
+    if (!isModerator || taskFormMode !== 'edit' || !editingTaskId) return;
+    const task = tasks.find((t) => t.id === editingTaskId);
+    if (!task) {
+      showToast('Could not find that task to delete.', 'warn');
+      return;
+    }
+    setTaskFormOpen(false);
+    setTaskFormError(null);
+    setEditingTaskId(null);
     setDeleteConfirmTask(task);
   };
 
@@ -1170,7 +1211,10 @@ const ProjectWorkspace = () => {
       setDeleteConfirmTask(null);
       if (selectedTaskId === task.id) setSelectedTaskId(null);
       await refreshBoard(projectUuid);
-      showToast('Removed from Staging.', 'success');
+      showToast(
+        isStagingTask(task) ? 'Removed from Staging.' : 'Removed from the board.',
+        'success'
+      );
     } catch (err) {
       showToast(friendlyError(err), 'error');
     } finally {
@@ -1262,6 +1306,14 @@ const ProjectWorkspace = () => {
 
   const toggleBlockedByTask = (blockerId) => {
     if (!blockerId) return;
+    if (
+      taskFormMode === 'edit' &&
+      editingTaskId &&
+      String(blockerId) === String(editingTaskId)
+    ) {
+      setTaskFormError(TASK_CANNOT_WAIT_ON_SELF);
+      return;
+    }
     setTaskForm((prev) => {
       const cur = prev.blockedByTaskIds || [];
       const has = cur.includes(blockerId);
@@ -1330,6 +1382,16 @@ const ProjectWorkspace = () => {
       return;
     }
 
+    const blockerIds = [...(taskForm.blockedByTaskIds || [])].filter(Boolean);
+    if (
+      taskFormMode === 'edit' &&
+      editingTaskId &&
+      blockerIds.some((id) => String(id) === String(editingTaskId))
+    ) {
+      setTaskFormError(TASK_CANNOT_WAIT_ON_SELF);
+      return;
+    }
+
     const payload = {
       title,
       description: (taskForm.description || '').trim(),
@@ -1339,7 +1401,14 @@ const ProjectWorkspace = () => {
         normalizeTaskEffort(taskForm.estimatedEffort || '') || null,
       subtasks: parseSubtaskLines(taskForm.subtaskLines),
       parentTaskId: taskForm.parentTaskId || null,
-      blockedByTaskIds: [...(taskForm.blockedByTaskIds || [])],
+      blockedByTaskIds: blockerIds.filter(
+        (id) =>
+          !(
+            taskFormMode === 'edit' &&
+            editingTaskId &&
+            String(id) === String(editingTaskId)
+          )
+      ),
       dependencyOverride: Boolean(taskForm.dependencyOverride),
       staffOnly: Boolean(taskForm.staffOnly),
       boardScope: isStagingBoard ? BOARD_SCOPE_STAGING : BOARD_SCOPE_PUBLIC,
@@ -2621,7 +2690,7 @@ const ProjectWorkspace = () => {
                           ? 'bg-neon-cyan/15 text-neon-cyan'
                           : 'text-text-muted hover:text-white'
                       }`}
-                      title="Overview: top-level tasks, plus any nested claims"
+                      title="Overview: top-level tasks, nested claims, and blocked nested work when Blocked Tasks is on"
                     >
                       Top-level
                     </button>
@@ -2769,11 +2838,11 @@ const ProjectWorkspace = () => {
                     aria-pressed={boardShowLocked}
                     title={
                       boardShowLocked
-                        ? 'Hide blocked tasks waiting on other work'
-                        : 'Show blocked tasks that are waiting on other tasks'
+                        ? 'Blocked tasks are visible. Click to hide them.'
+                        : 'Blocked tasks are hidden. Click to show them.'
                     }
                   >
-                    Show blocked tasks
+                    Blocked Tasks
                     {lockedTaskCount > 0 ? (
                       <span className="ml-1.5 tabular-nums opacity-80">
                         ({lockedTaskCount})
@@ -2789,7 +2858,7 @@ const ProjectWorkspace = () => {
                       ? ` · ${boardCategoryFilter.join(', ')}`
                       : ''}
                     {boardUnclaimedOnly ? ' · unclaimed only' : ''}
-                    {boardShowLocked ? ' · including blocked' : ''}
+                    {!boardShowLocked ? ' · hiding blocked' : ''}
                     {boardScope === 'top'
                       ? ' · includes matching nested tasks'
                       : ''}
@@ -3026,6 +3095,7 @@ const ProjectWorkspace = () => {
               onDelete={handleStagingDelete}
               onPublish={handlePublishStaging}
               onMove={handleStagingMove}
+              onView={handleViewTask}
             />
           )}
         </section>
@@ -3915,47 +3985,40 @@ const ProjectWorkspace = () => {
               ) : null}
 
               {/* Locked / Blocked by */}
-              {(selectedTask.isLocked ||
-                selectedTask.isVisuallyBlocked ||
+              {(selectedTaskShowsBlocked ||
                 (selectedTask.blockedBy &&
                   selectedTask.blockedBy.length > 0)) && (
                 <div
                   className={`rounded-lg border px-3 py-2.5 ${
-                    selectedTask.isLocked || selectedTask.isVisuallyBlocked
+                    selectedTaskShowsBlocked
                       ? 'border-white/15 bg-white/[0.04]'
                       : 'border-cyber-border/80 bg-cyber-bg/40'
                   }`}
                 >
                   <p className="font-mono tracking-widest text-[10px] text-text-muted uppercase mb-1.5">
-                    {selectedTask.isLocked || selectedTask.isVisuallyBlocked
+                    {selectedTaskShowsBlocked
                       ? 'Blocked'
                       : selectedTask.dependencyOverride
                         ? 'Dependencies (override on)'
                         : 'Blocked by'}
                   </p>
-                  {selectedTask.isLocked || selectedTask.isVisuallyBlocked ? (
+                  {selectedTaskShowsBlocked ? (
                     <p className="text-sm text-text-secondary leading-relaxed">
-                      {(selectedTask.lockedWaitingOn || []).length ? (
-                        <>
-                          Waiting on:{' '}
-                          <span className="text-text-primary font-medium">
-                            {(selectedTask.lockedWaitingOn || []).join(', ')}
-                          </span>
-                        </>
-                      ) : (
-                        'All nested tasks are blocked.'
-                      )}
+                      <WaitingOnLinks
+                        task={selectedTask}
+                        onOpen={handleViewTask}
+                      />
                     </p>
                   ) : (
                     <p className="text-sm text-text-secondary leading-relaxed">
-                      Depends on:{' '}
-                      {(selectedTask.blockedBy || [])
-                        .map((b) =>
-                          b.isComplete
-                            ? `${b.title} (done)`
-                            : b.title
-                        )
-                        .join(', ')}
+                      <WaitingOnLinks
+                        task={selectedTask}
+                        blockers={selectedTask.blockedBy || []}
+                        onOpen={handleViewTask}
+                        prefix="Depends on:"
+                        emptyText=""
+                        showCompleteMark
+                      />
                       {selectedTask.dependencyOverride
                         ? ' · staff override allows claiming'
                         : ''}
@@ -4620,18 +4683,17 @@ const ProjectWorkspace = () => {
                 </p>
               )}
 
-            {(selectedTask.isLocked || selectedTask.isVisuallyBlocked) &&
+            {selectedTaskShowsBlocked &&
               selectedTask.status === 'todo' &&
               !selectedTask.claimedBy && (
                 <div className="space-y-2 pt-2 border-t border-cyber-border">
                   <p className="text-sm text-text-secondary leading-relaxed">
-                    {(selectedTask.lockedWaitingOn || []).length ? (
-                      <>
-                        Blocked – waiting on:{' '}
-                        <span className="text-text-primary font-medium">
-                          {(selectedTask.lockedWaitingOn || []).join(', ')}
-                        </span>
-                      </>
+                    {selectedTaskWaitBlockers.length ? (
+                      <WaitingOnLinks
+                        task={selectedTask}
+                        onOpen={handleViewTask}
+                        prefix="Blocked – waiting on:"
+                      />
                     ) : (
                       'This task is blocked because every nested task is blocked.'
                     )}
@@ -4668,11 +4730,7 @@ const ProjectWorkspace = () => {
                 </div>
               )}
 
-            {selectedTask.volunteerClaimable &&
-              !selectedTask.isLocked &&
-              selectedTask.status === 'todo' &&
-              !selectedTask.claimedBy &&
-              (!selectedTask.staffOnly || isModerator) && (
+            {selectedTaskCanClaim && (
                 <div className="space-y-2 pt-2 border-t border-cyber-border">
                   {selectedTask.staffOnly && (
                     <Badge variant="gold" className="!normal-case tracking-wide">
@@ -5423,6 +5481,18 @@ const ProjectWorkspace = () => {
             >
               Cancel
             </Button>
+            {taskFormMode === 'edit' && isModerator ? (
+              <Button
+                type="button"
+                variant="danger"
+                className="gap-2"
+                onClick={requestDeleteFromTaskForm}
+                disabled={taskFormBusy}
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </Button>
+            ) : null}
           </div>
         </form>
       </Modal>
@@ -5524,7 +5594,11 @@ const ProjectWorkspace = () => {
       <Modal
         isOpen={!!deleteConfirmTask}
         onClose={() => !stagingBusyId && setDeleteConfirmTask(null)}
-        title="Delete from Staging?"
+        title={
+          deleteConfirmTask && isStagingTask(deleteConfirmTask)
+            ? 'Delete from Staging?'
+            : 'Delete from the board?'
+        }
         size="md"
       >
         {deleteConfirmTask ? (
@@ -5536,7 +5610,7 @@ const ProjectWorkspace = () => {
                   <span className="text-white font-medium">
                     {deleteConfirmTask.title}
                   </span>{' '}
-                  and {deleteConfirmTask.childCount} nested staging task
+                  and {deleteConfirmTask.childCount} nested task
                   {deleteConfirmTask.childCount === 1 ? '' : 's'}?
                 </>
               ) : (
@@ -5544,13 +5618,17 @@ const ProjectWorkspace = () => {
                   Delete{' '}
                   <span className="text-white font-medium">
                     {deleteConfirmTask.title}
-                  </span>{' '}
-                  from Staging?
+                  </span>
+                  {isStagingTask(deleteConfirmTask)
+                    ? ' from Staging?'
+                    : ' from the board?'}
                 </>
               )}
             </p>
             <p className="text-sm text-text-secondary leading-relaxed">
-              Public copies already published stay on the live board.
+              {isStagingTask(deleteConfirmTask)
+                ? 'Public copies already published stay on the live board.'
+                : 'This removes the card from this board. Nested cards are removed with it.'}
             </p>
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
               <Button

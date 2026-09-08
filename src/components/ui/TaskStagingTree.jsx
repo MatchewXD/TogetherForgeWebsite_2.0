@@ -25,6 +25,7 @@ import {
   isTaskVisuallyBlocked,
   taskLevelLabel,
 } from '../../services/tasksService';
+import WaitingOnLinks from './WaitingOnLinks';
 
 function sortSiblings(items) {
   return (items || []).slice().sort(compareTaskBoardOrder);
@@ -177,6 +178,7 @@ function StagingRow({
   onDelete,
   onPublish,
   onMove,
+  onView,
 }) {
   const depth = Number(task.depth) || 0;
   const children = sortSiblings(getChildTasks(allTasks, task.id));
@@ -235,9 +237,7 @@ function StagingRow({
             </p>
             {blocked ? (
               <p className="text-xs text-text-muted leading-relaxed">
-                {(task.lockedWaitingOn || []).length
-                  ? `Waiting on: ${(task.lockedWaitingOn || []).join(', ')}`
-                  : 'All nested tasks are blocked.'}
+                <WaitingOnLinks task={task} onOpen={onView} />
               </p>
             ) : null}
             {task.description ? (
@@ -287,6 +287,7 @@ function StagingRow({
               onDelete={onDelete}
               onPublish={onPublish}
               onMove={onMove}
+              onView={onView}
             />
           ))}
         </ul>
@@ -305,6 +306,7 @@ const TaskStagingTree = ({
   onDelete,
   onPublish,
   onMove,
+  onView,
 }) => {
   const roots = sortSiblings(
     (tasks || []).filter((t) => !t.parentTaskId)
@@ -395,6 +397,7 @@ const TaskStagingTree = ({
               onDelete={onDelete}
               onPublish={onPublish}
               onMove={onMove}
+              onView={onView}
             />
           ))}
         </ul>

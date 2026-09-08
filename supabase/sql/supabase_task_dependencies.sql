@@ -53,7 +53,7 @@ declare
   v_blocker_project uuid;
 begin
   if new.task_id = new.blocks_on_task_id then
-    raise exception 'A task cannot block itself';
+    raise exception 'A task cannot wait on itself.';
   end if;
 
   select project_id into v_task_project from tasks where id = new.task_id;
@@ -194,8 +194,11 @@ begin
 
   foreach v_id in array v_ids
   loop
-    if v_id is null or v_id = p_task_id then
+    if v_id is null then
       continue;
+    end if;
+    if v_id = p_task_id then
+      raise exception 'A task cannot wait on itself.';
     end if;
     if not exists (
       select 1 from tasks
@@ -306,8 +309,13 @@ begin
     raise exception 'Task is waiting for review and cannot be claimed';
   end if;
 
-  -- Dependency lock (Blocked by incomplete tasks)
-  if public.task_is_dependency_locked(p_task_id) then
+  if coalesce(v_task.staff_only, false) and not public.is_project_staff() then
+    raise exception 'STAFF_ONLY: This task is Staff Only and cannot be claimed by volunteers.';
+  end if;
+
+  -- Dependency lock (Blocked by incomplete tasks). Override lets staff claim anyway.
+  if public.task_is_dependency_locked(p_task_id)
+     and not coalesce(v_task.dependency_override, false) then
     select string_agg(title, ', ' order by title)
     into v_blocker_titles
     from public.task_incomplete_blockers(p_task_id);
@@ -328,9 +336,10 @@ begin
 
   select count(*)::integer into v_child_count
   from tasks
-  where parent_task_id = p_task_id;
+  where parent_task_id = p_task_id
+    and archived_at is null;
 
-  if v_child_count > 0 then
+  if v_child_count > 0 and not public.is_project_staff() then
     raise exception 'This task has sub-tasks and cannot be claimed. Claim a leaf task instead.';
   end if;
 

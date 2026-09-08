@@ -173,7 +173,10 @@ const TaskDependencyPicker = ({
               type="checkbox"
               className="accent-cyan-400 shrink-0"
               checked={checked}
-              onChange={() => onToggle?.(task.id)}
+              onChange={() => {
+                if (excludeTaskId && task.id === excludeTaskId) return;
+                onToggle?.(task.id);
+              }}
             />
             <span className="min-w-0 flex-1">
               <span className="flex flex-wrap items-center gap-1.5">

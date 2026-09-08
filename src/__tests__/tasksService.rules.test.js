@@ -29,6 +29,8 @@ import {
   isTaskVisibleWithLockedToggle,
   isTaskDependencyLocked,
   isTaskVisuallyBlocked,
+  getTaskWaitingOnBlockers,
+  waitingBlockersExcludingSelf,
   normalizeChecklist,
   isVisibleProjectHubActivity,
   groupCompletedTaskForest,
@@ -81,6 +83,30 @@ describe('getTaskClaimBlockedReason / isVolunteerClaimable', () => {
       task({ depth: 1, hasChildren: true, childCount: 2 })
     );
     expect(reason).toMatch(/sub-task/i);
+  });
+
+  it('lets staff claim a Medium that has children', () => {
+    const parent = task({
+      depth: 1,
+      hasChildren: true,
+      childCount: 1,
+      dbStatus: 'ToDo',
+    });
+    expect(getTaskClaimBlockedReason(parent)).toMatch(/sub-task/i);
+    expect(
+      getTaskClaimBlockedReason(parent, { isStaff: true })
+    ).toBeNull();
+  });
+
+  it('lets staff claim when dependency override is on', () => {
+    const locked = task({
+      depth: 2,
+      hasChildren: false,
+      isLocked: true,
+      dependencyOverride: true,
+      lockedWaitingOn: ['Other task'],
+    });
+    expect(getTaskClaimBlockedReason(locked)).toBeNull();
   });
 
   it('blocks completed tasks', () => {
@@ -270,6 +296,18 @@ describe('attachTaskDependencies (Blocked by / Locked)', () => {
     expect(art.isLocked).toBe(true);
     expect(art.volunteerClaimable).toBe(false);
     expect(art.lockedWaitingOn).toEqual(['Choose art style']);
+    expect(art.lockedWaitingOnBlockers).toEqual([
+      expect.objectContaining({
+        id: 'blocker',
+        title: 'Choose art style',
+      }),
+    ]);
+    expect(getTaskWaitingOnBlockers(art)).toEqual([
+      expect.objectContaining({
+        id: 'blocker',
+        title: 'Choose art style',
+      }),
+    ]);
     expect(art.claimBlockedReason).toMatch(/Choose art style/);
   });
 
@@ -352,6 +390,10 @@ describe('attachTaskDependencies (Blocked by / Locked)', () => {
     expect(mid.isBlockedGroup).toBe(true);
     expect(mid.isVisuallyBlocked).toBe(true);
     expect(isTaskVisuallyBlocked(mid)).toBe(true);
+    expect(mid.lockedWaitingOnBlockers).toEqual([
+      expect.objectContaining({ id: 'gate', title: 'Locomotion' }),
+    ]);
+    expect(getTaskWaitingOnBlockers(mid).map((b) => b.id)).toEqual(['gate']);
     expect(epic.isBlockedGroup).toBe(false);
     expect(epic.isVisuallyBlocked).toBe(false);
     expect(isTaskVisibleWithLockedToggle(mid, false)).toBe(true);
@@ -394,6 +436,38 @@ describe('attachTaskDependencies (Blocked by / Locked)', () => {
     const mid = withDeps.find((t) => t.id === 'mid1');
     expect(mid.isBlockedGroup).toBe(true);
     expect(mid.isVisuallyBlocked).toBe(true);
+  });
+
+  it('does not mark a parent Blocked when children only wait on that parent', () => {
+    const hierarchy = attachTaskHierarchy([
+      task({ id: 'epic1', title: 'Epic', parentTaskId: null }),
+      task({
+        id: 'mid32',
+        title: 'Tether-3.2 Pull/resist and failure-mode tests',
+        parentTaskId: 'epic1',
+      }),
+      task({
+        id: 'small',
+        title: 'Tether-3.2.1 Failure-mode playtest',
+        parentTaskId: 'mid32',
+      }),
+    ]);
+    const withDeps = attachTaskDependencies(hierarchy, [
+      { task_id: 'small', blocks_on_task_id: 'mid32' },
+      { task_id: 'mid32', blocks_on_task_id: 'mid32' },
+    ]);
+    const parent = withDeps.find((t) => t.id === 'mid32');
+    const child = withDeps.find((t) => t.id === 'small');
+    expect(child.isLocked).toBe(true);
+    expect(child.lockedWaitingOn).toEqual([
+      'Tether-3.2 Pull/resist and failure-mode tests',
+    ]);
+    expect(parent.isLocked).toBe(false);
+    expect(parent.isBlockedGroup).toBe(false);
+    expect(parent.isVisuallyBlocked).toBe(false);
+    expect(parent.lockedWaitingOn || []).not.toContain(
+      'Tether-3.2 Pull/resist and failure-mode tests'
+    );
   });
 
   it('greys an Epic when every Medium under it is blocked', () => {
@@ -443,6 +517,58 @@ describe('isTaskVisibleWithLockedToggle (board visibility)', () => {
     expect(isTaskDependencyLocked(partial)).toBe(true);
     expect(isTaskVisibleWithLockedToggle(partial, false)).toBe(false);
     expect(isTaskVisibleWithLockedToggle(partial, true)).toBe(true);
+  });
+});
+
+describe('waitingBlockersExcludingSelf / getTaskWaitingOnBlockers', () => {
+  it('drops self by id and by title', () => {
+    const t = task({
+      id: 'mid32',
+      title: 'Tether-3.2 Pull/resist and failure-mode tests',
+    });
+    expect(
+      waitingBlockersExcludingSelf(t, [
+        { id: 'mid32', title: 'Tether-3.2 Pull/resist and failure-mode tests' },
+        { id: 't31', title: 'Tether-3.1 Core locomotion and camera' },
+      ])
+    ).toEqual([
+      expect.objectContaining({
+        id: 't31',
+        title: 'Tether-3.1 Core locomotion and camera',
+      }),
+    ]);
+  });
+
+  it('falls back to title-only lockedWaitingOn when ids are missing', () => {
+    const t = task({
+      id: 's1',
+      lockedWaitingOn: ['Tether-3.1 Core locomotion and camera'],
+    });
+    expect(getTaskWaitingOnBlockers(t)).toEqual([
+      expect.objectContaining({
+        id: null,
+        title: 'Tether-3.1 Core locomotion and camera',
+      }),
+    ]);
+  });
+
+  it('keeps blocker ids on rolled-up Epic waiting-on lists', () => {
+    const hierarchy = attachTaskHierarchy([
+      task({ id: 'epic1', title: 'Epic', parentTaskId: null }),
+      task({ id: 'gate', title: 'Locomotion', parentTaskId: null }),
+      task({ id: 'mid1', title: 'Medium A', parentTaskId: 'epic1' }),
+      task({ id: 'mid2', title: 'Medium B', parentTaskId: 'epic1' }),
+      task({ id: 'a', title: 'Small A', parentTaskId: 'mid1' }),
+      task({ id: 'b', title: 'Small B', parentTaskId: 'mid2' }),
+    ]);
+    const withDeps = attachTaskDependencies(hierarchy, [
+      { task_id: 'a', blocks_on_task_id: 'gate' },
+      { task_id: 'b', blocks_on_task_id: 'gate' },
+    ]);
+    const epic = withDeps.find((t) => t.id === 'epic1');
+    expect(getTaskWaitingOnBlockers(epic)).toEqual([
+      expect.objectContaining({ id: 'gate', title: 'Locomotion' }),
+    ]);
   });
 });
 

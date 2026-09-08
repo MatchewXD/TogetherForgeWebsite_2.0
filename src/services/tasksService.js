@@ -273,6 +273,9 @@ export function progressFromChecklist(items) {
 
 export const STAFF_CONTACT_EMAIL = 'contact@togetherforge.net';
 
+/** Staff error when a task is set to wait on itself. */
+export const TASK_CANNOT_WAIT_ON_SELF = 'A task cannot wait on itself.';
+
 export const STAFF_ONLY_TASK_MESSAGE =
   'Only staff can claim and complete this task. If your work is waiting on it, please be patient. If you need it sooner, email contact@togetherforge.net or reach us on Discord.';
 
@@ -311,6 +314,75 @@ export function isTaskStaffOnly(task) {
   return Boolean(task?.staffOnly || task?.staff_only);
 }
 
+function normalizeWaitingBlocker(entry) {
+  if (entry == null) return null;
+  if (typeof entry === 'string') {
+    const title = entry.trim();
+    return title ? { id: null, title, isComplete: false } : null;
+  }
+  const id = entry.id || entry.taskId || null;
+  const title = String(entry.title || '').trim();
+  if (!id && !title) return null;
+  return {
+    id,
+    title: title || 'Untitled',
+    isComplete: Boolean(entry.isComplete),
+  };
+}
+
+/**
+ * Drop wait-on blockers that refer to this task (self-block display).
+ * Accepts {id, title} objects or title strings.
+ */
+export function waitingBlockersExcludingSelf(task, blockers) {
+  const list = Array.isArray(blockers) ? blockers : [];
+  const selfId = task?.id != null ? String(task.id) : '';
+  const title = String(task?.title || '').trim();
+  const code = title.split(/\s+/)[0] || '';
+  const seen = new Set();
+  const out = [];
+  for (const raw of list) {
+    const b = normalizeWaitingBlocker(raw);
+    if (!b) continue;
+    if (selfId && b.id && String(b.id) === selfId) continue;
+    const name = b.title;
+    if (title && name === title) continue;
+    if (code && (name === code || name.startsWith(`${code} `))) continue;
+    const key = b.id ? `id:${b.id}` : `t:${name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(b);
+  }
+  return out;
+}
+
+/** Drop wait-on names that refer to this task (self-block display). */
+export function waitingNamesExcludingSelf(task, names) {
+  return waitingBlockersExcludingSelf(task, names).map((b) => b.title);
+}
+
+/**
+ * Incomplete blockers for “Waiting on:” copy, with ids when known.
+ * Prefers rolled-up lockedWaitingOnBlockers, then own blockedByIncomplete,
+ * then title-only lockedWaitingOn.
+ */
+export function getTaskWaitingOnBlockers(task) {
+  if (!task) return [];
+  if (
+    Array.isArray(task.lockedWaitingOnBlockers) &&
+    task.lockedWaitingOnBlockers.length > 0
+  ) {
+    return waitingBlockersExcludingSelf(task, task.lockedWaitingOnBlockers);
+  }
+  if (
+    Array.isArray(task.blockedByIncomplete) &&
+    task.blockedByIncomplete.length > 0
+  ) {
+    return waitingBlockersExcludingSelf(task, task.blockedByIncomplete);
+  }
+  return waitingBlockersExcludingSelf(task, task.lockedWaitingOn);
+}
+
 /**
  * Volunteer claim rules (client + server should agree):
  * - Epic (depth 0): never claimable
@@ -321,7 +393,7 @@ export function isTaskStaffOnly(task) {
  * Staff Only is a separate gate — volunteers still see the task. Use
  * getUserTaskClaimBlockedReason when the viewer role is known.
  */
-export function getTaskClaimBlockedReason(task) {
+export function getTaskClaimBlockedReason(task, opts = {}) {
   if (!task) return 'Task not found';
   if (isStagingTask(task)) {
     return STAGING_TASK_CLAIM_MESSAGE;
@@ -329,12 +401,14 @@ export function getTaskClaimBlockedReason(task) {
   if (task.dbStatus === 'Completed' || task.status === 'completed') {
     return 'This task is already completed';
   }
-  if (task.isLocked) {
-    const names = (
+  const overrideOn = Boolean(task.dependencyOverride);
+  if (task.isLocked && !overrideOn) {
+    const names = waitingNamesExcludingSelf(
+      task,
       task.lockedWaitingOn ||
-      (task.blockedByIncomplete || []).map((b) => b.title) ||
-      []
-    ).filter(Boolean);
+        (task.blockedByIncomplete || []).map((b) => b.title) ||
+        []
+    );
     if (names.length) {
       return `Locked – waiting on: ${names.join(', ')}`;
     }
@@ -344,7 +418,10 @@ export function getTaskClaimBlockedReason(task) {
   if (depth === 0) {
     return 'Epics cannot be claimed. Open a Medium or Small task under this epic.';
   }
-  if (task.hasChildren || (task.childCount || 0) > 0) {
+  if (
+    !opts.isStaff &&
+    (task.hasChildren || (task.childCount || 0) > 0)
+  ) {
     return 'This task has sub-tasks and is not claimable. Claim a Small (or leaf Medium) task instead.';
   }
   return null;
@@ -409,6 +486,15 @@ export function isTaskVisibleWithLockedToggle(task, showLocked = false) {
  */
 export function isTaskVisuallyBlocked(task) {
   if (!task || isTaskCompletedAccepted(task)) return false;
+  if (task.dependencyOverride) return false;
+  const wait = waitingNamesExcludingSelf(task, task.lockedWaitingOn);
+  if (
+    (task.isVisuallyBlocked === true || task.isBlockedGroup === true) &&
+    wait.length === 0 &&
+    !isTaskDependencyLocked(task)
+  ) {
+    return false;
+  }
   if (task.isVisuallyBlocked === true || task.isBlockedGroup === true) {
     return true;
   }
@@ -432,13 +518,15 @@ export function attachTaskDependencies(tasks, dependencyRows = []) {
   for (const row of dependencyRows || []) {
     const tid = row.task_id || row.taskId;
     const bid = row.blocks_on_task_id || row.blocksOnTaskId;
-    if (!tid || !bid) continue;
+    if (!tid || !bid || tid === bid) continue;
     if (!blockersOf.has(tid)) blockersOf.set(tid, []);
     blockersOf.get(tid).push(bid);
   }
 
   const withOwnLocks = tasks.map((t) => {
-    const blockerIds = [...new Set(blockersOf.get(t.id) || [])];
+    const blockerIds = [...new Set(blockersOf.get(t.id) || [])].filter(
+      (id) => id !== t.id
+    );
     const blockedBy = blockerIds.map((id) => {
       const b = byId.get(id);
       if (!b) {
@@ -464,7 +552,11 @@ export function attachTaskDependencies(tasks, dependencyRows = []) {
     const isDone = isTaskCompletedAccepted(t);
     const isLocked =
       !isDone && !dependencyOverride && blockedByIncomplete.length > 0;
-    const lockedWaitingOn = blockedByIncomplete.map((b) => b.title);
+    const lockedWaitingOnBlockers = waitingBlockersExcludingSelf(
+      t,
+      blockedByIncomplete
+    );
+    const lockedWaitingOn = lockedWaitingOnBlockers.map((b) => b.title);
 
     const base = {
       ...t,
@@ -473,6 +565,7 @@ export function attachTaskDependencies(tasks, dependencyRows = []) {
       blockedByIncomplete,
       dependencyOverride,
       isLocked,
+      lockedWaitingOnBlockers,
       lockedWaitingOn,
     };
     const claimBlockedReason = getTaskClaimBlockedReason(base);
@@ -495,7 +588,7 @@ export function attachTaskDependencies(tasks, dependencyRows = []) {
     }
     if (t.isLocked) {
       visualMemo.set(t.id, true);
-      groupWaiting.set(t.id, t.lockedWaitingOn || []);
+      groupWaiting.set(t.id, t.lockedWaitingOnBlockers || []);
       return true;
     }
     const childIds = Array.isArray(t.childIds) ? t.childIds : [];
@@ -511,33 +604,40 @@ export function attachTaskDependencies(tasks, dependencyRows = []) {
       return false;
     }
     const allBlocked = incomplete.every((c) => computeVisual(c));
-    visualMemo.set(t.id, allBlocked);
-    if (allBlocked) {
-      const names = [];
-      for (const c of incomplete) {
-        const wait = groupWaiting.get(c.id) || c.lockedWaitingOn || [];
-        for (const n of wait) {
-          if (n && !names.includes(n)) names.push(n);
-        }
-      }
-      groupWaiting.set(t.id, names);
+    if (!allBlocked) {
+      visualMemo.set(t.id, false);
+      return false;
     }
-    return allBlocked;
+    const blockers = waitingBlockersExcludingSelf(
+      t,
+      incomplete.flatMap(
+        (c) => groupWaiting.get(c.id) || c.lockedWaitingOnBlockers || []
+      )
+    );
+    // Children waiting only on this parent does not make the parent Blocked.
+    if (blockers.length === 0) {
+      visualMemo.set(t.id, false);
+      return false;
+    }
+    visualMemo.set(t.id, true);
+    groupWaiting.set(t.id, blockers);
+    return true;
   };
 
   return withOwnLocks.map((t) => {
     const visually = computeVisual(t);
     const isBlockedGroup = visually && !t.isLocked;
-    const waitingOn = t.isLocked
-      ? t.lockedWaitingOn
+    const waitingBlockers = t.isLocked
+      ? t.lockedWaitingOnBlockers
       : isBlockedGroup
         ? groupWaiting.get(t.id) || []
-        : t.lockedWaitingOn;
+        : t.lockedWaitingOnBlockers;
     return {
       ...t,
       isBlockedGroup,
       isVisuallyBlocked: visually,
-      lockedWaitingOn: waitingOn,
+      lockedWaitingOnBlockers: waitingBlockers,
+      lockedWaitingOn: (waitingBlockers || []).map((b) => b.title),
     };
   });
 }
@@ -908,6 +1008,7 @@ export function mapTaskRow(row) {
     isLocked: false,
     isBlockedGroup: false,
     isVisuallyBlocked: false,
+    lockedWaitingOnBlockers: [],
     lockedWaitingOn: [],
   };
 }
@@ -2301,7 +2402,9 @@ export const tasksService = {
     }
 
     if (opts.task) {
-      const hierarchyBlocked = getTaskClaimBlockedReason(opts.task);
+      const hierarchyBlocked = getTaskClaimBlockedReason(opts.task, {
+        isStaff: Boolean(opts.isStaff),
+      });
       const staffOnlyBlocked = getTaskStaffOnlyBlockedReason(
         opts.task,
         Boolean(opts.isStaff)
@@ -3004,6 +3107,9 @@ export const tasksService = {
   async setTaskDependencies(taskId, blockerIds = [], dependencyOverride = null) {
     if (!taskId) throw new Error('Task id is required');
     const ids = [...new Set((blockerIds || []).filter(Boolean))];
+    if (ids.some((id) => String(id) === String(taskId))) {
+      throw new Error(TASK_CANNOT_WAIT_ON_SELF);
+    }
 
     const { data, error } = await supabase.rpc('set_task_dependencies', {
       p_task_id: taskId,
@@ -3144,7 +3250,11 @@ export const tasksService = {
     if (error) throw error;
 
     const mapped = mapTaskRow(data);
-    const blockerIds = payload.blockedByTaskIds || payload.blockedByIds || [];
+    const blockerIds = (
+      payload.blockedByTaskIds ||
+      payload.blockedByIds ||
+      []
+    ).filter((id) => id && String(id) !== String(mapped?.id));
     // Only hit deps table when staff set blockers or enabled override
     if (
       mapped?.id &&
@@ -3256,7 +3366,7 @@ export const tasksService = {
     return mapTaskRow(data);
   },
 
-  /** Staff: delete a Staging task (nested children cascade in the database). */
+  /** Staff: delete a task from the current board (nested children cascade). */
   async deleteTask(taskId) {
     if (!taskId) throw new Error('Task not found');
     const { error } = await supabase.from('tasks').delete().eq('id', taskId);

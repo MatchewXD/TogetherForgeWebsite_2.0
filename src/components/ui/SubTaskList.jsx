@@ -5,6 +5,7 @@
 
 import Badge from './Badge';
 import Button from './Buttons';
+import WaitingOnLinks from './WaitingOnLinks';
 import { isTaskVisuallyBlocked, taskLevelLabel } from '../../services/tasksService';
 
 const isTaskDone = (task) =>
@@ -167,10 +168,8 @@ const SubTaskList = ({
                     )}
                   </div>
                   {isBlocked && (
-                    <p className="text-xs text-text-muted mt-0.5 line-clamp-1">
-                      {(child.lockedWaitingOn || []).length
-                        ? `Waiting on: ${(child.lockedWaitingOn || []).join(', ')}`
-                        : 'All nested tasks are blocked.'}
+                    <p className="text-xs text-text-muted mt-0.5">
+                      <WaitingOnLinks task={child} onOpen={onOpen} />
                     </p>
                   )}
                   {child.claimedBy && !child.hasChildren && (

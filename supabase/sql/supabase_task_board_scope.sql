@@ -370,7 +370,7 @@ begin
     loop
       v_from := nullif(v_map ->> v_dep.task_id::text, '')::uuid;
       v_to := nullif(v_map ->> v_dep.blocks_on_task_id::text, '')::uuid;
-      if v_from is null or v_to is null then
+      if v_from is null or v_to is null or v_from = v_to then
         continue;
       end if;
       insert into public.task_dependencies (task_id, blocks_on_task_id)

@@ -384,6 +384,7 @@ Blocker: Parked until Epic 6 is playtested.', 'QA', 'Medium', 'Medium', false, 1
     limit 1;
 
     if v_id is not null and v_blocker is not null
+       and v_id is distinct from v_blocker
        and to_regclass('public.task_dependencies') is not null then
       insert into public.task_dependencies (task_id, blocks_on_task_id)
       values (v_id, v_blocker)

@@ -7,9 +7,12 @@ import UserNameWithBadge from '../badges/UserNameWithBadge';
 import {
   formatClaimHeldSince,
   getClaimAutoReleaseInfo,
+  getUserTaskClaimBlockedReason,
   isTaskVisuallyBlocked,
+  getTaskWaitingOnBlockers,
 } from '../../services/tasksService';
 import { progressTone } from '../../utils/progressTone';
+import WaitingOnLinks from './WaitingOnLinks';
 
 /**
  * Hierarchy rail on chamfered panels (see index.css).
@@ -77,18 +80,16 @@ const TaskCard = ({
   );
   const hasChildren = Boolean(task.hasChildren || task.childCount > 0);
   const depth = task.depth || 0;
-  const isLocked = Boolean(task.isLocked);
-  const isBlocked = isTaskVisuallyBlocked(task);
-  const lockedWaitingOn = Array.isArray(task.lockedWaitingOn)
-    ? task.lockedWaitingOn
-    : [];
+  const isLocked = Boolean(task.isLocked) && !task.dependencyOverride;
+  const isBlocked = isTaskVisuallyBlocked(task) && !task.dependencyOverride;
+  const waitingBlockers = getTaskWaitingOnBlockers(task);
   const staffViewer = Boolean(isStaff || canStaffUpdate);
   const isStaffOnly = Boolean(task.staffOnly || task.staff_only);
+  const claimBlocked = getUserTaskClaimBlockedReason(task, {
+    isStaff: staffViewer,
+  });
   const structurallyClaimable =
-    !isLocked &&
-    (task.volunteerClaimable !== undefined
-      ? task.volunteerClaimable && !hasActiveClaim && !isCompleted
-      : !hasActiveClaim && !isCompleted && depth > 0 && !hasChildren);
+    !claimBlocked && !hasActiveClaim && !isCompleted;
   const showClaim = structurallyClaimable && (!isStaffOnly || staffViewer);
   const showStaffOnlyInsteadOfClaim =
     structurallyClaimable && isStaffOnly && !staffViewer;
@@ -332,22 +333,13 @@ const TaskCard = ({
         <p className="text-xs font-mono text-text-muted mb-2">{effortLine}</p>
       )}
 
-      {isBlocked && !isCompleted && (
+      {isBlocked && !isCompleted && waitingBlockers.length > 0 && (
         <div className="rounded-lg border border-white/15 bg-white/[0.04] px-2.5 py-2 mb-3">
           <p className="text-[11px] font-mono tracking-wide text-text-muted uppercase mb-0.5">
             Blocked
           </p>
-          <p className="text-text-secondary text-xs leading-snug line-clamp-2">
-            {lockedWaitingOn.length ? (
-              <>
-                Waiting on:{' '}
-                <span className="text-text-primary/90">
-                  {lockedWaitingOn.join(', ')}
-                </span>
-              </>
-            ) : (
-              'All nested tasks are blocked.'
-            )}
+          <p className="text-text-secondary text-xs leading-snug">
+            <WaitingOnLinks task={task} onOpen={onView} />
           </p>
         </div>
       )}
