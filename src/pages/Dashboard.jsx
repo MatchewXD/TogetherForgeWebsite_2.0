@@ -35,6 +35,10 @@ import tasksService, {
   CLAIM_AUTO_RELEASE_POLICY_COPY,
   getClaimAutoReleaseInfo,
 } from '../services/tasksService';
+import {
+  SUGGESTION_STRIKE_LIMIT,
+  taskSuggestionsService,
+} from '../services/taskSuggestionsService';
 import { ideasService } from '../services/ideasService';
 import { listMyShowcaseSubmissions } from '../services/showcaseService';
 import UserAvatar from '../components/ui/UserAvatar';
@@ -94,6 +98,7 @@ const Dashboard = () => {
   const [deletingDraftId, setDeletingDraftId] = useState(null);
   const [error, setError] = useState('');
   const [autoReleaseNotices, setAutoReleaseNotices] = useState([]);
+  const [suggestionAccount, setSuggestionAccount] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -115,6 +120,7 @@ const Dashboard = () => {
         setMyDrafts([]);
         setShowcaseSubs([]);
         setAutoReleaseNotices([]);
+        setSuggestionAccount(null);
         setLoading(false);
         return;
       }
@@ -135,6 +141,7 @@ const Dashboard = () => {
         draftsRes,
         showcaseRes,
         autoRes,
+        suggestionRes,
       ] = await Promise.all([
           supabase
             .from('profiles')
@@ -159,6 +166,7 @@ const Dashboard = () => {
           tasksService.listMyRecentAutoReleases({ days: 14, limit: 8 }).catch(
             () => []
           ),
+          taskSuggestionsService.getMyAccount().catch(() => null),
         ]);
 
       // Apply username from email sign-up if still missing (avoid second gate loop)
@@ -210,6 +218,7 @@ const Dashboard = () => {
       setMyIdeas(withActivity);
       setIdeaCount(withActivity.length);
       setMyDrafts(draftsRes || []);
+      setSuggestionAccount(suggestionRes);
 
       // Show auto-release notices not yet dismissed
       const notices = autoRes || [];
@@ -453,6 +462,39 @@ const Dashboard = () => {
           <LoadingScreen variant="section" message="Loading dashboard…" />
         ) : (
           <>
+            {suggestionAccount?.showNotice || suggestionAccount?.locked ? (
+              <div className="rounded-xl border border-semantic-danger/40 bg-semantic-danger/10 px-4 py-3 flex flex-col sm:flex-row gap-3">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="text-xs font-mono tracking-widest text-semantic-danger uppercase">
+                    Task board suggestion strike
+                  </p>
+                  <p className="text-sm text-text-secondary leading-snug">
+                    {suggestionAccount.locked
+                      ? `You have ${SUGGESTION_STRIKE_LIMIT} task board suggestion strikes and can no longer suggest new tasks.`
+                      : `You have a task board suggestions strike (${suggestionAccount.strikeCount} of ${SUGGESTION_STRIKE_LIMIT}). Three strikes and you lose the ability to suggest new tasks.`}
+                  </p>
+                </div>
+                {suggestionAccount.showNotice && !suggestionAccount.locked ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void taskSuggestionsService
+                        .dismissStrikeNotice()
+                        .then(() =>
+                          setSuggestionAccount((prev) =>
+                            prev ? { ...prev, showNotice: false } : prev
+                          )
+                        )
+                        .catch(() => {});
+                    }}
+                    className="shrink-0 self-start text-xs font-semibold text-semantic-danger hover:text-white border border-semantic-danger/40 rounded-lg px-3 py-1.5"
+                  >
+                    Dismiss
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
             {autoReleaseNotices.length > 0 && (
               <div className="rounded-xl border border-semantic-warning/40 bg-semantic-warning/10 px-4 py-3 flex flex-col sm:flex-row gap-3">
                 <div className="min-w-0 flex-1 space-y-2">

@@ -20,6 +20,15 @@ function asUserError(error, fallback) {
   return err;
 }
 
+const QUESTION_SELECT =
+  'id, project_id, created_by, title, body, status, selected_reply_id, close_note, closed_at, closed_by, created_at, updated_at';
+const QUESTION_SELECT_NO_CLOSE =
+  'id, project_id, created_by, title, body, status, selected_reply_id, closed_at, closed_by, created_at, updated_at';
+
+function isMissingCloseNote(error) {
+  return /close_note/i.test(error?.message || '');
+}
+
 function mapProfile(row) {
   if (!row) {
     return {
@@ -90,8 +99,6 @@ export function assembleQuestion(
     }
   }
 
-  const suggestionsRaw = replies.filter((r) => !r.parentId);
-
   const childrenByParent = new Map();
   for (const r of replies) {
     if (!r.parentId) continue;
@@ -99,15 +106,30 @@ export function assembleQuestion(
     childrenByParent.get(r.parentId).push(r);
   }
 
-  const suggestions = suggestionsRaw
+  const nestComments = (parentId) => {
+    const kids = (childrenByParent.get(parentId) || []).slice().sort(
+      (x, y) => new Date(x.createdAt) - new Date(y.createdAt)
+    );
+    return kids.map((k) => ({
+      ...k,
+      replies: nestComments(k.id),
+    }));
+  };
+
+  const countComments = (nodes) =>
+    (nodes || []).reduce(
+      (n, node) => n + 1 + countComments(node.replies),
+      0
+    );
+
+  const suggestions = replies
+    .filter((r) => !r.parentId)
     .map((a) => {
-      const children = (childrenByParent.get(a.id) || []).sort(
-        (x, y) => new Date(x.createdAt) - new Date(y.createdAt)
-      );
+      const comments = nestComments(a.id);
       return {
         ...a,
-        replies: children,
-        replyCount: children.length,
+        replies: comments,
+        replyCount: countComments(comments),
         supportCount: supportCountByReply.get(a.id) || 0,
         supportedByMe: supportedByViewer.has(a.id),
       };
@@ -166,20 +188,16 @@ async function loadProfileMap(userIds) {
 export const openQuestionsService = {
   async listForProject(projectId, { viewerUserId = null } = {}) {
     if (!projectId) return [];
-    const questionSelect =
-      'id, project_id, created_by, title, body, status, selected_reply_id, close_note, closed_at, closed_by, created_at, updated_at';
     let { data: questions, error: qErr } = await supabase
       .from('open_questions')
-      .select(questionSelect)
+      .select(QUESTION_SELECT)
       .eq('project_id', projectId)
       .order('created_at', { ascending: false });
 
-    if (qErr && /close_note/i.test(qErr.message || '')) {
+    if (qErr && isMissingCloseNote(qErr)) {
       const retry = await supabase
         .from('open_questions')
-        .select(
-          'id, project_id, created_by, title, body, status, selected_reply_id, closed_at, closed_by, created_at, updated_at'
-        )
+        .select(QUESTION_SELECT_NO_CLOSE)
         .eq('project_id', projectId)
         .order('created_at', { ascending: false });
       questions = retry.data;
@@ -272,7 +290,7 @@ export const openQuestionsService = {
     if (b.length > OPEN_QUESTION_BODY_MAX) {
       throw new Error('Question details are too long.');
     }
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('open_questions')
       .insert([
         {
@@ -283,10 +301,25 @@ export const openQuestionsService = {
           status: 'open',
         },
       ])
-      .select(
-        'id, project_id, created_by, title, body, status, selected_reply_id, close_note, closed_at, closed_by, created_at, updated_at'
-      )
+      .select(QUESTION_SELECT)
       .single();
+    if (error && isMissingCloseNote(error)) {
+      const retry = await supabase
+        .from('open_questions')
+        .insert([
+          {
+            project_id: projectId,
+            created_by: userId,
+            title: t,
+            body: b || null,
+            status: 'open',
+          },
+        ])
+        .select(QUESTION_SELECT_NO_CLOSE)
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
     if (error) throw asUserError(error, 'Could not create the question.');
     return assembleQuestion(data, [], await loadProfileMap([userId]), [], userId);
   },
@@ -310,14 +343,22 @@ export const openQuestionsService = {
       patch.body = b || null;
     }
     if (!Object.keys(patch).length) return null;
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('open_questions')
       .update(patch)
       .eq('id', questionId)
-      .select(
-        'id, project_id, created_by, title, body, status, selected_reply_id, close_note, closed_at, closed_by, created_at, updated_at'
-      )
+      .select(QUESTION_SELECT)
       .single();
+    if (error && isMissingCloseNote(error)) {
+      const retry = await supabase
+        .from('open_questions')
+        .update(patch)
+        .eq('id', questionId)
+        .select(QUESTION_SELECT_NO_CLOSE)
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
     if (error) throw asUserError(error, 'Could not update the question.');
     return data;
   },

@@ -54,6 +54,17 @@ begin
       )
     order by c.claimed_at asc nulls first
   loop
+    -- Community Decisions epic stays claimed until staff complete the game.
+    if exists (
+      select 1
+      from public.tasks t
+      where t.id = r.task_id
+        and t.parent_task_id is null
+        and t.title ~ '^Tether-CD( |$)'
+    ) then
+      continue;
+    end if;
+
     -- Prefer hard-max reason when both apply (skip max when idle is force-test 0
     -- unless the claim truly exceeded max days)
     if coalesce(r.claimed_at, r.last_activity_at, now()) < v_max_cutoff then

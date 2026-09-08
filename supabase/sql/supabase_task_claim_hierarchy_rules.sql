@@ -94,7 +94,13 @@ begin
 
   -- Hierarchy: Epic (depth 0) never claimable
   v_depth := public.task_nesting_depth(p_task_id);
-  if v_depth = 0 then
+  if v_depth = 0
+     and not (
+       public.is_project_staff()
+       and coalesce(v_task.staff_only, false)
+       and v_task.parent_task_id is null
+       and v_task.title ~ '^Tether-CD( |$)'
+     ) then
     raise exception 'Epics cannot be claimed. Claim a Medium or Small task under this epic.';
   end if;
 

@@ -75,6 +75,27 @@ describe('assembleQuestion', () => {
     expect(view.topRanked?.id).toBe('s2');
   });
 
+  it('nests comments under an answer so discussion can thread', () => {
+    const view = assembleQuestion(q(), [
+      reply({ id: 's1', body: 'Short sessions' }),
+      reply({
+        id: 'c1',
+        parent_id: 's1',
+        body: 'Why short?',
+        created_at: '2026-08-01T02:00:00Z',
+      }),
+      reply({
+        id: 'c2',
+        parent_id: 'c1',
+        body: 'Fits a lunch break.',
+        created_at: '2026-08-01T02:10:00Z',
+      }),
+    ]);
+    expect(view.suggestions[0].replyCount).toBe(2);
+    expect(view.suggestions[0].replies[0].id).toBe('c1');
+    expect(view.suggestions[0].replies[0].replies[0].id).toBe('c2');
+  });
+
   it('still ranks when nothing has supports yet (earliest first)', () => {
     const view = assembleQuestion(q(), [
       reply({ id: 's1', body: 'Short sessions', created_at: '2026-08-01T01:00:00Z' }),

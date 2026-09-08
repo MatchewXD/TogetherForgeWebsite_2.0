@@ -91,12 +91,9 @@ begin
       or (a.title like 'Tether-4.2 %' and b.title like 'Tether-4.1 %')
       or (a.title like 'Tether-5 %' and a.title not like 'Tether-5.%' and b.title like 'Tether-4.2 %')
       or (a.title like 'Tether-5.1 %' and b.title like 'Tether-4.2 %')
-      or (a.title like 'Tether-6 %' and a.title not like 'Tether-6.%' and b.title like 'Tether-5.1 %')
-      or (a.title like 'Tether-6.1 %' and a.title not like 'Tether-6.1.%' and b.title like 'Tether-5.1 %')
-      or (a.title like 'Tether-6.1.1 %' and b.title like 'Tether-5.1 %')
       or (a.title like 'Tether-6.1.2 %' and b.title like 'Tether-6.1.1 %')
       or (a.title like 'Tether-6.2 %' and b.title like 'Tether-6.1.2 %')
-      or (a.title like 'Tether-9.2 %' and b.title like 'Tether-9.1 %')
+      or (a.title like 'Tether-9.2 %' and b.title like 'Tether-CD.1 %')
     )
   on conflict do nothing;
 

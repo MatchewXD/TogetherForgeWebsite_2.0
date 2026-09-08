@@ -31,6 +31,7 @@ import {
   isTaskVisuallyBlocked,
   getTaskWaitingOnBlockers,
   waitingBlockersExcludingSelf,
+  isCommunityDecisionsEpic,
   normalizeChecklist,
   isVisibleProjectHubActivity,
   groupCompletedTaskForest,
@@ -76,6 +77,28 @@ describe('getTaskClaimBlockedReason / isVolunteerClaimable', () => {
     );
     expect(reason).toMatch(/Epic/i);
     expect(isVolunteerClaimable(task({ depth: 0 }))).toBe(false);
+  });
+
+  it('lets staff hold the Community Decisions epic', () => {
+    const cd = task({
+      depth: 0,
+      parentTaskId: null,
+      title: 'Tether-CD Community Decisions',
+      staffOnly: true,
+      dbStatus: 'ToDo',
+    });
+    expect(isCommunityDecisionsEpic(cd)).toBe(true);
+    expect(getTaskClaimBlockedReason(cd)).toMatch(/Epic/i);
+    expect(getTaskClaimBlockedReason(cd, { isStaff: true })).toBeNull();
+    expect(
+      isCommunityDecisionsEpic(
+        task({
+          depth: 1,
+          parentTaskId: 'cd',
+          title: 'Tether-CD.1 Suit and world palette',
+        })
+      )
+    ).toBe(false);
   });
 
   it('blocks parents that have children', () => {
@@ -574,6 +597,10 @@ describe('waitingBlockersExcludingSelf / getTaskWaitingOnBlockers', () => {
 
 describe('orphaned nested tasks (archived parent)', () => {
   it('infers Epic / Medium / Small from Tether IDs', () => {
+    expect(inferTaskBoardDepthFromTitle('Tether-CD Community Decisions')).toBe(0);
+    expect(
+      inferTaskBoardDepthFromTitle('Tether-CD.1 Suit and world palette')
+    ).toBe(1);
     expect(inferTaskBoardDepthFromTitle('Tether-P First Spark')).toBe(0);
     expect(inferTaskBoardDepthFromTitle('Tether-P.3 QA templates')).toBe(1);
     expect(

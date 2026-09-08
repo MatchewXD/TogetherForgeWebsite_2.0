@@ -37,6 +37,7 @@ import ProjectsEarlyDetail from './pages/ProjectsEarlyDetail';
 import ProjectsEdit from './pages/ProjectsEdit';
 import ProjectsEarlyEdit from './pages/ProjectsEarlyEdit';
 import ProjectWorkspace from './pages/ProjectWorkspace';
+import SuggestedTasksBoard from './pages/SuggestedTasksBoard';
 import OpenWork from './pages/OpenWork';
 import Contributors from './pages/Contributors';
 import ProjectContributors from './pages/ProjectContributors';
@@ -125,6 +126,10 @@ function App() {
                         <Route
                           path="/projects/:id/board/staging"
                           element={<ProjectWorkspace />}
+                        />
+                        <Route
+                          path="/projects/:id/board/suggested"
+                          element={<SuggestedTasksBoard />}
                         />
                         <Route
                           path="/projects/:id/board"

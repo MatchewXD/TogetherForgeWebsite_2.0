@@ -1,5 +1,6 @@
 /**
- * Tether Task Breakdown v0.6 — source of truth for the staging-board import.
+ * Tether Task Breakdown v0.6 tree with v0.8 language (Enemies, CD, maps).
+ * Staging-board import source. Epic 5 is Enemies. Latch is one example creature.
  * Codes match the doc (Tether-1.1.1). Do not invent extra Smalls under parked 7, 8, 11, 12, 13.
  * Tether-P is the public First Spark lane (docs and QA).
  * Art suggestions belong in Open Questions; Tether-9 is the art section.
@@ -12,7 +13,7 @@ export const TETHER_V06_VERSION = 'v0.6';
 export const TETHER_V06_PROJECT_SLUG = 'tether';
 
 /** Titles that belong to the v0.6 tree (Tether-1…13 or Tether-P). */
-export const TETHER_V06_TITLE_RE = /^Tether-(P|[1-9]|1[0-3])([. ]|$)/;
+export const TETHER_V06_TITLE_RE = /^Tether-(P|CD|[1-9]|1[0-3])([. ]|$)/;
 
 export function isTetherV06Title(title) {
   return TETHER_V06_TITLE_RE.test(String(title || '').trim());
@@ -28,7 +29,7 @@ function t(partial) {
  *  shortTitle: string,
  *  state: 'Staff Only'|'Blocked'|'Parked'|'Ready'|'Done',
  *  size: 'First Spark'|'Small'|'Medium',
- *  skill: 'Code'|'Art'|'Design'|'Writing'|'Level Design'|'Audio'|'QA'|'Other',
+ *  skill: 'Code'|'Art'|'Design'|'Writing'|'Level Design'|'Audio'|'QA'|'Community'|'Other',
  *  purpose: string,
  *  output?: string,
  *  dod?: string[],
@@ -516,13 +517,48 @@ export const TETHER_V06_TASKS = [
   }),
 
   t({
+    code: 'Tether-CD',
+    parentCode: null,
+    shortTitle: 'Community Decisions',
+    state: 'Staff Only',
+    size: 'Medium',
+    skill: 'Community',
+    purpose:
+      'Holds live Open Questions. Each child is a status marker. Nobody claims these cards. People post one suggestion and vote on the Open Questions board. When staff close a vote, update the GDD and then write production Smalls.',
+    sortOrder: 45,
+  }),
+  t({
+    code: 'Tether-CD.1',
+    parentCode: 'Tether-CD',
+    shortTitle: 'Suit and world palette',
+    state: 'Staff Only',
+    size: 'Medium',
+    skill: 'Community',
+    purpose:
+      'Open Question marker. Not claimable work.\n\nPrompt to post on Open Questions:\nThe crew wears future-tech survival suits that have been used. Helmets, packs, manufactured gear, dirt and scuffs. Cool colony tech in the world. The beam carries the energy color. What color palette would look good with that? Stay readable at a distance. No real-world party marks. No slogan decals. One suggestion per reply. Vote the ones you want staff to take seriously.\n\nWhen Adopted: write the palette into Docs/StyleLock.md. Then production art cards may leave Blocked.',
+    sortOrder: 10,
+  }),
+  t({
+    code: 'Tether-CD.2',
+    parentCode: 'Tether-CD',
+    shortTitle: 'What kinds of enemies should we add',
+    state: 'Staff Only',
+    size: 'Medium',
+    skill: 'Community',
+    purpose:
+      'Open Question marker. Not claimable work.\n\nPrompt to post on Open Questions:\nWe want enemies that hinder utility, not a shooter roster. Example jobs: grab a person or the beam, pick a friend up and carry them toward a drop, make a stretch of ground unsafe to linger on, tax the beam without becoming a health-bar boss. What kinds of enemies should we add? Name. What it does to a person or the beam. How the crew answers it together. One enemy per reply.',
+    sortOrder: 20,
+  }),
+
+  t({
     code: 'Tether-5',
     parentCode: null,
-    shortTitle: 'Enemies that stress the tether',
+    shortTitle: 'Enemies',
     state: 'Blocked',
     size: 'Medium',
     skill: 'Code',
-    purpose: 'Enemies that stress the tether. Threats whose job is coordination, not a DPS sponge.',
+    purpose:
+      'Enemies that stress the tether. Threats whose job is coordination, not a DPS sponge. Latch is one example creature, not the name of this epic.',
     blocker: 'Waiting on Tether-4.2 Checkpoint warp and session total.',
     blockedByCode: 'Tether-4.2',
     sortOrder: 50,
@@ -530,14 +566,14 @@ export const TETHER_V06_TASKS = [
   t({
     code: 'Tether-5.1',
     parentCode: 'Tether-5',
-    shortTitle: 'Latch enemy',
+    shortTitle: 'First utility enemy',
     state: 'Blocked',
     size: 'Medium',
     skill: 'Code',
     purpose:
-      'Latch enemy moves toward a pawn or the tether midpoint, attaches, applies a documented penalty (extra tension, slow, or drain), and shows a clear attached state. Removal is faster when both players use Energy Pulse inside a short window (pair-remove). Playtest with two people and confirm the pair advantage is obvious.',
+      'First utility enemy. One example is a grab-the-person-or-beam creature (a Latch): it moves toward a pawn or the tether midpoint, attaches, applies a documented penalty (extra tension, slow, or drain), and shows a clear attached state. Removal is faster when both players use Energy Pulse inside a short window (pair-remove). Playtest with two people and confirm the pair advantage is obvious.',
     dod: [
-      'Latch enemy attaches to a pawn or the tether midpoint with a clear attached state.',
+      'A first utility enemy attaches to a pawn or the tether midpoint with a clear attached state. A grab-the-person-or-beam Latch is one valid example.',
       'A documented penalty applies while attached.',
       'Energy Pulse pair-remove is faster when both players use it in a short window.',
     ],
@@ -550,32 +586,29 @@ export const TETHER_V06_TASKS = [
     code: 'Tether-6',
     parentCode: null,
     shortTitle: 'First playable surface level',
-    state: 'Blocked',
+    state: 'Ready',
     size: 'Medium',
     skill: 'Level Design',
-    purpose: 'First playable surface level.',
-    blocker: 'Waiting on Tether-5.1 Latch enemy.',
-    blockedByCode: 'Tether-5.1',
+    purpose:
+      'Maps. First playable surface level. Not blocked by Enemies. Official campaign maps must match Vision, StyleLock, Camera.md, and TetherRules.txt.',
     sortOrder: 60,
   }),
   t({
     code: 'Tether-6.1',
     parentCode: 'Tether-6',
     shortTitle: 'Modular graybox kit plus Level_01_Surface',
-    state: 'Blocked',
+    state: 'Ready',
     size: 'Medium',
     skill: 'Level Design',
     purpose:
-      'Parent for kit pieces and Level_01_Surface blockout. Claim the Smalls.',
-    blocker: 'Waiting on Tether-5.1 Latch enemy.',
-    blockedByCode: 'Tether-5.1',
+      'Parent for kit pieces and Level_01_Surface blockout. Claim the Smalls. Not blocked by Enemies.',
     sortOrder: 10,
   }),
   t({
     code: 'Tether-6.1.1',
     parentCode: 'Tether-6.1',
     shortTitle: 'Five modular graybox pieces',
-    state: 'Blocked',
+    state: 'Ready',
     size: 'Small',
     skill: 'Level Design',
     purpose: 'Five modular graybox pieces in Content/Tether/Modular.',
@@ -583,8 +616,6 @@ export const TETHER_V06_TASKS = [
     dod: [
       'At least five modular graybox pieces exist in Content/Tether/Modular.',
     ],
-    blocker: 'Waiting on Tether-5.1 Latch enemy.',
-    blockedByCode: 'Tether-5.1',
     sortOrder: 10,
   }),
   t({
@@ -595,7 +626,7 @@ export const TETHER_V06_TASKS = [
     size: 'Small',
     skill: 'Level Design',
     purpose:
-      'Block out Content/Tether/Maps/Level_01_Surface: start, two traversal sections, resources, one or two enemy points, end checkpoint.',
+      'Block out Content/Tether/Maps/Level_01_Surface: start, two traversal sections, resources, one or two enemy points, end checkpoint. Official campaign maps must match Vision, StyleLock, Camera.md, and TetherRules.txt.',
     output: 'Content/Tether/Maps/Level_01_Surface.',
     dod: [
       'Level_01_Surface has a start, two traversal sections, resources, one or two enemy points, and an end checkpoint.',
@@ -620,6 +651,23 @@ export const TETHER_V06_TASKS = [
     blocker: 'Waiting on Tether-6.1.2 Block out Level_01_Surface.',
     blockedByCode: 'Tether-6.1.2',
     sortOrder: 20,
+  }),
+  t({
+    code: 'Tether-6.3',
+    parentCode: 'Tether-6',
+    shortTitle: 'Unofficial community maps',
+    state: 'Staff Only',
+    size: 'Small',
+    skill: 'Level Design',
+    purpose:
+      'Lane for unofficial maps. Output Content/Tether/Maps/Community/ plus a short note (author, intended player count, what the line is asked to do). Off-campaign but playable maps stay in that folder. Off-brand work (nuke the map, and similar) is declined, not filed as unofficial. Not blocked by Enemies.',
+    output: 'Content/Tether/Maps/Community/ with a short author note per map.',
+    dod: [
+      'Unofficial playable maps live in Content/Tether/Maps/Community/.',
+      'Each map has a short note: author, intended player count, what the line is asked to do.',
+      'Off-brand work is declined, not filed as unofficial.',
+    ],
+    sortOrder: 30,
   }),
 
   t({
@@ -704,7 +752,7 @@ export const TETHER_V06_TASKS = [
     size: 'Medium',
     skill: 'Art',
     purpose:
-      'Art pipeline. Style lock approval is Staff Only. Art suggestions belong in Open Questions until staff accept StyleLock.md.',
+      'Art pipeline. Production final assets wait on Tether-CD.1 (palette Adopted into StyleLock.md). Art exploration replies belong on that Open Question, not as a separate public art epic.',
     sortOrder: 90,
   }),
   t({
@@ -715,7 +763,7 @@ export const TETHER_V06_TASKS = [
     size: 'Medium',
     skill: 'Art',
     purpose:
-      'Staff approve StyleLock.md (palette, silhouettes, materials). StyleLock.md stays Draft until staff accept.',
+      'Staff approve StyleLock.md after Tether-CD.1 is Adopted (palette, silhouettes, materials). StyleLock.md stays Draft until staff accept.',
     output: 'Docs/StyleLock.md accepted by staff.',
     dod: [
       'Staff accept Docs/StyleLock.md.',
@@ -730,9 +778,10 @@ export const TETHER_V06_TASKS = [
     state: 'Blocked',
     size: 'Medium',
     skill: 'Art',
-    purpose: 'Core final assets.',
-    blocker: 'Style lock not approved.',
-    blockedByCode: 'Tether-9.1',
+    purpose:
+      'Core final assets. Blocked on Tether-CD.1 Suit and world palette only. Not on Enemies. Not on maps.',
+    blocker: 'Waiting on Tether-CD.1 Suit and world palette.',
+    blockedByCode: 'Tether-CD.1',
     sortOrder: 20,
   }),
 

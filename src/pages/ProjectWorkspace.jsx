@@ -38,15 +38,18 @@ import {
   Github,
   Upload,
   Undo2,
+  Inbox,
 } from 'lucide-react';
 
 import Button from '../components/ui/Buttons';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
+import StaffOnlyBadge from '../components/ui/StaffOnlyBadge';
 import TaskCard from '../components/ui/TaskCard';
 import SubTaskList from '../components/ui/SubTaskList';
 import TaskDependencyPicker from '../components/ui/TaskDependencyPicker';
 import TaskStagingTree from '../components/ui/TaskStagingTree';
+import SuggestTaskModal from '../components/tasks/SuggestTaskModal';
 import WaitingOnLinks from '../components/ui/WaitingOnLinks';
 import CompletedTaskTree from '../components/ui/CompletedTaskTree';
 import StaffToolsBar from '../components/ui/StaffToolsBar';
@@ -71,7 +74,6 @@ import {
   taskLevelLabel,
   getUserTaskClaimBlockedReason,
   STAFF_ONLY_TASK_MESSAGE,
-  STAFF_CONTACT_EMAIL,
   STAGING_TASK_CLAIM_MESSAGE,
   BOARD_SCOPE_STAGING,
   BOARD_SCOPE_PUBLIC,
@@ -85,12 +87,14 @@ import {
   isTaskVisibleWithLockedToggle,
   isTaskDependencyLocked,
   getTaskWaitingOnBlockers,
+  isCommunityDecisionsEpic,
   CLAIM_IDLE_RELEASE_DAYS,
   CLAIM_MAX_DURATION_DAYS,
   CLAIM_AUTO_RELEASE_POLICY_COPY,
   getClaimAutoReleaseInfo,
   formatAutoReleaseReason,
 } from '../services/tasksService';
+import { taskSuggestionsService } from '../services/taskSuggestionsService';
 import { ideasService } from '../services/ideasService';
 import {
   optimisticPublicCount,
@@ -466,6 +470,13 @@ const ProjectWorkspace = () => {
   const [deleteConfirmTask, setDeleteConfirmTask] = useState(null);
   /** Notices for claims auto-released under this user */
   const [autoReleaseNotices, setAutoReleaseNotices] = useState([]);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggestAccount, setSuggestAccount] = useState({
+    signedIn: false,
+    locked: false,
+    strikeCount: 0,
+  });
+  const [pendingSuggestionCount, setPendingSuggestionCount] = useState(0);
 
   const [projectIdeas, setProjectIdeas] = useState([]);
   const [ideasLoading, setIdeasLoading] = useState(true);
@@ -896,7 +907,10 @@ const ProjectWorkspace = () => {
         task.readyForParentReview
       ) {
         key = 'in_review';
-      } else if (task.claim?.status === 'Active') {
+      } else if (
+        task.claim?.status === 'Active' ||
+        isCommunityDecisionsEpic(task)
+      ) {
         key = 'in_progress';
       } else {
         key = 'todo';
@@ -1511,6 +1525,29 @@ const ProjectWorkspace = () => {
   useEffect(() => {
     refreshMyPendingJoins();
   }, [refreshMyPendingJoins, projectUuid]);
+
+  const refreshSuggestionMeta = useCallback(async () => {
+    try {
+      const acct = await taskSuggestionsService.getMyAccount();
+      setSuggestAccount(acct);
+    } catch {
+      setSuggestAccount({ signedIn: Boolean(user), locked: false, strikeCount: 0 });
+    }
+    if (isModerator && projectUuid) {
+      try {
+        const n = await taskSuggestionsService.countPending(projectUuid);
+        setPendingSuggestionCount(n);
+      } catch {
+        setPendingSuggestionCount(0);
+      }
+    } else {
+      setPendingSuggestionCount(0);
+    }
+  }, [isModerator, projectUuid, user]);
+
+  useEffect(() => {
+    void refreshSuggestionMeta();
+  }, [refreshSuggestionMeta]);
 
   // Dual-rule auto-release when opening a board (server is source of truth)
   useEffect(() => {
@@ -2401,6 +2438,7 @@ const ProjectWorkspace = () => {
   const projectPath = `/projects/${projectKey}`;
   const boardPath = `${projectPath}/board`;
   const stagingPath = `${boardPath}/staging`;
+  const suggestedPath = `${boardPath}/suggested`;
   const projectSubmitPath = `/ideas/submit?project=${projectKey || ''}`;
   const projectGithubUrl =
     displayProject.githubUrl || displayProject.github_url || null;
@@ -2582,6 +2620,22 @@ const ProjectWorkspace = () => {
                       Edit repo
                     </Button>
                   )}
+                  <Button
+                    variant="gold"
+                    className="gap-2"
+                    size="sm"
+                    to={suggestedPath}
+                    disabled={!projectUuid || loading}
+                    title="Volunteer task suggestions. Staff only."
+                  >
+                    <Inbox className="w-4 h-4" />
+                    Suggested
+                    {pendingSuggestionCount > 0 ? (
+                      <span className="ml-1 tabular-nums opacity-90">
+                        ({pendingSuggestionCount})
+                      </span>
+                    ) : null}
+                  </Button>
                   {!isStagingBoard ? (
                     <Button
                       variant="gold"
@@ -3327,6 +3381,33 @@ const ProjectWorkspace = () => {
               note="Need to talk about a task, scope, or claim? Chat with the community in real time."
             />
           </div>
+
+          <div className="rounded-xl border border-cyber-border bg-cyber-surface/50 px-4 py-4 sm:px-5 sm:py-5 space-y-3 max-w-2xl">
+            <h2 className="text-sm font-mono tracking-widest text-neon-cyan uppercase">
+              Suggest a task
+            </h2>
+            <p className="text-sm text-text-secondary leading-relaxed">
+              See a gap on this board? Send a task-shaped proposal. Staff review
+              every suggestion. Accepted work lands on Staging first, never
+              straight onto the live board. Troll, fake, or malicious
+              suggestions can earn a strike. Three strikes and you lose this
+              button.
+            </p>
+            <Button
+              className="gap-2"
+              onClick={() => {
+                if (!user) {
+                  navigate('/account');
+                  return;
+                }
+                setSuggestOpen(true);
+              }}
+              disabled={!projectUuid}
+            >
+              <Lightbulb className="w-4 h-4" />
+              Suggest a Task
+            </Button>
+          </div>
         </section>
         ) : (
         /* Hub: Task Board entry (full board is on /board) */
@@ -3871,12 +3952,11 @@ const ProjectWorkspace = () => {
                       <span className="text-white/20 shrink-0" aria-hidden>
                         ·
                       </span>
-                      <Badge
-                        variant="gold"
-                        className="!normal-case tracking-wide !text-[10px] !py-0.5 !px-2"
-                      >
-                        Staff Only
-                      </Badge>
+                      <StaffOnlyBadge
+                        key={selectedTask.id}
+                        compact
+                        align="end"
+                      />
                     </>
                   )}
                   {!selectedTask.isEpic &&
@@ -3952,26 +4032,6 @@ const ProjectWorkspace = () => {
                   </Button>
                 </StaffToolsBar>
               ) : null}
-
-              {selectedTask.staffOnly && (
-                <div className="rounded-lg border border-semantic-achievement/30 bg-semantic-achievement/10 px-3 py-2.5">
-                  <p className="font-mono tracking-widest text-[10px] text-semantic-achievement uppercase mb-1.5">
-                    Staff Only
-                  </p>
-                  <p className="text-sm text-text-secondary leading-relaxed">
-                    Only staff can claim and complete this task. If your work is
-                    waiting on it, please be patient. If you need it sooner,
-                    email{' '}
-                    <a
-                      href={`mailto:${STAFF_CONTACT_EMAIL}`}
-                      className="text-neon-cyan hover:underline"
-                    >
-                      {STAFF_CONTACT_EMAIL}
-                    </a>{' '}
-                    or reach us on Discord.
-                  </p>
-                </div>
-              )}
 
               {selectedTask.description ? (
                 <div className="rounded-lg border border-cyber-border/80 bg-cyber-bg/40 px-3 py-2.5">
@@ -4701,31 +4761,6 @@ const ProjectWorkspace = () => {
                   <p className="text-[11px] text-text-muted">
                     This task unlocks automatically when every blocker is
                     completed and accepted.
-                  </p>
-                </div>
-              )}
-
-            {selectedTask.volunteerClaimable &&
-              !selectedTask.isLocked &&
-              selectedTask.status === 'todo' &&
-              !selectedTask.claimedBy &&
-              selectedTask.staffOnly &&
-              !isModerator && (
-                <div className="space-y-2 pt-2 border-t border-cyber-border">
-                  <Badge variant="gold" className="!normal-case tracking-wide">
-                    Staff Only
-                  </Badge>
-                  <p className="text-sm text-text-secondary leading-relaxed">
-                    Only staff can claim and complete this task. If your work is
-                    waiting on it, please be patient. If you need it sooner,
-                    email{' '}
-                    <a
-                      href={`mailto:${STAFF_CONTACT_EMAIL}`}
-                      className="text-neon-cyan hover:underline"
-                    >
-                      {STAFF_CONTACT_EMAIL}
-                    </a>{' '}
-                    or reach us on Discord.
                   </p>
                 </div>
               )}
@@ -5650,6 +5685,23 @@ const ProjectWorkspace = () => {
           </div>
         ) : null}
       </Modal>
+
+      <SuggestTaskModal
+        isOpen={suggestOpen}
+        onClose={() => setSuggestOpen(false)}
+        projectUuid={projectUuid}
+        user={user}
+        tasks={tasks}
+        locked={Boolean(suggestAccount.locked)}
+        strikeCount={Number(suggestAccount.strikeCount) || 0}
+        onSubmitted={() => {
+          showToast(
+            'Suggestion sent. Staff will review it on the Suggested Tasks board.',
+            'success'
+          );
+          void refreshSuggestionMeta();
+        }}
+      />
 
       {/* Above task modals (z-200) so validation/errors stay readable while a modal is open */}
       {toast && (

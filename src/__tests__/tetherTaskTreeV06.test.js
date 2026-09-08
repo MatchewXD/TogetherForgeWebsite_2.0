@@ -44,6 +44,10 @@ describe('Tether Task Breakdown v0.6 tree', () => {
     expect(staffCodes).toContain('Tether-3.2');
     expect(staffCodes).toContain('Tether-9');
     expect(staffCodes).toContain('Tether-9.1');
+    expect(staffCodes).toContain('Tether-CD');
+    expect(staffCodes).toContain('Tether-CD.1');
+    expect(staffCodes).toContain('Tether-CD.2');
+    expect(staffCodes).toContain('Tether-6.3');
     expect(staffCodes).toContain('Tether-P.3');
     expect(staffCodes).toContain('Tether-P.3.2');
     expect(staffCodes).not.toContain('Tether-P');
@@ -61,10 +65,13 @@ describe('Tether Task Breakdown v0.6 tree', () => {
     expect(byCode['Tether-4.1'].blockedByCode).toBe('Tether-3.1');
     expect(byCode['Tether-4.2'].blockedByCode).toBe('Tether-4.1');
     expect(byCode['Tether-5.1'].blockedByCode).toBe('Tether-4.2');
-    expect(byCode['Tether-6.1.1'].blockedByCode).toBe('Tether-5.1');
+    expect(byCode['Tether-6'].blockedByCode).toBeUndefined();
+    expect(byCode['Tether-6.1'].blockedByCode).toBeUndefined();
+    expect(byCode['Tether-6.1.1'].blockedByCode).toBeUndefined();
     expect(byCode['Tether-6.1.2'].blockedByCode).toBe('Tether-6.1.1');
     expect(byCode['Tether-6.2'].blockedByCode).toBe('Tether-6.1.2');
-    expect(byCode['Tether-9.2'].blockedByCode).toBe('Tether-9.1');
+    expect(byCode['Tether-6.3'].blockedByCode).toBeUndefined();
+    expect(byCode['Tether-9.2'].blockedByCode).toBe('Tether-CD.1');
     expect(byCode['Tether-9.2'].state).toBe('Blocked');
     expect(byCode['Tether-2.2'].blockedByCode).toBe('Tether-2.1.0');
     expect(byCode['Tether-2.3'].blockedByCode).toBe('Tether-2.1.0');
@@ -134,8 +141,11 @@ describe('Tether Task Breakdown v0.6 tree', () => {
     expect(byCode['Tether-2'].purpose).toMatch(/Solo behavior and 3-4 tether topology stay Open/);
     expect(byCode['Tether-2.1'].purpose).toMatch(/two pawns/);
     expect(byCode['Tether-2.1.1'].output).toMatch(/two stand-ins/);
+    expect(byCode['Tether-5'].shortTitle).toBe('Enemies');
+    expect(byCode['Tether-5.1'].shortTitle).toBe('First utility enemy');
     expect(byCode['Tether-5.1'].purpose).toMatch(/Energy Pulse/i);
     expect(byCode['Tether-5.1'].purpose).toMatch(/pair-remove/i);
+    expect(byCode['Tether-5.1'].purpose).toMatch(/one example/i);
     expect(byCode['Tether-2.2'].purpose).not.toMatch(/\bpair\b/i);
   });
 
@@ -157,6 +167,8 @@ describe('Tether Task Breakdown v0.6 tree', () => {
     for (const task of TETHER_V06_TASKS) {
       expect(isTetherV06Title(tetherV06Title(task))).toBe(true);
     }
+    expect(isTetherV06Title('Tether-CD Community Decisions')).toBe(true);
+    expect(isTetherV06Title('Tether-CD.1 Suit and world palette')).toBe(true);
     expect(isTetherV06Title('Tether-10 Networking foundation')).toBe(true);
     expect(isTetherV06Title('Tether-P.4.1 Credit current off-site helpers')).toBe(
       true

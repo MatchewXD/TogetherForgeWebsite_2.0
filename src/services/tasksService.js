@@ -212,7 +212,7 @@ export function taskLevelShort(depth) {
  */
 export function inferTaskBoardDepthFromTitle(title) {
   const head = String(title || '').trim().split(/\s+/)[0] || '';
-  const match = head.match(/^Tether-(P|\d+)((?:\.\d+)*)$/i);
+  const match = head.match(/^Tether-(P|CD|\d+)((?:\.\d+)*)$/i);
   if (!match) return null;
   const extra = match[2] ? match[2].split('.').filter(Boolean).length : 0;
   return Math.min(MAX_TASK_NESTING_DEPTH, extra);
@@ -275,6 +275,9 @@ export const STAFF_CONTACT_EMAIL = 'contact@togetherforge.net';
 
 /** Staff error when a task is set to wait on itself. */
 export const TASK_CANNOT_WAIT_ON_SELF = 'A task cannot wait on itself.';
+
+export const STAFF_ONLY_TASK_SNIPPET =
+  'Only staff can claim and complete this task.';
 
 export const STAFF_ONLY_TASK_MESSAGE =
   'Only staff can claim and complete this task. If your work is waiting on it, please be patient. If you need it sooner, email contact@togetherforge.net or reach us on Discord.';
@@ -384,8 +387,19 @@ export function getTaskWaitingOnBlockers(task) {
 }
 
 /**
+ * Ongoing Community Decisions epic (Tether-CD). Staff hold it in In Progress
+ * until the game is done. Not a new board column.
+ */
+export function isCommunityDecisionsEpic(task) {
+  if (!task || task.parentTaskId) return false;
+  if (isTaskCompletedAccepted(task)) return false;
+  const title = String(task.title || '').trim();
+  return /^Tether-CD(?:\s|$)/i.test(title);
+}
+
+/**
  * Volunteer claim rules (client + server should agree):
- * - Epic (depth 0): never claimable
+ * - Epic (depth 0): never claimable, except staff holding Tether-CD
  * - Medium/Small with children: not claimable (progress from children)
  * - Locked (incomplete "Blocked by" deps): not claimable until blockers Completed
  * - Medium/Small leaf (unlocked): claimable
@@ -416,6 +430,7 @@ export function getTaskClaimBlockedReason(task, opts = {}) {
   }
   const depth = Number(task.depth) || 0;
   if (depth === 0) {
+    if (opts.isStaff && isCommunityDecisionsEpic(task)) return null;
     return 'Epics cannot be claimed. Open a Medium or Small task under this epic.';
   }
   if (
@@ -440,7 +455,7 @@ export function getTaskStaffOnlyBlockedReason(task, isStaff = false) {
  */
 export function getUserTaskClaimBlockedReason(task, opts = {}) {
   return (
-    getTaskClaimBlockedReason(task) ||
+    getTaskClaimBlockedReason(task, opts) ||
     getTaskStaffOnlyBlockedReason(task, Boolean(opts.isStaff))
   );
 }

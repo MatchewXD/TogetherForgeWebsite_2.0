@@ -11,6 +11,7 @@ export const TASK_CATEGORIES = [
   'Level Design',
   'Audio',
   'QA',
+  'Community',
   'Other',
 ];
 
@@ -114,6 +115,14 @@ const CATEGORY_STYLES = {
     text: 'text-sky-300',
     swatch: 'bg-sky-400',
     ring: 'ring-sky-400/40',
+  },
+  community: {
+    label: 'Community',
+    badge:
+      'bg-emerald-400/15 text-emerald-300 border-emerald-400/45',
+    text: 'text-emerald-300',
+    swatch: 'bg-emerald-400',
+    ring: 'ring-emerald-400/40',
   },
   docs: {
     label: 'Docs',

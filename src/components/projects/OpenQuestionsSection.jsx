@@ -7,7 +7,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ChevronsUp,
+  ChevronLeft,
   Loader2,
+  MessageCircle,
   MessageCircleQuestion,
   Pencil,
   Plus,
@@ -17,6 +19,7 @@ import {
 import Button from '../ui/Buttons';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
+import CharCount from '../ui/CharCount';
 import Modal from '../ui/Modal';
 import UserAvatar from '../ui/UserAvatar';
 import UserNameWithBadge from '../badges/UserNameWithBadge';
@@ -69,6 +72,235 @@ function AuthorLine({ author, extra }) {
   );
 }
 
+function VoteButton({ suggestion, disabled, onVote }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={(e) => onVote(e, suggestion.id)}
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-mono transition-colors ${
+        suggestion.supportedByMe
+          ? 'border-neon-cyan/50 bg-neon-cyan/15 text-neon-cyan'
+          : 'border-cyber-border text-text-muted hover:text-neon-cyan hover:border-neon-cyan/40'
+      } disabled:opacity-50`}
+      title="Vote this answer up"
+    >
+      <ChevronsUp className="w-3.5 h-3.5" />
+      {suggestion.supportCount}
+    </button>
+  );
+}
+
+function CommentThread({
+  comments = [],
+  isOpen,
+  user,
+  busy,
+  replyDrafts,
+  setReplyDrafts,
+  replyOpenFor,
+  setReplyOpenFor,
+  onPostReply,
+}) {
+  if (!comments.length) {
+    return (
+      <p className="text-sm text-text-muted">
+        No comments yet. Start the discussion below.
+      </p>
+    );
+  }
+
+  const renderNode = (node, depth = 0) => (
+    <li key={node.id} className={depth > 0 ? 'mt-3' : ''}>
+      <AuthorLine author={node.author} extra={formatDate(node.createdAt)} />
+      <p className="text-sm text-text-secondary mt-1 whitespace-pre-wrap leading-relaxed">
+        {node.body}
+      </p>
+      {isOpen && user ? (
+        <button
+          type="button"
+          className="mt-1 text-[11px] font-mono text-neon-cyan hover:text-white"
+          onClick={() =>
+            setReplyOpenFor((id) => (id === node.id ? null : node.id))
+          }
+        >
+          Reply
+        </button>
+      ) : null}
+      {replyOpenFor === node.id && isOpen ? (
+        <div className="mt-2 space-y-2">
+          <textarea
+            className={`${fieldControl} min-h-[4rem]`}
+            maxLength={OPEN_QUESTION_REPLY_MAX}
+            value={replyDrafts[node.id] || ''}
+            onChange={(e) =>
+              setReplyDrafts((prev) => ({
+                ...prev,
+                [node.id]: e.target.value,
+              }))
+            }
+            placeholder={`Reply to ${node.author?.username || 'this comment'}…`}
+          />
+          <CharCount
+            value={replyDrafts[node.id] || ''}
+            max={OPEN_QUESTION_REPLY_MAX}
+          />
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              disabled={busy}
+              onClick={() => onPostReply(node.id)}
+            >
+              Send
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setReplyOpenFor(null)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {node.replies?.length ? (
+        <ul className="mt-3 space-y-3 border-l border-white/10 pl-4">
+          {node.replies.map((child) => renderNode(child, depth + 1))}
+        </ul>
+      ) : null}
+    </li>
+  );
+
+  return (
+    <ul className="space-y-4">{comments.map((c) => renderNode(c, 0))}</ul>
+  );
+}
+
+function AnswerDetail({
+  question,
+  suggestion,
+  isStaff,
+  user,
+  busy,
+  commentDraft,
+  setCommentDraft,
+  replyDrafts,
+  setReplyDrafts,
+  replyOpenFor,
+  setReplyOpenFor,
+  onBack,
+  onVote,
+  onAdopt,
+  onPostComment,
+  onPostReply,
+}) {
+  const isAdopted = question.adoptedSuggestion?.id === suggestion.id;
+  const isTop = question.topRanked?.id === suggestion.id;
+
+  return (
+    <div className="space-y-5">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-1 text-xs font-mono text-neon-cyan hover:text-white"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        Back to question
+      </button>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10px] font-mono text-text-muted">
+          #{suggestion.rank}
+        </span>
+        {isAdopted ? (
+          <Badge variant="success" className="!normal-case">
+            Adopted
+          </Badge>
+        ) : null}
+        {isTop && !isAdopted ? (
+          <Badge variant="neon" className="!normal-case">
+            Top ranked
+          </Badge>
+        ) : null}
+        <AuthorLine
+          author={suggestion.author}
+          extra={formatDate(suggestion.createdAt)}
+        />
+        <div className="ml-auto">
+          <VoteButton
+            suggestion={suggestion}
+            disabled={busy || !question.isOpen}
+            onVote={onVote}
+          />
+        </div>
+      </div>
+
+      <p className="text-base text-text-primary leading-relaxed whitespace-pre-wrap">
+        {suggestion.body}
+      </p>
+
+      {isStaff && question.isOpen && !isAdopted ? (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={() => onAdopt(suggestion.id)}
+        >
+          Adopt this answer
+        </Button>
+      ) : null}
+
+      <div className="border-t border-white/10 pt-4 space-y-4">
+        <div className="font-mono tracking-widest text-sm text-neon-cyan flex items-center gap-2">
+          <MessageCircle className="w-4 h-4" />
+          DISCUSSION THREAD
+        </div>
+        <CommentThread
+          comments={suggestion.replies || []}
+          isOpen={question.isOpen}
+          user={user}
+          busy={busy}
+          replyDrafts={replyDrafts}
+          setReplyDrafts={setReplyDrafts}
+          replyOpenFor={replyOpenFor}
+          setReplyOpenFor={setReplyOpenFor}
+          onPostReply={onPostReply}
+        />
+        {question.isOpen ? (
+          user ? (
+            <div className="space-y-2 pt-2">
+              <label className={fieldLabel} htmlFor="oq-comment">
+                Comment
+              </label>
+              <textarea
+                id="oq-comment"
+                className={`${fieldControl} min-h-[5rem]`}
+                maxLength={OPEN_QUESTION_REPLY_MAX}
+                value={commentDraft}
+                onChange={(e) => setCommentDraft(e.target.value)}
+                placeholder="Comment on this answer…"
+              />
+              <CharCount value={commentDraft} max={OPEN_QUESTION_REPLY_MAX} />
+              <Button disabled={busy} onClick={onPostComment}>
+                {busy ? 'Posting…' : 'Post comment'}
+              </Button>
+            </div>
+          ) : (
+            <p className="text-sm text-text-muted">
+              <Link to="/account" className="text-neon-cyan hover:underline">
+                Sign in
+              </Link>{' '}
+              to comment.
+            </p>
+          )
+        ) : (
+          <p className="text-xs text-text-muted">This question is closed.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const OpenQuestionsSection = ({
   projectId,
   projectTitle = 'this project',
@@ -88,10 +320,12 @@ const OpenQuestionsSection = ({
   const [formError, setFormError] = useState('');
 
   const [activeId, setActiveId] = useState(null);
+  const [activeSuggestionId, setActiveSuggestionId] = useState(null);
   const [suggestionDraft, setSuggestionDraft] = useState('');
   const [replyDrafts, setReplyDrafts] = useState({});
   const [replyOpenFor, setReplyOpenFor] = useState(null);
   const [closeNote, setCloseNote] = useState('');
+  const [commentDraft, setCommentDraft] = useState('');
 
   const showToast = (message, kind = 'info') => {
     setToast({ message, kind });
@@ -126,6 +360,12 @@ const OpenQuestionsSection = ({
   const active = useMemo(
     () => questions.find((q) => q.id === activeId) || null,
     [questions, activeId]
+  );
+  const activeSuggestion = useMemo(
+    () =>
+      (active?.suggestions || []).find((s) => s.id === activeSuggestionId) ||
+      null,
+    [active, activeSuggestionId]
   );
 
   const openList = questions.filter((q) => q.isOpen);
@@ -183,7 +423,10 @@ const OpenQuestionsSection = ({
     setBusy(true);
     try {
       await openQuestionsService.deleteQuestion(q.id);
-      if (activeId === q.id) setActiveId(null);
+      if (activeId === q.id) {
+        setActiveId(null);
+        setActiveSuggestionId(null);
+      }
       showToast('Question deleted.', 'success');
       await load();
     } catch (err) {
@@ -203,6 +446,25 @@ const OpenQuestionsSection = ({
         body: suggestionDraft,
       });
       setSuggestionDraft('');
+      await load();
+    } catch (err) {
+      showToast(err?.message || 'Could not post.', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const postComment = async () => {
+    if (!active || !activeSuggestion || !user?.id) return;
+    setBusy(true);
+    try {
+      await openQuestionsService.postReply({
+        questionId: active.id,
+        userId: user.id,
+        body: commentDraft,
+        parentId: activeSuggestion.id,
+      });
+      setCommentDraft('');
       await load();
     } catch (err) {
       showToast(err?.message || 'Could not post.', 'error');
@@ -283,8 +545,22 @@ const OpenQuestionsSection = ({
 
   const openQuestion = (q) => {
     setActiveId(q.id);
+    setActiveSuggestionId(null);
     setCloseNote(q.closeNote || '');
     setSuggestionDraft('');
+    setCommentDraft('');
+    setReplyOpenFor(null);
+  };
+
+  const openAnswer = (suggestionId) => {
+    setActiveSuggestionId(suggestionId);
+    setCommentDraft('');
+    setReplyOpenFor(null);
+  };
+
+  const backToQuestion = () => {
+    setActiveSuggestionId(null);
+    setCommentDraft('');
     setReplyOpenFor(null);
   };
 
@@ -348,10 +624,10 @@ const OpenQuestionsSection = ({
             Decisions for {projectTitle}
           </h2>
           <p className="text-text-secondary text-sm mt-1 max-w-xl leading-relaxed">
-            Staff ask a focused question when the project needs a call. Post a
-            Suggestion, support the ones you prefer, and reply if you want to
-            add detail. Ranked Suggestions inform staff, who adopt what fits
-            the game.
+            Staff ask a focused question when the project needs a call. Open a
+            question to read it and see every answer as a card. The most voted
+            answers sit at the top. Open an answer to read the full idea and
+            comment, the same way you would on Ideas.
           </p>
         </div>
         {isStaff && projectId && (
@@ -436,7 +712,7 @@ const OpenQuestionsSection = ({
       >
         <form onSubmit={saveQuestion} className="space-y-4">
           <p className="text-sm text-text-secondary leading-relaxed">
-            Ask one concrete decision. Keep it tighter than an Idea — the
+            Ask one concrete decision. Keep it tighter than an Idea. The
             community posts Suggestions, not a new game pitch.
           </p>
           <div>
@@ -452,6 +728,7 @@ const OpenQuestionsSection = ({
               placeholder="e.g. How long should a co-op session feel?"
               required
             />
+            <CharCount value={title} max={OPEN_QUESTION_TITLE_MAX} />
           </div>
           <div>
             <label className={fieldLabel} htmlFor="oq-body">
@@ -465,6 +742,7 @@ const OpenQuestionsSection = ({
               onChange={(e) => setBody(e.target.value)}
               placeholder="What you already know, options you are weighing, or why this call matters now."
             />
+            <CharCount value={body} max={OPEN_QUESTION_BODY_MAX} />
           </div>
           {formError && (
             <p className="text-sm text-semantic-danger">{formError}</p>
@@ -487,12 +765,39 @@ const OpenQuestionsSection = ({
 
       <Modal
         isOpen={Boolean(active)}
-        onClose={() => !busy && setActiveId(null)}
-        title={active?.title || 'Question'}
+        onClose={() => {
+          if (busy) return;
+          setActiveId(null);
+          setActiveSuggestionId(null);
+        }}
+        title={
+          activeSuggestion
+            ? `Answer #${activeSuggestion.rank}`
+            : active?.title || 'Question'
+        }
         size="lg"
       >
-        {active && (
-          <div className="task-scroll space-y-5 max-h-[75vh] overflow-y-auto pr-1">
+        {active && activeSuggestion ? (
+          <AnswerDetail
+            question={active}
+            suggestion={activeSuggestion}
+            isStaff={isStaff}
+            user={user}
+            busy={busy}
+            commentDraft={commentDraft}
+            setCommentDraft={setCommentDraft}
+            replyDrafts={replyDrafts}
+            setReplyDrafts={setReplyDrafts}
+            replyOpenFor={replyOpenFor}
+            setReplyOpenFor={setReplyOpenFor}
+            onBack={backToQuestion}
+            onVote={toggleSupport}
+            onAdopt={adoptSuggestion}
+            onPostComment={postComment}
+            onPostReply={postNestedReply}
+          />
+        ) : active ? (
+          <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={active.isOpen ? 'neon' : 'success'} className="!normal-case">
                 {active.isOpen ? 'Open' : 'Closed'}
@@ -554,26 +859,17 @@ const OpenQuestionsSection = ({
               </div>
             )}
 
-            {active.isOpen && active.topRanked && !active.adoptedSuggestion && (
-              <p className="text-xs text-text-muted">
-                Top ranked (most likely to be adopted, staff still decide):{' '}
-                <span className="text-text-primary">{active.topRanked.body}</span>
-                {' · '}
-                {active.topRanked.supportCount} support
-                {active.topRanked.supportCount === 1 ? '' : 's'}
-              </p>
-            )}
-
             <div>
               <p className="text-xs font-mono tracking-widest text-text-muted uppercase mb-3">
-                Suggestions
+                Answers
+                {active.suggestionCount
+                  ? ` · ${active.suggestionCount}`
+                  : ''}
               </p>
               {(active.suggestions || []).length === 0 ? (
                 <p className="text-sm text-text-muted">
-                  No suggestions yet.{' '}
-                  {active.isOpen
-                    ? 'Be the first to propose a direction.'
-                    : ''}
+                  No answers yet.{' '}
+                  {active.isOpen ? 'Be the first to post one.' : ''}
                 </p>
               ) : (
                 <ul className="space-y-3">
@@ -582,124 +878,62 @@ const OpenQuestionsSection = ({
                     const isAdopted =
                       active.adoptedSuggestion?.id === suggestion.id;
                     return (
-                      <li
-                        key={suggestion.id}
-                        className={`rounded-lg border px-3 py-3 ${
-                          isAdopted
-                            ? 'border-semantic-success/40 bg-semantic-success/5'
-                            : isTop
-                              ? 'border-neon-cyan/35 bg-neon-cyan/5'
-                              : 'border-cyber-border bg-cyber-surface/50'
-                        }`}
-                      >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[10px] font-mono text-text-muted">
-                            #{suggestion.rank}
-                          </span>
-                          <AuthorLine
-                            author={suggestion.author}
-                            extra={formatDate(suggestion.createdAt)}
-                          />
-                        </div>
-                        <p className="text-sm text-text-primary leading-relaxed mt-2 whitespace-pre-wrap">
-                          {suggestion.body}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px] font-mono text-text-muted">
-                          {isAdopted && (
-                            <Badge variant="success" className="!normal-case !text-[10px]">
-                              Adopted
-                            </Badge>
-                          )}
-                          {isTop && !isAdopted && (
-                            <Badge variant="neon" className="!normal-case !text-[10px]">
-                              Top ranked
-                            </Badge>
-                          )}
-                          <button
-                            type="button"
-                            disabled={busy || !active.isOpen}
-                            onClick={(e) => toggleSupport(e, suggestion.id)}
-                            className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 transition-colors ${
-                              suggestion.supportedByMe
-                                ? 'border-neon-cyan/50 bg-neon-cyan/15 text-neon-cyan'
-                                : 'border-cyber-border text-text-muted hover:text-neon-cyan hover:border-neon-cyan/40'
-                            } disabled:opacity-50`}
-                            title={
-                              user
-                                ? 'Support this suggestion'
-                                : 'Sign in to support'
-                            }
-                          >
-                            <ChevronsUp className="w-3.5 h-3.5" />
-                            {suggestion.supportCount}
-                          </button>
-                          <span>
-                            {suggestion.replyCount}{' '}
-                            {suggestion.replyCount === 1 ? 'reply' : 'replies'}
-                          </span>
-                          {active.isOpen && user && (
-                            <button
-                              type="button"
-                              className="text-neon-cyan hover:text-white"
-                              onClick={() =>
-                                setReplyOpenFor((id) =>
-                                  id === suggestion.id ? null : suggestion.id
-                                )
-                              }
-                            >
-                              Reply
-                            </button>
-                          )}
-                          {isStaff && active.isOpen && !isAdopted && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="!py-0.5 !px-2 text-[11px]"
-                              disabled={busy}
-                              onClick={() => adoptSuggestion(suggestion.id)}
-                            >
-                              Adopt
-                            </Button>
-                          )}
-                        </div>
-                        {suggestion.replies.length > 0 && (
-                          <ul className="mt-3 space-y-2 border-l border-cyber-border pl-3">
-                            {suggestion.replies.map((r) => (
-                              <li key={r.id}>
-                                <AuthorLine
-                                  author={r.author}
-                                  extra={formatDate(r.createdAt)}
-                                />
-                                <p className="text-sm text-text-secondary mt-1 whitespace-pre-wrap">
-                                  {r.body}
-                                </p>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        {replyOpenFor === suggestion.id && active.isOpen && (
-                          <div className="mt-3 flex flex-col sm:flex-row gap-2">
-                            <input
-                              className={fieldControl}
-                              maxLength={OPEN_QUESTION_REPLY_MAX}
-                              value={replyDrafts[suggestion.id] || ''}
-                              onChange={(e) =>
-                                setReplyDrafts((prev) => ({
-                                  ...prev,
-                                  [suggestion.id]: e.target.value,
-                                }))
-                              }
-                              placeholder="Add a reply under this suggestion…"
+                      <li key={suggestion.id}>
+                        <button
+                          type="button"
+                          onClick={() => openAnswer(suggestion.id)}
+                          className={`w-full text-left rounded-lg border px-3 py-3 transition-colors ${
+                            isAdopted
+                              ? 'border-semantic-success/40 bg-semantic-success/5 hover:border-semantic-success/60'
+                              : isTop
+                                ? 'border-neon-cyan/35 bg-neon-cyan/5 hover:border-neon-cyan/55'
+                                : 'border-cyber-border bg-cyber-surface/50 hover:border-neon-cyan/40'
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[10px] font-mono text-text-muted">
+                              #{suggestion.rank}
+                            </span>
+                            <AuthorLine
+                              author={suggestion.author}
+                              extra={formatDate(suggestion.createdAt)}
                             />
-                            <Button
-                              size="sm"
-                              disabled={busy}
-                              onClick={() => postNestedReply(suggestion.id)}
-                            >
-                              Reply
-                            </Button>
+                            {isAdopted ? (
+                              <Badge
+                                variant="success"
+                                className="!normal-case !text-[10px]"
+                              >
+                                Adopted
+                              </Badge>
+                            ) : null}
+                            {isTop && !isAdopted ? (
+                              <Badge
+                                variant="neon"
+                                className="!normal-case !text-[10px]"
+                              >
+                                Top ranked
+                              </Badge>
+                            ) : null}
                           </div>
-                        )}
+                          <p className="text-sm text-text-primary leading-relaxed mt-2 line-clamp-3 whitespace-pre-wrap">
+                            {suggestion.body}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-3 mt-2 text-[11px] font-mono text-text-muted">
+                            <span className="inline-flex items-center gap-1">
+                              <ChevronsUp className="w-3.5 h-3.5" />
+                              {suggestion.supportCount} vote
+                              {suggestion.supportCount === 1 ? '' : 's'}
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <MessageCircle className="w-3.5 h-3.5" />
+                              {suggestion.replyCount} comment
+                              {suggestion.replyCount === 1 ? '' : 's'}
+                            </span>
+                            <span className="ml-auto text-neon-cyan">
+                              Open answer →
+                            </span>
+                          </div>
+                        </button>
                       </li>
                     );
                   })}
@@ -712,7 +946,7 @@ const OpenQuestionsSection = ({
                 {user ? (
                   <>
                     <label className={fieldLabel} htmlFor="oq-suggestion">
-                      Your suggestion
+                      Your answer
                     </label>
                     <textarea
                       id="oq-suggestion"
@@ -720,10 +954,14 @@ const OpenQuestionsSection = ({
                       maxLength={OPEN_QUESTION_REPLY_MAX}
                       value={suggestionDraft}
                       onChange={(e) => setSuggestionDraft(e.target.value)}
-                      placeholder="Propose a direction. Others can support it or reply with detail."
+                      placeholder="Propose a direction. Others can vote it up and comment on the full answer."
+                    />
+                    <CharCount
+                      value={suggestionDraft}
+                      max={OPEN_QUESTION_REPLY_MAX}
                     />
                     <Button disabled={busy} onClick={postSuggestion}>
-                      {busy ? 'Posting…' : 'Post suggestion'}
+                      {busy ? 'Posting…' : 'Post answer'}
                     </Button>
                   </>
                 ) : (
@@ -731,7 +969,7 @@ const OpenQuestionsSection = ({
                     <Link to="/account" className="text-neon-cyan hover:underline">
                       Sign in
                     </Link>{' '}
-                    to post a suggestion.
+                    to post an answer.
                   </p>
                 )}
               </div>
@@ -744,7 +982,7 @@ const OpenQuestionsSection = ({
                 </p>
                 <p className="text-xs text-text-muted leading-relaxed">
                   Adopt a suggestion first if it is the official call. Closing
-                  needs a short note so the community can see the final choice —
+                  needs a short note so the community can see the final choice,
                   including if nothing was adopted because it did not fit the
                   game.
                 </p>
@@ -765,7 +1003,7 @@ const OpenQuestionsSection = ({
               </div>
             )}
           </div>
-        )}
+        ) : null}
       </Modal>
     </section>
   );

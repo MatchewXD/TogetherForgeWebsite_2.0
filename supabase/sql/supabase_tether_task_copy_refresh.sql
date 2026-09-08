@@ -192,32 +192,37 @@ Definition of Done:
 - Collect → carry → warp → session total updates in one loop.
 
 Blocker: Waiting on Tether-4.1 ResourceNode and carry limit.', '[{"id":"s1","label":"Collect → carry → warp → session total updates in one loop.","done":false}]'::jsonb),
-    ('Tether-5', 'Tether-5 Enemies that stress the tether', 'Enemies that stress the tether. Threats whose job is coordination, not a DPS sponge.
+    ('Tether-CD', 'Tether-CD Community Decisions', 'Holds live Open Questions. Each child is a status marker. Nobody claims these cards. People post one suggestion and vote on the Open Questions board. When staff close a vote, update the GDD and then write production Smalls.', '[]'::jsonb),
+    ('Tether-CD.1', 'Tether-CD.1 Suit and world palette', 'Open Question marker. Not claimable work.
+
+Prompt to post on Open Questions:
+The crew wears future-tech survival suits that have been used. Helmets, packs, manufactured gear, dirt and scuffs. Cool colony tech in the world. The beam carries the energy color. What color palette would look good with that? Stay readable at a distance. No real-world party marks. No slogan decals. One suggestion per reply. Vote the ones you want staff to take seriously.
+
+When Adopted: write the palette into Docs/StyleLock.md. Then production art cards may leave Blocked.', '[]'::jsonb),
+    ('Tether-CD.2', 'Tether-CD.2 What kinds of enemies should we add', 'Open Question marker. Not claimable work.
+
+Prompt to post on Open Questions:
+We want enemies that hinder utility, not a shooter roster. Example jobs: grab a person or the beam, pick a friend up and carry them toward a drop, make a stretch of ground unsafe to linger on, tax the beam without becoming a health-bar boss. What kinds of enemies should we add? Name. What it does to a person or the beam. How the crew answers it together. One enemy per reply.', '[]'::jsonb),
+    ('Tether-5', 'Tether-5 Enemies', 'Enemies that stress the tether. Threats whose job is coordination, not a DPS sponge. Latch is one example creature, not the name of this epic.
 
 Blocker: Waiting on Tether-4.2 Checkpoint warp and session total.', '[]'::jsonb),
-    ('Tether-5.1', 'Tether-5.1 Latch enemy', 'Latch enemy moves toward a pawn or the tether midpoint, attaches, applies a documented penalty (extra tension, slow, or drain), and shows a clear attached state. Removal is faster when both players use Energy Pulse inside a short window (pair-remove). Playtest with two people and confirm the pair advantage is obvious.
+    ('Tether-5.1', 'Tether-5.1 First utility enemy', 'First utility enemy. One example is a grab-the-person-or-beam creature (a Latch): it moves toward a pawn or the tether midpoint, attaches, applies a documented penalty (extra tension, slow, or drain), and shows a clear attached state. Removal is faster when both players use Energy Pulse inside a short window (pair-remove). Playtest with two people and confirm the pair advantage is obvious.
 
 Definition of Done:
-- Latch enemy attaches to a pawn or the tether midpoint with a clear attached state.
+- A first utility enemy attaches to a pawn or the tether midpoint with a clear attached state. A grab-the-person-or-beam Latch is one valid example.
 - A documented penalty applies while attached.
 - Energy Pulse pair-remove is faster when both players use it in a short window.
 
-Blocker: Waiting on Tether-4.2 Checkpoint warp and session total.', '[{"id":"s1","label":"Latch enemy attaches to a pawn or the tether midpoint with a clear attached state.","done":false},{"id":"s2","label":"A documented penalty applies while attached.","done":false},{"id":"s3","label":"Energy Pulse pair-remove is faster when both players use it in a short window.","done":false}]'::jsonb),
-    ('Tether-6', 'Tether-6 First playable surface level', 'First playable surface level.
-
-Blocker: Waiting on Tether-5.1 Latch enemy.', '[]'::jsonb),
-    ('Tether-6.1', 'Tether-6.1 Modular graybox kit plus Level_01_Surface', 'Parent for kit pieces and Level_01_Surface blockout. Claim the Smalls.
-
-Blocker: Waiting on Tether-5.1 Latch enemy.', '[]'::jsonb),
+Blocker: Waiting on Tether-4.2 Checkpoint warp and session total.', '[{"id":"s1","label":"A first utility enemy attaches to a pawn or the tether midpoint with a clear attached state. A grab-the-person-or-beam Latch is one valid example.","done":false},{"id":"s2","label":"A documented penalty applies while attached.","done":false},{"id":"s3","label":"Energy Pulse pair-remove is faster when both players use it in a short window.","done":false}]'::jsonb),
+    ('Tether-6', 'Tether-6 First playable surface level', 'Maps. First playable surface level. Not blocked by Enemies. Official campaign maps must match Vision, StyleLock, Camera.md, and TetherRules.txt.', '[]'::jsonb),
+    ('Tether-6.1', 'Tether-6.1 Modular graybox kit plus Level_01_Surface', 'Parent for kit pieces and Level_01_Surface blockout. Claim the Smalls. Not blocked by Enemies.', '[]'::jsonb),
     ('Tether-6.1.1', 'Tether-6.1.1 Five modular graybox pieces', 'Five modular graybox pieces in Content/Tether/Modular.
 
 Output: Content/Tether/Modular with at least five graybox pieces.
 
 Definition of Done:
-- At least five modular graybox pieces exist in Content/Tether/Modular.
-
-Blocker: Waiting on Tether-5.1 Latch enemy.', '[{"id":"s1","label":"At least five modular graybox pieces exist in Content/Tether/Modular.","done":false}]'::jsonb),
-    ('Tether-6.1.2', 'Tether-6.1.2 Block out Level_01_Surface', 'Block out Content/Tether/Maps/Level_01_Surface: start, two traversal sections, resources, one or two enemy points, end checkpoint.
+- At least five modular graybox pieces exist in Content/Tether/Modular.', '[{"id":"s1","label":"At least five modular graybox pieces exist in Content/Tether/Modular.","done":false}]'::jsonb),
+    ('Tether-6.1.2', 'Tether-6.1.2 Block out Level_01_Surface', 'Block out Content/Tether/Maps/Level_01_Surface: start, two traversal sections, resources, one or two enemy points, end checkpoint. Official campaign maps must match Vision, StyleLock, Camera.md, and TetherRules.txt.
 
 Output: Content/Tether/Maps/Level_01_Surface.
 
@@ -232,6 +237,14 @@ Definition of Done:
 - Two-window listen server is enough until Tether-10.2 exists.
 
 Blocker: Waiting on Tether-6.1.2 Block out Level_01_Surface.', '[{"id":"s1","label":"A recorded successful 1-4 player run exists.","done":false},{"id":"s2","label":"Two-window listen server is enough until Tether-10.2 exists.","done":false}]'::jsonb),
+    ('Tether-6.3', 'Tether-6.3 Unofficial community maps', 'Lane for unofficial maps. Output Content/Tether/Maps/Community/ plus a short note (author, intended player count, what the line is asked to do). Off-campaign but playable maps stay in that folder. Off-brand work (nuke the map, and similar) is declined, not filed as unofficial. Not blocked by Enemies.
+
+Output: Content/Tether/Maps/Community/ with a short author note per map.
+
+Definition of Done:
+- Unofficial playable maps live in Content/Tether/Maps/Community/.
+- Each map has a short note: author, intended player count, what the line is asked to do.
+- Off-brand work is declined, not filed as unofficial.', '[{"id":"s1","label":"Unofficial playable maps live in Content/Tether/Maps/Community/.","done":false},{"id":"s2","label":"Each map has a short note: author, intended player count, what the line is asked to do.","done":false},{"id":"s3","label":"Off-brand work is declined, not filed as unofficial.","done":false}]'::jsonb),
     ('Tether-7', 'Tether-7 Tools, upgrades, between-level flow', 'Parked chapter. Do not invent extra Smalls.
 
 Blocker: Parked until Epic 6 is playtested.', '[]'::jsonb),
@@ -250,17 +263,17 @@ Blocker: Parked until Epic 6 is playtested.', '[]'::jsonb),
     ('Tether-8.2', 'Tether-8.2 Creature drive-off', 'Parked chapter card: creature drive-off. Do not invent extra Smalls.
 
 Blocker: Parked until Epic 6 is playtested.', '[]'::jsonb),
-    ('Tether-9', 'Tether-9 Art pipeline', 'Art pipeline. Style lock approval is Staff Only. Art suggestions belong in Open Questions until staff accept StyleLock.md.', '[]'::jsonb),
-    ('Tether-9.1', 'Tether-9.1 Style lock approval', 'Staff approve StyleLock.md (palette, silhouettes, materials). StyleLock.md stays Draft until staff accept.
+    ('Tether-9', 'Tether-9 Art pipeline', 'Art pipeline. Production final assets wait on Tether-CD.1 (palette Adopted into StyleLock.md). Art exploration replies belong on that Open Question, not as a separate public art epic.', '[]'::jsonb),
+    ('Tether-9.1', 'Tether-9.1 Style lock approval', 'Staff approve StyleLock.md after Tether-CD.1 is Adopted (palette, silhouettes, materials). StyleLock.md stays Draft until staff accept.
 
 Output: Docs/StyleLock.md accepted by staff.
 
 Definition of Done:
 - Staff accept Docs/StyleLock.md.
 - Until then StyleLock.md stays Draft.', '[{"id":"s1","label":"Staff accept Docs/StyleLock.md.","done":false},{"id":"s2","label":"Until then StyleLock.md stays Draft.","done":false}]'::jsonb),
-    ('Tether-9.2', 'Tether-9.2 Core final assets', 'Core final assets.
+    ('Tether-9.2', 'Tether-9.2 Core final assets', 'Core final assets. Blocked on Tether-CD.1 Suit and world palette only. Not on Enemies. Not on maps.
 
-Blocker: Style lock not approved.', '[]'::jsonb),
+Blocker: Waiting on Tether-CD.1 Suit and world palette.', '[]'::jsonb),
     ('Tether-10', 'Tether-10 Networking foundation', 'Networking foundation. Staff Only. Not claimable.
 
 Founder-owned. Default candidate: Iris on UE 5.8.', '[]'::jsonb),
