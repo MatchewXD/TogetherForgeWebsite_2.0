@@ -144,6 +144,11 @@ export function assembleQuestion(
     suggestions.find((a) => a.id === adoptedId) || null;
 
   const author = mapProfile(profileMap[question.created_by] || null);
+  const nestedReplyCount = suggestions.reduce((n, a) => n + a.replyCount, 0);
+  const supportTotal = suggestions.reduce(
+    (n, a) => n + (Number(a.supportCount) || 0),
+    0
+  );
 
   return {
     id: question.id,
@@ -160,13 +165,182 @@ export function assembleQuestion(
     createdAt: question.created_at,
     updatedAt: question.updated_at,
     author,
+    project: projectFromRow(question),
     suggestions,
     suggestionCount: suggestions.length,
-    nestedReplyCount: suggestions.reduce((n, a) => n + a.replyCount, 0),
+    nestedReplyCount,
+    supportTotal,
     topRanked,
     adoptedSuggestion,
     isOpen: question.status !== 'closed',
   };
+}
+
+function projectFromRow(question) {
+  const nested = Array.isArray(question?.projects)
+    ? question.projects[0]
+    : question?.projects;
+  if (nested && typeof nested === 'object') {
+    return {
+      id: nested.id || question.project_id || null,
+      slug: nested.slug || null,
+      title: nested.title || null,
+    };
+  }
+  if (question?.project && typeof question.project === 'object') {
+    return {
+      id: question.project.id || question.project_id || null,
+      slug: question.project.slug || null,
+      title: question.project.title || null,
+    };
+  }
+  if (!question?.project_id) return null;
+  return { id: question.project_id, slug: null, title: null };
+}
+
+export const QUESTION_SORTS = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'answers', label: 'Most Answers' },
+  { value: 'votes', label: 'Most Voted' },
+  { value: 'discussed', label: 'Most Discussed' },
+  { value: 'title', label: 'Title A–Z' },
+];
+
+export const QUESTION_STATUS_FILTERS = [
+  { value: 'all', label: 'All questions' },
+  { value: 'open', label: 'Open' },
+  { value: 'closed', label: 'Closed' },
+  { value: 'adopted', label: 'Adopted' },
+];
+
+export const ANSWER_SORTS = [
+  { value: 'votes', label: 'Most Voted' },
+  { value: 'newest', label: 'Newest' },
+  { value: 'comments', label: 'Most Comments' },
+];
+
+export function questionPath(questionId) {
+  return `/questions/${questionId}`;
+}
+
+export function answerPath(questionId, answerId) {
+  return `/questions/${questionId}/answers/${answerId}`;
+}
+
+export function questionsListPath({ project, sort, status, q } = {}) {
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  if (sort && sort !== 'newest') params.set('sort', sort);
+  if (status && status !== 'all') params.set('status', status);
+  if (project) params.set('project', project);
+  const qs = params.toString();
+  return qs ? `/questions?${qs}` : '/questions';
+}
+
+export function matchesQuestionSearch(question, search) {
+  const needle = String(search || '')
+    .trim()
+    .toLowerCase();
+  if (!needle) return true;
+  const answerText = (question?.suggestions || [])
+    .map((s) => s.body)
+    .filter(Boolean)
+    .join(' ');
+  const hay = [
+    question?.title,
+    question?.body,
+    question?.author?.username,
+    question?.project?.title,
+    question?.project?.slug,
+    answerText,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return hay.includes(needle);
+}
+
+export function filterQuestions(
+  list,
+  { search = '', status = 'all', projectKey = '' } = {}
+) {
+  const key = String(projectKey || '')
+    .trim()
+    .toLowerCase();
+  return (list || []).filter((q) => {
+    if (!matchesQuestionSearch(q, search)) return false;
+    if (status === 'open' && !q.isOpen) return false;
+    if (status === 'closed' && q.isOpen) return false;
+    if (status === 'adopted' && !q.adoptedSuggestion) return false;
+    if (key) {
+      const pid = String(q.projectId || q.project?.id || '').toLowerCase();
+      const slug = String(q.project?.slug || '').toLowerCase();
+      if (pid !== key && slug !== key) return false;
+    }
+    return true;
+  });
+}
+
+export function sortQuestions(list, mode = 'newest') {
+  const rows = (list || []).slice();
+  const byNewest = (a, b) =>
+    new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0);
+  if (mode === 'answers') {
+    return rows.sort(
+      (a, b) => (b.suggestionCount || 0) - (a.suggestionCount || 0) || byNewest(a, b)
+    );
+  }
+  if (mode === 'votes') {
+    return rows.sort(
+      (a, b) => (b.supportTotal || 0) - (a.supportTotal || 0) || byNewest(a, b)
+    );
+  }
+  if (mode === 'discussed') {
+    return rows.sort(
+      (a, b) =>
+        (b.nestedReplyCount || 0) - (a.nestedReplyCount || 0) || byNewest(a, b)
+    );
+  }
+  if (mode === 'title') {
+    return rows.sort((a, b) =>
+      String(a.title || '').localeCompare(String(b.title || ''), undefined, {
+        sensitivity: 'base',
+      })
+    );
+  }
+  return rows.sort(byNewest);
+}
+
+export function filterSuggestions(list, { search = '', votedOnly = false } = {}) {
+  const needle = String(search || '')
+    .trim()
+    .toLowerCase();
+  return (list || []).filter((s) => {
+    if (votedOnly && !s.supportedByMe) return false;
+    if (!needle) return true;
+    const hay = [s.body, s.author?.username]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return hay.includes(needle);
+  });
+}
+
+export function sortSuggestions(list, mode = 'votes') {
+  const rows = (list || []).slice();
+  if (mode === 'newest') {
+    return rows.sort(
+      (a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0)
+    );
+  }
+  if (mode === 'comments') {
+    return rows.sort(
+      (a, b) =>
+        (Number(b?.replyCount) || 0) - (Number(a?.replyCount) || 0) ||
+        new Date(a?.createdAt || 0) - new Date(b?.createdAt || 0)
+    );
+  }
+  return rows.sort(compareSuggestions);
 }
 
 async function loadProfileMap(userIds) {
@@ -185,94 +359,171 @@ async function loadProfileMap(userIds) {
   return map;
 }
 
+function throwIfQuestionsMissing(error, fallback) {
+  if (
+    /does not exist|schema cache|could not find the table/i.test(
+      error?.message || ''
+    )
+  ) {
+    const err = new Error(
+      'Open Questions are not set up yet. Run supabase/sql/supabase_open_questions.sql in Supabase.'
+    );
+    err.code = 'OPEN_QUESTIONS_MISSING';
+    throw err;
+  }
+  throw asUserError(error, fallback);
+}
+
+async function loadQuestionRows({ projectId = null, questionId = null } = {}) {
+  const withProject = `${QUESTION_SELECT}, projects(id, slug, title)`;
+  const withProjectNoClose = `${QUESTION_SELECT_NO_CLOSE}, projects(id, slug, title)`;
+
+  const applyFilters = (qb) => {
+    let next = qb;
+    if (projectId) next = next.eq('project_id', projectId);
+    if (questionId) next = next.eq('id', questionId);
+    return next.order('created_at', { ascending: false });
+  };
+
+  const run = (select) => {
+    const qb = applyFilters(
+      supabase.from('open_questions').select(select)
+    );
+    return questionId ? qb.maybeSingle() : qb;
+  };
+
+  let result = await run(withProject);
+  if (result.error && isMissingCloseNote(result.error)) {
+    result = await run(withProjectNoClose);
+  }
+  if (
+    result.error &&
+    /projects|relationship|embed/i.test(result.error.message || '')
+  ) {
+    result = await run(QUESTION_SELECT);
+    if (result.error && isMissingCloseNote(result.error)) {
+      result = await run(QUESTION_SELECT_NO_CLOSE);
+    }
+  }
+
+  if (result.error) {
+    throwIfQuestionsMissing(result.error, 'Could not load open questions.');
+  }
+
+  const rows = questionId
+    ? result.data
+      ? [result.data]
+      : []
+    : result.data || [];
+
+  const needsProject = rows.some((r) => r.project_id && !r.projects);
+  if (needsProject) {
+    const ids = [...new Set(rows.map((r) => r.project_id).filter(Boolean))];
+    if (ids.length) {
+      const { data: projects } = await supabase
+        .from('projects')
+        .select('id, slug, title')
+        .in('id', ids);
+      const map = {};
+      for (const p of projects || []) map[p.id] = p;
+      for (const r of rows) {
+        if (!r.projects && map[r.project_id]) r.projects = map[r.project_id];
+      }
+    }
+  }
+
+  return rows;
+}
+
+async function hydrateQuestions(list, viewerUserId = null) {
+  if (!list.length) return [];
+
+  const qids = list.map((q) => q.id);
+  const { data: replies, error: rErr } = await supabase
+    .from('open_question_replies')
+    .select('id, question_id, parent_id, user_id, body, created_at')
+    .in('question_id', qids)
+    .order('created_at', { ascending: true });
+
+  if (rErr) throw asUserError(rErr, 'Could not load suggestions.');
+
+  const replyRows = replies || [];
+  const suggestionIds = replyRows
+    .filter((r) => !r.parent_id)
+    .map((r) => r.id);
+
+  let supportRows = [];
+  if (suggestionIds.length) {
+    const { data: supports, error: sErr } = await supabase
+      .from('open_question_supports')
+      .select('reply_id, user_id')
+      .in('reply_id', suggestionIds);
+    if (
+      sErr &&
+      !/does not exist|schema cache|could not find the table/i.test(
+        sErr.message || ''
+      )
+    ) {
+      throw asUserError(sErr, 'Could not load supports.');
+    }
+    supportRows = supports || [];
+  }
+
+  const userIds = [
+    ...list.map((q) => q.created_by),
+    ...replyRows.map((r) => r.user_id),
+  ];
+  const profileMap = await loadProfileMap(userIds);
+  const byQuestion = new Map();
+  for (const r of replyRows) {
+    if (!byQuestion.has(r.question_id)) byQuestion.set(r.question_id, []);
+    byQuestion.get(r.question_id).push(r);
+  }
+
+  return list.map((q) =>
+    assembleQuestion(
+      q,
+      byQuestion.get(q.id) || [],
+      profileMap,
+      supportRows,
+      viewerUserId
+    )
+  );
+}
+
 export const openQuestionsService = {
   async listForProject(projectId, { viewerUserId = null } = {}) {
     if (!projectId) return [];
-    let { data: questions, error: qErr } = await supabase
-      .from('open_questions')
-      .select(QUESTION_SELECT)
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: false });
+    const list = await loadQuestionRows({ projectId });
+    return hydrateQuestions(list, viewerUserId);
+  },
 
-    if (qErr && isMissingCloseNote(qErr)) {
-      const retry = await supabase
-        .from('open_questions')
-        .select(QUESTION_SELECT_NO_CLOSE)
-        .eq('project_id', projectId)
-        .order('created_at', { ascending: false });
-      questions = retry.data;
-      qErr = retry.error;
-    }
+  async listAll({ viewerUserId = null } = {}) {
+    const list = await loadQuestionRows();
+    return hydrateQuestions(list, viewerUserId);
+  },
 
-    if (qErr) {
-      if (
-        /does not exist|schema cache|could not find the table/i.test(
-          qErr.message || ''
-        )
-      ) {
-        const err = new Error(
-          'Open Questions are not set up yet. Run supabase/sql/supabase_open_questions.sql in Supabase.'
-        );
-        err.code = 'OPEN_QUESTIONS_MISSING';
-        throw err;
-      }
-      throw asUserError(qErr, 'Could not load open questions.');
-    }
+  async getById(questionId, { viewerUserId = null } = {}) {
+    if (!questionId) return null;
+    const list = await loadQuestionRows({ questionId });
+    if (!list.length) return null;
+    const [view] = await hydrateQuestions(list, viewerUserId);
+    return view || null;
+  },
 
-    const list = questions || [];
-    if (!list.length) return [];
-
-    const qids = list.map((q) => q.id);
-    const { data: replies, error: rErr } = await supabase
-      .from('open_question_replies')
-      .select('id, question_id, parent_id, user_id, body, created_at')
-      .in('question_id', qids)
-      .order('created_at', { ascending: true });
-
-    if (rErr) throw asUserError(rErr, 'Could not load suggestions.');
-
-    const replyRows = replies || [];
-    const suggestionIds = replyRows
-      .filter((r) => !r.parent_id)
-      .map((r) => r.id);
-
-    let supportRows = [];
-    if (suggestionIds.length) {
-      const { data: supports, error: sErr } = await supabase
-        .from('open_question_supports')
-        .select('reply_id, user_id')
-        .in('reply_id', suggestionIds);
-      if (
-        sErr &&
-        !/does not exist|schema cache|could not find the table/i.test(
-          sErr.message || ''
-        )
-      ) {
-        throw asUserError(sErr, 'Could not load supports.');
-      }
-      supportRows = supports || [];
-    }
-
-    const userIds = [
-      ...list.map((q) => q.created_by),
-      ...replyRows.map((r) => r.user_id),
-    ];
-    const profileMap = await loadProfileMap(userIds);
-    const byQuestion = new Map();
-    for (const r of replyRows) {
-      if (!byQuestion.has(r.question_id)) byQuestion.set(r.question_id, []);
-      byQuestion.get(r.question_id).push(r);
-    }
-
-    return list.map((q) =>
-      assembleQuestion(
-        q,
-        byQuestion.get(q.id) || [],
-        profileMap,
-        supportRows,
-        viewerUserId
-      )
-    );
+  async listProjects() {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('id, slug, title')
+      .order('title', { ascending: true });
+    if (error) throw asUserError(error, 'Could not load projects.');
+    return (data || [])
+      .filter((p) => p?.id)
+      .map((p) => ({
+        id: p.id,
+        slug: p.slug || p.id,
+        title: p.title || p.slug || 'Project',
+      }));
   },
 
   async createQuestion(projectId, { title, body }, userId) {

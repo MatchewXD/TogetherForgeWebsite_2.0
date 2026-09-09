@@ -1,6 +1,7 @@
 -- =============================================================================
 -- Open Questions — staff-initiated project decisions
--- Community posts Suggestions. Suggestions can be supported and receive replies.
+-- Community posts Suggestions (answers). Suggestions can be supported.
+-- Comments thread under an answer (reply to a suggestion or to another comment).
 -- Ranked by supports, then replies. Staff may Adopt a suggestion or close with a note.
 -- Run AFTER supabase_tasks_schema.sql (projects + is_project_staff).
 -- Safe to re-run.
@@ -79,7 +80,8 @@ create trigger trg_open_questions_updated_at
   for each row
   execute function public.touch_open_questions_updated_at();
 
--- One-level replies: parent must be a top-level Suggestion on the same question.
+-- Threaded replies: parent may be a Suggestion or any comment on the same question.
+-- Votes stay on Suggestions only (see enforce_open_question_support).
 -- No replies on closed questions.
 create or replace function public.enforce_open_question_reply()
 returns trigger
@@ -104,18 +106,19 @@ begin
   end if;
 
   if new.parent_id is not null then
+    if new.id is not null and new.parent_id = new.id then
+      raise exception 'A reply cannot be its own parent';
+    end if;
+
     select * into v_parent
     from public.open_question_replies
     where id = new.parent_id;
 
     if not found then
-      raise exception 'Suggestion not found';
+      raise exception 'Reply not found';
     end if;
     if v_parent.question_id is distinct from new.question_id then
       raise exception 'Reply must belong to the same question';
-    end if;
-    if v_parent.parent_id is not null then
-      raise exception 'Replies can only be posted on a Suggestion, not on another reply';
     end if;
   end if;
 

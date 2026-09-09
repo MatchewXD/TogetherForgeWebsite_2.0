@@ -83,7 +83,8 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 27d. `supabase_tether_task_tree_v06.sql` — Tether Task Breakdown v0.6 onto staging only (Staff Only / Blocked / Parked; not public Ready)  
 27e. `supabase_tether_archive_legacy_tasks.sql` — Archive leftover Tether demo/public cards; hide from boards; do not delete v0.6  
 27eb. `supabase_tether_p_ready_lane_rehome.sql` — Rehome Tether-P cards in place; archive Ready lane; do not recreate P.1  
-27f. `supabase_open_questions.sql` — staff-initiated Open Questions; community Suggestions (support, reply, staff Adopt / close note)  
+27f. `supabase_open_questions.sql` — staff-initiated Open Questions; community Suggestions (support, threaded replies, staff Adopt / close note)
+27g. `supabase_open_questions_threads.sql` — allow comment threads under an answer (reply to a reply)  
 
 ### 3. Contributions + media + community
 
@@ -320,6 +321,7 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_tether_p_ready_lane_rehome.sql` | Rehome Tether-P cards; archive Ready lane; no P.1 recreate |
 | `supabase_project_tether_slug.sql` | Rename public project slug to `tether` |
 | `supabase_open_questions.sql` | Staff Open Questions; community Suggestions with support, rank, Adopt, close note |
+| `supabase_open_questions_threads.sql` | True comment threads under an answer (reply to a reply) |
 | `supabase_task_scope_requests.sql` | Scope help requests |
 | `supabase_parent_ready_for_review.sql` | Parent ready when children complete |
 | `supabase_page_content.sql` | Phase hub editable content |

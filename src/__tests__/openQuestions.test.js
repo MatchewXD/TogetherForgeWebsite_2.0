@@ -2,6 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
   assembleQuestion,
   compareSuggestions,
+  filterQuestions,
+  filterSuggestions,
+  questionsListPath,
+  sortQuestions,
+  sortSuggestions,
 } from '../services/openQuestionsService';
 
 function q(partial = {}) {
@@ -96,6 +101,18 @@ describe('assembleQuestion', () => {
     expect(view.suggestions[0].replies[0].replies[0].id).toBe('c2');
   });
 
+  it('nests replies more than one level under a comment', () => {
+    const view = assembleQuestion(q(), [
+      reply({ id: 's1', body: 'Short sessions' }),
+      reply({ id: 'c1', parent_id: 's1', body: 'Why short?' }),
+      reply({ id: 'c2', parent_id: 'c1', body: 'Fits a lunch break.' }),
+      reply({ id: 'c3', parent_id: 'c2', body: 'Also easier to test.' }),
+    ]);
+    expect(view.suggestionCount).toBe(1);
+    expect(view.suggestions[0].replyCount).toBe(3);
+    expect(view.suggestions[0].replies[0].replies[0].replies[0].id).toBe('c3');
+  });
+
   it('still ranks when nothing has supports yet (earliest first)', () => {
     const view = assembleQuestion(q(), [
       reply({ id: 's1', body: 'Short sessions', created_at: '2026-08-01T01:00:00Z' }),
@@ -166,5 +183,128 @@ describe('assembleQuestion', () => {
     expect(view.adoptedSuggestion).toBeNull();
     expect(view.topRanked?.id).toBe('s1');
     expect(view.closeNote).toMatch(/tone of the game/);
+  });
+
+  it('counts total votes across answers for list sorting', () => {
+    const view = assembleQuestion(
+      q(),
+      [
+        reply({ id: 's1', body: 'A' }),
+        reply({ id: 's2', body: 'B' }),
+      ],
+      {},
+      [
+        { reply_id: 's1', user_id: 'u2' },
+        { reply_id: 's2', user_id: 'u3' },
+        { reply_id: 's2', user_id: 'u4' },
+      ]
+    );
+    expect(view.supportTotal).toBe(3);
+  });
+});
+
+describe('filter and sort questions', () => {
+  const rows = [
+    {
+      id: 'q-open',
+      title: 'How long should a session feel?',
+      body: 'First playable pacing',
+      isOpen: true,
+      suggestionCount: 2,
+      supportTotal: 1,
+      nestedReplyCount: 0,
+      createdAt: '2026-08-02T00:00:00Z',
+      adoptedSuggestion: null,
+      projectId: 'p1',
+      project: { id: 'p1', slug: 'tether', title: 'Tether' },
+      author: { username: 'staff' },
+      suggestions: [{ body: 'Short sessions' }],
+    },
+    {
+      id: 'q-closed',
+      title: 'Should warp be limited?',
+      body: 'Resource question',
+      isOpen: false,
+      suggestionCount: 4,
+      supportTotal: 9,
+      nestedReplyCount: 6,
+      createdAt: '2026-08-01T00:00:00Z',
+      adoptedSuggestion: { id: 's1', body: 'Yes, cap it' },
+      projectId: 'p2',
+      project: { id: 'p2', slug: 'other', title: 'Other' },
+      author: { username: 'lead' },
+      suggestions: [{ body: 'Cap warp' }],
+    },
+  ];
+
+  it('filters by search across title, body, and answers', () => {
+    expect(filterQuestions(rows, { search: 'session' }).map((q) => q.id)).toEqual([
+      'q-open',
+    ]);
+    expect(filterQuestions(rows, { search: 'cap warp' }).map((q) => q.id)).toEqual([
+      'q-closed',
+    ]);
+  });
+
+  it('filters open, closed, and adopted', () => {
+    expect(filterQuestions(rows, { status: 'open' })).toHaveLength(1);
+    expect(filterQuestions(rows, { status: 'closed' })[0].id).toBe('q-closed');
+    expect(filterQuestions(rows, { status: 'adopted' })[0].id).toBe('q-closed');
+  });
+
+  it('filters by project slug or id', () => {
+    expect(filterQuestions(rows, { projectKey: 'tether' })[0].id).toBe('q-open');
+    expect(filterQuestions(rows, { projectKey: 'p2' })[0].id).toBe('q-closed');
+  });
+
+  it('sorts by newest, answers, votes, and title', () => {
+    expect(sortQuestions(rows, 'newest')[0].id).toBe('q-open');
+    expect(sortQuestions(rows, 'answers')[0].id).toBe('q-closed');
+    expect(sortQuestions(rows, 'votes')[0].id).toBe('q-closed');
+    expect(sortQuestions(rows, 'title')[0].id).toBe('q-open');
+  });
+
+  it('builds a list path with filters', () => {
+    expect(questionsListPath({ project: 'tether', sort: 'votes' })).toBe(
+      '/questions?sort=votes&project=tether'
+    );
+  });
+});
+
+describe('filter and sort answers', () => {
+  const answers = [
+    {
+      id: 'a',
+      body: 'Short sessions',
+      supportCount: 2,
+      replyCount: 1,
+      createdAt: '2026-08-01T01:00:00Z',
+      supportedByMe: true,
+      author: { username: 'sam' },
+    },
+    {
+      id: 'b',
+      body: 'Longer sessions with a boss',
+      supportCount: 5,
+      replyCount: 0,
+      createdAt: '2026-08-01T03:00:00Z',
+      supportedByMe: false,
+      author: { username: 'lee' },
+    },
+  ];
+
+  it('filters by search and my votes', () => {
+    expect(filterSuggestions(answers, { search: 'boss' }).map((s) => s.id)).toEqual([
+      'b',
+    ]);
+    expect(filterSuggestions(answers, { votedOnly: true }).map((s) => s.id)).toEqual([
+      'a',
+    ]);
+  });
+
+  it('sorts by votes, newest, and comments', () => {
+    expect(sortSuggestions(answers, 'votes')[0].id).toBe('b');
+    expect(sortSuggestions(answers, 'newest')[0].id).toBe('b');
+    expect(sortSuggestions(answers, 'comments')[0].id).toBe('a');
   });
 });

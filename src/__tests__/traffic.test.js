@@ -29,8 +29,13 @@ describe('traffic path helpers', () => {
     expect(trafficPageLabel('/')).toBe('Home');
     expect(trafficPageLabel('/how-it-works')).toBe('How It Works');
     expect(trafficPageLabel('/ideas')).toBe('Ideas');
+    expect(trafficPageLabel('/questions')).toBe('Open Questions');
     expect(trafficPageLabel('/projects/tether')).toBe('Tether');
     expect(trafficPageLabel('/ideas/abc-123')).toBe('Idea posts');
+    expect(trafficPageLabel('/questions/abc-123')).toBe('Open question');
+    expect(
+      trafficPageLabel('/questions/abc-123/answers/def-456')
+    ).toBe('Question answers');
     expect(trafficPageLabel('/projects/early')).toBe('Early Game');
     expect(trafficPageLabel('/account/plan')).toBe('My Plan');
     expect(trafficPageLabel('/u/matchew')).toBe('Profiles');

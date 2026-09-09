@@ -42,6 +42,12 @@ const Footer = () => {
               IDEAS
             </Link>
             <Link
+              to="/questions"
+              className="hover:text-neon-cyan transition-colors"
+            >
+              QUESTIONS
+            </Link>
+            <Link
               to="/get-involved"
               className="hover:text-neon-cyan transition-colors"
             >

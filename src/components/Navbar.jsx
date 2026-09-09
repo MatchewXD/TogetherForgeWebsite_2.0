@@ -18,6 +18,7 @@ const TOP_LINKS = [
   { to: '/', label: 'Home', end: true },
   { to: '/projects', label: 'Projects' },
   { to: '/ideas', label: 'Ideas' },
+  { to: '/questions', label: 'Questions' },
   { to: '/get-involved', label: 'Get Involved' },
   { to: '/media', label: 'Media' },
 ];

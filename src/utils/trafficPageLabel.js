@@ -12,6 +12,7 @@ const EXACT = {
   '/ideas': 'Ideas',
   '/ideas/submit': 'Submit Idea',
   '/ideas/wizard': 'Idea Wizard',
+  '/questions': 'Open Questions',
   '/projects': 'Projects',
   '/open-work': 'Open Work',
   '/task-boards': 'Open Work',
@@ -151,6 +152,29 @@ export function classifyTrafficPath(path) {
       label: 'Idea posts',
       group: 'idea',
       kind: 'idea',
+      entityId: null,
+    };
+  }
+
+  if (
+    p === '/questions/:questionId/answers/:answerId' ||
+    /^\/questions\/[^/]+\/answers\/[^/]+$/.test(p)
+  ) {
+    return {
+      path: p,
+      label: 'Question answers',
+      group: 'question-answer',
+      kind: 'question-answer',
+      entityId: null,
+    };
+  }
+
+  if (p === '/questions/:questionId' || /^\/questions\/[^/]+$/.test(p)) {
+    return {
+      path: p,
+      label: 'Open question',
+      group: 'question',
+      kind: 'question',
       entityId: null,
     };
   }

@@ -3611,6 +3611,7 @@ const ProjectWorkspace = () => {
         {/* 6. OPEN QUESTIONS — staff-initiated project decisions */}
         <OpenQuestionsSection
           projectId={projectUuid}
+          projectSlug={projectKey}
           projectTitle={displayProject.title}
           isStaff={isModerator}
           user={user}

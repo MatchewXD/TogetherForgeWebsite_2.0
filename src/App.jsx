@@ -8,6 +8,8 @@ import GameIdeas from './pages/GameIdeas';
 import IdeaSubmit from './pages/IdeaSubmit';
 import IdeaWizard from './pages/IdeaWizard';
 import IdeaDetail from './pages/IdeaDetail';
+import OpenQuestions from './pages/OpenQuestions';
+import OpenQuestionDetail from './pages/OpenQuestionDetail';
 import Projects from './pages/Projects';
 import GetInvolved from './pages/GetInvolved';
 import HowItWorks from './pages/HowItWorks';
@@ -101,6 +103,15 @@ function App() {
                         <Route path="/ideas/wizard" element={<IdeaWizard />} />
                         <Route path="/ideas/:id" element={<IdeaDetail />} />
                         <Route path="/ideas/:id/edit" element={<IdeaEdit />} />
+                        <Route path="/questions" element={<OpenQuestions />} />
+                        <Route
+                          path="/questions/:questionId/answers/:answerId"
+                          element={<OpenQuestionDetail />}
+                        />
+                        <Route
+                          path="/questions/:questionId"
+                          element={<OpenQuestionDetail />}
+                        />
                         <Route path="/projects" element={<Projects />} />
                         <Route path="/open-work" element={<OpenWork />} />
                         <Route path="/task-boards" element={<OpenWork />} />
