@@ -156,13 +156,13 @@ export default function OpenQuestions() {
     setSearchParams({}, { replace: true });
   };
 
-  const saveQuestion = async ({ title, body, projectId }) => {
+  const saveQuestion = async ({ title, prompt, projectId }) => {
     if (!isStaff || !user?.id) return;
     setBusy(true);
     try {
       const created = await openQuestionsService.createQuestion(
         projectId,
-        { title, body },
+        { title, prompt },
         user.id
       );
       showToast('Question posted to the community.', 'success');

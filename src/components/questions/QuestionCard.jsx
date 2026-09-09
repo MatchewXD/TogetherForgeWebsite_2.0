@@ -8,7 +8,6 @@ export default function QuestionCard({
   showProject = true,
   to,
 }) {
-  const highlight = question.adoptedSuggestion || question.topRanked;
   const href = to || questionPath(question.id);
   const projectLabel = question.project?.title || question.project?.slug;
 
@@ -35,9 +34,9 @@ export default function QuestionCard({
           {projectLabel}
         </p>
       ) : null}
-      {question.body ? (
+      {question.preview || question.body ? (
         <p className="text-sm text-text-secondary flex-1 mb-3 line-clamp-2 leading-relaxed">
-          {question.body}
+          {question.preview || question.body}
         </p>
       ) : (
         <div className="flex-1 mb-3" />
@@ -54,10 +53,9 @@ export default function QuestionCard({
         </span>
         <span>{formatDate(question.createdAt)}</span>
       </div>
-      {highlight ? (
+      {question.adoptedSuggestion ? (
         <p className="text-[11px] text-text-muted mt-2 line-clamp-2">
-          {question.adoptedSuggestion ? 'Adopted: ' : 'Top ranked: '}
-          {highlight.body}
+          Adopted: {question.adoptedSuggestion.body}
         </p>
       ) : null}
     </Card>

@@ -18,7 +18,6 @@ import {
 import { supabase } from '../lib/supabase';
 import {
   ANSWER_SORTS,
-  OPEN_QUESTION_CLOSE_NOTE_MAX,
   OPEN_QUESTION_REPLY_MAX,
   filterSuggestions,
   openQuestionsService,
@@ -33,6 +32,8 @@ import Card from '../components/ui/Card';
 import CharCount from '../components/ui/CharCount';
 import LoadingScreen from '../components/ui/LoadingScreen';
 import AskQuestionModal from '../components/questions/AskQuestionModal';
+import CloseQuestionModal from '../components/questions/CloseQuestionModal';
+import QuestionPromptView from '../components/questions/QuestionPromptView';
 import PostAnswerModal from '../components/questions/PostAnswerModal';
 import AnswerCard from '../components/questions/AnswerCard';
 import {
@@ -66,6 +67,7 @@ export default function OpenQuestionDetail() {
   const [replyDrafts, setReplyDrafts] = useState({});
   const [replyOpenFor, setReplyOpenFor] = useState(null);
   const [closeNote, setCloseNote] = useState('');
+  const [closeOpen, setCloseOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState(() => searchParams.get('q') || '');
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
 
@@ -255,28 +257,31 @@ export default function OpenQuestionDetail() {
     }
   };
 
-  const closeQuestion = async () => {
+  const closeQuestion = async (note) => {
     if (!question || !isStaff) return;
     setBusy(true);
     try {
       await openQuestionsService.closeQuestion(question.id, {
-        note: closeNote,
+        note,
         adoptedReplyId: question.adoptedReplyId || null,
       });
       showToast('Question closed.', 'success');
+      setCloseOpen(false);
       await load();
     } catch (err) {
-      showToast(err?.message || 'Could not close.', 'error');
+      throw err instanceof Error
+        ? err
+        : new Error(err?.message || 'Could not close.');
     } finally {
       setBusy(false);
     }
   };
 
-  const saveQuestion = async ({ title, body }) => {
+  const saveQuestion = async ({ title, prompt }) => {
     if (!question || !isStaff) return;
     setBusy(true);
     try {
-      await openQuestionsService.updateQuestion(question.id, { title, body });
+      await openQuestionsService.updateQuestion(question.id, { title, prompt });
       showToast('Question updated.', 'success');
       setFormOpen(false);
       await load();
@@ -411,12 +416,10 @@ export default function OpenQuestionDetail() {
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             patchParams={patchParams}
-            closeNote={closeNote}
-            setCloseNote={setCloseNote}
             onVote={toggleSupport}
             onAdopt={adoptSuggestion}
             onPostSuggestion={postSuggestion}
-            onCloseQuestion={closeQuestion}
+            onCloseQuestion={() => setCloseOpen(true)}
             onEdit={() => setFormOpen(true)}
             onDelete={removeQuestion}
           />
@@ -429,6 +432,13 @@ export default function OpenQuestionDetail() {
         onSave={saveQuestion}
         busy={busy}
         editing={question}
+      />
+      <CloseQuestionModal
+        isOpen={closeOpen}
+        onClose={() => !busy && setCloseOpen(false)}
+        onSubmit={closeQuestion}
+        busy={busy}
+        initialNote={closeNote}
       />
     </div>
   );
@@ -448,8 +458,6 @@ function QuestionPage({
   searchTerm,
   setSearchTerm,
   patchParams,
-  closeNote,
-  setCloseNote,
   onVote,
   onAdopt,
   onPostSuggestion,
@@ -534,11 +542,7 @@ function QuestionPage({
         </div>
       </header>
 
-      {question.body ? (
-        <p className="text-base sm:text-lg text-text-secondary leading-relaxed whitespace-pre-wrap">
-          {question.body}
-        </p>
-      ) : null}
+      <QuestionPromptView question={question} />
 
       {question.adoptedSuggestion ? (
         <div className="rounded-lg border border-semantic-success/40 bg-semantic-success/10 px-4 py-3">
@@ -563,17 +567,16 @@ function QuestionPage({
       ) : null}
 
       <section className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-          <div>
-            <p className="text-xs font-mono tracking-widest text-text-muted uppercase">
-              Answers
-              {question.suggestionCount ? ` · ${question.suggestionCount}` : ''}
-            </p>
-            <p className="text-sm text-text-secondary mt-1">
-              Most voted sit at the top by default. Open an answer to read the
-              full idea and comment.
-            </p>
-          </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+            Community Ideas
+            {question.suggestionCount ? (
+              <span className="text-text-muted font-semibold">
+                {' '}
+                · {question.suggestionCount}
+              </span>
+            ) : null}
+          </h2>
           {question.isOpen ? (
             <Button
               className="gap-2 self-start sm:self-auto"
@@ -657,25 +660,9 @@ function QuestionPage({
       />
 
       {isStaff && question.isOpen ? (
-        <div className="pt-2 border-t border-cyber-border space-y-2">
-          <p className="text-xs font-mono tracking-widest text-text-muted uppercase">
-            Close this question
-          </p>
-          <p className="text-xs text-text-muted leading-relaxed">
-            Adopt a suggestion first if it is the official call. Closing needs a
-            short note so the community can see the final choice, including if
-            nothing was adopted because it did not fit the game.
-          </p>
-          <textarea
-            className={`${fieldControl} min-h-[4.5rem]`}
-            maxLength={OPEN_QUESTION_CLOSE_NOTE_MAX}
-            value={closeNote}
-            onChange={(e) => setCloseNote(e.target.value)}
-            placeholder="Why this is the call, or why the top-ranked suggestion was not adopted."
-          />
-          <CharCount value={closeNote} max={OPEN_QUESTION_CLOSE_NOTE_MAX} />
+        <div className="pt-2 border-t border-cyber-border">
           <Button variant="outline" disabled={busy} onClick={onCloseQuestion}>
-            Close question
+            Close this question
           </Button>
         </div>
       ) : null}
@@ -703,7 +690,6 @@ function AnswerPage({
   onPostReply,
 }) {
   const isAdopted = question.adoptedSuggestion?.id === suggestion.id;
-  const isTop = question.topRanked?.id === suggestion.id;
 
   return (
     <div className="space-y-6">
@@ -731,17 +717,9 @@ function AnswerPage({
           {question.title}
         </h1>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] font-mono text-text-muted">
-            #{suggestion.rank}
-          </span>
           {isAdopted ? (
             <Badge variant="success" className="!normal-case">
               Adopted
-            </Badge>
-          ) : null}
-          {isTop && !isAdopted ? (
-            <Badge variant="neon" className="!normal-case">
-              Top ranked
             </Badge>
           ) : null}
           <AuthorLine

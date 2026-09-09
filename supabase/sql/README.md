@@ -86,6 +86,7 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 27eb. `supabase_tether_p_ready_lane_rehome.sql` — Rehome Tether-P cards in place; archive Ready lane; do not recreate P.1  
 27f. `supabase_open_questions.sql` — staff-initiated Open Questions; community Suggestions (support, threaded replies, staff Adopt / close note)
 27g. `supabase_open_questions_threads.sql` — allow comment threads under an answer (reply to a reply)
+27g2. `supabase_open_questions_prompt.sql` — Ideas-style prompt fields on Open Questions (context, question, conditions)
 27h. `supabase_project_updates.sql` — staff Devlogs & announcements on the project hub
 27i. `supabase_task_suggestion_activity.sql` — credit accepted task suggestions in Recent Activity
 27j. `supabase_task_suggestion_staff_notes.sql` — staff-only internal notes on suggestion strikes

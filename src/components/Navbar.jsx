@@ -25,14 +25,14 @@ const TOP_LINKS = [
 const EXPLORE_LINKS = [
   { to: '/about', label: 'About' },
   { to: '/how-it-works', label: 'How It Works' },
-  { to: '/education', label: 'Education' },
+  { to: '/showcase', label: 'Showcase' },
+  { to: '/contributors', label: 'Contributors' },
+  { to: '/badges', label: 'Badges' },
   { to: '/demos', label: 'Mechanic Lab' },
+  { to: '/education', label: 'Education' },
   ...(SHOW_RELEASED_GAMES
     ? [{ to: '/released', label: 'Released Games' }]
     : []),
-  { to: '/contributors', label: 'Contributors' },
-  { to: '/badges', label: 'Badges' },
-  { to: '/showcase', label: 'Showcase' },
 ];
 
 const SUPPORT_LINKS = [

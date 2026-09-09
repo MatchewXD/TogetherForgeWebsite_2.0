@@ -18,17 +18,10 @@ export default function AnswerCard({
   const navigate = useNavigate();
   const href = answerPath(question.id, suggestion.id);
   const isAdopted = question.adoptedSuggestion?.id === suggestion.id;
-  const isTop = question.topRanked?.id === suggestion.id;
 
-  let cardClass =
-    'border-cyber-border bg-cyber-surface/50 hover:border-neon-cyan/40';
-  if (isAdopted) {
-    cardClass =
-      'border-semantic-success/40 bg-semantic-success/5 hover:border-semantic-success/60';
-  } else if (isTop) {
-    cardClass =
-      'border-neon-cyan/35 bg-neon-cyan/5 hover:border-neon-cyan/55';
-  }
+  const cardClass = isAdopted
+    ? 'border-semantic-success/40 bg-semantic-success/5 hover:border-semantic-success/60'
+    : 'border-cyber-border bg-cyber-surface/50 hover:border-neon-cyan/40';
 
   const open = () => navigate(href);
 
@@ -40,7 +33,7 @@ export default function AnswerCard({
       onClick={open}
       role="link"
       tabIndex={0}
-      aria-label={`Open answer #${suggestion.rank}`}
+      aria-label="Open this idea"
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
@@ -49,9 +42,6 @@ export default function AnswerCard({
       }}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[10px] font-mono text-text-muted">
-          #{suggestion.rank}
-        </span>
         <div
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
@@ -64,11 +54,6 @@ export default function AnswerCard({
         {isAdopted ? (
           <Badge variant="success" className="!normal-case !text-[10px]">
             Adopted
-          </Badge>
-        ) : null}
-        {isTop && !isAdopted ? (
-          <Badge variant="neon" className="!normal-case !text-[10px]">
-            Top ranked
           </Badge>
         ) : null}
         <div

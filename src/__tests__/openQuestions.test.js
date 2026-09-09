@@ -4,6 +4,9 @@ import {
   compareSuggestions,
   filterQuestions,
   filterSuggestions,
+  flattenQuestionPrompt,
+  hasStructuredPrompt,
+  parseQuestionPrompt,
   questionsListPath,
   sortQuestions,
   sortSuggestions,
@@ -45,6 +48,28 @@ describe('compareSuggestions', () => {
     const c = { id: 'c', supportCount: 5, replyCount: 3, createdAt: '2026-08-01T04:00:00Z' };
     expect(compareSuggestions(a, b)).toBeGreaterThan(0);
     expect(compareSuggestions(c, b)).toBeLessThan(0);
+  });
+});
+
+describe('parseQuestionPrompt', () => {
+  it('maps a structured prompt and falls back to body as context', () => {
+    const structured = parseQuestionPrompt({
+      prompt: {
+        context: 'Players share one beam.',
+        questionDetail: 'How long should a session feel?',
+        shouldFit: 'Length for 1-4 players.',
+        shouldNotFit: 'A new genre.',
+        additional: 'See Tether-6.2.',
+      },
+    });
+    expect(structured.context).toMatch(/beam/);
+    expect(hasStructuredPrompt(structured)).toBe(true);
+    expect(flattenQuestionPrompt(structured)).toMatch(/Tether-6\.2/);
+    const legacy = parseQuestionPrompt({
+      body: 'Need a call for the first playable.',
+    });
+    expect(legacy.context).toMatch(/first playable/);
+    expect(hasStructuredPrompt(legacy)).toBe(false);
   });
 });
 

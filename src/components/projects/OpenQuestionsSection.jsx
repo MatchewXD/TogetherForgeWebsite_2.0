@@ -69,13 +69,13 @@ const OpenQuestionsSection = ({
   const preview = [...openList, ...closedList].slice(0, 6);
   const extraCount = Math.max(0, questions.length - preview.length);
 
-  const saveQuestion = async ({ title, body }) => {
+  const saveQuestion = async ({ title, prompt }) => {
     if (!isStaff || !user?.id || !projectId) return;
     setBusy(true);
     try {
       await openQuestionsService.createQuestion(
         projectId,
-        { title, body },
+        { title, prompt },
         user.id
       );
       showToast('Question posted to the community.', 'success');

@@ -162,6 +162,12 @@ describe('Open Questions pages', () => {
       await screen.findByRole('heading', { name: /how long should a session feel/i })
     ).toBeInTheDocument();
     expect(screen.getByText(/need a call for the first playable/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /community ideas/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/most voted sit at the top/i)
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('searchbox', { name: /search answers/i })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: /sort answers/i })).toBeInTheDocument();
     expect(screen.getByText(/keep it to a lunch break/i)).toBeInTheDocument();
@@ -170,8 +176,9 @@ describe('Open Questions pages', () => {
     expect(
       screen.getByRole('button', { name: /post an answer/i })
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /open answer #1/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /open answer #2/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /open this idea/i }).length).toBe(
+      2
+    );
 
     fireEvent.click(screen.getByRole('button', { name: /post an answer/i }));
     expect(screen.getByLabelText(/your answer/i)).toBeInTheDocument();

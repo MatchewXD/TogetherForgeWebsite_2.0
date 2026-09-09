@@ -8,6 +8,9 @@ import { supabase } from '../lib/supabase';
 export const OPEN_QUESTION_TITLE_MIN = 8;
 export const OPEN_QUESTION_TITLE_MAX = 160;
 export const OPEN_QUESTION_BODY_MAX = 2000;
+export const OPEN_QUESTION_PROMPT_MIN = 8;
+export const OPEN_QUESTION_PROMPT_MAX = 2000;
+export const OPEN_QUESTION_CONDITION_MAX = 1500;
 export const OPEN_QUESTION_REPLY_MIN = 2;
 export const OPEN_QUESTION_REPLY_MAX = 2000;
 export const OPEN_QUESTION_CLOSE_NOTE_MIN = 8;
@@ -21,12 +24,111 @@ function asUserError(error, fallback) {
 }
 
 const QUESTION_SELECT =
+  'id, project_id, created_by, title, body, prompt, status, selected_reply_id, close_note, closed_at, closed_by, created_at, updated_at';
+const QUESTION_SELECT_NO_PROMPT =
   'id, project_id, created_by, title, body, status, selected_reply_id, close_note, closed_at, closed_by, created_at, updated_at';
 const QUESTION_SELECT_NO_CLOSE =
   'id, project_id, created_by, title, body, status, selected_reply_id, closed_at, closed_by, created_at, updated_at';
 
 function isMissingCloseNote(error) {
   return /close_note/i.test(error?.message || '');
+}
+
+function isMissingPrompt(error) {
+  return /\bprompt\b/i.test(error?.message || '');
+}
+
+export function emptyQuestionPrompt() {
+  return {
+    context: '',
+    questionDetail: '',
+    shouldFit: '',
+    shouldNotFit: '',
+    additional: '',
+  };
+}
+
+export function parseQuestionPrompt(row) {
+  const raw = row?.prompt;
+  const fromJson =
+    raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : null;
+  if (fromJson) {
+    return {
+      context: String(fromJson.context || '').trim(),
+      questionDetail: String(
+        fromJson.questionDetail || fromJson.question_detail || ''
+      ).trim(),
+      shouldFit: String(
+        fromJson.shouldFit || fromJson.should_fit || ''
+      ).trim(),
+      shouldNotFit: String(
+        fromJson.shouldNotFit || fromJson.should_not_fit || ''
+      ).trim(),
+      additional: String(
+        fromJson.additional || fromJson.additionalInfo || ''
+      ).trim(),
+    };
+  }
+  return {
+    ...emptyQuestionPrompt(),
+    context: String(row?.body || '').trim(),
+  };
+}
+
+export function flattenQuestionPrompt(prompt) {
+  const p = prompt || emptyQuestionPrompt();
+  return [
+    p.context,
+    p.questionDetail,
+    p.shouldFit,
+    p.shouldNotFit,
+    p.additional,
+  ]
+    .map((s) => String(s || '').trim())
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+export function hasStructuredPrompt(prompt) {
+  if (!prompt) return false;
+  return Boolean(
+    prompt.questionDetail ||
+      prompt.shouldFit ||
+      prompt.shouldNotFit ||
+      prompt.additional
+  );
+}
+
+function assertPromptFields(prompt) {
+  const p = prompt || emptyQuestionPrompt();
+  const required = [
+    ['context', 'Context', OPEN_QUESTION_PROMPT_MAX],
+    ['questionDetail', 'The Question', OPEN_QUESTION_PROMPT_MAX],
+    ['shouldFit', 'What the idea should be', OPEN_QUESTION_CONDITION_MAX],
+    ['shouldNotFit', 'What the idea should not be', OPEN_QUESTION_CONDITION_MAX],
+  ];
+  for (const [key, label, max] of required) {
+    const value = String(p[key] || '').trim();
+    if (value.length < OPEN_QUESTION_PROMPT_MIN) {
+      throw new Error(
+        `${label} needs at least ${OPEN_QUESTION_PROMPT_MIN} characters.`
+      );
+    }
+    if (value.length > max) {
+      throw new Error(`${label} is too long.`);
+    }
+  }
+  const extra = String(p.additional || '').trim();
+  if (extra.length > OPEN_QUESTION_PROMPT_MAX) {
+    throw new Error('Additional info is too long.');
+  }
+  return {
+    context: String(p.context || '').trim(),
+    questionDetail: String(p.questionDetail || '').trim(),
+    shouldFit: String(p.shouldFit || '').trim(),
+    shouldNotFit: String(p.shouldNotFit || '').trim(),
+    additional: extra,
+  };
 }
 
 function mapProfile(row) {
@@ -156,6 +258,10 @@ export function assembleQuestion(
     createdBy: question.created_by,
     title: question.title || '',
     body: question.body || '',
+    prompt: parseQuestionPrompt(question),
+    preview:
+      parseQuestionPrompt(question).context ||
+      String(question.body || '').trim(),
     status: question.status === 'closed' ? 'closed' : 'open',
     adoptedReplyId: adoptedId,
     selectedReplyId: adoptedId,
@@ -249,6 +355,11 @@ export function matchesQuestionSearch(question, search) {
   const hay = [
     question?.title,
     question?.body,
+    question?.prompt?.context,
+    question?.prompt?.questionDetail,
+    question?.prompt?.shouldFit,
+    question?.prompt?.shouldNotFit,
+    question?.prompt?.additional,
     question?.author?.username,
     question?.project?.title,
     question?.project?.slug,
@@ -376,6 +487,7 @@ function throwIfQuestionsMissing(error, fallback) {
 
 async function loadQuestionRows({ projectId = null, questionId = null } = {}) {
   const withProject = `${QUESTION_SELECT}, projects(id, slug, title)`;
+  const withProjectNoPrompt = `${QUESTION_SELECT_NO_PROMPT}, projects(id, slug, title)`;
   const withProjectNoClose = `${QUESTION_SELECT_NO_CLOSE}, projects(id, slug, title)`;
 
   const applyFilters = (qb) => {
@@ -393,6 +505,9 @@ async function loadQuestionRows({ projectId = null, questionId = null } = {}) {
   };
 
   let result = await run(withProject);
+  if (result.error && isMissingPrompt(result.error)) {
+    result = await run(withProjectNoPrompt);
+  }
   if (result.error && isMissingCloseNote(result.error)) {
     result = await run(withProjectNoClose);
   }
@@ -401,6 +516,9 @@ async function loadQuestionRows({ projectId = null, questionId = null } = {}) {
     /projects|relationship|embed/i.test(result.error.message || '')
   ) {
     result = await run(QUESTION_SELECT);
+    if (result.error && isMissingPrompt(result.error)) {
+      result = await run(QUESTION_SELECT_NO_PROMPT);
+    }
     if (result.error && isMissingCloseNote(result.error)) {
       result = await run(QUESTION_SELECT_NO_CLOSE);
     }
@@ -526,10 +644,9 @@ export const openQuestionsService = {
       }));
   },
 
-  async createQuestion(projectId, { title, body }, userId) {
+  async createQuestion(projectId, { title, body, prompt } = {}, userId) {
     if (!userId) throw new Error('Sign in to ask a question.');
     const t = String(title || '').trim();
-    const b = String(body || '').trim();
     if (t.length < OPEN_QUESTION_TITLE_MIN) {
       throw new Error(
         `Title needs at least ${OPEN_QUESTION_TITLE_MIN} characters.`
@@ -538,44 +655,57 @@ export const openQuestionsService = {
     if (t.length > OPEN_QUESTION_TITLE_MAX) {
       throw new Error(`Title must be ${OPEN_QUESTION_TITLE_MAX} characters or less.`);
     }
-    if (b.length > OPEN_QUESTION_BODY_MAX) {
-      throw new Error('Question details are too long.');
-    }
+    const promptRow = prompt
+      ? assertPromptFields(prompt)
+      : emptyQuestionPrompt();
+    const b = String(body || flattenQuestionPrompt(promptRow) || '')
+      .trim()
+      .slice(0, OPEN_QUESTION_BODY_MAX);
+    const row = {
+      project_id: projectId,
+      created_by: userId,
+      title: t,
+      body: b || null,
+      prompt: prompt ? promptRow : null,
+      status: 'open',
+    };
     let { data, error } = await supabase
       .from('open_questions')
-      .insert([
-        {
-          project_id: projectId,
-          created_by: userId,
-          title: t,
-          body: b || null,
-          status: 'open',
-        },
-      ])
+      .insert([row])
       .select(QUESTION_SELECT)
       .single();
-    if (error && isMissingCloseNote(error)) {
+    if (error && isMissingPrompt(error)) {
+      const { prompt: _omit, ...withoutPrompt } = row;
       const retry = await supabase
         .from('open_questions')
-        .insert([
-          {
-            project_id: projectId,
-            created_by: userId,
-            title: t,
-            body: b || null,
-            status: 'open',
-          },
-        ])
+        .insert([withoutPrompt])
+        .select(QUESTION_SELECT_NO_PROMPT)
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
+    if (error && isMissingCloseNote(error)) {
+      const { prompt: _omit, ...withoutPrompt } = row;
+      const retry = await supabase
+        .from('open_questions')
+        .insert([withoutPrompt])
         .select(QUESTION_SELECT_NO_CLOSE)
         .single();
       data = retry.data;
       error = retry.error;
     }
-    if (error) throw asUserError(error, 'Could not create the question.');
+    if (error) {
+      if (isMissingPrompt(error)) {
+        throw new Error(
+          'Open Question prompts are not set up yet. Run supabase/sql/supabase_open_questions_prompt.sql in Supabase.'
+        );
+      }
+      throw asUserError(error, 'Could not create the question.');
+    }
     return assembleQuestion(data, [], await loadProfileMap([userId]), [], userId);
   },
 
-  async updateQuestion(questionId, { title, body }) {
+  async updateQuestion(questionId, { title, body, prompt } = {}) {
     const patch = {};
     if (title !== undefined) {
       const t = String(title || '').trim();
@@ -586,11 +716,17 @@ export const openQuestionsService = {
       }
       patch.title = t;
     }
-    if (body !== undefined) {
-      const b = String(body || '').trim();
-      if (b.length > OPEN_QUESTION_BODY_MAX) {
-        throw new Error('Question details are too long.');
-      }
+    let promptRow = null;
+    if (prompt !== undefined) {
+      promptRow = prompt ? assertPromptFields(prompt) : emptyQuestionPrompt();
+      patch.prompt = prompt ? promptRow : null;
+    }
+    if (body !== undefined || promptRow) {
+      const b = String(
+        body !== undefined ? body : flattenQuestionPrompt(promptRow)
+      )
+        .trim()
+        .slice(0, OPEN_QUESTION_BODY_MAX);
       patch.body = b || null;
     }
     if (!Object.keys(patch).length) return null;
@@ -600,17 +736,36 @@ export const openQuestionsService = {
       .eq('id', questionId)
       .select(QUESTION_SELECT)
       .single();
-    if (error && isMissingCloseNote(error)) {
+    if (error && isMissingPrompt(error)) {
+      const { prompt: _omit, ...withoutPrompt } = patch;
       const retry = await supabase
         .from('open_questions')
-        .update(patch)
+        .update(withoutPrompt)
+        .eq('id', questionId)
+        .select(QUESTION_SELECT_NO_PROMPT)
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
+    if (error && isMissingCloseNote(error)) {
+      const { prompt: _omit, ...withoutPrompt } = patch;
+      const retry = await supabase
+        .from('open_questions')
+        .update(withoutPrompt)
         .eq('id', questionId)
         .select(QUESTION_SELECT_NO_CLOSE)
         .single();
       data = retry.data;
       error = retry.error;
     }
-    if (error) throw asUserError(error, 'Could not update the question.');
+    if (error) {
+      if (isMissingPrompt(error)) {
+        throw new Error(
+          'Open Question prompts are not set up yet. Run supabase/sql/supabase_open_questions_prompt.sql in Supabase.'
+        );
+      }
+      throw asUserError(error, 'Could not update the question.');
+    }
     return data;
   },
 
