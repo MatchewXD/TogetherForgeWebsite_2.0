@@ -1461,24 +1461,43 @@ html {
     position: relative;
     z-index: 1;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 3.25rem;
-    height: 3rem;
+    gap: 0.2rem;
+    min-width: 4.25rem;
+    height: 4.15rem;
+    padding: 0.2rem 0.45rem 0.15rem;
     pointer-events: auto;
     border: 0;
     background: radial-gradient(
-        circle at 50% 60%,
-        rgb(var(--tf-cyber-bg) / 0.72) 0%,
-        rgb(var(--tf-cyber-bg) / 0.2) 62%,
+        circle at 50% 58%,
+        rgb(var(--tf-cyber-bg) / 0.82) 0%,
+        rgb(var(--tf-cyber-bg) / 0.28) 58%,
         transparent 100%
     );
     outline: none;
 }
 
+.tf-hero-continue-label {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    line-height: 1;
+    color: rgb(var(--tf-neon-cyan) / 0.95);
+    text-shadow:
+        0 0 8px rgb(var(--tf-neon-cyan) / 0.55),
+        0 1px 4px rgb(0 0 0 / 0.9);
+}
+
 .tf-hero-continue-btn:hover .tf-hero-continue-chevron,
 .tf-hero-continue-btn:focus-visible .tf-hero-continue-chevron {
     border-color: rgb(var(--tf-neon-cyan) / 1);
+}
+
+.tf-hero-continue-btn:hover .tf-hero-continue-label,
+.tf-hero-continue-btn:focus-visible .tf-hero-continue-label {
+    color: rgb(255 255 255 / 0.95);
 }
 
 .tf-hero-continue-btn:focus-visible {
@@ -1490,21 +1509,23 @@ html {
     flex-direction: column;
     align-items: center;
     gap: 0;
-    animation: tf-hero-continue-bob 1.8s ease-in-out infinite;
+    animation: tf-hero-continue-bob 1.35s ease-in-out infinite;
 }
 
 .tf-hero-continue-chevron {
-    width: 12px;
-    height: 12px;
-    border-right: 2px solid rgb(var(--tf-neon-cyan) / 0.92);
-    border-bottom: 2px solid rgb(var(--tf-neon-cyan) / 0.92);
+    width: 16px;
+    height: 16px;
+    border-right: 2.5px solid rgb(var(--tf-neon-cyan) / 1);
+    border-bottom: 2.5px solid rgb(var(--tf-neon-cyan) / 1);
     transform: rotate(45deg);
-    margin-top: -5px;
-    filter: drop-shadow(0 1px 6px rgb(0 0 0 / 0.85));
+    margin-top: -6px;
+    filter:
+        drop-shadow(0 0 6px rgb(var(--tf-neon-cyan) / 0.7))
+        drop-shadow(0 1px 6px rgb(0 0 0 / 0.9));
 }
 
 .tf-hero-continue-chevron:first-child {
-    opacity: 0.42;
+    opacity: 0.7;
     margin-top: 0;
 }
 
@@ -1514,7 +1535,7 @@ html {
         transform: translateY(0);
     }
     50% {
-        transform: translateY(6px);
+        transform: translateY(11px);
     }
 }
 

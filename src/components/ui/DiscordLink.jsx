@@ -2,7 +2,8 @@
  * Consistent Discord entry points.
  * - link: quiet inline / footer style
  * - button: notice-able but not loud
- * - note: short contextual strip (boards, project hub)
+ * - note: short contextual strip (project hub)
+ * - card: full clickable panel (task board)
  */
 
 import { MessageCircle } from 'lucide-react';
@@ -21,6 +22,33 @@ const DiscordLink = ({
   note = null,
 }) => {
   const text = label || DISCORD_LABELS[labelKey] || DISCORD_LABELS.join;
+
+  if (variant === 'card') {
+    return (
+      <a
+        href={DISCORD_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`flex flex-col gap-3 rounded-xl border border-cyber-border bg-cyber-surface/50 px-4 py-4 sm:px-5 sm:py-5 h-full hover:border-neon-cyan/50 hover:bg-cyber-surface/80 transition-colors ${className}`}
+      >
+        <h2 className="text-sm font-mono tracking-widest text-neon-cyan uppercase flex items-center gap-2">
+          <MessageCircle className="w-4 h-4 shrink-0" aria-hidden />
+          Discord
+        </h2>
+        {note ? (
+          <p className="text-sm text-text-secondary leading-relaxed flex-1">
+            {note}
+          </p>
+        ) : (
+          <div className="flex-1" />
+        )}
+        <span className="inline-flex items-center justify-center gap-2 w-full rounded-lg border border-neon-cyan bg-neon-cyan text-cyber-bg font-semibold px-5 py-2.5 text-base shadow-neon-cyan">
+          <MessageCircle className="w-4 h-4 shrink-0" aria-hidden />
+          {text}
+        </span>
+      </a>
+    );
+  }
 
   if (variant === 'note') {
     return (

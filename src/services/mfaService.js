@@ -2,6 +2,13 @@
  * Supabase TOTP MFA + app-managed recovery codes.
  */
 import { supabase } from '../lib/supabase';
+import {
+  clearStoredMfaDevice,
+  createMfaDeviceToken,
+  hashMfaDeviceToken,
+  readStoredMfaDevice,
+  storeMfaDevice,
+} from '../utils/mfaTrustedDevice';
 
 function functionsBaseUrl() {
   const explicit = import.meta.env.VITE_STRIPE_BILLING_API_URL;
@@ -126,9 +133,57 @@ export const mfaService = {
       const { data, error } =
         await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
       if (error) return false;
-      return data?.nextLevel === 'aal2' && data?.currentLevel !== 'aal2';
+      const needs =
+        data?.nextLevel === 'aal2' && data?.currentLevel !== 'aal2';
+      if (!needs) return false;
+      if (await this.hasTrustedDevice()) return false;
+      return true;
     } catch {
       return false;
+    }
+  },
+
+  async hasTrustedDevice() {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id;
+      const stored = readStoredMfaDevice(userId);
+      if (!stored?.token) return false;
+      const tokenHash = await hashMfaDeviceToken(stored.token);
+      const { data, error } = await supabase.rpc('mfa_device_is_trusted', {
+        p_token_hash: tokenHash,
+      });
+      if (error) {
+        console.warn('[mfa] trusted device check', error.message);
+        return false;
+      }
+      return data === true;
+    } catch (err) {
+      console.warn('[mfa] trusted device check', err);
+      return false;
+    }
+  },
+
+  async rememberThisDevice() {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData?.session?.user?.id;
+    if (!userId) return { ok: false };
+    const token = createMfaDeviceToken();
+    const tokenHash = await hashMfaDeviceToken(token);
+    const { data, error } = await supabase.rpc('mfa_remember_device', {
+      p_token_hash: tokenHash,
+    });
+    if (error) throw error;
+    storeMfaDevice(userId, token, data?.expires_at || null);
+    return { ok: true, expiresAt: data?.expires_at || null };
+  },
+
+  async forgetThisDevice() {
+    clearStoredMfaDevice();
+    try {
+      await supabase.rpc('mfa_forget_devices');
+    } catch (err) {
+      console.warn('[mfa] forget devices', err);
     }
   },
 
@@ -234,13 +289,16 @@ export const mfaService = {
     }
     const { error } = await supabase.auth.mfa.unenroll({ factorId });
     if (error) throw error;
+    await this.forgetThisDevice();
     return { ok: true };
   },
 
   /**
    * Login / session challenge with TOTP code.
+   * @param {string} code
+   * @param {{ rememberDevice?: boolean }} [opts]
    */
-  async verifyLoginCode(code) {
+  async verifyLoginCode(code, opts = {}) {
     const cleaned = String(code || '').replace(/\s+/g, '');
     if (!/^\d{6}$/.test(cleaned)) {
       const err = new Error('Enter the 6-digit code from your authenticator app.');
@@ -263,6 +321,13 @@ export const mfaService = {
       const err = new Error(error.message || 'Invalid authenticator code.');
       err.code = 'MFA_VERIFY';
       throw err;
+    }
+    if (opts.rememberDevice) {
+      try {
+        await this.rememberThisDevice();
+      } catch (err) {
+        console.warn('[mfa] remember device', err);
+      }
     }
     return { ok: true };
   },

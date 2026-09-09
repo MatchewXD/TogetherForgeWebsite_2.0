@@ -99,6 +99,37 @@ create policy "Staff manage suggestion accounts"
   using (public.is_project_staff())
   with check (public.is_project_staff());
 
+-- Internal strike notes. Staff only. Authors never read this table.
+create table if not exists public.task_suggestion_staff_notes (
+  suggestion_id uuid primary key references public.task_suggestions(id) on delete cascade,
+  note text not null,
+  created_by uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  constraint task_suggestion_staff_notes_len check (
+    char_length(btrim(note)) between 8 and 500
+  )
+);
+
+comment on table public.task_suggestion_staff_notes is
+  'Staff-only reason for a strike. Never shown to the suggestion author.';
+
+alter table public.task_suggestion_staff_notes enable row level security;
+
+grant select, insert, update, delete on public.task_suggestion_staff_notes to authenticated;
+
+drop policy if exists "Staff read strike notes" on public.task_suggestion_staff_notes;
+create policy "Staff read strike notes"
+  on public.task_suggestion_staff_notes for select
+  to authenticated
+  using (public.is_project_staff());
+
+drop policy if exists "Staff write strike notes" on public.task_suggestion_staff_notes;
+create policy "Staff write strike notes"
+  on public.task_suggestion_staff_notes for all
+  to authenticated
+  using (public.is_project_staff())
+  with check (public.is_project_staff());
+
 -- ---------------------------------------------------------------------------
 -- Submit
 -- ---------------------------------------------------------------------------
@@ -264,6 +295,13 @@ begin
   end if;
 
   if v_action = 'strike' then
+    if v_reason is null or char_length(v_reason) < 8 then
+      raise exception 'Add an internal staff note (at least 8 characters). The author will not see this note.';
+    end if;
+    if char_length(v_reason) > 500 then
+      raise exception 'That staff note is too long.';
+    end if;
+
     insert into public.task_suggestion_accounts (user_id)
     values (v_row.created_by)
     on conflict (user_id) do nothing;
@@ -284,16 +322,24 @@ begin
       updated_at = now()
     where user_id = v_row.created_by;
 
+    -- Never store the staff reason on the suggestion row (authors can read that).
     update public.task_suggestions
     set
       status = 'struck',
-      reject_reason = coalesce(
-        v_reason,
-        'Struck: troll, fake, malicious, or off-project political campaigning.'
-      ),
+      reject_reason = null,
       reviewed_by = v_uid,
       reviewed_at = now()
     where id = v_row.id;
+
+    insert into public.task_suggestion_staff_notes (
+      suggestion_id, note, created_by
+    ) values (
+      v_row.id, v_reason, v_uid
+    )
+    on conflict (suggestion_id) do update
+      set note = excluded.note,
+          created_by = excluded.created_by,
+          created_at = now();
 
     return jsonb_build_object(
       'id', v_row.id,
@@ -403,3 +449,43 @@ grant execute on function public.review_task_suggestion(uuid, text, text)
   to authenticated;
 grant execute on function public.dismiss_task_suggestion_strike_notice()
   to authenticated;
+
+-- Credit the author in Recent Activity when a suggestion is accepted.
+create or replace function public.log_accepted_task_suggestion()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.status = 'accepted' and old.status is distinct from 'accepted' then
+    insert into public.activity_log (
+      project_id,
+      user_id,
+      action,
+      target_type,
+      target_id,
+      target_title,
+      metadata
+    ) values (
+      new.project_id,
+      new.created_by,
+      'suggested_task',
+      'task_suggestion',
+      new.id,
+      new.title,
+      jsonb_build_object(
+        'accepted_task_id', new.accepted_task_id,
+        'reviewed_by', new.reviewed_by
+      )
+    );
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_log_accepted_task_suggestion on public.task_suggestions;
+create trigger trg_log_accepted_task_suggestion
+  after update of status on public.task_suggestions
+  for each row
+  execute function public.log_accepted_task_suggestion();

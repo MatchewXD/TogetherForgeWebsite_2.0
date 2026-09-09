@@ -9,6 +9,7 @@ import { TASK_EFFORT_OPTIONS } from '../../constants/taskEffort';
 import {
   SUGGEST_LOCKED_MESSAGE,
   SUGGESTION_STRIKE_LIMIT,
+  SUGGESTION_STRIKE_RULES_COPY,
   isSuggestLockedError,
   taskSuggestionsService,
 } from '../../services/taskSuggestionsService';
@@ -143,9 +144,9 @@ const SuggestTaskModal = ({
           <p className="text-sm text-text-secondary leading-relaxed">
             {SUGGEST_LOCKED_MESSAGE}
           </p>
-          <p className="text-xs text-text-muted">
-            You have {strikeCount} of {SUGGESTION_STRIKE_LIMIT} strikes. Check
-            your dashboard for the notice.
+          <p className="text-xs text-text-muted leading-relaxed">
+            You have {strikeCount} of {SUGGESTION_STRIKE_LIMIT} strikes.{' '}
+            {SUGGESTION_STRIKE_RULES_COPY}
           </p>
           <Button to="/dashboard" variant="secondary">
             Open dashboard

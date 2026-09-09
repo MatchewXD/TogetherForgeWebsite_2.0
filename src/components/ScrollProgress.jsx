@@ -129,6 +129,7 @@ export function HeroContinueCue({
         tabIndex={visible ? 0 : -1}
         aria-label="More below. Continue down the page."
       >
+        <span className="tf-hero-continue-label">MORE</span>
         <span className="tf-hero-continue-chevrons" aria-hidden="true">
           <span className="tf-hero-continue-chevron" />
           <span className="tf-hero-continue-chevron" />

@@ -1,8 +1,14 @@
 import { supabase } from '../lib/supabase';
 
 export const SUGGESTION_STRIKE_LIMIT = 3;
+export const SUGGESTION_STAFF_NOTE_MIN = 8;
+export const SUGGESTION_STAFF_NOTE_MAX = 500;
 export const SUGGEST_LOCKED_MESSAGE =
   'You have three task board suggestion strikes and can no longer suggest new tasks.';
+export const SUGGESTION_STRIKE_RULES_COPY =
+  'Suggestions must be real work for this project. Troll, fake, or off-topic proposals can earn a strike. Three strikes and you can no longer suggest tasks.';
+export const SUGGESTION_STRUCK_USER_COPY =
+  'This suggestion was struck. Suggestions must be real, on-project work. Troll, fake, or off-topic proposals can earn a strike. Three strikes and you can no longer suggest tasks.';
 
 export function isSuggestLockedError(err) {
   const msg = String(err?.message || err || '');
@@ -12,6 +18,9 @@ export function isSuggestLockedError(err) {
 function mapSuggestion(row) {
   if (!row) return null;
   const profile = row.profiles || row.author || null;
+  const project = Array.isArray(row.projects)
+    ? row.projects[0]
+    : row.projects || null;
   return {
     id: row.id,
     projectId: row.project_id,
@@ -27,11 +36,32 @@ function mapSuggestion(row) {
     parentTaskId: row.parent_task_id || null,
     status: row.status,
     rejectReason: row.reject_reason || null,
+    staffNote: (() => {
+      const notes = row.task_suggestion_staff_notes;
+      const n = Array.isArray(notes) ? notes[0] : notes;
+      return n?.note || null;
+    })(),
     reviewedBy: row.reviewed_by || null,
     reviewedAt: row.reviewed_at || null,
     acceptedTaskId: row.accepted_task_id || null,
     createdAt: row.created_at,
+    projectSlug: project?.slug || null,
+    projectTitle: project?.title || null,
   };
+}
+
+export function suggestionStatusLabel(status) {
+  if (status === 'accepted') return 'Accepted';
+  if (status === 'rejected') return 'Rejected';
+  if (status === 'struck') return 'Struck';
+  return 'Waiting';
+}
+
+export function suggestionStatusVariant(status) {
+  if (status === 'accepted') return 'success';
+  if (status === 'rejected') return 'warning';
+  if (status === 'struck') return 'danger';
+  return 'gold';
 }
 
 export const taskSuggestionsService = {
@@ -106,7 +136,7 @@ export const taskSuggestionsService = {
       supabase
         .from('task_suggestions')
         .select(
-          'id, project_id, created_by, title, description, category, difficulty, estimated_effort, subtasks, parent_task_id, status, reject_reason, reviewed_by, reviewed_at, accepted_task_id, created_at, profiles:created_by ( username, avatar_url )'
+          'id, project_id, created_by, title, description, category, difficulty, estimated_effort, subtasks, parent_task_id, status, reject_reason, reviewed_by, reviewed_at, accepted_task_id, created_at, profiles:created_by ( username, avatar_url ), task_suggestion_staff_notes ( note, created_at )'
         )
         .eq('project_id', projectId)
         .order('created_at', { ascending: false })
@@ -126,6 +156,39 @@ export const taskSuggestionsService = {
       return (retry.data || []).map(mapSuggestion);
     }
     if (error) throw error;
+    return (data || []).map(mapSuggestion);
+  },
+
+  async listMine() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return [];
+    const withProject = await supabase
+      .from('task_suggestions')
+      .select(
+        'id, project_id, created_by, title, description, category, status, reject_reason, reviewed_at, accepted_task_id, created_at, projects ( slug, title )'
+      )
+      .eq('created_by', user.id)
+      .order('created_at', { ascending: false });
+    let { data, error } = withProject;
+    if (error && /projects|relationship/i.test(error.message || '')) {
+      const retry = await supabase
+        .from('task_suggestions')
+        .select(
+          'id, project_id, created_by, title, description, category, status, reject_reason, reviewed_at, accepted_task_id, created_at'
+        )
+        .eq('created_by', user.id)
+        .order('created_at', { ascending: false });
+      data = retry.data;
+      error = retry.error;
+    }
+    if (error) {
+      if (/does not exist|schema cache|could not find the table/i.test(error.message || '')) {
+        return [];
+      }
+      throw error;
+    }
     return (data || []).map(mapSuggestion);
   },
 

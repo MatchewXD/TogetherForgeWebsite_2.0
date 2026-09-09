@@ -24,7 +24,6 @@ import {
   Users,
   CheckCircle2,
   Sparkles,
-  Megaphone,
   Hammer,
   Lightbulb,
   Loader2,
@@ -54,6 +53,7 @@ import WaitingOnLinks from '../components/ui/WaitingOnLinks';
 import CompletedTaskTree from '../components/ui/CompletedTaskTree';
 import StaffToolsBar from '../components/ui/StaffToolsBar';
 import OpenQuestionsSection from '../components/projects/OpenQuestionsSection';
+import ProjectUpdatesSection from '../components/projects/ProjectUpdatesSection';
 import BannerImage from '../components/ui/BannerImage';
 import ActivityItem from '../components/ui/ActivityItem';
 import StatWidget from '../components/ui/StatWidget';
@@ -210,30 +210,6 @@ const mapWorkspaceIdea = (idea) => ({
     avatarUrl: null,
   },
 });
-
-const UPDATES = [
-  {
-    id: 'u1',
-    title: 'Weekly pulse - networking & map',
-    date: 'Jul 8, 2026',
-    body: 'Interpolation fixes landed on player movement. Demo map is ready for internal playtests. Next: claim UI polish and HUD mockups review.',
-    tag: 'Devlog',
-  },
-  {
-    id: 'u2',
-    title: 'Volunteer onboarding notes',
-    date: 'Jul 3, 2026',
-    body: 'New claim flow is live on the board. Leave progress notes when you hand off a task so the next person can pick up cleanly.',
-    tag: 'Process',
-  },
-  {
-    id: 'u3',
-    title: 'Art drop - placeholder set A',
-    date: 'Jun 28, 2026',
-    body: 'First placeholder sprites are in. Enough visual language to run co-op loops without blocking on final art.',
-    tag: 'Art',
-  },
-];
 
 /** Main kanban columns (side-by-side). Review + Completed are collapsible rows below. */
 const KANBAN_COLUMNS = [
@@ -2944,8 +2920,8 @@ const ProjectWorkspace = () => {
                 </div>
               )}
 
-              <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
-                <div className="max-w-3xl">
+              <div className="space-y-5">
+                <div className="max-w-4xl">
                   <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-white">
                     {displayProject.title}
                   </h1>
@@ -2957,7 +2933,7 @@ const ProjectWorkspace = () => {
                   </p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 shrink-0">
+                <div className="flex flex-wrap gap-3">
                   <Button
                     className="gap-2"
                     to={boardPath}
@@ -3374,39 +3350,35 @@ const ProjectWorkspace = () => {
             </div>
           )}
 
-          <div className="max-w-xl pt-2">
+          <div className="grid md:grid-cols-2 gap-4 items-stretch">
+            <div className="rounded-xl border border-cyber-border bg-cyber-surface/50 px-4 py-4 sm:px-5 sm:py-5 flex flex-col gap-3 h-full">
+              <h2 className="text-sm font-mono tracking-widest text-neon-cyan uppercase">
+                Suggest a task
+              </h2>
+              <p className="text-sm text-text-secondary leading-relaxed flex-1">
+                See a gap on this board? Send a task proposal. Staff review
+                every suggestion. Accepted work will be added to the task board.
+              </p>
+              <Button
+                className="gap-2 w-full"
+                onClick={() => {
+                  if (!user) {
+                    navigate('/account');
+                    return;
+                  }
+                  setSuggestOpen(true);
+                }}
+                disabled={!projectUuid}
+              >
+                <Lightbulb className="w-4 h-4" />
+                Suggest a Task
+              </Button>
+            </div>
             <DiscordLink
-              variant="note"
+              variant="card"
               labelKey="join"
               note="Need to talk about a task, scope, or claim? Chat with the community in real time."
             />
-          </div>
-
-          <div className="rounded-xl border border-cyber-border bg-cyber-surface/50 px-4 py-4 sm:px-5 sm:py-5 space-y-3 max-w-2xl">
-            <h2 className="text-sm font-mono tracking-widest text-neon-cyan uppercase">
-              Suggest a task
-            </h2>
-            <p className="text-sm text-text-secondary leading-relaxed">
-              See a gap on this board? Send a task-shaped proposal. Staff review
-              every suggestion. Accepted work lands on Staging first, never
-              straight onto the live board. Troll, fake, or malicious
-              suggestions can earn a strike. Three strikes and you lose this
-              button.
-            </p>
-            <Button
-              className="gap-2"
-              onClick={() => {
-                if (!user) {
-                  navigate('/account');
-                  return;
-                }
-                setSuggestOpen(true);
-              }}
-              disabled={!projectUuid}
-            >
-              <Lightbulb className="w-4 h-4" />
-              Suggest a Task
-            </Button>
           </div>
         </section>
         ) : (
@@ -3717,14 +3689,14 @@ const ProjectWorkspace = () => {
             </div>
           )}
 
-          <div className="space-y-3 max-w-4xl">
+          <div>
             {ideasLoading ? (
               <div className="flex items-center gap-2 py-10 text-text-secondary text-sm">
                 <Loader2 className="w-4 h-4 animate-spin text-neon-cyan" />
                 Loading project ideas…
               </div>
             ) : sortedIdeas.length === 0 ? (
-              <Card className="bg-cyber-card/80 border-neon-cyan/20">
+              <Card className="bg-cyber-card/80 border-neon-cyan/20 max-w-4xl">
                 <p className="text-sm text-text-secondary leading-relaxed">
                   {projectIdeas.length === 0
                     ? 'No ideas linked to this project yet. Be the first - submit an idea and it will land here for the team.'
@@ -3740,7 +3712,8 @@ const ProjectWorkspace = () => {
                 </Button>
               </Card>
             ) : (
-              sortedIdeas.map((idea) => {
+              <div className="grid md:grid-cols-2 gap-4">
+                {sortedIdeas.map((idea) => {
                 const key = voteKey(idea.id);
                 const voted =
                   userIdeaVotes.has(key) ||
@@ -3756,28 +3729,30 @@ const ProjectWorkspace = () => {
                   displayProject.slug || projectSlug || idea.project_id;
 
                 return (
-                  <IdeaCard
-                    key={idea.id}
-                    idea={{
-                      ...idea,
-                      // Ensure Linked status + project key for chip
-                      project_id: idea.project_id || projectKey,
-                    }}
-                    voted={voted}
-                    isOwn={false}
-                    onVote={(e, ideaRow) => handleVoteIdea(e, ideaRow.id)}
-                    onOpen={openIdeaDetail}
-                    projectName={projectLabel}
-                    projectHref={
-                      projectKey
-                        ? `/projects/${canonicalProjectSlug(projectKey) || projectKey}`
-                        : null
-                    }
-                    commentCount={idea.commentCount || 0}
-                    showTags
-                  />
+                  <div key={idea.id} className="min-w-0">
+                    <IdeaCard
+                      idea={{
+                        ...idea,
+                        // Ensure Linked status + project key for chip
+                        project_id: idea.project_id || projectKey,
+                      }}
+                      voted={voted}
+                      isOwn={false}
+                      onVote={(e, ideaRow) => handleVoteIdea(e, ideaRow.id)}
+                      onOpen={openIdeaDetail}
+                      projectName={projectLabel}
+                      projectHref={
+                        projectKey
+                          ? `/projects/${canonicalProjectSlug(projectKey) || projectKey}`
+                          : null
+                      }
+                      commentCount={idea.commentCount || 0}
+                      showTags
+                    />
+                  </div>
                 );
-              })
+                })}
+              </div>
             )}
           </div>
 
@@ -3806,48 +3781,12 @@ const ProjectWorkspace = () => {
           </div>
         </section>
 
-        {/* 8. UPDATES */}
-        <section aria-labelledby="updates-heading" className="pb-8">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
-            <div>
-              <div className="section-header">Updates</div>
-              <h2 id="updates-heading" className="text-2xl font-bold text-white">
-                Devlogs & announcements
-              </h2>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-2 self-start sm:self-auto"
-              to="/transparency"
-            >
-              <Megaphone className="w-4 h-4" />
-              Transparency Hub
-            </Button>
-          </div>
-
-          <div className="space-y-4 max-w-4xl">
-            {UPDATES.map((update) => (
-              <Card
-                key={update.id}
-                className="bg-cyber-card/80 border-l-2 border-l-neon-cyan"
-              >
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <Badge variant="neon">{update.tag}</Badge>
-                  <span className="text-xs font-mono text-text-muted">
-                    {update.date}
-                  </span>
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  {update.title}
-                </h3>
-                <p className="text-sm text-text-secondary leading-relaxed">
-                  {update.body}
-                </p>
-              </Card>
-            ))}
-          </div>
-        </section>
+        {/* 8. UPDATES — staff Devlogs & announcements */}
+        <ProjectUpdatesSection
+          projectId={projectUuid}
+          isStaff={isModerator}
+          user={user}
+        />
         </>
         )}
       </div>

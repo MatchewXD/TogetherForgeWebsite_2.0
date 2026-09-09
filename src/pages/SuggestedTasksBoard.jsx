@@ -23,7 +23,12 @@ import Modal from '../components/ui/Modal';
 import LoadingScreen from '../components/ui/LoadingScreen';
 import { useIsModerator } from '../hooks/useIsModerator';
 import { tasksService } from '../services/tasksService';
-import { taskSuggestionsService } from '../services/taskSuggestionsService';
+import {
+  SUGGESTION_STAFF_NOTE_MAX,
+  SUGGESTION_STAFF_NOTE_MIN,
+  taskSuggestionsService,
+} from '../services/taskSuggestionsService';
+import CharCount from '../components/ui/CharCount';
 import { canonicalProjectSlug } from '../utils/ideaStatus';
 
 const FILTERS = [
@@ -54,6 +59,7 @@ const SuggestedTasksBoard = () => {
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [strikeTarget, setStrikeTarget] = useState(null);
+  const [strikeNote, setStrikeNote] = useState('');
   const [toast, setToast] = useState(null);
 
   const projectPath = `/projects/${canonicalProjectSlug(projectSlug) || projectSlug}`;
@@ -110,6 +116,7 @@ const SuggestedTasksBoard = () => {
       setRejectTarget(null);
       setRejectReason('');
       setStrikeTarget(null);
+      setStrikeNote('');
       await load();
     } catch (err) {
       showToast(err?.message || 'Review failed.', 'error');
@@ -251,7 +258,10 @@ const SuggestedTasksBoard = () => {
                         variant="danger"
                         className="gap-1"
                         disabled={busyId === row.id}
-                        onClick={() => setStrikeTarget(row)}
+                        onClick={() => {
+                          setStrikeTarget(row);
+                          setStrikeNote('');
+                        }}
                       >
                         <ShieldAlert className="w-3.5 h-3.5" />
                         Strike
@@ -271,9 +281,15 @@ const SuggestedTasksBoard = () => {
                     ))}
                   </ul>
                 ) : null}
-                {row.rejectReason ? (
+                {row.status === 'rejected' && row.rejectReason ? (
                   <p className="text-xs text-semantic-warning">
-                    Reason: {row.rejectReason}
+                    Reason shown to author: {row.rejectReason}
+                  </p>
+                ) : null}
+                {row.status === 'struck' && row.staffNote ? (
+                  <p className="text-xs text-semantic-danger leading-relaxed">
+                    Staff note (internal, author does not see this):{' '}
+                    {row.staffNote}
                   </p>
                 ) : null}
                 {row.status === 'accepted' && row.acceptedTaskId ? (
@@ -347,10 +363,29 @@ const SuggestedTasksBoard = () => {
               <span className="text-white font-medium">
                 {strikeTarget.title}
               </span>{' '}
-              if it is obviously a troll, fake, malicious, or pushing a woke or
-              other off-project political agenda. The author gets a dashboard
-              notice. Three strikes lock them out of suggesting tasks.
+              if it is a troll, fake, malicious, or off-project proposal. Write
+              an internal note for staff. The author will not see this note.
+              They only get a short general rules notice. Three strikes lock
+              them out of suggesting tasks.
             </p>
+            <div>
+              <label
+                className="block text-sm font-mono tracking-widest text-neon-cyan mb-2"
+                htmlFor="strike-staff-note"
+              >
+                Internal staff note
+              </label>
+              <textarea
+                id="strike-staff-note"
+                rows={4}
+                maxLength={SUGGESTION_STAFF_NOTE_MAX}
+                className="w-full bg-cyber-surface border border-cyber-border rounded-lg px-3 py-2 text-sm text-text-primary focus:border-neon-cyan focus:outline-none"
+                placeholder="Why this is a strike. Staff only."
+                value={strikeNote}
+                onChange={(e) => setStrikeNote(e.target.value)}
+              />
+              <CharCount value={strikeNote} max={SUGGESTION_STAFF_NOTE_MAX} />
+            </div>
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="secondary"
@@ -361,8 +396,13 @@ const SuggestedTasksBoard = () => {
               </Button>
               <Button
                 variant="danger"
-                disabled={Boolean(busyId)}
-                onClick={() => void runReview(strikeTarget.id, 'strike')}
+                disabled={
+                  Boolean(busyId) ||
+                  strikeNote.trim().length < SUGGESTION_STAFF_NOTE_MIN
+                }
+                onClick={() =>
+                  void runReview(strikeTarget.id, 'strike', strikeNote)
+                }
               >
                 Record strike
               </Button>

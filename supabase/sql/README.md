@@ -84,7 +84,11 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 27e. `supabase_tether_archive_legacy_tasks.sql` — Archive leftover Tether demo/public cards; hide from boards; do not delete v0.6  
 27eb. `supabase_tether_p_ready_lane_rehome.sql` — Rehome Tether-P cards in place; archive Ready lane; do not recreate P.1  
 27f. `supabase_open_questions.sql` — staff-initiated Open Questions; community Suggestions (support, threaded replies, staff Adopt / close note)
-27g. `supabase_open_questions_threads.sql` — allow comment threads under an answer (reply to a reply)  
+27g. `supabase_open_questions_threads.sql` — allow comment threads under an answer (reply to a reply)
+27h. `supabase_project_updates.sql` — staff Devlogs & announcements on the project hub
+27i. `supabase_task_suggestion_activity.sql` — credit accepted task suggestions in Recent Activity
+27j. `supabase_task_suggestion_staff_notes.sql` — staff-only internal notes on suggestion strikes
+27k. `supabase_mfa_trusted_devices.sql` — remember this device for 30 days after 2FA  
 
 ### 3. Contributions + media + community
 
@@ -322,6 +326,10 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_project_tether_slug.sql` | Rename public project slug to `tether` |
 | `supabase_open_questions.sql` | Staff Open Questions; community Suggestions with support, rank, Adopt, close note |
 | `supabase_open_questions_threads.sql` | True comment threads under an answer (reply to a reply) |
+| `supabase_project_updates.sql` | Staff Devlogs & announcements on the project hub |
+| `supabase_task_suggestion_activity.sql` | Credit accepted task suggestions in Recent Activity |
+| `supabase_task_suggestion_staff_notes.sql` | Staff-only internal notes on suggestion strikes |
+| `supabase_mfa_trusted_devices.sql` | Remember this device for 30 days after 2FA |
 | `supabase_task_scope_requests.sql` | Scope help requests |
 | `supabase_parent_ready_for_review.sql` | Parent ready when children complete |
 | `supabase_page_content.sql` | Phase hub editable content |

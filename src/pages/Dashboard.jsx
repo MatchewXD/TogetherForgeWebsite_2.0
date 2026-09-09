@@ -23,6 +23,7 @@ import {
   MessageCircle,
   Sparkles,
   Film,
+  Inbox,
 } from 'lucide-react';
 
 import { supabase } from '../lib/supabase';
@@ -37,6 +38,10 @@ import tasksService, {
 } from '../services/tasksService';
 import {
   SUGGESTION_STRIKE_LIMIT,
+  SUGGESTION_STRIKE_RULES_COPY,
+  SUGGESTION_STRUCK_USER_COPY,
+  suggestionStatusLabel,
+  suggestionStatusVariant,
   taskSuggestionsService,
 } from '../services/taskSuggestionsService';
 import { ideasService } from '../services/ideasService';
@@ -99,6 +104,7 @@ const Dashboard = () => {
   const [error, setError] = useState('');
   const [autoReleaseNotices, setAutoReleaseNotices] = useState([]);
   const [suggestionAccount, setSuggestionAccount] = useState(null);
+  const [mySuggestions, setMySuggestions] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -121,6 +127,7 @@ const Dashboard = () => {
         setShowcaseSubs([]);
         setAutoReleaseNotices([]);
         setSuggestionAccount(null);
+        setMySuggestions([]);
         setLoading(false);
         return;
       }
@@ -142,6 +149,7 @@ const Dashboard = () => {
         showcaseRes,
         autoRes,
         suggestionRes,
+        mySuggestionsRes,
       ] = await Promise.all([
           supabase
             .from('profiles')
@@ -167,6 +175,7 @@ const Dashboard = () => {
             () => []
           ),
           taskSuggestionsService.getMyAccount().catch(() => null),
+          taskSuggestionsService.listMine().catch(() => []),
         ]);
 
       // Apply username from email sign-up if still missing (avoid second gate loop)
@@ -219,6 +228,7 @@ const Dashboard = () => {
       setIdeaCount(withActivity.length);
       setMyDrafts(draftsRes || []);
       setSuggestionAccount(suggestionRes);
+      setMySuggestions(mySuggestionsRes || []);
 
       // Show auto-release notices not yet dismissed
       const notices = autoRes || [];
@@ -471,7 +481,10 @@ const Dashboard = () => {
                   <p className="text-sm text-text-secondary leading-snug">
                     {suggestionAccount.locked
                       ? `You have ${SUGGESTION_STRIKE_LIMIT} task board suggestion strikes and can no longer suggest new tasks.`
-                      : `You have a task board suggestions strike (${suggestionAccount.strikeCount} of ${SUGGESTION_STRIKE_LIMIT}). Three strikes and you lose the ability to suggest new tasks.`}
+                      : `You have a task board suggestion strike (${suggestionAccount.strikeCount} of ${SUGGESTION_STRIKE_LIMIT}). Three strikes and you lose the ability to suggest new tasks.`}
+                  </p>
+                  <p className="text-xs text-text-muted leading-relaxed">
+                    {SUGGESTION_STRIKE_RULES_COPY}
                   </p>
                 </div>
                 {suggestionAccount.showNotice && !suggestionAccount.locked ? (
@@ -1035,6 +1048,128 @@ const Dashboard = () => {
                       ))}
                     </ul>
                   )}
+                  </div>
+                </Card>
+
+                {/* My task suggestions */}
+                <Card
+                  id="my-task-suggestions"
+                  className={`${DASH_PANEL} bg-cyber-card border border-forge-gold/20 border-l-2 border-l-forge-gold scroll-mt-24`}
+                >
+                  <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 mb-3">
+                    <div className="text-sm font-mono tracking-widest text-forge-gold flex items-center gap-2">
+                      <Inbox className="w-4 h-4" />
+                      MY TASK SUGGESTIONS
+                      {mySuggestions.length > 0 && (
+                        <Badge variant="default">{mySuggestions.length}</Badge>
+                      )}
+                      {mySuggestions.filter((s) => s.status === 'pending')
+                        .length > 0 && (
+                        <Badge variant="gold" className="!normal-case">
+                          {
+                            mySuggestions.filter((s) => s.status === 'pending')
+                              .length
+                          }{' '}
+                          waiting
+                        </Badge>
+                      )}
+                    </div>
+                    <Link
+                      to="/projects"
+                      className="text-xs text-neon-cyan hover:underline font-mono tracking-widest"
+                    >
+                      Open a board
+                    </Link>
+                  </div>
+
+                  <div className={DASH_PANEL_BODY}>
+                    {mySuggestions.length === 0 ? (
+                      <div className="text-sm text-text-secondary py-6 text-center border border-dashed border-white/10 rounded-lg">
+                        <p className="mb-3">
+                          You have not suggested any tasks yet.
+                        </p>
+                        <Link
+                          to="/projects"
+                          className="btn-neon text-xs px-4 py-2 inline-flex"
+                        >
+                          FIND A BOARD
+                        </Link>
+                      </div>
+                    ) : (
+                      <ul className="space-y-3">
+                        {mySuggestions.map((s) => {
+                          const projectHref = s.projectSlug
+                            ? `/projects/${s.projectSlug}/board`
+                            : '/projects';
+                          return (
+                            <li
+                              key={s.id}
+                              className="rounded-lg border border-white/10 bg-cyber-surface/50 p-4"
+                            >
+                              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="font-medium text-white truncate">
+                                    {s.title}
+                                  </div>
+                                  <div className="text-xs text-text-muted mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                                    {s.projectTitle ? (
+                                      <span>{s.projectTitle}</span>
+                                    ) : null}
+                                    {s.createdAt ? (
+                                      <>
+                                        {s.projectTitle ? <span>·</span> : null}
+                                        <span>
+                                          Sent{' '}
+                                          {new Date(
+                                            s.createdAt
+                                          ).toLocaleDateString()}
+                                        </span>
+                                      </>
+                                    ) : null}
+                                  </div>
+                                  {s.status === 'pending' ? (
+                                    <p className="text-xs text-text-secondary mt-2">
+                                      Waiting on staff review.
+                                    </p>
+                                  ) : null}
+                                  {s.status === 'accepted' ? (
+                                    <p className="text-xs text-neon-cyan mt-2">
+                                      Accepted. Staff added this to the task
+                                      board.
+                                    </p>
+                                  ) : null}
+                                  {s.status === 'rejected' ? (
+                                    <p className="text-xs text-text-secondary mt-2">
+                                      Not added
+                                      {s.rejectReason
+                                        ? `: ${s.rejectReason}`
+                                        : '.'}
+                                    </p>
+                                  ) : null}
+                                  {s.status === 'struck' ? (
+                                    <p className="text-xs text-semantic-danger mt-2 leading-relaxed">
+                                      {SUGGESTION_STRUCK_USER_COPY}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <Badge
+                                  variant={suggestionStatusVariant(s.status)}
+                                  className="!normal-case shrink-0"
+                                >
+                                  {suggestionStatusLabel(s.status)}
+                                </Badge>
+                              </div>
+                              <Link
+                                to={projectHref}
+                                className="text-xs text-neon-cyan hover:underline mt-2 inline-block"
+                              >
+                                Open board →
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
                   </div>
                 </Card>
 

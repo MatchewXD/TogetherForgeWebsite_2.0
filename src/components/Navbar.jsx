@@ -18,7 +18,6 @@ const TOP_LINKS = [
   { to: '/', label: 'Home', end: true },
   { to: '/projects', label: 'Projects' },
   { to: '/ideas', label: 'Ideas' },
-  { to: '/questions', label: 'Questions' },
   { to: '/get-involved', label: 'Get Involved' },
   { to: '/media', label: 'Media' },
 ];
@@ -38,6 +37,7 @@ const EXPLORE_LINKS = [
 
 const SUPPORT_LINKS = [
   { to: '/open-work', label: 'Open Work' },
+  { to: '/questions', label: 'Open Questions' },
   { to: '/donate', label: 'Donate' },
   { to: '/transparency', label: 'Transparency' },
   { to: '/faq', label: 'FAQ' },

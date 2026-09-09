@@ -9,6 +9,9 @@ const challengeAndVerify = vi.fn();
 const enroll = vi.fn();
 const unenroll = vi.fn();
 
+const getSession = vi.fn().mockResolvedValue({ data: { session: null } });
+const rpc = vi.fn().mockResolvedValue({ data: false, error: null });
+
 vi.mock('../lib/supabase', () => ({
   supabase: {
     auth: {
@@ -20,8 +23,9 @@ vi.mock('../lib/supabase', () => ({
         enroll: (...a) => enroll(...a),
         unenroll: (...a) => unenroll(...a),
       },
-      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+      getSession: (...a) => getSession(...a),
     },
+    rpc: (...a) => rpc(...a),
   },
 }));
 
@@ -99,6 +103,20 @@ describe('mfaService.needsMfaChallenge', () => {
       data: { currentLevel: 'aal2', nextLevel: 'aal2' },
       error: null,
     });
+    expect(await mfaService.needsMfaChallenge()).toBe(false);
+  });
+
+  it('skips the challenge when this device is remembered', async () => {
+    getAuthenticatorAssuranceLevel.mockResolvedValue({
+      data: { currentLevel: 'aal1', nextLevel: 'aal2' },
+      error: null,
+    });
+    getSession.mockResolvedValue({
+      data: { session: { user: { id: 'user-1' } } },
+    });
+    rpc.mockResolvedValue({ data: true, error: null });
+    const { storeMfaDevice } = await import('../utils/mfaTrustedDevice');
+    storeMfaDevice('user-1', 'tok-abc', '2099-01-01T00:00:00Z');
     expect(await mfaService.needsMfaChallenge()).toBe(false);
   });
 });

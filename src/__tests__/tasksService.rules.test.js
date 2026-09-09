@@ -808,6 +808,7 @@ describe('project hub recent activity', () => {
     expect(isVisibleProjectHubActivity('claimed')).toBe(true);
     expect(isVisibleProjectHubActivity('completed')).toBe(true);
     expect(isVisibleProjectHubActivity('submitted_for_review')).toBe(true);
+    expect(isVisibleProjectHubActivity('suggested_task')).toBe(true);
   });
 });
 

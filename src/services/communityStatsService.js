@@ -18,6 +18,7 @@ const HOME_TASK_ACTIONS = [
   'submitted_for_review',
   'review_accepted',
   'published',
+  'suggested_task',
 ];
 
 const TASK_ACTION_LABELS = {
@@ -26,6 +27,7 @@ const TASK_ACTION_LABELS = {
   submitted_for_review: 'submitted for review',
   review_accepted: 'accepted',
   published: 'published to the public board',
+  suggested_task: 'suggested a useful task',
 };
 
 function relativeTime(iso) {
@@ -84,6 +86,7 @@ function isDraftIdeaRow(idea) {
 }
 
 function isPublicTaskRow(row, taskMetaById) {
+  if (row?.action === 'suggested_task') return true;
   if (!row?.target_id) return true;
   const meta = taskMetaById.get(String(row.target_id));
   if (!meta) return true;

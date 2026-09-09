@@ -154,6 +154,29 @@ describe('assembleHomeActivity', () => {
     expect(items.every((i) => i.user !== 'Alex R.')).toBe(true);
   });
 
+  it('credits an accepted task suggestion as a useful task', () => {
+    const items = assembleHomeActivity({
+      taskRows: [
+        {
+          id: 'sug1',
+          action: 'suggested_task',
+          target_id: 'suggestion-1',
+          target_title: 'Pickup and carry',
+          created_at: '2026-09-08T12:00:00Z',
+          profiles: { username: 'sam' },
+        },
+      ],
+      taskMetaById: new Map(),
+      ideaRows: [],
+      profileMap: {},
+      limit: 6,
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0].action).toBe('suggested a useful task');
+    expect(items[0].target).toBe('Pickup and carry');
+    expect(items[0].user).toBe('sam');
+  });
+
   it('drops staging and staff-only tasks', () => {
     const items = assembleHomeActivity({
       taskRows: [

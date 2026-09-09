@@ -1259,6 +1259,7 @@ const ACTIVITY_ACTION_LABELS = {
   auto_released: 'was auto-released from',
   published: 'published to the public board',
   moved_to_staging: 'moved to Staging',
+  suggested_task: 'suggested a useful task',
 };
 
 /** Checklist ticks are logged, but they should not fill the project hub feed. */

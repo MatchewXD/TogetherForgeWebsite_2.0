@@ -14,6 +14,7 @@ import Button from '../ui/Buttons';
 export default function MfaChallengeScreen({ onVerified, onCancel }) {
   const [mode, setMode] = useState('totp'); // totp | recovery
   const [code, setCode] = useState('');
+  const [rememberDevice, setRememberDevice] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -23,7 +24,9 @@ export default function MfaChallengeScreen({ onVerified, onCancel }) {
     setBusy(true);
     try {
       if (mode === 'totp') {
-        await mfaService.verifyLoginCode(code);
+        await mfaService.verifyLoginCode(code, {
+          rememberDevice,
+        });
         onVerified?.();
       } else {
         await mfaService.recoverWithCode(code);
@@ -89,6 +92,21 @@ export default function MfaChallengeScreen({ onVerified, onCancel }) {
               placeholder={mode === 'totp' ? '123456' : 'XXXX-XXXX'}
             />
           </div>
+
+          {mode === 'totp' ? (
+            <label className="flex items-start gap-2.5 text-sm text-text-secondary cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-0.5 accent-cyan-400"
+                checked={rememberDevice}
+                onChange={(e) => setRememberDevice(e.target.checked)}
+              />
+              <span>
+                Remember this device for 30 days. You will not need a code on
+                this browser until then.
+              </span>
+            </label>
+          ) : null}
 
           {error && (
             <p className="text-sm text-red-300" role="alert">
