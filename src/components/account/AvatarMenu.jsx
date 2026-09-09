@@ -18,6 +18,8 @@ import UserAvatar from '../ui/UserAvatar';
 import { publicProfilePath } from '../../utils/profileLinks';
 import { accountPath } from '../../constants/accountSections';
 import { useStaffRole } from '../../hooks/useStaffRole';
+import { useUserNotices } from '../../context/UserNoticesContext';
+import NoticeDot from '../ui/NoticeDot';
 
 /**
  * @param {object} props
@@ -40,6 +42,7 @@ export default function AvatarMenu({
   const rootRef = useRef(null);
   const navigate = useNavigate();
   const { canSeeModeratorDashboard } = useStaffRole();
+  const { global: hasGlobalNotice } = useUserNotices();
 
   const displayName =
     (username && String(username).trim()) ||
@@ -122,7 +125,10 @@ export default function AvatarMenu({
         )}
         <Link to="/dashboard" className={linkClass} onClick={() => go()}>
           <LayoutDashboard className="w-4 h-4 shrink-0 text-neon-purple" />
-          Dashboard
+          <span className="flex-1">Dashboard</span>
+          {hasGlobalNotice ? (
+            <NoticeDot label="Dashboard has new notices" />
+          ) : null}
         </Link>
         <Link
           to={accountPath('profile')}
@@ -194,13 +200,15 @@ export default function AvatarMenu({
   }
 
   return (
-    <div className={`relative ${className}`} ref={rootRef}>
+    <div className={`relative overflow-visible ${className}`} ref={rootRef}>
       <button
         type="button"
-        className="rounded-full hover:opacity-90 transition ring-1 ring-white/20 hover:ring-neon-cyan focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan"
+        className="relative overflow-visible rounded-full hover:opacity-90 transition ring-1 ring-white/20 hover:ring-neon-cyan focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan"
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label="Open account menu"
+        aria-label={
+          hasGlobalNotice ? 'Open account menu, new notices' : 'Open account menu'
+        }
         onClick={() => setOpen((v) => !v)}
       >
         <UserAvatar
@@ -212,6 +220,9 @@ export default function AvatarMenu({
           className="!w-9 !h-9"
           borderClass="border border-transparent"
         />
+        {hasGlobalNotice ? (
+          <NoticeDot overlap label="New notices" />
+        ) : null}
       </button>
 
       {open && (

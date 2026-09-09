@@ -60,6 +60,7 @@ import MfaSessionGate from './components/auth/MfaSessionGate';
 import EmailConfirmationGate from './components/auth/EmailConfirmationGate';
 import LegalAcceptanceGate from './components/legal/LegalAcceptanceGate';
 import { ReportConcernProvider } from './context/ReportConcernContext';
+import { UserNoticesProvider } from './context/UserNoticesContext';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import Guidelines from './pages/Guidelines';
@@ -89,6 +90,7 @@ function App() {
             <MfaSessionGate>
             <LegalAcceptanceGate>
             <ReportConcernProvider>
+            <UserNoticesProvider>
             <div className="min-h-screen bg-cyber-bg text-text-primary font-display flex flex-col">
                 <Navbar />
 
@@ -232,6 +234,7 @@ function App() {
                 </main>
                 <Footer />
             </div>
+            </UserNoticesProvider>
             </ReportConcernProvider>
             </LegalAcceptanceGate>
             </MfaSessionGate>

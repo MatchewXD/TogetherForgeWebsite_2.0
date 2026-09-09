@@ -35,6 +35,8 @@ import {
   normalizeChecklist,
   isVisibleProjectHubActivity,
   groupCompletedTaskForest,
+  groupTaskForest,
+  sortTasksAsForest,
 } from '../services/tasksService';
 
 function task(partial) {
@@ -809,6 +811,7 @@ describe('project hub recent activity', () => {
     expect(isVisibleProjectHubActivity('completed')).toBe(true);
     expect(isVisibleProjectHubActivity('submitted_for_review')).toBe(true);
     expect(isVisibleProjectHubActivity('suggested_task')).toBe(true);
+    expect(isVisibleProjectHubActivity('claim_split_to_smalls')).toBe(false);
   });
 });
 
@@ -838,5 +841,56 @@ describe('groupCompletedTaskForest', () => {
     expect(childrenOf.get('e').map((t) => t.id)).toEqual(['m']);
     expect(childrenOf.get('m').map((t) => t.id)).toEqual(['s']);
     expect(childrenOf.get('o')).toBeUndefined();
+  });
+
+  it('sits a small under its epic when the medium is missing from the slice', () => {
+    const epic = task({ id: 'e', title: 'Epic', parentTaskId: null, depth: 0 });
+    const med = task({ id: 'm', title: 'Medium', parentTaskId: 'e', depth: 1 });
+    const small = task({
+      id: 's',
+      title: 'Small',
+      parentTaskId: 'm',
+      depth: 2,
+    });
+    const { roots, childrenOf } = groupTaskForest([epic, small], {
+      allTasks: [epic, med, small],
+    });
+    expect(roots.map((t) => t.id)).toEqual(['e']);
+    expect(childrenOf.get('e').map((t) => t.id)).toEqual(['s']);
+  });
+});
+
+describe('sortTasksAsForest', () => {
+  it('lists nested work under the parent instead of shuffled siblings', () => {
+    const epicB = task({
+      id: 'b',
+      title: 'Tether-5 Enemies',
+      parentTaskId: null,
+      depth: 0,
+      sortOrder: 50,
+    });
+    const epicA = task({
+      id: 'a',
+      title: 'Tether-4 Resources',
+      parentTaskId: null,
+      depth: 0,
+      sortOrder: 40,
+    });
+    const small = task({
+      id: 's',
+      title: 'Tether-4.1.1 Prefab',
+      parentTaskId: 'm',
+      depth: 2,
+      sortOrder: 10,
+    });
+    const med = task({
+      id: 'm',
+      title: 'Tether-4.1 Nodes',
+      parentTaskId: 'a',
+      depth: 1,
+      sortOrder: 10,
+    });
+    const ordered = sortTasksAsForest([small, epicB, med, epicA]);
+    expect(ordered.map((t) => t.id)).toEqual(['a', 'm', 's', 'b']);
   });
 });

@@ -77,6 +77,7 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 26. `supabase_helpers_join_dedupe.sql` — approve join → helper append  
 27. `supabase_join_request_no_dupes.sql` — no duplicate join requests  
 27b. `supabase_task_staff_only.sql` — Staff Only flag; volunteers can view, only staff can claim  
+27b2. `supabase_release_parent_claim_on_smalls.sql` — Adding Smalls under a claimed Medium returns the claim and notifies the volunteer  
 27c. `supabase_task_board_scope.sql` — Staging vs Public board; staff-only staging; publish Epic/Medium  
 27c2. `supabase_publish_staging_archive.sql` — After publish, archive staging copies so they leave the staging board  
 27c3. `supabase_move_public_to_staging.sql` — Staff can move public Epic/Medium work back to Staging  

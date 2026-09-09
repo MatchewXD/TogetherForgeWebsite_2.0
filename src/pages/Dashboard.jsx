@@ -62,6 +62,8 @@ import {
   formatIdeaActivityHint,
 } from '../utils/ideaActivity';
 import useIsModerator from '../hooks/useIsModerator';
+import { useUserNotices } from '../context/UserNoticesContext';
+import NoticeDot from '../components/ui/NoticeDot';
 import {
   ensureUsernameFromSignup,
 } from '../utils/ensureUserProfile';
@@ -90,6 +92,7 @@ const DASH_PANEL_BODY =
 const Dashboard = () => {
   const navigate = useNavigate();
   const { isModerator } = useIsModerator();
+  const userNotices = useUserNotices();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -103,6 +106,7 @@ const Dashboard = () => {
   const [deletingDraftId, setDeletingDraftId] = useState(null);
   const [error, setError] = useState('');
   const [autoReleaseNotices, setAutoReleaseNotices] = useState([]);
+  const [claimSplitNotices, setClaimSplitNotices] = useState([]);
   const [suggestionAccount, setSuggestionAccount] = useState(null);
   const [mySuggestions, setMySuggestions] = useState([]);
 
@@ -126,6 +130,7 @@ const Dashboard = () => {
         setMyDrafts([]);
         setShowcaseSubs([]);
         setAutoReleaseNotices([]);
+        setClaimSplitNotices([]);
         setSuggestionAccount(null);
         setMySuggestions([]);
         setLoading(false);
@@ -148,6 +153,7 @@ const Dashboard = () => {
         draftsRes,
         showcaseRes,
         autoRes,
+        splitRes,
         suggestionRes,
         mySuggestionsRes,
       ] = await Promise.all([
@@ -172,6 +178,9 @@ const Dashboard = () => {
             return [];
           }),
           tasksService.listMyRecentAutoReleases({ days: 14, limit: 8 }).catch(
+            () => []
+          ),
+          tasksService.listMyRecentClaimSplits({ days: 14, limit: 8 }).catch(
             () => []
           ),
           taskSuggestionsService.getMyAccount().catch(() => null),
@@ -240,13 +249,29 @@ const Dashboard = () => {
       } catch {
         setAutoReleaseNotices(notices);
       }
+
+      const splits = splitRes || [];
+      try {
+        const seenSplits = JSON.parse(
+          localStorage.getItem('tf_claim_split_seen') || '[]'
+        );
+        setClaimSplitNotices(splits.filter((n) => !seenSplits.includes(n.id)));
+      } catch {
+        setClaimSplitNotices(splits);
+      }
+
+      userNotices.ingestItems({
+        joinRequests: joinsRes || [],
+        suggestions: mySuggestionsRes || [],
+        noticeItems: splits,
+      });
     } catch (err) {
       console.error('[Dashboard]', err);
       setError(err.message || 'Failed to load dashboard');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userNotices.ingestItems]);
 
   const dismissAutoReleaseNotices = () => {
     setAutoReleaseNotices((prev) => {
@@ -258,6 +283,23 @@ const Dashboard = () => {
           -50
         );
         localStorage.setItem('tf_auto_release_seen', JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return [];
+    });
+  };
+
+  const dismissClaimSplitNotices = () => {
+    setClaimSplitNotices((prev) => {
+      try {
+        const seen = JSON.parse(
+          localStorage.getItem('tf_claim_split_seen') || '[]'
+        );
+        const next = [...new Set([...seen, ...prev.map((n) => n.id)])].slice(
+          -50
+        );
+        localStorage.setItem('tf_claim_split_seen', JSON.stringify(next));
       } catch {
         /* ignore */
       }
@@ -868,6 +910,10 @@ const Dashboard = () => {
                   </div>
                 </Card>
 
+                <div className="relative h-full min-h-0">
+                {userNotices.joinRequests ? (
+                  <NoticeDot overlap label="Unseen join requests" />
+                ) : null}
                 <Card
                   className={`${DASH_PANEL} bg-cyber-card border border-neon-green/20 border-l-2 border-l-neon-green`}
                 >
@@ -927,6 +973,7 @@ const Dashboard = () => {
                   )}
                   </div>
                 </Card>
+                </div>
 
                 {/* Showcase submissions status */}
                 <Card
@@ -1052,6 +1099,10 @@ const Dashboard = () => {
                 </Card>
 
                 {/* My task suggestions */}
+                <div className="relative h-full min-h-0">
+                {userNotices.suggestions ? (
+                  <NoticeDot overlap label="Suggestion review notice" />
+                ) : null}
                 <Card
                   id="my-task-suggestions"
                   className={`${DASH_PANEL} bg-cyber-card border border-forge-gold/20 border-l-2 border-l-forge-gold scroll-mt-24`}
@@ -1172,6 +1223,7 @@ const Dashboard = () => {
                     )}
                   </div>
                 </Card>
+                </div>
 
                 {/* My submitted ideas */}
                 <Card
@@ -1387,28 +1439,79 @@ const Dashboard = () => {
                   </div>
                 </Card>
 
-                {/* Lightweight activity / notices placeholder */}
+                <div className="relative h-full min-h-0">
+                {userNotices.noticesCard ? (
+                  <NoticeDot overlap label="Unseen notices" />
+                ) : null}
                 <Card
                   className={`${DASH_PANEL} bg-cyber-card border border-semantic-warning/25 border-l-2 border-l-semantic-warning`}
                 >
-                  <div className="shrink-0 text-sm font-mono tracking-widest text-semantic-warning mb-3">
-                    NOTICES
+                  <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div className="text-sm font-mono tracking-widest text-semantic-warning flex items-center gap-2">
+                      NOTICES
+                      {claimSplitNotices.length > 0 && (
+                        <Badge variant="warning" className="!normal-case">
+                          {claimSplitNotices.length}
+                        </Badge>
+                      )}
+                    </div>
+                    {claimSplitNotices.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={dismissClaimSplitNotices}
+                        className="text-xs font-semibold text-semantic-warning hover:text-white"
+                      >
+                        Dismiss
+                      </button>
+                    )}
                   </div>
                   <div className={DASH_PANEL_BODY}>
-                  <p className="text-sm text-text-secondary">
-                    Claim cooldowns, join approvals, and project updates will
-                    surface here. For now, check active tasks and join requests
-                    above.
-                  </p>
-                  {quota?.cooldownEndsAt &&
-                    new Date(quota.cooldownEndsAt).getTime() > Date.now() && (
-                      <p className="text-xs text-amber-300/90 mt-3 font-mono">
-                        Claim cooldown until{' '}
-                        {new Date(quota.cooldownEndsAt).toLocaleTimeString()}.
+                    {claimSplitNotices.length === 0 &&
+                    !(
+                      quota?.cooldownEndsAt &&
+                      new Date(quota.cooldownEndsAt).getTime() > Date.now()
+                    ) ? (
+                      <p className="text-sm text-text-secondary">
+                        Claim cooldowns, join approvals, and project updates
+                        will surface here. For now, check active tasks and join
+                        requests above.
                       </p>
+                    ) : (
+                      <ul className="space-y-3">
+                        {claimSplitNotices.map((n) => (
+                          <li
+                            key={n.id}
+                            className="rounded-lg border border-semantic-warning/30 bg-semantic-warning/10 p-3"
+                          >
+                            <p className="text-xs font-mono tracking-widest text-semantic-warning uppercase mb-1">
+                              Task updated
+                            </p>
+                            <p className="text-sm text-text-secondary leading-snug">
+                              {n.message}
+                            </p>
+                            {n.createdAt ? (
+                              <p className="text-[11px] font-mono text-text-muted mt-2">
+                                {new Date(n.createdAt).toLocaleString()}
+                              </p>
+                            ) : null}
+                          </li>
+                        ))}
+                        {quota?.cooldownEndsAt &&
+                          new Date(quota.cooldownEndsAt).getTime() >
+                            Date.now() && (
+                            <li className="text-xs text-amber-300/90 font-mono">
+                              Claim cooldown until{' '}
+                              {new Date(
+                                quota.cooldownEndsAt
+                              ).toLocaleTimeString()}
+                              .
+                            </li>
+                          )}
+                      </ul>
                     )}
                   </div>
                 </Card>
+                </div>
             </div>
           </>
         )}

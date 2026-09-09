@@ -51,6 +51,7 @@ import TaskStagingTree from '../components/ui/TaskStagingTree';
 import SuggestTaskModal from '../components/tasks/SuggestTaskModal';
 import WaitingOnLinks from '../components/ui/WaitingOnLinks';
 import CompletedTaskTree from '../components/ui/CompletedTaskTree';
+import BoardTaskTree from '../components/ui/BoardTaskTree';
 import StaffToolsBar from '../components/ui/StaffToolsBar';
 import OpenQuestionsSection from '../components/projects/OpenQuestionsSection';
 import ProjectUpdatesSection from '../components/projects/ProjectUpdatesSection';
@@ -88,6 +89,7 @@ import {
   isTaskDependencyLocked,
   getTaskWaitingOnBlockers,
   isCommunityDecisionsEpic,
+  sortTasksAsForest,
   CLAIM_IDLE_RELEASE_DAYS,
   CLAIM_MAX_DURATION_DAYS,
   CLAIM_AUTO_RELEASE_POLICY_COPY,
@@ -107,6 +109,7 @@ import {
   canonicalProjectSlug,
   TETHER_SLUG,
 } from '../utils/ideaStatus';
+import { pingUserNotices } from '../utils/userNotices';
 import {
   TASK_CATEGORIES,
   getTaskCategoryTextClass,
@@ -753,7 +756,7 @@ const ProjectWorkspace = () => {
 
   /**
    * Board visibility:
-   * - "all": every task (flat / indented hierarchy)
+   * - "all": every task, nested under its Epic → Medium parent
    * - "top": top-level epics/tasks for overview, PLUS nested leaves that are
    *   claimed, in review, or completed so work never disappears from the kanban
    * - Category / Unclaimed filters stack on top (AND with scope).
@@ -893,8 +896,14 @@ const ProjectWorkspace = () => {
       }
       groups[key].push(task);
     }
-    return groups;
-  }, [boardTasks]);
+    const forestOpts = { allTasks: tasks };
+    return {
+      todo: sortTasksAsForest(groups.todo, forestOpts),
+      in_progress: sortTasksAsForest(groups.in_progress, forestOpts),
+      in_review: sortTasksAsForest(groups.in_review, forestOpts),
+      completed: sortTasksAsForest(groups.completed, forestOpts),
+    };
+  }, [boardTasks, tasks]);
 
   /**
    * Direct children in the task detail hierarchy list.
@@ -1429,18 +1438,33 @@ const ProjectWorkspace = () => {
         await refreshBoard(projectUuid);
         showToast('Task updated. The board reflects your changes.', 'success');
       } else {
+        const parentBefore = payload.parentTaskId
+          ? tasks.find((t) => t.id === payload.parentTaskId)
+          : null;
+        const parentWasClaimed = Boolean(
+          parentBefore?.claim?.status === 'Active' ||
+            parentBefore?.claim?.status === 'PendingReview'
+        );
         await tasksService.createTask(projectUuid, payload, user.id);
         await refreshBoard(projectUuid);
-        showToast(
-          isStagingBoard
-            ? payload.parentTaskId
-              ? 'Staging sub-task saved. Publish its Medium or Epic when the structure is ready.'
-              : 'Staging task saved. Volunteers cannot see it until you publish.'
-            : payload.parentTaskId
-              ? 'Sub-task created under its parent. Open the parent to claim nested work.'
-              : 'Task created - it is live in To Do and ready to claim!',
-          'success'
-        );
+        pingUserNotices();
+        if (!isStagingBoard && payload.parentTaskId && parentWasClaimed) {
+          showToast(
+            'The parent claim was returned. Nested Smalls are in To Do.',
+            'info'
+          );
+        } else {
+          showToast(
+            isStagingBoard
+              ? payload.parentTaskId
+                ? 'Staging sub-task saved. Publish its Medium or Epic when the structure is ready.'
+                : 'Staging task saved. Volunteers cannot see it until you publish.'
+              : payload.parentTaskId
+                ? 'Sub-task created under its parent. Nested Smalls are claimed from To Do.'
+                : 'Task created - it is live in To Do and ready to claim!',
+            'success'
+          );
+        }
       }
       const reopenParent = payload.parentTaskId;
       setTaskFormOpen(false);
@@ -2732,7 +2756,7 @@ const ProjectWorkspace = () => {
                           ? 'bg-neon-cyan/15 text-neon-cyan'
                           : 'text-text-muted hover:text-white'
                       }`}
-                      title="Show every task including nested sub-tasks"
+                      title="Show every task nested under its Epic and Medium"
                     >
                       All tasks
                     </button>
@@ -2891,7 +2915,7 @@ const ProjectWorkspace = () => {
                     {!boardShowLocked ? ' · hiding blocked' : ''}
                     {boardScope === 'top'
                       ? ' · includes matching nested tasks'
-                      : ''}
+                      : ' · nested under parents'}
                   </p>
                 )}
               </div>
@@ -3167,6 +3191,37 @@ const ProjectWorkspace = () => {
                           <p className="text-sm text-text-muted text-center py-8 px-2">
                             No tasks in this column.
                           </p>
+                        ) : boardScope === 'all' ? (
+                          <BoardTaskTree
+                            tasks={colTasks}
+                            allTasks={tasks}
+                            defaultExpanded
+                            layout="stack"
+                            nestedLabel="nested tasks"
+                            emptyMessage="No tasks in this column."
+                            cardProps={{
+                              currentUserId: user?.id,
+                              claimingId,
+                              joiningId,
+                              pendingJoinTaskIds: myPendingJoinTaskIds,
+                              onClaim:
+                                col.key === 'todo' ? handleClaim : undefined,
+                              onRequestJoin:
+                                col.key === 'in_progress'
+                                  ? handleRequestJoin
+                                  : undefined,
+                              onView: handleViewTask,
+                              canStaffUpdate: isModerator,
+                              isStaff: isModerator,
+                              onDuplicate: isModerator
+                                ? handleDuplicateTask
+                                : undefined,
+                              onMoveToStaging: isModerator
+                                ? handleMovePublicToStaging
+                                : undefined,
+                              unpublishingId,
+                            }}
+                          />
                         ) : (
                           colTasks.map((task) => (
                             <div key={task.id} id={`task-${task.id}`}>
@@ -3252,6 +3307,28 @@ const ProjectWorkspace = () => {
                           <p className="text-sm text-text-muted text-center py-8 px-2">
                             No tasks waiting for review.
                           </p>
+                        ) : boardScope === 'all' ? (
+                          <BoardTaskTree
+                            tasks={reviewTasks}
+                            allTasks={tasks}
+                            defaultExpanded
+                            layout="grid"
+                            nestedLabel="nested tasks"
+                            emptyMessage="No tasks waiting for review."
+                            cardProps={{
+                              currentUserId: user?.id,
+                              onView: handleViewTask,
+                              canStaffUpdate: isModerator,
+                              isStaff: isModerator,
+                              onDuplicate: isModerator
+                                ? handleDuplicateTask
+                                : undefined,
+                              onMoveToStaging: isModerator
+                                ? handleMovePublicToStaging
+                                : undefined,
+                              unpublishingId,
+                            }}
+                          />
                         ) : (
                           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
                             {reviewTasks.map((task) => (
@@ -3327,6 +3404,7 @@ const ProjectWorkspace = () => {
                       >
                         <CompletedTaskTree
                           tasks={completedTasks}
+                          allTasks={tasks}
                           cardProps={{
                             currentUserId: user?.id,
                             onView: handleViewTask,

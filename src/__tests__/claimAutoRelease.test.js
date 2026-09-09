@@ -10,6 +10,7 @@ import {
   daysSinceIso,
   getClaimAutoReleaseInfo,
   formatAutoReleaseReason,
+  formatClaimSplitNotice,
 } from '../services/tasksService';
 
 function daysAgoIso(days) {
@@ -116,5 +117,16 @@ describe('daysSinceIso', () => {
     const d = daysSinceIso(daysAgoIso(3));
     expect(d).toBeGreaterThan(2.9);
     expect(d).toBeLessThan(3.1);
+  });
+});
+
+describe('formatClaimSplitNotice', () => {
+  it('names the returned task and points at To Do', () => {
+    expect(
+      formatClaimSplitNotice('Tether-4.1 Resource nodes')
+    ).toBe(
+      'Your task Tether-4.1 Resource nodes has been updated with small tasks and moved to the To Do list.'
+    );
+    expect(formatClaimSplitNotice('')).toMatch(/your task/i);
   });
 });

@@ -829,6 +829,12 @@ export function formatAutoReleaseReason(reason, meta = {}) {
   return 'Your claim was auto-released. The task is open for others to claim.';
 }
 
+/** Dashboard copy when staff add Smalls under a claimed Medium. */
+export function formatClaimSplitNotice(taskTitle) {
+  const title = String(taskTitle || '').trim() || 'your task';
+  return `Your task ${title} has been updated with small tasks and moved to the To Do list.`;
+}
+
 /** DB status → kanban key */
 export const STATUS_TO_UI = {
   ToDo: 'todo',
@@ -1179,17 +1185,39 @@ export function attachTaskHierarchy(tasks) {
 }
 
 /**
- * Nest completed tasks under completed parents so the Completed column
- * can show Epics (and Mediums) as collapsible groups instead of a flat list.
- * A task is a root when its parent is missing or not in the completed set.
+ * Nest tasks under their parents (Epic → Medium → Small).
+ * A task is a root when no ancestor is in the same list.
+ * Pass `allTasks` so a Small can sit under its Epic when the Medium is
+ * missing from this slice (other column, filter, etc.).
  */
-export function groupCompletedTaskForest(completedTasks) {
-  const list = Array.isArray(completedTasks) ? completedTasks.filter(Boolean) : [];
+export function groupTaskForest(tasks, opts = {}) {
+  const list = Array.isArray(tasks) ? tasks.filter(Boolean) : [];
   const ids = new Set(list.map((t) => t.id).filter(Boolean));
+  const lookupSource =
+    Array.isArray(opts.allTasks) && opts.allTasks.length > 0
+      ? opts.allTasks
+      : list;
+  const lookup = new Map(
+    lookupSource.filter((t) => t?.id).map((t) => [t.id, t])
+  );
+
+  const nearestParentId = (t) => {
+    let pid = t?.parentTaskId || null;
+    let guard = 0;
+    while (pid && guard < 10) {
+      guard += 1;
+      if (pid === t.id) return null;
+      if (ids.has(pid)) return pid;
+      const parent = lookup.get(pid);
+      pid = parent?.parentTaskId || null;
+    }
+    return null;
+  };
+
   const childrenOf = new Map();
   for (const t of list) {
-    const pid = t.parentTaskId || null;
-    if (!pid || !ids.has(pid)) continue;
+    const pid = nearestParentId(t);
+    if (!pid) continue;
     if (!childrenOf.has(pid)) childrenOf.set(pid, []);
     childrenOf.get(pid).push(t);
   }
@@ -1197,9 +1225,26 @@ export function groupCompletedTaskForest(completedTasks) {
     kids.sort(compareTaskBoardOrder);
   }
   const roots = list
-    .filter((t) => !t.parentTaskId || !ids.has(t.parentTaskId))
+    .filter((t) => !nearestParentId(t))
     .sort(compareTaskBoardOrder);
   return { roots, childrenOf };
+}
+
+/** @deprecated use groupTaskForest */
+export function groupCompletedTaskForest(completedTasks) {
+  return groupTaskForest(completedTasks);
+}
+
+/** Depth-first board order: parent, then its nested work, then the next sibling. */
+export function sortTasksAsForest(tasks, opts = {}) {
+  const { roots, childrenOf } = groupTaskForest(tasks, opts);
+  const out = [];
+  const walk = (node) => {
+    out.push(node);
+    for (const child of childrenOf.get(node.id) || []) walk(child);
+  };
+  for (const root of roots) walk(root);
+  return out;
 }
 
 export function countCompletedDescendants(taskId, childrenOf) {
@@ -1257,6 +1302,7 @@ const ACTIVITY_ACTION_LABELS = {
   review_accepted: 'accepted',
   review_rejected: 'sent back',
   auto_released: 'was auto-released from',
+  claim_split_to_smalls: 'had a claim returned after Smalls were added to',
   published: 'published to the public board',
   moved_to_staging: 'moved to Staging',
   suggested_task: 'suggested a useful task',
@@ -1267,6 +1313,7 @@ const HIDDEN_PROJECT_HUB_ACTIVITY_ACTIONS = new Set([
   'updated progress on',
   'progress',
   'moved_to_staging',
+  'claim_split_to_smalls',
 ]);
 
 export function isVisibleProjectHubActivity(action) {
@@ -3114,6 +3161,45 @@ export const tasksService = {
         metadata: meta,
       };
     });
+  },
+
+  /**
+   * Notices when staff split a claimed Medium into Smalls (claim returned).
+   */
+  async listMyRecentClaimSplits({ days = 14, limit = 20 } = {}) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const since = new Date();
+    since.setDate(since.getDate() - Math.max(1, days));
+
+    const { data, error } = await supabase
+      .from('activity_log')
+      .select(
+        'id, project_id, user_id, action, target_id, target_title, metadata, created_at'
+      )
+      .eq('user_id', user.id)
+      .eq('action', 'claim_split_to_smalls')
+      .gte('created_at', since.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.warn('[tasksService.listMyRecentClaimSplits]', error.message);
+      return [];
+    }
+
+    return (data || []).map((row) => ({
+      id: row.id,
+      projectId: row.project_id,
+      taskId: row.target_id,
+      taskTitle: row.target_title || 'your task',
+      message: formatClaimSplitNotice(row.target_title),
+      createdAt: row.created_at,
+      metadata: row.metadata || {},
+    }));
   },
 
   /**
