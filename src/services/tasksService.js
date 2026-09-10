@@ -9,6 +9,7 @@ import {
   validateReviewEvidencePackage,
   extractGithubUrlsFromEvidence,
 } from '../constants/taskReviewEvidence';
+import { taskMatchesCategoryFilter } from '../constants/taskCategories';
 
 /** Hard max active claims (trusted volunteers, 5+ accepted tasks). */
 export const MAX_ACTIVE_CLAIMS = 5;
@@ -486,12 +487,91 @@ export function isTaskDependencyLocked(task) {
 
 /**
  * Board / hierarchy visibility for locked tasks.
- * When showLocked is false (default), locked tasks are hidden everywhere.
+ * showLocked true = blocked tasks stay visible in place.
+ * showLocked false = blocked tasks are hidden everywhere.
  */
 export function isTaskVisibleWithLockedToggle(task, showLocked = false) {
   if (!task) return false;
   if (showLocked) return true;
   return !isTaskDependencyLocked(task);
+}
+
+function taskHasAncestorInSet(task, idSet, lookup) {
+  let pid = task?.parentTaskId || null;
+  let guard = 0;
+  while (pid && guard < 10) {
+    guard += 1;
+    if (idSet.has(pid)) return true;
+    const parent = lookup.get(pid);
+    pid = parent?.parentTaskId || null;
+  }
+  return false;
+}
+
+function isBoardTopScopeTask(task) {
+  if (!task?.parentTaskId) return true;
+  if (task.dbStatus === 'Completed' || task.status === 'completed') return true;
+  const claimStatus = task.claim?.status;
+  if (claimStatus === 'Active' || claimStatus === 'PendingReview') return true;
+  if (task.dbStatus === 'InReview' || task.status === 'in_review') return true;
+  if (claimStatus === 'Completed') return true;
+  return false;
+}
+
+/**
+ * Kanban slice: never pull nested blocked work up as extra top-level cards.
+ * Nested tasks stay under their Epic/Medium. Hide-blocked removes them
+ * everywhere, including parent detail lists.
+ */
+export function selectBoardTasks(tasks, opts = {}) {
+  const list = Array.isArray(tasks) ? tasks.filter(Boolean) : [];
+  const boardScope = opts.boardScope === 'all' ? 'all' : 'top';
+  const showLocked = opts.hideBlocked !== true;
+  const categoryFilter = opts.categoryFilter || [];
+  const unclaimedOnly = Boolean(opts.unclaimedOnly);
+  const isUnclaimedClaimable = opts.isUnclaimedClaimable;
+
+  const matchesFilters = (t) => {
+    if (!isTaskVisibleWithLockedToggle(t, showLocked)) return false;
+    if (!taskMatchesCategoryFilter(t, categoryFilter)) return false;
+    if (unclaimedOnly && typeof isUnclaimedClaimable === 'function') {
+      if (!isUnclaimedClaimable(t)) return false;
+    }
+    return true;
+  };
+
+  const passing = list.filter(matchesFilters);
+  if (boardScope === 'all') return passing;
+
+  const lookup = new Map(list.filter((t) => t?.id).map((t) => [t.id, t]));
+  const topIds = new Set(
+    passing.filter(isBoardTopScopeTask).map((t) => t.id).filter(Boolean)
+  );
+  const filtersActive = categoryFilter.length > 0 || unclaimedOnly;
+  const seen = new Set();
+  const out = [];
+  for (const t of passing) {
+    if (!t?.id || seen.has(t.id)) continue;
+    if (isBoardTopScopeTask(t)) {
+      seen.add(t.id);
+      out.push(t);
+      continue;
+    }
+    const underTop = taskHasAncestorInSet(t, topIds, lookup);
+    if (!underTop) continue;
+    if (isTaskDependencyLocked(t)) {
+      if (showLocked) {
+        seen.add(t.id);
+        out.push(t);
+      }
+      continue;
+    }
+    if (filtersActive) {
+      seen.add(t.id);
+      out.push(t);
+    }
+  }
+  return out;
 }
 
 /**

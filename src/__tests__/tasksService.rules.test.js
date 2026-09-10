@@ -28,6 +28,7 @@ import {
   wouldCreateDependencyCycle,
   isTaskVisibleWithLockedToggle,
   isTaskDependencyLocked,
+  selectBoardTasks,
   isTaskVisuallyBlocked,
   getTaskWaitingOnBlockers,
   waitingBlockersExcludingSelf,
@@ -514,6 +515,57 @@ describe('attachTaskDependencies (Blocked by / Locked)', () => {
     expect(epic.isLocked).toBe(false);
     expect(epic.isBlockedGroup).toBe(true);
     expect(epic.isVisuallyBlocked).toBe(true);
+  });
+});
+
+describe('selectBoardTasks (top-level vs hide blocked)', () => {
+  const epic = () =>
+    task({
+      id: 'e',
+      title: 'Tether-6 Maps',
+      parentTaskId: null,
+      depth: 0,
+      isLocked: false,
+    });
+  const section = () =>
+    task({
+      id: 's2',
+      title: 'Tether-6.2 Section 1 beginner ground',
+      parentTaskId: 'e',
+      depth: 1,
+      isLocked: true,
+      lockedWaitingOn: ['Tether-6.1.2 Ground kit family'],
+    });
+  const kit = () =>
+    task({
+      id: 'k',
+      title: 'Tether-6.1.2 Ground kit family',
+      parentTaskId: 'e',
+      depth: 2,
+      isLocked: false,
+    });
+
+  it('keeps a blocked medium under its epic instead of as a second top-level card', () => {
+    const list = [epic(), section(), kit()];
+    const shown = selectBoardTasks(list, { boardScope: 'top', hideBlocked: false });
+    expect(shown.map((t) => t.id).sort()).toEqual(['e', 's2']);
+    const { roots, childrenOf } = groupTaskForest(shown, { allTasks: list });
+    expect(roots.map((t) => t.id)).toEqual(['e']);
+    expect(childrenOf.get('e').map((t) => t.id)).toEqual(['s2']);
+  });
+
+  it('hides blocked tasks everywhere when hideBlocked is on', () => {
+    const list = [epic(), section(), kit()];
+    const shown = selectBoardTasks(list, { boardScope: 'top', hideBlocked: true });
+    expect(shown.map((t) => t.id)).toEqual(['e']);
+    expect(shown.some((t) => t.id === 's2')).toBe(false);
+  });
+
+  it('does not list a nested blocked task as a root when its epic is present', () => {
+    const list = [epic(), section()];
+    const shown = selectBoardTasks(list, { boardScope: 'top', hideBlocked: false });
+    const { roots } = groupTaskForest(shown, { allTasks: list });
+    expect(roots.map((t) => t.title)).toEqual(['Tether-6 Maps']);
   });
 });
 

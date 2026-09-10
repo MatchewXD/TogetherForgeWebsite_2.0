@@ -85,10 +85,10 @@ import {
   progressFromChecklist,
   isChecklistComplete,
   isTaskVisibleWithLockedToggle,
-  isTaskDependencyLocked,
   getTaskWaitingOnBlockers,
   isCommunityDecisionsEpic,
   sortTasksAsForest,
+  selectBoardTasks,
   CLAIM_IDLE_RELEASE_DAYS,
   CLAIM_MAX_DURATION_DAYS,
   CLAIM_AUTO_RELEASE_POLICY_COPY,
@@ -436,8 +436,8 @@ const ProjectWorkspace = () => {
   const [boardCategoryFilter, setBoardCategoryFilter] = useState([]);
   /** Only show claimable tasks with no active claim */
   const [boardUnclaimedOnly, setBoardUnclaimedOnly] = useState(false);
-  /** When true (default), blocked tasks stay visible on the board */
-  const [boardShowLocked, setBoardShowLocked] = useState(true);
+  /** When true, blocked tasks are hidden on the board and in parent detail. Default off. */
+  const [hideBlockedTasks, setHideBlockedTasks] = useState(false);
   /** Staff: force dual-rule auto-release check */
   const [autoReleaseBusy, setAutoReleaseBusy] = useState(false);
   const [stagingBusyId, setStagingBusyId] = useState(null);
@@ -755,87 +755,40 @@ const ProjectWorkspace = () => {
 
   /**
    * Board visibility:
-   * - "all": every task, nested under its Epic → Medium parent
-   * - "top": top-level epics/tasks for overview, PLUS nested leaves that are
-   *   claimed, in review, completed, or (when Blocked Tasks is on) blocked.
-   *   Those extras still nest under the Epic in the column — they are not
-   *   drawn as sibling top-level cards.
-   * - Category / Unclaimed filters stack on top (AND with scope).
-   * - When filters are active in "top" mode, matching nested tasks are also
-   *   included so an artist can find claimable Art work without switching scope.
-   * - "Blocked Tasks" applies in BOTH scopes (and nested detail lists).
+   * - "all": every matching task, nested under its Epic → Medium parent
+   * - "top": epics as roots, with nested work under them. Claimed / in-review
+   *   / completed leaves stay visible. Nested blocked work stays nested — it
+   *   is never pulled up as a sibling of the epic.
+   * - "Hide Blocked Tasks" (off by default) hides locked work everywhere,
+   *   including parent detail lists.
    */
   const boardTasks = useMemo(() => {
-    const filtersActive =
-      boardCategoryFilter.length > 0 || boardUnclaimedOnly;
-
-    const inTopScope = (t) => {
-      if (!t.parentTaskId) return true;
-      if (t.dbStatus === 'Completed' || t.status === 'completed') return true;
-      const claimStatus = t.claim?.status;
-      if (claimStatus === 'Active' || claimStatus === 'PendingReview') {
-        return true;
-      }
-      if (t.dbStatus === 'InReview' || t.status === 'in_review') return true;
-      if (claimStatus === 'Completed') return true;
-      return false;
-    };
-
     const isUnclaimedClaimable = (t) => {
       if (t.dbStatus === 'Completed' || t.status === 'completed') return false;
-      // Locked tasks are never "claimable now"
       if (!isTaskVisibleWithLockedToggle(t, false)) return false;
       if (t.claim?.status === 'Active' || t.claim?.status === 'PendingReview') {
         return false;
       }
       if (t.claimedBy) return false;
-      // Prefer service flag (epics / parents with children are not claimable)
       if (t.volunteerClaimable === true) return true;
       if (t.volunteerClaimable === false) return false;
       if (t.hasChildren || t.isEpic || (t.depth || 0) === 0) return false;
       return true;
     };
 
-    const matchesFilters = (t) => {
-      // Locked gate is applied again as a final pass so no scope branch skips it
-      if (!isTaskVisibleWithLockedToggle(t, boardShowLocked)) return false;
-      if (!taskMatchesCategoryFilter(t, boardCategoryFilter)) return false;
-      if (boardUnclaimedOnly && !isUnclaimedClaimable(t)) return false;
-      return true;
-    };
-
-    let list;
-    if (boardScope === 'all') {
-      list = tasks.filter(matchesFilters);
-    } else if (!filtersActive) {
-      // Top-level overview, plus nested blocked cards when Blocked Tasks is on
-      list = tasks.filter((t) => {
-        if (!matchesFilters(t)) return false;
-        if (inTopScope(t)) return true;
-        return boardShowLocked && isTaskDependencyLocked(t);
-      });
-    } else {
-      // Top-level mode + filters: keep top-scope tasks that match, plus any
-      // nested match so skill filters surface claimable work under epics.
-      list = tasks.filter((t) => {
-        if (!matchesFilters(t)) return false;
-        if (inTopScope(t)) return true;
-        if (boardShowLocked && isTaskDependencyLocked(t)) return true;
-        return Boolean(t.parentTaskId);
-      });
-    }
-
-    // Final pass: never surface locked tasks unless the toggle is on
-    // (covers every board scope / filter combination)
-    return list.filter((t) =>
-      isTaskVisibleWithLockedToggle(t, boardShowLocked)
-    );
+    return selectBoardTasks(tasks, {
+      boardScope,
+      hideBlocked: hideBlockedTasks,
+      categoryFilter: boardCategoryFilter,
+      unclaimedOnly: boardUnclaimedOnly,
+      isUnclaimedClaimable,
+    });
   }, [
     tasks,
     boardScope,
     boardCategoryFilter,
     boardUnclaimedOnly,
-    boardShowLocked,
+    hideBlockedTasks,
   ]);
 
   const lockedTaskCount = useMemo(
@@ -845,7 +798,7 @@ const ProjectWorkspace = () => {
   );
 
   const boardFiltersActive =
-    boardCategoryFilter.length > 0 || boardUnclaimedOnly || !boardShowLocked;
+    boardCategoryFilter.length > 0 || boardUnclaimedOnly || hideBlockedTasks;
 
   const toggleBoardCategory = useCallback((cat) => {
     setBoardCategoryFilter((prev) => {
@@ -859,7 +812,7 @@ const ProjectWorkspace = () => {
   const clearBoardFilters = useCallback(() => {
     setBoardCategoryFilter([]);
     setBoardUnclaimedOnly(false);
-    setBoardShowLocked(true);
+    setHideBlockedTasks(false);
   }, []);
 
   /**
@@ -908,12 +861,14 @@ const ProjectWorkspace = () => {
 
   /**
    * Direct children in the task detail hierarchy list.
-   * Always include blocked nested work so opening a parent never hides them.
+   * Hide Blocked Tasks also hides locked children here.
    */
   const selectedChildren = useMemo(() => {
     if (!selectedTaskId) return [];
-    return getChildTasks(tasks, selectedTaskId);
-  }, [tasks, selectedTaskId]);
+    return getChildTasks(tasks, selectedTaskId).filter((t) =>
+      isTaskVisibleWithLockedToggle(t, !hideBlockedTasks)
+    );
+  }, [tasks, selectedTaskId, hideBlockedTasks]);
 
   /** Root → … → current for compact orientation path only */
   const selectedBreadcrumb = useMemo(() => {
@@ -2745,7 +2700,7 @@ const ProjectWorkspace = () => {
                           ? 'bg-neon-cyan/15 text-neon-cyan'
                           : 'text-text-muted hover:text-white'
                       }`}
-                      title="Overview: epics, with nested claims and blocked nested work sitting under them"
+                      title="Overview: epics with nested work under them. Blocked tasks stay nested; they are not pulled to the top."
                     >
                       Top-level
                     </button>
@@ -2884,20 +2839,20 @@ const ProjectWorkspace = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setBoardShowLocked((v) => !v)}
+                    onClick={() => setHideBlockedTasks((v) => !v)}
                     className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold tracking-wide transition-colors ${
-                      boardShowLocked
+                      hideBlockedTasks
                         ? 'bg-white/10 text-text-secondary border-white/30 ring-1 ring-white/15'
                         : 'bg-transparent text-text-muted border-cyber-border hover:text-text-secondary'
                     }`}
-                    aria-pressed={boardShowLocked}
+                    aria-pressed={hideBlockedTasks}
                     title={
-                      boardShowLocked
-                        ? 'Blocked tasks are visible. Click to hide them.'
-                        : 'Blocked tasks are hidden. Click to show them.'
+                      hideBlockedTasks
+                        ? 'Blocked tasks are hidden everywhere. Click to show them nested under their parents.'
+                        : 'Blocked tasks are visible in their nested place. Click to hide them.'
                     }
                   >
-                    Blocked Tasks
+                    Hide Blocked Tasks
                     {lockedTaskCount > 0 ? (
                       <span className="ml-1.5 tabular-nums opacity-80">
                         ({lockedTaskCount})
@@ -2913,7 +2868,7 @@ const ProjectWorkspace = () => {
                       ? ` · ${boardCategoryFilter.join(', ')}`
                       : ''}
                     {boardUnclaimedOnly ? ' · unclaimed only' : ''}
-                    {!boardShowLocked ? ' · hiding blocked' : ''}
+                    {hideBlockedTasks ? ' · hiding blocked' : ''}
                     {boardScope === 'top'
                       ? ' · includes matching nested tasks'
                       : ' · nested under parents'}
