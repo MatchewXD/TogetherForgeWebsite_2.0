@@ -151,6 +151,12 @@ $$;
 grant execute on function public.task_incomplete_blockers(uuid) to anon, authenticated;
 grant execute on function public.task_is_dependency_locked(uuid) to anon, authenticated;
 
+-- Table grants: RLS alone is not enough. Staging was missing SELECT for
+-- anon/authenticated, so the client never received blockers and cards
+-- looked claimable.
+grant select on table public.task_dependencies to anon, authenticated, service_role;
+grant insert, update, delete on table public.task_dependencies to authenticated, service_role;
+
 -- ---------------------------------------------------------------------------
 -- 5. Staff: replace dependency set + optional override
 -- ---------------------------------------------------------------------------

@@ -23,6 +23,10 @@ begin
     grant select on table public.task_claims to anon, authenticated, service_role;
     grant insert, update, delete on table public.task_claims to authenticated, service_role;
   end if;
+  if to_regclass('public.task_dependencies') is not null then
+    grant select on table public.task_dependencies to anon, authenticated, service_role;
+    grant insert, update, delete on table public.task_dependencies to authenticated, service_role;
+  end if;
   if to_regclass('public.activity_log') is not null then
     grant select on table public.activity_log to anon, authenticated, service_role;
     grant insert on table public.activity_log to authenticated, service_role;
