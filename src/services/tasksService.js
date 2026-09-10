@@ -519,9 +519,11 @@ function isBoardTopScopeTask(task) {
 }
 
 /**
- * Kanban slice: never pull nested blocked work up as extra top-level cards.
- * Nested tasks stay under their Epic/Medium. Hide-blocked removes them
- * everywhere, including parent detail lists.
+ * Kanban slice.
+ * Top-level is epics / true roots (plus claimed or in-review leaves so
+ * active work does not vanish). Nested blocked cards stay off this list —
+ * they belong under the parent in Details or in All tasks.
+ * Hide-blocked removes locked work from All tasks too.
  */
 export function selectBoardTasks(tasks, opts = {}) {
   const list = Array.isArray(tasks) ? tasks.filter(Boolean) : [];
@@ -557,16 +559,9 @@ export function selectBoardTasks(tasks, opts = {}) {
       out.push(t);
       continue;
     }
-    const underTop = taskHasAncestorInSet(t, topIds, lookup);
-    if (!underTop) continue;
-    if (isTaskDependencyLocked(t)) {
-      if (showLocked) {
-        seen.add(t.id);
-        out.push(t);
-      }
-      continue;
-    }
-    if (filtersActive) {
+    // Nested + blocked: never on Top-level, even to nest under the epic card.
+    if (isTaskDependencyLocked(t)) continue;
+    if (filtersActive && taskHasAncestorInSet(t, topIds, lookup)) {
       seen.add(t.id);
       out.push(t);
     }

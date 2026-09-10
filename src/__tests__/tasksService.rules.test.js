@@ -545,13 +545,20 @@ describe('selectBoardTasks (top-level vs hide blocked)', () => {
       isLocked: false,
     });
 
-  it('keeps a blocked medium under its epic instead of as a second top-level card', () => {
+  it('keeps nested blocked work off the Top-level list when the epic is present', () => {
     const list = [epic(), section(), kit()];
     const shown = selectBoardTasks(list, { boardScope: 'top', hideBlocked: false });
-    expect(shown.map((t) => t.id).sort()).toEqual(['e', 's2']);
+    expect(shown.map((t) => t.id)).toEqual(['e']);
+    expect(shown.some((t) => t.id === 's2')).toBe(false);
+  });
+
+  it('nests blocked work under the epic in All tasks, once', () => {
+    const list = [epic(), section(), kit()];
+    const shown = selectBoardTasks(list, { boardScope: 'all', hideBlocked: false });
+    expect(shown.map((t) => t.id).sort()).toEqual(['e', 'k', 's2']);
     const { roots, childrenOf } = groupTaskForest(shown, { allTasks: list });
     expect(roots.map((t) => t.id)).toEqual(['e']);
-    expect(childrenOf.get('e').map((t) => t.id)).toEqual(['s2']);
+    expect(childrenOf.get('e').map((t) => t.id).sort()).toEqual(['k', 's2']);
   });
 
   it('hides blocked tasks everywhere when hideBlocked is on', () => {
@@ -559,13 +566,8 @@ describe('selectBoardTasks (top-level vs hide blocked)', () => {
     const shown = selectBoardTasks(list, { boardScope: 'top', hideBlocked: true });
     expect(shown.map((t) => t.id)).toEqual(['e']);
     expect(shown.some((t) => t.id === 's2')).toBe(false);
-  });
-
-  it('does not list a nested blocked task as a root when its epic is present', () => {
-    const list = [epic(), section()];
-    const shown = selectBoardTasks(list, { boardScope: 'top', hideBlocked: false });
-    const { roots } = groupTaskForest(shown, { allTasks: list });
-    expect(roots.map((t) => t.title)).toEqual(['Tether-6 Maps']);
+    const allShown = selectBoardTasks(list, { boardScope: 'all', hideBlocked: true });
+    expect(allShown.map((t) => t.id).sort()).toEqual(['e', 'k']);
   });
 });
 

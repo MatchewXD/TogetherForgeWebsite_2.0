@@ -756,9 +756,9 @@ const ProjectWorkspace = () => {
   /**
    * Board visibility:
    * - "all": every matching task, nested under its Epic → Medium parent
-   * - "top": epics as roots, with nested work under them. Claimed / in-review
-   *   / completed leaves stay visible. Nested blocked work stays nested — it
-   *   is never pulled up as a sibling of the epic.
+   * - "top": epics / true roots only (plus claimed or in-review leaves).
+   *   Nested blocked Mediums/Smalls stay off this list; open the Epic to
+   *   see them, or switch to All tasks.
    * - "Hide Blocked Tasks" (off by default) hides locked work everywhere,
    *   including parent detail lists.
    */
@@ -2700,7 +2700,7 @@ const ProjectWorkspace = () => {
                           ? 'bg-neon-cyan/15 text-neon-cyan'
                           : 'text-text-muted hover:text-white'
                       }`}
-                      title="Overview: epics with nested work under them. Blocked tasks stay nested; they are not pulled to the top."
+                      title="Overview: epics only. Nested blocked work lives inside the Epic, not on this list."
                     >
                       Top-level
                     </button>
@@ -3150,8 +3150,8 @@ const ProjectWorkspace = () => {
                         ) : (
                           <BoardTaskTree
                             tasks={colTasks}
-                            allTasks={tasks}
-                            defaultExpanded
+                            allTasks={boardTasks}
+                            defaultExpanded={boardScope === 'all'}
                             layout="stack"
                             nestedLabel="nested tasks"
                             emptyMessage="No tasks in this column."
@@ -3232,8 +3232,8 @@ const ProjectWorkspace = () => {
                         ) : (
                           <BoardTaskTree
                             tasks={reviewTasks}
-                            allTasks={tasks}
-                            defaultExpanded
+                            allTasks={boardTasks}
+                            defaultExpanded={boardScope === 'all'}
                             layout="grid"
                             nestedLabel="nested tasks"
                             emptyMessage="No tasks waiting for review."
