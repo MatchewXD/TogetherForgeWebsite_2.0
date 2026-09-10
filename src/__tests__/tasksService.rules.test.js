@@ -858,6 +858,33 @@ describe('groupCompletedTaskForest', () => {
     expect(roots.map((t) => t.id)).toEqual(['e']);
     expect(childrenOf.get('e').map((t) => t.id)).toEqual(['s']);
   });
+
+  it('nests blocked section maps under the epic when kit parents are off the top-level slice', () => {
+    const epic = task({ id: 'e', title: 'Tether-6 Maps', depth: 0 });
+    const kit = task({
+      id: 'kit',
+      title: 'Tether-6.1 Modular kit',
+      parentTaskId: 'e',
+      depth: 1,
+    });
+    const ground = task({
+      id: 'g',
+      title: 'Tether-6.1.2 Ground kit family',
+      parentTaskId: 'kit',
+      depth: 2,
+    });
+    const section2 = task({
+      id: 's2',
+      title: 'Tether-6.3 Section 2 floating rocks and islands',
+      parentTaskId: 'e',
+      depth: 1,
+    });
+    const { roots, childrenOf } = groupTaskForest([epic, ground, section2], {
+      allTasks: [epic, kit, ground, section2],
+    });
+    expect(roots.map((t) => t.id)).toEqual(['e']);
+    expect(childrenOf.get('e').map((t) => t.id).sort()).toEqual(['g', 's2']);
+  });
 });
 
 describe('sortTasksAsForest', () => {

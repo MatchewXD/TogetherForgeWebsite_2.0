@@ -44,7 +44,6 @@ import Button from '../components/ui/Buttons';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import StaffOnlyBadge from '../components/ui/StaffOnlyBadge';
-import TaskCard from '../components/ui/TaskCard';
 import SubTaskList from '../components/ui/SubTaskList';
 import TaskDependencyPicker from '../components/ui/TaskDependencyPicker';
 import TaskStagingTree from '../components/ui/TaskStagingTree';
@@ -758,7 +757,9 @@ const ProjectWorkspace = () => {
    * Board visibility:
    * - "all": every task, nested under its Epic → Medium parent
    * - "top": top-level epics/tasks for overview, PLUS nested leaves that are
-   *   claimed, in review, or completed so work never disappears from the kanban
+   *   claimed, in review, completed, or (when Blocked Tasks is on) blocked.
+   *   Those extras still nest under the Epic in the column — they are not
+   *   drawn as sibling top-level cards.
    * - Category / Unclaimed filters stack on top (AND with scope).
    * - When filters are active in "top" mode, matching nested tasks are also
    *   included so an artist can find claimable Art work without switching scope.
@@ -2744,7 +2745,7 @@ const ProjectWorkspace = () => {
                           ? 'bg-neon-cyan/15 text-neon-cyan'
                           : 'text-text-muted hover:text-white'
                       }`}
-                      title="Overview: top-level tasks, nested claims, and blocked nested work when Blocked Tasks is on"
+                      title="Overview: epics, with nested claims and blocked nested work sitting under them"
                     >
                       Top-level
                     </button>
@@ -3191,7 +3192,7 @@ const ProjectWorkspace = () => {
                           <p className="text-sm text-text-muted text-center py-8 px-2">
                             No tasks in this column.
                           </p>
-                        ) : boardScope === 'all' ? (
+                        ) : (
                           <BoardTaskTree
                             tasks={colTasks}
                             allTasks={tasks}
@@ -3222,40 +3223,6 @@ const ProjectWorkspace = () => {
                               unpublishingId,
                             }}
                           />
-                        ) : (
-                          colTasks.map((task) => (
-                            <div key={task.id} id={`task-${task.id}`}>
-                              <TaskCard
-                                task={task}
-                                currentUserId={user?.id}
-                                claiming={claimingId === task.id}
-                                joining={joiningId === task.id}
-                                joinRequestPending={myPendingJoinTaskIds.has(
-                                  task.id
-                                )}
-                                onClaim={
-                                  col.key === 'todo' ? handleClaim : undefined
-                                }
-                                onRequestJoin={
-                                  col.key === 'in_progress'
-                                    ? handleRequestJoin
-                                    : undefined
-                                }
-                                onView={handleViewTask}
-                                canStaffUpdate={isModerator}
-                                isStaff={isModerator}
-                                onDuplicate={
-                                  isModerator ? handleDuplicateTask : undefined
-                                }
-                                onMoveToStaging={
-                                  isModerator
-                                    ? handleMovePublicToStaging
-                                    : undefined
-                                }
-                                movingToStaging={unpublishingId === task.id}
-                              />
-                            </div>
-                          ))
                         )}
                       </div>
                     </div>
@@ -3307,7 +3274,7 @@ const ProjectWorkspace = () => {
                           <p className="text-sm text-text-muted text-center py-8 px-2">
                             No tasks waiting for review.
                           </p>
-                        ) : boardScope === 'all' ? (
+                        ) : (
                           <BoardTaskTree
                             tasks={reviewTasks}
                             allTasks={tasks}
@@ -3329,31 +3296,6 @@ const ProjectWorkspace = () => {
                               unpublishingId,
                             }}
                           />
-                        ) : (
-                          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                            {reviewTasks.map((task) => (
-                              <div key={task.id} id={`task-${task.id}`}>
-                                <TaskCard
-                                  task={task}
-                                  currentUserId={user?.id}
-                                  onView={handleViewTask}
-                                  canStaffUpdate={isModerator}
-                                  isStaff={isModerator}
-                                  onDuplicate={
-                                    isModerator
-                                      ? handleDuplicateTask
-                                      : undefined
-                                  }
-                                  onMoveToStaging={
-                                    isModerator
-                                      ? handleMovePublicToStaging
-                                      : undefined
-                                  }
-                                  movingToStaging={unpublishingId === task.id}
-                                />
-                              </div>
-                            ))}
-                          </div>
                         )}
                       </div>
                     )}

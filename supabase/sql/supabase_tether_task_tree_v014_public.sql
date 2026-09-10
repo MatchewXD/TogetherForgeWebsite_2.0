@@ -1,9 +1,10 @@
--- Tether-6 Maps from Tether_Task_Breakdown_v0.14 → staging board only.
--- Upsert by title / ID prefix. Does not publish. Does not write public rows.
+-- Tether-6 Maps from Tether_Task_Breakdown_v0.14 → public board in place.
+-- Remap leftover Level_01 / unofficial IDs, then update by title / ID prefix.
+-- Does not insert. Does not change board_scope. Does not touch staging.
 -- Does not rewrite Tether-4 or Tether-5. Does not add Tether-5.6.
 -- Kit is 6.1 (first). Safe to re-run.
 --
---   supabase db query --linked -f supabase/sql/supabase_tether_task_tree_v014.sql
+--   supabase db query --linked -f supabase/sql/supabase_tether_task_tree_v014_public.sql
 
 do $$
 declare
@@ -31,11 +32,11 @@ begin
     when undefined_object then null;
   end;
 
-  -- Remap leftover IDs whose meaning changed (staging only).
+  -- Remap leftover IDs whose meaning changed (public only).
   update public.tasks t
   set title = 'Tether-6.2.1 Map 1 spine'
   where t.project_id = v_project
-    and t.board_scope = 'staging'
+    and t.board_scope = 'public'
     and t.title like 'Tether-6.1.2 %'
     and t.title not like 'Tether-6.1.2.%'
     and t.title ~* 'Level_01_Surface|Level 01|Block out';
@@ -43,7 +44,7 @@ begin
   update public.tasks t
   set title = 'Tether-6.6 Unofficial maps'
   where t.project_id = v_project
-    and t.board_scope = 'staging'
+    and t.board_scope = 'public'
     and t.title like 'Tether-6.3 %'
     and t.title not like 'Tether-6.3.%'
     and t.title ~* 'unofficial|community map';
@@ -51,7 +52,7 @@ begin
   update public.tasks t
   set title = 'Tether-6.1 Modular kit'
   where t.project_id = v_project
-    and t.board_scope = 'staging'
+    and t.board_scope = 'public'
     and t.title like 'Tether-6.5 %'
     and t.title not like 'Tether-6.5.%'
     and t.title ~* 'kit|modular';
@@ -59,7 +60,7 @@ begin
   update public.tasks t
   set title = 'Tether-6 Maps'
   where t.project_id = v_project
-    and t.board_scope = 'staging'
+    and t.board_scope = 'public'
     and t.title like 'Tether-6 %'
     and t.title not like 'Tether-6.%'
     and t.title ~* 'First playable|surface level|Level_01';
@@ -87,7 +88,7 @@ begin
   ) values
     ('Tether-6', null, 'Tether-6 Maps', 'Official run: 9 maps in 3 sections of 3, plus one finale arena. Semi-procedural. A map is a spine plus slots. Slots accept modular kit pieces. Kit is built first. Do not unique-sculpt a map that cannot accept kit pieces.
 
-Source: Tether_Task_Breakdown_v0.14. Staging only. Do not publish.', 'Level Design', 'Medium', 'Medium', true, 60, '{}'::text[], '[]'::jsonb, 'ToDo'),
+Source: Tether_Task_Breakdown_v0.14.', 'Level Design', 'Medium', 'Medium', true, 60, '{}'::text[], '[]'::jsonb, 'ToDo'),
     ('Tether-6.0', 'Tether-6', 'Tether-6.0 Spine and shuffle rules', 'Write this before helpers drop pieces.', 'Design', 'Medium', 'Medium', true, 5, '{}'::text[], '[]'::jsonb, 'ToDo'),
     ('Tether-6.0.1', 'Tether-6.0', 'Tether-6.0.1 Docs/Maps.md', 'Campaign list. Spine per section. What may shuffle. What must stay. Link from README.
 
@@ -299,16 +300,7 @@ Definition of Done:
 Definition of Done:
 - Tether-CD.3 Map pieces TQ-004 exists under Epic Tether-CD.
 - The marker is Staff Only, In Progress, and not claimable.
-- It is not parented under a section map.', 'Community', 'Easy', 'Small', true, 20, '{}'::text[], '[{"id":"s1","label":"Tether-CD.3 Map pieces TQ-004 exists under Epic Tether-CD.","done":false},{"id":"s2","label":"The marker is Staff Only, In Progress, and not claimable.","done":false},{"id":"s3","label":"It is not parented under a section map.","done":false}]'::jsonb, 'ToDo'),
-    ('Tether-11.4', 'Tether-11', 'Tether-11.4 Grapple hook', 'Section 2 unlock. Reach places walking cannot. Beam rules still apply while hooked. Numbers Open.
-
-Do not parent under Tether-6. Founder-owned feel stays Open.', 'Code', 'Medium', 'Medium', true, 40, '{}'::text[], '[]'::jsonb, 'ToDo'),
-    ('Tether-11.5', 'Tether-11', 'Tether-11.5 Boost pack', 'Section 3 assist. Short weak shove while not touching a surface. Cannot clear a space map alone. Founder owns the feel.
-
-Do not parent under Tether-6.', 'Code', 'Medium', 'Medium', true, 50, '{}'::text[], '[]'::jsonb, 'ToDo'),
-    ('Tether-CD.3', 'Tether-CD', 'Tether-CD.3 Map pieces TQ-004', 'Open Question marker. Not claimable work. TQ-004. What should Tether maps add? Official layout is locked. Community suggests obstacles, extra terrain, and unofficial maps.
-
-Staff Only In Progress marker. Do not parent under a section map.', 'Community', 'Medium', 'Medium', true, 30, '{}'::text[], '[]'::jsonb, 'InProgress');
+- It is not parented under a section map.', 'Community', 'Easy', 'Small', true, 20, '{}'::text[], '[{"id":"s1","label":"Tether-CD.3 Map pieces TQ-004 exists under Epic Tether-CD.","done":false},{"id":"s2","label":"The marker is Staff Only, In Progress, and not claimable.","done":false},{"id":"s3","label":"It is not parented under a section map.","done":false}]'::jsonb, 'ToDo');
 
   for v_row in
     select *
@@ -324,7 +316,7 @@ Staff Only In Progress marker. Do not parent under a section map.', 'Community',
       select t.id into v_parent
       from public.tasks t
       where t.project_id = v_project
-        and t.board_scope = 'staging'
+        and t.board_scope = 'public'
         and t.title like v_row.parent_code || ' %'
         and t.title not like v_row.parent_code || '.%'
       order by t.archived_at nulls first, t.created_at
@@ -334,7 +326,7 @@ Staff Only In Progress marker. Do not parent under a section map.', 'Community',
     select t.id into v_id
     from public.tasks t
     where t.project_id = v_project
-      and t.board_scope = 'staging'
+      and t.board_scope = 'public'
       and (
         t.title = v_row.title
         or (
@@ -346,15 +338,8 @@ Staff Only In Progress marker. Do not parent under a section map.', 'Community',
     limit 1;
 
     if v_id is null then
-      insert into public.tasks (
-        project_id, parent_task_id, title, description, category, difficulty,
-        estimated_effort, status, subtasks, staff_only, board_scope, sort_order
-      ) values (
-        v_project, v_parent, v_row.title, v_row.description, v_row.category, v_row.difficulty,
-        v_row.estimated_effort, v_row.status, v_row.subtasks, v_row.staff_only, 'staging', v_row.sort_order
-      )
-      returning id into v_id;
-      v_created := v_created + 1;
+      -- Public pass updates existing claimable cards only. Do not insert.
+      null;
     else
       update public.tasks set
         title = v_row.title,
@@ -371,17 +356,17 @@ Staff Only In Progress marker. Do not parent under a section map.', 'Community',
           else status
         end
       where id = v_id
-        and board_scope = 'staging';
+        and board_scope = 'public';
       v_updated := v_updated + 1;
     end if;
   end loop;
 
-  -- Replace blockers for this tree only (staging).
+  -- Replace blockers for this tree only (public).
   delete from public.task_dependencies d
   using public.tasks a, tmp_tether_v014 r
   where d.task_id = a.id
     and a.project_id = v_project
-    and a.board_scope = 'staging'
+    and a.board_scope = 'public'
     and (
       a.title = r.title
       or (
@@ -396,7 +381,7 @@ Staff Only In Progress marker. Do not parent under a section map.', 'Community',
     select t.id into v_id
     from public.tasks t
     where t.project_id = v_project
-      and t.board_scope = 'staging'
+      and t.board_scope = 'public'
       and (
         t.title = v_row.title
         or (
@@ -412,7 +397,7 @@ Staff Only In Progress marker. Do not parent under a section map.', 'Community',
       select t.id into v_blocker
       from public.tasks t
       where t.project_id = v_project
-        and t.board_scope = 'staging'
+        and t.board_scope = 'public'
         and t.title like v_code || ' %'
         and t.title not like v_code || '.%'
       order by t.archived_at nulls first, t.created_at
@@ -435,12 +420,12 @@ Staff Only In Progress marker. Do not parent under a section map.', 'Community',
     and d.blocks_on_task_id = b.id
     and a.project_id = v_project
     and b.project_id = v_project
-    and a.board_scope = 'staging'
-    and b.board_scope = 'staging'
+    and a.board_scope = 'public'
+    and b.board_scope = 'public'
     and a.title ~ '^Tether-6([. ]|$)'
     and b.title ~ '^Tether-5([. ]|$)';
 
-  raise notice 'Tether v0.14 staging upsert created=% updated=%',
+  raise notice 'Tether v0.14 public update created=% updated=%',
     v_created, v_updated;
 
   begin

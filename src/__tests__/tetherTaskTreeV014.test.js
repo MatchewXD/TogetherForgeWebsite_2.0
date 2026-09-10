@@ -58,6 +58,19 @@ describe('Tether Task Breakdown v0.14 tree (Tether-6)', () => {
     expect(map['Tether-6'].blockedByCodes || []).toEqual([]);
   });
 
+  it('maps leftover public campaign titles onto the v0.14 IDs', () => {
+    const map = byCode();
+    expect(map['Tether-6'].shortTitle).toBe('Maps');
+    expect(map['Tether-6.1'].shortTitle).toBe('Modular kit');
+    expect(map['Tether-6.1.1'].shortTitle).toBe('Folder naming and piece list');
+    expect(map['Tether-6.1.2'].shortTitle).toBe('Ground kit family');
+    expect(map['Tether-6.2'].shortTitle).toBe('Section 1 beginner ground');
+    expect(map['Tether-6.2.1'].shortTitle).toBe('Map 1 spine');
+    expect(map['Tether-6.6'].shortTitle).toBe('Unofficial maps');
+    expect(map['Tether-6.2.1'].parentCode).toBe('Tether-6.2');
+    expect(map['Tether-6.6'].parentCode).toBe('Tether-6');
+  });
+
   it('does not add Tether-5.6 and keeps 11.4 / 11.5 out from under Tether-6', () => {
     const map = byCode();
     expect(map['Tether-5.6']).toBeUndefined();
