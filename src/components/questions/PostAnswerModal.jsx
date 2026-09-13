@@ -4,6 +4,7 @@ import Button from '../ui/Buttons';
 import CharCount from '../ui/CharCount';
 import Modal from '../ui/Modal';
 import { OPEN_QUESTION_REPLY_MAX } from '../../services/openQuestionsService';
+import QuestionImageField from './QuestionImageField';
 import { fieldControl, fieldLabel } from './questionStyles';
 import { SignInHint } from './questionUi';
 
@@ -15,11 +16,13 @@ export default function PostAnswerModal({
   user = null,
 }) {
   const [body, setBody] = useState('');
+  const [imageFiles, setImageFiles] = useState([]);
   const [formError, setFormError] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
     setBody('');
+    setImageFiles([]);
     setFormError('');
   }, [isOpen]);
 
@@ -28,7 +31,7 @@ export default function PostAnswerModal({
     if (!user) return;
     setFormError('');
     try {
-      await onSubmit(body);
+      await onSubmit(body, imageFiles);
       onClose();
     } catch (err) {
       setFormError(err?.message || 'Could not post.');
@@ -63,6 +66,13 @@ export default function PostAnswerModal({
             />
             <CharCount value={body} max={OPEN_QUESTION_REPLY_MAX} />
           </div>
+          <QuestionImageField
+            id="oq-answer-images"
+            files={imageFiles}
+            existingUrls={[]}
+            onChange={({ files }) => setImageFiles(files)}
+            hint="Your work. Up to 3 images. JPEG, PNG, WebP, or GIF · max 5MB each."
+          />
           {formError ? (
             <p className="text-sm text-semantic-danger">{formError}</p>
           ) : null}

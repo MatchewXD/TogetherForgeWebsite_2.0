@@ -9,6 +9,7 @@ import { MessageCircleQuestion, Plus, Search, X } from 'lucide-react';
 
 import { supabase } from '../lib/supabase';
 import {
+  QUESTION_RELATED_PHASES,
   QUESTION_SORTS,
   QUESTION_STATUS_FILTERS,
   filterQuestions,
@@ -32,6 +33,7 @@ export default function OpenQuestions() {
   const [user, setUser] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [phases, setPhases] = useState(QUESTION_RELATED_PHASES);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
@@ -90,13 +92,14 @@ export default function OpenQuestions() {
     try {
       const [rows, projectRows, auth] = await Promise.all([
         openQuestionsService.listAll({ viewerUserId: user?.id || null }),
-        openQuestionsService.listProjects(),
+        openQuestionsService.listScopes(),
         user
           ? Promise.resolve({ data: { user } })
           : supabase.auth.getUser(),
       ]);
       setQuestions(rows);
-      setProjects(projectRows);
+      setPhases(projectRows?.phases || QUESTION_RELATED_PHASES);
+      setProjects(projectRows?.projects || []);
       if (!user && auth?.data?.user) setUser(auth.data.user);
     } catch (err) {
       setError(err?.message || 'Could not load open questions.');
@@ -127,14 +130,17 @@ export default function OpenQuestions() {
   const selectedProject = useMemo(() => {
     if (!projectKey) return null;
     const key = projectKey.toLowerCase();
+    if (key === 'none') return { id: 'none', slug: 'none', title: 'No project' };
+    const phase = phases.find((p) => String(p.id).toLowerCase() === key);
+    if (phase) return { id: phase.id, slug: phase.id, title: phase.label };
     return (
       projects.find(
         (p) =>
-          String(p.slug).toLowerCase() === key ||
-          String(p.id).toLowerCase() === key
-      ) || null
+          String(p.id).toLowerCase() === key ||
+          String(p.slug || '').toLowerCase() === key
+      ) || { id: projectKey, slug: projectKey, title: projectKey }
     );
-  }, [projects, projectKey]);
+  }, [projects, phases, projectKey]);
 
   const visible = useMemo(() => {
     const filtered = filterQuestions(questions, {
@@ -156,13 +162,31 @@ export default function OpenQuestions() {
     setSearchParams({}, { replace: true });
   };
 
-  const saveQuestion = async ({ title, prompt, projectId }) => {
+  const saveQuestion = async ({
+    title,
+    prompt,
+    relatedTo,
+    projectId,
+    closesAt,
+    imageFiles,
+    existingUrls,
+  }) => {
     if (!isStaff || !user?.id) return;
     setBusy(true);
     try {
+      const uploaded = await openQuestionsService.uploadQuestionImages(
+        imageFiles,
+        user.id
+      );
       const created = await openQuestionsService.createQuestion(
         projectId,
-        { title, prompt },
+        {
+          title,
+          prompt,
+          relatedTo,
+          closesAt,
+          imageUrls: [...(existingUrls || []), ...uploaded],
+        },
         user.id
       );
       showToast('Question posted to the community.', 'success');
@@ -190,7 +214,7 @@ export default function OpenQuestions() {
             <p className="text-white/85 mt-4 text-base sm:text-lg leading-relaxed">
               Staff ask a focused question when a project needs a call. The
               community posts answers, votes them up, and discusses the full
-              idea, the same way you would on Ideas.
+              idea, the same way you would on Ideas. Votes inform staff.
             </p>
             {isStaff ? (
               <div className="mt-8 flex justify-center">
@@ -270,12 +294,26 @@ export default function OpenQuestions() {
               className={`${controlClass} w-full min-w-0 sm:w-auto`}
               aria-label="Filter by project"
             >
-              <option value="">All projects</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.slug || p.id}>
-                  {p.title}
-                </option>
-              ))}
+              <option value="">All</option>
+              <option value="none">No project</option>
+              <optgroup label="Stages">
+                {phases
+                  .filter((p) => p.id)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+              </optgroup>
+              {projects.length > 0 ? (
+                <optgroup label="Projects">
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label || p.title}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
             </select>
 
             {activeFilterCount > 0 ? (
@@ -353,7 +391,8 @@ export default function OpenQuestions() {
         onSave={saveQuestion}
         busy={busy}
         projects={projects}
-        selectedProjectId={selectedProject?.id || ''}
+        phases={phases}
+        selectedProjectId=""
       />
     </div>
   );

@@ -16,8 +16,11 @@ import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import tasksService from '../services/tasksService';
 import { taskSuggestionsService } from '../services/taskSuggestionsService';
+import { dashboardNoticesService } from '../services/dashboardNoticesService';
+import { openQuestionsService } from '../services/openQuestionsService';
 import {
   keysFromNoticeSummary,
+  readDeletedNoticeIds,
   readSeenNoticeKeys,
   rememberNoticeKeys,
   summarizeUserNotices,
@@ -40,16 +43,48 @@ const UserNoticesContext = createContext({
   markDashboardSeen: () => {},
 });
 
+function filterLegacyClaimSplits(splits) {
+  let seen = [];
+  try {
+    seen = JSON.parse(localStorage.getItem('tf_claim_split_seen') || '[]');
+  } catch {
+    seen = [];
+  }
+  return (splits || []).filter((n) => n?.id && !seen.includes(n.id));
+}
+
 async function loadNoticeItems() {
-  const [joinRequests, suggestions, noticeItems] = await Promise.all([
-    tasksService.listMyPendingJoinRequests().catch(() => []),
-    taskSuggestionsService.listMine().catch(() => []),
-    tasksService.listMyRecentClaimSplits({ days: 14, limit: 20 }).catch(() => []),
-  ]);
+  const [joinRequests, suggestions, claimSplits, inbox, hiddenReplies] =
+    await Promise.all([
+      tasksService.listMyPendingJoinRequests().catch(() => []),
+      taskSuggestionsService.listMine().catch(() => []),
+      tasksService.listMyRecentClaimSplits({ days: 14, limit: 20 }).catch(() => []),
+      dashboardNoticesService.listMine({ limit: 30 }).catch((err) => {
+        console.warn('[notices] dashboard inbox', err);
+        return [];
+      }),
+      openQuestionsService.listMyHiddenReplyNotices({ limit: 20 }).catch((err) => {
+        console.warn('[notices] hidden OQ replies', err);
+        return [];
+      }),
+    ]);
+  const inboxSourceIds = new Set(
+    (inbox || []).map((n) => n.sourceId).filter(Boolean)
+  );
+  const fallbackHides = (hiddenReplies || []).filter(
+    (n) => n?.replyId && !inboxSourceIds.has(n.replyId)
+  );
   return {
     joinRequests: joinRequests || [],
     suggestions: suggestions || [],
-    noticeItems: noticeItems || [],
+    noticeItems: [
+      ...(inbox || []),
+      ...fallbackHides,
+      ...filterLegacyClaimSplits(claimSplits).map((n) => ({
+        ...n,
+        kind: n.kind || 'claim',
+      })),
+    ],
   };
 }
 
@@ -74,30 +109,35 @@ export function UserNoticesProvider({ children }) {
     const next = summarizeUserNotices({
       ...items,
       seen: readSeenNoticeKeys(uid),
+      deleted: readDeletedNoticeIds(uid),
     });
     setFlags(next);
     return next;
   }, []);
 
-  const ingestItems = useCallback(
-    (items) => {
-      if (!userId) return;
+  const ingestItems = useCallback((items) => {
+    void (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const uid = user?.id;
+      if (!uid) return;
       const next = summarizeUserNotices({
         joinRequests: items?.joinRequests || [],
         suggestions: items?.suggestions || [],
         noticeItems: items?.noticeItems || [],
-        seen: readSeenNoticeKeys(userId),
+        seen: readSeenNoticeKeys(uid),
+        deleted: readDeletedNoticeIds(uid),
       });
       setFlags(next);
-    },
-    [userId]
-  );
+    })();
+  }, []);
 
   const markDashboardSeen = useCallback(() => {
     if (!userId) return;
     rememberNoticeKeys(userId, keysFromNoticeSummary(flagsRef.current));
-    setFlags(EMPTY);
-  }, [userId]);
+    void refresh();
+  }, [userId, refresh]);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,10 +180,26 @@ export function UserNoticesProvider({ children }) {
     const poll = window.setInterval(() => {
       if (document.visibilityState === 'visible') void refresh();
     }, 30000);
+    const channel = supabase
+      .channel(`dashboard-notices:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'dashboard_notices',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          void refresh();
+        }
+      )
+      .subscribe();
     return () => {
       window.removeEventListener('tf-user-notices-refresh', onRefresh);
       document.removeEventListener('visibilitychange', onVisible);
       window.clearInterval(poll);
+      supabase.removeChannel(channel);
     };
   }, [userId, refresh]);
 

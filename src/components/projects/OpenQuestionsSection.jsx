@@ -11,6 +11,7 @@ import Card from '../ui/Card';
 import AskQuestionModal from '../questions/AskQuestionModal';
 import QuestionCard from '../questions/QuestionCard';
 import {
+  QUESTION_RELATED_PHASES,
   openQuestionsService,
   questionPath,
   questionsListPath,
@@ -29,6 +30,8 @@ const OpenQuestionsSection = ({
   const [toast, setToast] = useState(null);
   const [busy, setBusy] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  const [phases, setPhases] = useState(QUESTION_RELATED_PHASES);
+  const [projects, setProjects] = useState([]);
 
   const listHref = questionsListPath({
     project: projectSlug || projectId || '',
@@ -48,10 +51,15 @@ const OpenQuestionsSection = ({
     setLoading(true);
     setError('');
     try {
-      const rows = await openQuestionsService.listForProject(projectId, {
-        viewerUserId: user?.id || null,
-      });
+      const [rows, scopes] = await Promise.all([
+        openQuestionsService.listForProject(projectId, {
+          viewerUserId: user?.id || null,
+        }),
+        openQuestionsService.listScopes(),
+      ]);
       setQuestions(rows);
+      setPhases(scopes?.phases || QUESTION_RELATED_PHASES);
+      setProjects(scopes?.projects || []);
     } catch (err) {
       setError(err?.message || 'Could not load open questions.');
       setQuestions([]);
@@ -69,13 +77,31 @@ const OpenQuestionsSection = ({
   const preview = [...openList, ...closedList].slice(0, 6);
   const extraCount = Math.max(0, questions.length - preview.length);
 
-  const saveQuestion = async ({ title, prompt }) => {
-    if (!isStaff || !user?.id || !projectId) return;
+  const saveQuestion = async ({
+    title,
+    prompt,
+    relatedTo,
+    projectId: scopeId,
+    closesAt,
+    imageFiles,
+    existingUrls,
+  }) => {
+    if (!isStaff || !user?.id) return;
     setBusy(true);
     try {
+      const uploaded = await openQuestionsService.uploadQuestionImages(
+        imageFiles,
+        user.id
+      );
       await openQuestionsService.createQuestion(
-        projectId,
-        { title, prompt },
+        scopeId || projectSlug || projectId,
+        {
+          title,
+          prompt,
+          relatedTo: relatedTo || projectSlug || '',
+          closesAt,
+          imageUrls: [...(existingUrls || []), ...uploaded],
+        },
         user.id
       );
       showToast('Question posted to the community.', 'success');
@@ -184,7 +210,9 @@ const OpenQuestionsSection = ({
         onClose={() => !busy && setFormOpen(false)}
         onSave={saveQuestion}
         busy={busy}
-        selectedProjectId={projectId}
+        phases={phases}
+        projects={projects}
+        selectedProjectId={projectSlug || ''}
       />
     </section>
   );

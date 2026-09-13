@@ -221,7 +221,11 @@ export default function AvatarMenu({
           borderClass="border border-transparent"
         />
         {hasGlobalNotice ? (
-          <NoticeDot overlap label="New notices" />
+          <NoticeDot
+            overlap
+            className="!w-3 !h-3 !bg-red-500"
+            label="New notices"
+          />
         ) : null}
       </button>
 

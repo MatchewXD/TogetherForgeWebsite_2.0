@@ -3,24 +3,25 @@ import { useEffect, useState } from 'react';
 import Button from '../ui/Buttons';
 import CharCount from '../ui/CharCount';
 import Modal from '../ui/Modal';
-import { OPEN_QUESTION_CLOSE_NOTE_MAX } from '../../services/openQuestionsService';
+import {
+  OPEN_QUESTION_HIDE_NOTE_MAX,
+} from '../../services/openQuestionsService';
 import { fieldControl, fieldLabel } from './questionStyles';
 
-export default function CloseQuestionModal({
+export default function HideReplyModal({
   isOpen,
   onClose,
   onSubmit,
   busy = false,
-  initialNote = '',
 }) {
-  const [note, setNote] = useState(initialNote);
+  const [note, setNote] = useState('');
   const [formError, setFormError] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
-    setNote(initialNote || '');
+    setNote('');
     setFormError('');
-  }, [isOpen, initialNote]);
+  }, [isOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,7 +29,7 @@ export default function CloseQuestionModal({
     try {
       await onSubmit(note);
     } catch (err) {
-      setFormError(err?.message || 'Could not close the question.');
+      setFormError(err?.message || 'Could not hide that reply.');
     }
   };
 
@@ -36,35 +37,36 @@ export default function CloseQuestionModal({
     <Modal
       isOpen={isOpen}
       onClose={() => !busy && onClose()}
-      title="Close this question"
+      title="Hide off-brief reply"
       size="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <p className="text-sm text-text-secondary leading-relaxed">
-          Mark an answer Picked if one fits. Closing needs a short note so the
-          community can see the call, including if nothing was picked.
+          The author will see this note on the post and on their dashboard.
         </p>
         <div>
-          <label className={fieldLabel} htmlFor="oq-close-note">
-            Close note *
+          <label className={fieldLabel} htmlFor="oq-hide-note">
+            Note to the author *
           </label>
           <textarea
-            id="oq-close-note"
+            id="oq-hide-note"
             className={`${fieldControl} min-h-[6rem]`}
-            maxLength={OPEN_QUESTION_CLOSE_NOTE_MAX}
+            maxLength={OPEN_QUESTION_HIDE_NOTE_MAX}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Why this is the call, or why nothing was picked."
+            placeholder="Why this reply is off-brief, so they can try again."
             required
           />
-          <CharCount value={note} max={OPEN_QUESTION_CLOSE_NOTE_MAX} />
+          <CharCount value={note} max={OPEN_QUESTION_HIDE_NOTE_MAX} />
         </div>
         {formError ? (
-          <p className="text-sm text-semantic-danger">{formError}</p>
+          <p className="text-sm text-semantic-danger" role="alert">
+            {formError}
+          </p>
         ) : null}
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" variant="outline" disabled={busy}>
-            {busy ? 'Closing…' : 'Close question'}
+          <Button type="submit" disabled={busy || !note.trim()}>
+            {busy ? 'Hiding…' : 'Hide reply'}
           </Button>
           <Button
             type="button"

@@ -1,6 +1,10 @@
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
-import { questionPath } from '../../services/openQuestionsService';
+import {
+  questionCloseLabel,
+  questionPath,
+} from '../../services/openQuestionsService';
+import { QuestionImageGrid } from './QuestionImageField';
 import { formatDate } from './questionStyles';
 
 export default function QuestionCard({
@@ -53,9 +57,19 @@ export default function QuestionCard({
         </span>
         <span>{formatDate(question.createdAt)}</span>
       </div>
-      {question.adoptedSuggestion ? (
+      <QuestionImageGrid urls={(question.images || []).slice(0, 1)} alt="" />
+      {questionCloseLabel(question) ? (
+        <p
+          className={`text-[11px] font-mono mt-2 ${
+            question.isOpen ? 'text-neon-cyan' : 'text-semantic-success'
+          }`}
+        >
+          {questionCloseLabel(question)}
+        </p>
+      ) : null}
+      {question.pickedSuggestion || question.adoptedSuggestion ? (
         <p className="text-[11px] text-text-muted mt-2 line-clamp-2">
-          Adopted: {question.adoptedSuggestion.body}
+          Picked: {(question.pickedSuggestion || question.adoptedSuggestion).body}
         </p>
       ) : null}
     </Card>

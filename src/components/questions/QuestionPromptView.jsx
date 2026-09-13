@@ -1,4 +1,5 @@
 import { hasStructuredPrompt } from '../../services/openQuestionsService';
+import { QuestionImageGrid } from './QuestionImageField';
 
 function Section({ title, children }) {
   if (!children) return null;
@@ -27,12 +28,14 @@ export default function QuestionPromptView({ question }) {
   const structured = hasStructuredPrompt(prompt);
   const context = prompt.context || (!structured ? question?.body : '');
 
+  const images = question?.images || [];
   if (
     !context &&
     !prompt.questionDetail &&
     !prompt.shouldFit &&
     !prompt.shouldNotFit &&
-    !prompt.additional
+    !prompt.additional &&
+    !images.length
   ) {
     return null;
   }
@@ -86,6 +89,8 @@ export default function QuestionPromptView({ question }) {
           <Block>{prompt.additional}</Block>
         </Section>
       ) : null}
+
+      <QuestionImageGrid urls={question?.images} alt="" />
     </div>
   );
 }

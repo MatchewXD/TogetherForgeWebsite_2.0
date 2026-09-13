@@ -4,7 +4,7 @@
  * Account settings: /account. Profile page: /u/:username.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -46,6 +46,8 @@ import {
 } from '../services/taskSuggestionsService';
 import { ideasService } from '../services/ideasService';
 import { listMyShowcaseSubmissions } from '../services/showcaseService';
+import { openQuestionsService } from '../services/openQuestionsService';
+import { dashboardNoticesService } from '../services/dashboardNoticesService';
 import UserAvatar from '../components/ui/UserAvatar';
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
@@ -63,6 +65,14 @@ import {
 } from '../utils/ideaActivity';
 import useIsModerator from '../hooks/useIsModerator';
 import { useUserNotices } from '../context/UserNoticesContext';
+import {
+  noticeKey,
+  pingUserNotices,
+  readDeletedNoticeIds,
+  readSeenNoticeKeys,
+  rememberDeletedNoticeIds,
+  rememberNoticeKeys,
+} from '../utils/userNotices';
 import NoticeDot from '../components/ui/NoticeDot';
 import {
   ensureUsernameFromSignup,
@@ -107,6 +117,7 @@ const Dashboard = () => {
   const [error, setError] = useState('');
   const [autoReleaseNotices, setAutoReleaseNotices] = useState([]);
   const [claimSplitNotices, setClaimSplitNotices] = useState([]);
+  const [oqHideNotices, setOqHideNotices] = useState([]);
   const [suggestionAccount, setSuggestionAccount] = useState(null);
   const [mySuggestions, setMySuggestions] = useState([]);
 
@@ -154,6 +165,7 @@ const Dashboard = () => {
         showcaseRes,
         autoRes,
         splitRes,
+        oqHideRes,
         suggestionRes,
         mySuggestionsRes,
       ] = await Promise.all([
@@ -183,6 +195,23 @@ const Dashboard = () => {
           tasksService.listMyRecentClaimSplits({ days: 14, limit: 8 }).catch(
             () => []
           ),
+          Promise.all([
+            dashboardNoticesService.listMine({ limit: 20 }).catch((err) => {
+              console.warn('[Dashboard] inbox notices', err);
+              return [];
+            }),
+            openQuestionsService.listMyHiddenReplyNotices({ limit: 8 }).catch(
+              () => []
+            ),
+          ]).then(([inbox, hidden]) => {
+            const sources = new Set(
+              (inbox || []).map((n) => n.sourceId).filter(Boolean)
+            );
+            const fallback = (hidden || []).filter(
+              (n) => n?.replyId && !sources.has(n.replyId)
+            );
+            return [...(inbox || []), ...fallback];
+          }),
           taskSuggestionsService.getMyAccount().catch(() => null),
           taskSuggestionsService.listMine().catch(() => []),
         ]);
@@ -251,19 +280,33 @@ const Dashboard = () => {
       }
 
       const splits = splitRes || [];
+      const oqHides = (oqHideRes || []).map((n) => ({
+        ...n,
+        kind: n.kind || 'oq_hide',
+      }));
+      const deleted = readDeletedNoticeIds(current.id);
+      let legacyClaimSeen = [];
       try {
-        const seenSplits = JSON.parse(
+        legacyClaimSeen = JSON.parse(
           localStorage.getItem('tf_claim_split_seen') || '[]'
         );
-        setClaimSplitNotices(splits.filter((n) => !seenSplits.includes(n.id)));
       } catch {
-        setClaimSplitNotices(splits);
+        legacyClaimSeen = [];
       }
+      setClaimSplitNotices(
+        splits.filter(
+          (n) =>
+            n?.id &&
+            !deleted.has(String(n.id)) &&
+            !legacyClaimSeen.includes(n.id)
+        )
+      );
+      setOqHideNotices(oqHides.filter((n) => n?.id));
 
       userNotices.ingestItems({
         joinRequests: joinsRes || [],
         suggestions: mySuggestionsRes || [],
-        noticeItems: splits,
+        noticeItems: [...splits, ...oqHides],
       });
     } catch (err) {
       console.error('[Dashboard]', err);
@@ -290,22 +333,111 @@ const Dashboard = () => {
     });
   };
 
-  const dismissClaimSplitNotices = () => {
-    setClaimSplitNotices((prev) => {
-      try {
-        const seen = JSON.parse(
-          localStorage.getItem('tf_claim_split_seen') || '[]'
-        );
-        const next = [...new Set([...seen, ...prev.map((n) => n.id)])].slice(
-          -50
-        );
-        localStorage.setItem('tf_claim_split_seen', JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
-      return [];
+  const noticeItems = useMemo(() => {
+    if (!user?.id) {
+      return [
+        ...oqHideNotices.map((n) => ({ ...n, kind: n.kind || 'oqhide' })),
+        ...claimSplitNotices.map((n) => ({ ...n, kind: 'claim' })),
+      ];
+    }
+    const deleted = readDeletedNoticeIds(user.id);
+    return [
+      ...oqHideNotices.map((n) => ({ ...n, kind: n.kind || 'oq_hide' })),
+      ...claimSplitNotices.map((n) => ({ ...n, kind: 'claim' })),
+    ].filter((n) => {
+      if (!n?.id) return false;
+      if (n.kind === 'claim' && deleted.has(String(n.id))) return false;
+      return true;
     });
-  };
+  }, [user?.id, oqHideNotices, claimSplitNotices]);
+
+  const [readNoticeIds, setReadNoticeIds] = useState(() => new Set());
+  useEffect(() => {
+    if (!user?.id) {
+      setReadNoticeIds(new Set());
+      return;
+    }
+    const seen = readSeenNoticeKeys(user.id);
+    setReadNoticeIds(
+      new Set(
+        noticeItems
+          .filter((n) => seen.has(noticeKey('notice', n.id)))
+          .map((n) => String(n.id))
+      )
+    );
+  }, [user?.id, noticeItems]);
+
+  const markNoticeRead = useCallback(
+    (id) => {
+      if (!user?.id || !id) return;
+      setReadNoticeIds((prev) => {
+        if (prev.has(String(id))) return prev;
+        rememberNoticeKeys(user.id, [noticeKey('notice', id)]);
+        const looksUuid =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+            String(id)
+          );
+        if (looksUuid) {
+          void dashboardNoticesService.markRead([id]).then(() => pingUserNotices());
+        } else {
+          pingUserNotices();
+        }
+        const next = new Set(prev);
+        next.add(String(id));
+        return next;
+      });
+    },
+    [user?.id]
+  );
+
+  const deleteNotice = useCallback(
+    (id) => {
+      if (!user?.id || !id) return;
+      rememberDeletedNoticeIds(user.id, [id]);
+      rememberNoticeKeys(user.id, [noticeKey('notice', id)]);
+      const looksUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          String(id)
+        );
+      if (looksUuid) void dashboardNoticesService.dismiss([id]);
+      setOqHideNotices((prev) => prev.filter((n) => n.id !== id));
+      setClaimSplitNotices((prev) => prev.filter((n) => n.id !== id));
+      pingUserNotices();
+    },
+    [user?.id]
+  );
+
+  const dismissAllNotices = useCallback(() => {
+    if (!user?.id) return;
+    const ids = noticeItems.map((n) => n.id).filter(Boolean);
+    rememberDeletedNoticeIds(user.id, ids);
+    rememberNoticeKeys(
+      user.id,
+      ids.map((id) => noticeKey('notice', id))
+    );
+    const uuids = ids.filter((id) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        String(id)
+      )
+    );
+    if (uuids.length) void dashboardNoticesService.dismiss(uuids);
+    try {
+      const seen = JSON.parse(
+        localStorage.getItem('tf_claim_split_seen') || '[]'
+      );
+      const next = [
+        ...new Set([...seen, ...claimSplitNotices.map((n) => n.id)]),
+      ].slice(-50);
+      localStorage.setItem('tf_claim_split_seen', JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+    setOqHideNotices([]);
+    setClaimSplitNotices([]);
+    pingUserNotices();
+  }, [user?.id, noticeItems, claimSplitNotices]);
+
+  const noticesScrollRef = useRef(null);
 
   useEffect(() => {
     // Avoid reloading on every token refresh / noise event (OAuth can fire many).
@@ -1449,24 +1581,24 @@ const Dashboard = () => {
                   <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div className="text-sm font-mono tracking-widest text-semantic-warning flex items-center gap-2">
                       NOTICES
-                      {claimSplitNotices.length > 0 && (
+                      {noticeItems.length > 0 && (
                         <Badge variant="warning" className="!normal-case">
-                          {claimSplitNotices.length}
+                          {noticeItems.length}
                         </Badge>
                       )}
                     </div>
-                    {claimSplitNotices.length > 0 && (
+                    {noticeItems.length > 0 && (
                       <button
                         type="button"
-                        onClick={dismissClaimSplitNotices}
+                        onClick={dismissAllNotices}
                         className="text-xs font-semibold text-semantic-warning hover:text-white"
                       >
-                        Dismiss
+                        Dismiss all
                       </button>
                     )}
                   </div>
-                  <div className={DASH_PANEL_BODY}>
-                    {claimSplitNotices.length === 0 &&
+                  <div ref={noticesScrollRef} className={DASH_PANEL_BODY}>
+                    {noticeItems.length === 0 &&
                     !(
                       quota?.cooldownEndsAt &&
                       new Date(quota.cooldownEndsAt).getTime() > Date.now()
@@ -1478,24 +1610,77 @@ const Dashboard = () => {
                       </p>
                     ) : (
                       <ul className="space-y-3">
-                        {claimSplitNotices.map((n) => (
+                        {noticeItems.map((n) => {
+                          const unread =
+                            !n.readAt && !readNoticeIds.has(String(n.id));
+                          return (
                           <li
                             key={n.id}
-                            className="rounded-lg border border-semantic-warning/30 bg-semantic-warning/10 p-3"
+                            data-notice-id={n.id}
+                            className={`rounded-lg border p-3 ${
+                              unread
+                                ? 'border-semantic-warning/50 bg-semantic-warning/15 cursor-pointer'
+                                : 'border-white/10 bg-cyber-surface/40'
+                            }`}
+                            onClick={() => {
+                              if (unread) markNoticeRead(n.id);
+                            }}
                           >
-                            <p className="text-xs font-mono tracking-widest text-semantic-warning uppercase mb-1">
-                              Task updated
-                            </p>
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <p className="text-xs font-mono tracking-widest text-semantic-warning uppercase">
+                                {n.kind === 'oqhide' || n.kind === 'oq_hide'
+                                  ? 'Open Question reply hidden'
+                                  : 'Task updated'}
+                              </p>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span
+                                  className={`text-[10px] font-mono tracking-widest uppercase ${
+                                    unread
+                                      ? 'text-semantic-warning'
+                                      : 'text-text-muted'
+                                  }`}
+                                >
+                                  {unread ? 'Unread · click to read' : 'Read'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteNotice(n.id);
+                                  }}
+                                  className="text-text-muted hover:text-red-300"
+                                  aria-label="Delete notice"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                            {n.title ? (
+                              <p className="text-sm text-white mb-1">{n.title}</p>
+                            ) : null}
                             <p className="text-sm text-text-secondary leading-snug">
                               {n.message}
                             </p>
+                            {n.href ? (
+                              <Link
+                                to={n.href}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (unread) markNoticeRead(n.id);
+                                }}
+                                className="text-xs text-neon-cyan hover:underline mt-2 inline-block"
+                              >
+                                View post →
+                              </Link>
+                            ) : null}
                             {n.createdAt ? (
                               <p className="text-[11px] font-mono text-text-muted mt-2">
                                 {new Date(n.createdAt).toLocaleString()}
                               </p>
                             ) : null}
                           </li>
-                        ))}
+                          );
+                        })}
                         {quota?.cooldownEndsAt &&
                           new Date(quota.cooldownEndsAt).getTime() >
                             Date.now() && (

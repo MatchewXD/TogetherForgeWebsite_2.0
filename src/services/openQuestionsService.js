@@ -4,6 +4,12 @@
  */
 
 import { supabase } from '../lib/supabase';
+import {
+  canonicalProjectSlug,
+  isStudioStageKey,
+  resolveLinkDisplayName,
+} from '../utils/ideaStatus';
+import { loadRelatedProjectOptions } from '../utils/relatedToOptions';
 
 export const OPEN_QUESTION_TITLE_MIN = 8;
 export const OPEN_QUESTION_TITLE_MAX = 160;
@@ -15,6 +21,23 @@ export const OPEN_QUESTION_REPLY_MIN = 2;
 export const OPEN_QUESTION_REPLY_MAX = 2000;
 export const OPEN_QUESTION_CLOSE_NOTE_MIN = 8;
 export const OPEN_QUESTION_CLOSE_NOTE_MAX = 500;
+export const OPEN_QUESTION_HIDE_NOTE_MIN = 8;
+export const OPEN_QUESTION_HIDE_NOTE_MAX = 500;
+export const QUESTION_IMAGE_BUCKET = 'question-images';
+export const QUESTION_IMAGE_MAX = 3;
+export const QUESTION_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+export const QUESTION_IMAGE_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+];
+
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || '')
+  );
+}
 
 function asUserError(error, fallback) {
   const msg = error?.message || fallback;
@@ -24,11 +47,19 @@ function asUserError(error, fallback) {
 }
 
 const QUESTION_SELECT =
-  'id, project_id, created_by, title, body, prompt, status, selected_reply_id, close_note, closed_at, closed_by, created_at, updated_at';
+  'id, project_id, related_to, created_by, title, body, prompt, status, selected_reply_id, close_note, closed_at, closed_by, closes_at, image_urls, created_at, updated_at';
 const QUESTION_SELECT_NO_PROMPT =
-  'id, project_id, created_by, title, body, status, selected_reply_id, close_note, closed_at, closed_by, created_at, updated_at';
+  'id, project_id, related_to, created_by, title, body, status, selected_reply_id, close_note, closed_at, closed_by, closes_at, image_urls, created_at, updated_at';
 const QUESTION_SELECT_NO_CLOSE =
-  'id, project_id, created_by, title, body, status, selected_reply_id, closed_at, closed_by, created_at, updated_at';
+  'id, project_id, related_to, created_by, title, body, status, selected_reply_id, closed_at, closed_by, closes_at, image_urls, created_at, updated_at';
+const QUESTION_SELECT_NO_RELATED =
+  'id, project_id, created_by, title, body, prompt, status, selected_reply_id, close_note, closed_at, closed_by, created_at, updated_at';
+const QUESTION_SELECT_NO_MEDIA =
+  'id, project_id, related_to, created_by, title, body, prompt, status, selected_reply_id, close_note, closed_at, closed_by, created_at, updated_at';
+const REPLY_SELECT =
+  'id, question_id, parent_id, user_id, body, image_urls, hidden_at, hidden_by, hidden_note, created_at';
+const REPLY_SELECT_MIN =
+  'id, question_id, parent_id, user_id, body, created_at';
 
 function isMissingCloseNote(error) {
   return /close_note/i.test(error?.message || '');
@@ -36,6 +67,91 @@ function isMissingCloseNote(error) {
 
 function isMissingPrompt(error) {
   return /\bprompt\b/i.test(error?.message || '');
+}
+
+function isMissingRelatedTo(error) {
+  return /related_to/i.test(error?.message || '');
+}
+
+function isMissingMedia(error) {
+  return /image_urls|closes_at|hidden_at|hidden_note/i.test(error?.message || '');
+}
+
+export function parseImageUrls(value) {
+  if (!value) return [];
+  const list = Array.isArray(value) ? value : [value];
+  return list
+    .map((u) => String(u || '').trim())
+    .filter((u) => /^https?:\/\//i.test(u))
+    .slice(0, QUESTION_IMAGE_MAX);
+}
+
+export function isQuestionAccepting(question, now = Date.now()) {
+  if (!question) return false;
+  const status = question.status || (question.isOpen === false ? 'closed' : 'open');
+  if (status === 'closed') return false;
+  const closes = question.closes_at || question.closesAt;
+  if (closes && new Date(closes).getTime() <= now) return false;
+  return true;
+}
+
+export function questionCloseLabel(question, now = Date.now()) {
+  const closes = question?.closesAt || question?.closes_at;
+  if (!closes) return '';
+  const ms = new Date(closes).getTime() - now;
+  if (!Number.isFinite(ms)) return '';
+  if (!isQuestionAccepting(question, now)) {
+    try {
+      return `Closed ${new Date(question.closedAt || closes).toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      })}`;
+    } catch {
+      return 'Closed';
+    }
+  }
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 1) return 'Less than a minute left';
+  if (minutes < 60) return `${minutes}m left`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `${hours}h left`;
+  const days = Math.floor(hours / 24);
+  return `${days}d left`;
+}
+
+/** Stages + no-project. Fake sprint rows (Core Features Sprint, Stability & Polish) are not listed. */
+export const QUESTION_RELATED_PHASES = [
+  { id: '', label: 'No project' },
+  { id: 'early', label: 'Early Game' },
+  { id: 'mid', label: 'Mid Game' },
+  { id: 'late', label: 'Late Game' },
+];
+
+const RETIRED_QUESTION_SLUGS = {
+  'core-features': 'mid',
+  'polish-playtests': 'late',
+};
+
+export function normalizeQuestionScope(value) {
+  const raw = String(value || '').trim();
+  if (!raw || raw === 'none') return '';
+  const lower = raw.toLowerCase();
+  if (RETIRED_QUESTION_SLUGS[lower]) return RETIRED_QUESTION_SLUGS[lower];
+  if (isStudioStageKey(lower)) {
+    if (lower.startsWith('early')) return 'early';
+    if (lower.startsWith('mid')) return 'mid';
+    if (lower.startsWith('late')) return 'late';
+  }
+  return canonicalProjectSlug(raw) || raw;
+}
+
+export function questionScopeLabel(relatedTo, project) {
+  const key = normalizeQuestionScope(relatedTo || project?.slug || '');
+  if (!key) return 'No project';
+  return resolveLinkDisplayName(key, project?.title) || project?.title || key;
 }
 
 export function emptyQuestionPrompt() {
@@ -164,6 +280,10 @@ export function mapReplyRow(row, profileMap = {}) {
     parentId: row.parent_id || null,
     userId: row.user_id,
     body: row.body || '',
+    images: parseImageUrls(row.image_urls),
+    hidden: Boolean(row.hidden_at),
+    hiddenAt: row.hidden_at || null,
+    hiddenNote: String(row.hidden_note || '').trim(),
     createdAt: row.created_at,
     author: profile,
   };
@@ -240,10 +360,12 @@ export function assembleQuestion(
     .map((s, i) => ({ ...s, rank: i + 1 }));
 
   const topRanked = suggestions[0] || null;
-
   const adoptedId = question.selected_reply_id || null;
   const adoptedSuggestion =
     suggestions.find((a) => a.id === adoptedId) || null;
+  const ordered = adoptedId
+    ? sortSuggestions(suggestions, 'votes', adoptedId)
+    : suggestions;
 
   const author = mapProfile(profileMap[question.created_by] || null);
   const nestedReplyCount = suggestions.reduce((n, a) => n + a.replyCount, 0);
@@ -262,23 +384,30 @@ export function assembleQuestion(
     preview:
       parseQuestionPrompt(question).context ||
       String(question.body || '').trim(),
-    status: question.status === 'closed' ? 'closed' : 'open',
+    status: isQuestionAccepting(question) ? 'open' : 'closed',
     adoptedReplyId: adoptedId,
     selectedReplyId: adoptedId,
+    pickedReplyId: adoptedId,
     closeNote: question.close_note || '',
     closedAt: question.closed_at || null,
+    closesAt: question.closes_at || null,
+    images: parseImageUrls(question.image_urls),
     closedBy: question.closed_by || null,
     createdAt: question.created_at,
     updatedAt: question.updated_at,
     author,
+    relatedTo: normalizeQuestionScope(
+      question.related_to || question.projects?.slug
+    ),
     project: projectFromRow(question),
-    suggestions,
+    suggestions: ordered,
     suggestionCount: suggestions.length,
     nestedReplyCount,
     supportTotal,
     topRanked,
     adoptedSuggestion,
-    isOpen: question.status !== 'closed',
+    pickedSuggestion: adoptedSuggestion,
+    isOpen: isQuestionAccepting(question),
   };
 }
 
@@ -286,22 +415,19 @@ function projectFromRow(question) {
   const nested = Array.isArray(question?.projects)
     ? question.projects[0]
     : question?.projects;
-  if (nested && typeof nested === 'object') {
-    return {
-      id: nested.id || question.project_id || null,
-      slug: nested.slug || null,
-      title: nested.title || null,
-    };
+  const related = normalizeQuestionScope(
+    question?.related_to || nested?.slug || question?.project?.slug || ''
+  );
+  const title = questionScopeLabel(related, nested || question?.project);
+  if (!related && !question?.project_id && !nested) {
+    return { id: null, slug: '', title: 'No project', relatedTo: '' };
   }
-  if (question?.project && typeof question.project === 'object') {
-    return {
-      id: question.project.id || question.project_id || null,
-      slug: question.project.slug || null,
-      title: question.project.title || null,
-    };
-  }
-  if (!question?.project_id) return null;
-  return { id: question.project_id, slug: null, title: null };
+  return {
+    id: nested?.id || question.project_id || related || null,
+    slug: related || nested?.slug || null,
+    title,
+    relatedTo: related,
+  };
 }
 
 export const QUESTION_SORTS = [
@@ -316,7 +442,7 @@ export const QUESTION_STATUS_FILTERS = [
   { value: 'all', label: 'All questions' },
   { value: 'open', label: 'Open' },
   { value: 'closed', label: 'Closed' },
-  { value: 'adopted', label: 'Adopted' },
+  { value: 'adopted', label: 'Picked' },
 ];
 
 export const ANSWER_SORTS = [
@@ -382,11 +508,24 @@ export function filterQuestions(
     if (!matchesQuestionSearch(q, search)) return false;
     if (status === 'open' && !q.isOpen) return false;
     if (status === 'closed' && q.isOpen) return false;
-    if (status === 'adopted' && !q.adoptedSuggestion) return false;
+    if (
+      (status === 'adopted' || status === 'picked') &&
+      !q.adoptedSuggestion &&
+      !q.pickedSuggestion
+    ) {
+      return false;
+    }
     if (key) {
+      const scope = normalizeQuestionScope(
+        q.relatedTo || q.project?.relatedTo || q.project?.slug || ''
+      );
       const pid = String(q.projectId || q.project?.id || '').toLowerCase();
       const slug = String(q.project?.slug || '').toLowerCase();
-      if (pid !== key && slug !== key) return false;
+      if (key === 'none') {
+        if (scope || pid) return false;
+      } else if (pid !== key && slug !== key && scope !== key) {
+        return false;
+      }
     }
     return true;
   });
@@ -437,21 +576,27 @@ export function filterSuggestions(list, { search = '', votedOnly = false } = {})
   });
 }
 
-export function sortSuggestions(list, mode = 'votes') {
+export function sortSuggestions(list, mode = 'votes', pickedId = null) {
   const rows = (list || []).slice();
   if (mode === 'newest') {
-    return rows.sort(
+    rows.sort(
       (a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0)
     );
-  }
-  if (mode === 'comments') {
-    return rows.sort(
+  } else if (mode === 'comments') {
+    rows.sort(
       (a, b) =>
         (Number(b?.replyCount) || 0) - (Number(a?.replyCount) || 0) ||
         new Date(a?.createdAt || 0) - new Date(b?.createdAt || 0)
     );
+  } else {
+    rows.sort(compareSuggestions);
   }
-  return rows.sort(compareSuggestions);
+  if (!pickedId) return rows;
+  return rows.sort((a, b) => {
+    const ap = a.id === pickedId ? 0 : 1;
+    const bp = b.id === pickedId ? 0 : 1;
+    return ap - bp;
+  });
 }
 
 async function loadProfileMap(userIds) {
@@ -486,6 +631,11 @@ function throwIfQuestionsMissing(error, fallback) {
 }
 
 async function loadQuestionRows({ projectId = null, questionId = null } = {}) {
+  try {
+    await supabase.rpc('close_expired_open_questions');
+  } catch {
+    /* listing still treats overdue questions as closed */
+  }
   const withProject = `${QUESTION_SELECT}, projects(id, slug, title)`;
   const withProjectNoPrompt = `${QUESTION_SELECT_NO_PROMPT}, projects(id, slug, title)`;
   const withProjectNoClose = `${QUESTION_SELECT_NO_CLOSE}, projects(id, slug, title)`;
@@ -505,6 +655,12 @@ async function loadQuestionRows({ projectId = null, questionId = null } = {}) {
   };
 
   let result = await run(withProject);
+  if (result.error && isMissingMedia(result.error)) {
+    result = await run(`${QUESTION_SELECT_NO_MEDIA}, projects(id, slug, title)`);
+  }
+  if (result.error && isMissingRelatedTo(result.error)) {
+    result = await run(`${QUESTION_SELECT_NO_RELATED}, projects(id, slug, title)`);
+  }
   if (result.error && isMissingPrompt(result.error)) {
     result = await run(withProjectNoPrompt);
   }
@@ -557,13 +713,20 @@ async function hydrateQuestions(list, viewerUserId = null) {
   if (!list.length) return [];
 
   const qids = list.map((q) => q.id);
-  const { data: replies, error: rErr } = await supabase
+  let replyRes = await supabase
     .from('open_question_replies')
-    .select('id, question_id, parent_id, user_id, body, created_at')
+    .select(REPLY_SELECT)
     .in('question_id', qids)
     .order('created_at', { ascending: true });
-
-  if (rErr) throw asUserError(rErr, 'Could not load suggestions.');
+  if (replyRes.error && isMissingMedia(replyRes.error)) {
+    replyRes = await supabase
+      .from('open_question_replies')
+      .select(REPLY_SELECT_MIN)
+      .in('question_id', qids)
+      .order('created_at', { ascending: true });
+  }
+  if (replyRes.error) throw asUserError(replyRes.error, 'Could not load suggestions.');
+  const replies = replyRes.data;
 
   const replyRows = replies || [];
   const suggestionIds = replyRows
@@ -630,21 +793,24 @@ export const openQuestionsService = {
   },
 
   async listProjects() {
-    const { data, error } = await supabase
-      .from('projects')
-      .select('id, slug, title')
-      .order('title', { ascending: true });
-    if (error) throw asUserError(error, 'Could not load projects.');
-    return (data || [])
-      .filter((p) => p?.id)
-      .map((p) => ({
-        id: p.id,
-        slug: p.slug || p.id,
-        title: p.title || p.slug || 'Project',
-      }));
+    const projects = await loadRelatedProjectOptions();
+    return (projects || []).map((p) => ({
+      id: p.id,
+      slug: p.id,
+      title: p.label,
+      label: p.label,
+    }));
   },
 
-  async createQuestion(projectId, { title, body, prompt } = {}, userId) {
+  async listScopes() {
+    const projects = await this.listProjects();
+    return {
+      phases: QUESTION_RELATED_PHASES,
+      projects: projects.map((p) => ({ id: p.slug || p.id, label: p.title })),
+    };
+  },
+
+  async createQuestion(projectId, { title, body, prompt, relatedTo, imageUrls, closesAt } = {}, userId) {
     if (!userId) throw new Error('Sign in to ask a question.');
     const t = String(title || '').trim();
     if (t.length < OPEN_QUESTION_TITLE_MIN) {
@@ -661,19 +827,59 @@ export const openQuestionsService = {
     const b = String(body || flattenQuestionPrompt(promptRow) || '')
       .trim()
       .slice(0, OPEN_QUESTION_BODY_MAX);
+    const scope = normalizeQuestionScope(
+      relatedTo != null ? relatedTo : projectId
+    );
+    let resolvedProjectId = null;
+    if (scope && !isStudioStageKey(scope)) {
+      const lookup = isUuid(scope) ? scope : null;
+      let q = supabase.from('projects').select('id, slug');
+      q = lookup ? q.eq('id', lookup) : q.eq('slug', scope);
+      const { data: projectRow } = await q.maybeSingle();
+      resolvedProjectId =
+        projectRow?.id || (isUuid(projectId) ? projectId : null);
+    }
+    let closes = null;
+    if (closesAt) {
+      const ms = new Date(closesAt).getTime();
+      if (Number.isFinite(ms)) closes = new Date(ms).toISOString();
+    }
     const row = {
-      project_id: projectId,
+      project_id: resolvedProjectId,
+      related_to: scope || null,
       created_by: userId,
       title: t,
       body: b || null,
       prompt: prompt ? promptRow : null,
       status: 'open',
+      image_urls: parseImageUrls(imageUrls),
+      closes_at: closes,
     };
     let { data, error } = await supabase
       .from('open_questions')
       .insert([row])
       .select(QUESTION_SELECT)
       .single();
+    if (error && isMissingMedia(error)) {
+      const { image_urls: _iu, closes_at: _ca, ...withoutMedia } = row;
+      const retryMedia = await supabase
+        .from('open_questions')
+        .insert([withoutMedia])
+        .select(QUESTION_SELECT_NO_RELATED)
+        .single();
+      data = retryMedia.data;
+      error = retryMedia.error;
+    }
+    if (error && isMissingRelatedTo(error)) {
+      const { related_to: _omitRelated, ...withoutRelated } = row;
+      const retryRelated = await supabase
+        .from('open_questions')
+        .insert([withoutRelated])
+        .select(QUESTION_SELECT_NO_RELATED)
+        .single();
+      data = retryRelated.data;
+      error = retryRelated.error;
+    }
     if (error && isMissingPrompt(error)) {
       const { prompt: _omit, ...withoutPrompt } = row;
       const retry = await supabase
@@ -705,7 +911,7 @@ export const openQuestionsService = {
     return assembleQuestion(data, [], await loadProfileMap([userId]), [], userId);
   },
 
-  async updateQuestion(questionId, { title, body, prompt } = {}) {
+  async updateQuestion(questionId, { title, body, prompt, imageUrls, closesAt } = {}) {
     const patch = {};
     if (title !== undefined) {
       const t = String(title || '').trim();
@@ -728,6 +934,17 @@ export const openQuestionsService = {
         .trim()
         .slice(0, OPEN_QUESTION_BODY_MAX);
       patch.body = b || null;
+    }
+    if (imageUrls !== undefined) {
+      patch.image_urls = parseImageUrls(imageUrls);
+    }
+    if (closesAt !== undefined) {
+      if (!closesAt) patch.closes_at = null;
+      else {
+        const ms = new Date(closesAt).getTime();
+        if (!Number.isFinite(ms)) throw new Error('Close time is not valid.');
+        patch.closes_at = new Date(ms).toISOString();
+      }
     }
     if (!Object.keys(patch).length) return null;
     let { data, error } = await supabase
@@ -779,15 +996,109 @@ export const openQuestionsService = {
   },
 
   async adoptSuggestion(questionId, replyId) {
-    if (!questionId || !replyId) throw new Error('Pick a suggestion to adopt.');
+    if (!questionId || !replyId) throw new Error('Pick an answer.');
     const { data, error } = await supabase
       .from('open_questions')
       .update({ selected_reply_id: replyId })
       .eq('id', questionId)
       .select('id, selected_reply_id, status')
       .single();
-    if (error) throw asUserError(error, 'Could not adopt that suggestion.');
+    if (error) throw asUserError(error, 'Could not pick that answer.');
     return data;
+  },
+
+  pickSuggestion(questionId, replyId) {
+    return this.adoptSuggestion(questionId, replyId);
+  },
+
+  async hideReply(replyId, hidden = true, note = '') {
+    if (!replyId) throw new Error('Reply not found.');
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const text = String(note || '').trim();
+    if (hidden) {
+      if (text.length < OPEN_QUESTION_HIDE_NOTE_MIN) {
+        throw new Error(
+          `Add a short note (at least ${OPEN_QUESTION_HIDE_NOTE_MIN} characters) so the author knows why.`
+        );
+      }
+      if (text.length > OPEN_QUESTION_HIDE_NOTE_MAX) {
+        throw new Error('That note is too long.');
+      }
+    }
+    const patch = hidden
+      ? {
+          hidden_at: new Date().toISOString(),
+          hidden_by: user?.id || null,
+          hidden_note: text,
+        }
+      : { hidden_at: null, hidden_by: null, hidden_note: null };
+    const { data, error } = await supabase
+      .from('open_question_replies')
+      .update(patch)
+      .eq('id', replyId)
+      .select('id, hidden_at, hidden_note')
+      .single();
+    if (error) throw asUserError(error, 'Could not update that reply.');
+    return data;
+  },
+
+  async listMyHiddenReplyNotices({ limit = 20 } = {}) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user?.id) return [];
+    const selectWithNote =
+      'id, question_id, body, hidden_at, hidden_note';
+    const selectMin = 'id, question_id, body, hidden_at';
+    let { data, error } = await supabase
+      .from('open_question_replies')
+      .select(selectWithNote)
+      .eq('user_id', user.id)
+      .not('hidden_at', 'is', null)
+      .order('hidden_at', { ascending: false })
+      .limit(limit);
+    if (error && /hidden_note/i.test(error.message || '')) {
+      const retry = await supabase
+        .from('open_question_replies')
+        .select(selectMin)
+        .eq('user_id', user.id)
+        .not('hidden_at', 'is', null)
+        .order('hidden_at', { ascending: false })
+        .limit(limit);
+      data = retry.data;
+      error = retry.error;
+    }
+    if (error) {
+      console.warn('[openQuestions] hidden notices', error.message);
+      return [];
+    }
+    const rows = data || [];
+    const qids = [...new Set(rows.map((r) => r.question_id).filter(Boolean))];
+    const titles = {};
+    if (qids.length) {
+      const { data: questions } = await supabase
+        .from('open_questions')
+        .select('id, title')
+        .in('id', qids);
+      for (const q of questions || []) titles[q.id] = q.title;
+    }
+    return rows.map((row) => {
+      const note = String(row.hidden_note || '').trim();
+      return {
+        id: `oqhide:${row.id}`,
+        replyId: row.id,
+        questionId: row.question_id,
+        href: `/questions/${row.question_id}/answers/${row.id}`,
+        title: titles[row.question_id] || 'Open Question',
+        message:
+          note ||
+          'Staff hid this reply as off-brief. Open the post to read the note.',
+        createdAt: row.hidden_at,
+        kind: 'oqhide',
+      };
+    });
   },
 
   async closeQuestion(questionId, { note, adoptedReplyId } = {}) {
@@ -868,7 +1179,7 @@ export const openQuestionsService = {
     return { supported: true };
   },
 
-  async postReply({ questionId, userId, body, parentId = null }) {
+  async postReply({ questionId, userId, body, parentId = null, imageUrls = [] }) {
     if (!userId) throw new Error('Sign in to reply.');
     const text = String(body || '').trim();
     if (text.length < OPEN_QUESTION_REPLY_MIN) {
@@ -877,7 +1188,7 @@ export const openQuestionsService = {
     if (text.length > OPEN_QUESTION_REPLY_MAX) {
       throw new Error('That reply is too long.');
     }
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('open_question_replies')
       .insert([
         {
@@ -885,10 +1196,27 @@ export const openQuestionsService = {
           user_id: userId,
           body: text,
           parent_id: parentId || null,
+          image_urls: parentId ? [] : parseImageUrls(imageUrls),
         },
       ])
-      .select('id, question_id, parent_id, user_id, body, created_at')
+      .select(REPLY_SELECT)
       .single();
+    if (error && isMissingMedia(error)) {
+      const retry = await supabase
+        .from('open_question_replies')
+        .insert([
+          {
+            question_id: questionId,
+            user_id: userId,
+            body: text,
+            parent_id: parentId || null,
+          },
+        ])
+        .select(REPLY_SELECT_MIN)
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
     if (error) {
       const msg = error.message || '';
       if (/closed/i.test(msg)) {
@@ -898,6 +1226,54 @@ export const openQuestionsService = {
     }
     const profileMap = await loadProfileMap([userId]);
     return mapReplyRow(data, profileMap);
+  },
+
+  async uploadQuestionImage(file, userId) {
+    if (!file) return null;
+    if (!userId) throw new Error('Sign in to upload an image.');
+    if (!QUESTION_IMAGE_TYPES.includes(file.type)) {
+      throw new Error('Image must be JPEG, PNG, WebP, or GIF.');
+    }
+    if (file.size > QUESTION_IMAGE_MAX_BYTES) {
+      throw new Error('Image must be under 5MB.');
+    }
+    const ext =
+      (file.name && file.name.split('.').pop()?.toLowerCase()) ||
+      (file.type === 'image/png' ? 'png' : 'jpg');
+    const safeExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)
+      ? ext
+      : 'jpg';
+    const path = `${userId}/${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 10)}.${safeExt}`;
+    const { error: upErr } = await supabase.storage
+      .from(QUESTION_IMAGE_BUCKET)
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type,
+      });
+    if (upErr) {
+      if (/bucket|not found|does not exist/i.test(upErr.message || '')) {
+        throw new Error(
+          'Image storage is not set up. Run supabase/sql/supabase_open_questions_media.sql.'
+        );
+      }
+      throw upErr;
+    }
+    const { data } = supabase.storage
+      .from(QUESTION_IMAGE_BUCKET)
+      .getPublicUrl(path);
+    return data?.publicUrl || null;
+  },
+
+  async uploadQuestionImages(files, userId) {
+    const urls = [];
+    for (const file of files || []) {
+      const url = await this.uploadQuestionImage(file, userId);
+      if (url) urls.push(url);
+    }
+    return urls;
   },
 
   async deleteReply(replyId) {

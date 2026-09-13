@@ -6,7 +6,11 @@ import {
   filterSuggestions,
   flattenQuestionPrompt,
   hasStructuredPrompt,
+  isQuestionAccepting,
+  normalizeQuestionScope,
+  parseImageUrls,
   parseQuestionPrompt,
+  questionScopeLabel,
   questionsListPath,
   sortQuestions,
   sortSuggestions,
@@ -32,14 +36,32 @@ function q(partial = {}) {
 
 function reply(partial) {
   return {
-    id: partial.id,
     question_id: 'q1',
     parent_id: partial.parent_id ?? null,
     user_id: partial.user_id || 'u1',
     body: partial.body || 'Suggestion',
     created_at: partial.created_at || '2026-08-01T01:00:00Z',
+    ...partial,
   };
 }
+
+describe('question images and close date', () => {
+  it('keeps at most 3 image urls', () => {
+    expect(parseImageUrls(['https://a.co/1.png', 'https://a.co/2.png', 'https://a.co/3.png', 'https://a.co/4.png'])).toHaveLength(3);
+    expect(parseImageUrls(['not-a-url'])).toEqual([]);
+  });
+
+  it('stops accepting replies after closes_at', () => {
+    expect(isQuestionAccepting({ status: 'open' })).toBe(true);
+    expect(
+      isQuestionAccepting({
+        status: 'open',
+        closes_at: '2020-01-01T00:00:00Z',
+      })
+    ).toBe(false);
+    expect(isQuestionAccepting({ status: 'closed' })).toBe(false);
+  });
+});
 
 describe('compareSuggestions', () => {
   it('ranks by supports, then replies, then earliest', () => {
@@ -145,6 +167,38 @@ describe('assembleQuestion', () => {
     ]);
     expect(view.topRanked?.id).toBe('s1');
     expect(view.suggestions[0].rank).toBe(1);
+  });
+
+  it('keeps a staff hide note on the reply', () => {
+    const view = assembleQuestion(q(), [
+      reply({
+        id: 's1',
+        body: 'Off brief',
+        hidden_at: '2026-09-12T00:00:00Z',
+        hidden_note: 'This missed the conditions.',
+      }),
+    ]);
+    expect(view.suggestions[0].hidden).toBe(true);
+    expect(view.suggestions[0].hiddenNote).toMatch(/conditions/);
+  });
+
+  it('pins a picked reply first without dropping the rest', () => {
+    const view = assembleQuestion(
+      q({ selected_reply_id: 's1' }),
+      [
+        reply({ id: 's1', body: 'Fits the game', created_at: '2026-08-01T01:00:00Z' }),
+        reply({ id: 's2', body: 'Popular but off-tone', created_at: '2026-08-01T01:05:00Z' }),
+      ],
+      {},
+      [
+        { reply_id: 's2', user_id: 'u2' },
+        { reply_id: 's2', user_id: 'u3' },
+      ]
+    );
+    expect(view.suggestions[0].id).toBe('s1');
+    expect(view.suggestions).toHaveLength(2);
+    expect(view.pickedSuggestion?.id).toBe('s1');
+    expect(view.topRanked?.id).toBe('s2');
   });
 
   it('keeps an adopted suggestion distinct from top-ranked', () => {
@@ -280,6 +334,33 @@ describe('filter and sort questions', () => {
   it('filters by project slug or id', () => {
     expect(filterQuestions(rows, { projectKey: 'tether' })[0].id).toBe('q-open');
     expect(filterQuestions(rows, { projectKey: 'p2' })[0].id).toBe('q-closed');
+  });
+
+  it('maps retired sprint rows to stages and allows no project', () => {
+    expect(normalizeQuestionScope('core-features')).toBe('mid');
+    expect(normalizeQuestionScope('polish-playtests')).toBe('late');
+    expect(questionScopeLabel('early')).toBe('Early Game');
+    expect(questionScopeLabel('')).toBe('No project');
+    const mixed = [
+      ...rows,
+      {
+        id: 'q-early',
+        relatedTo: 'early',
+        project: { slug: 'early', title: 'Early Game' },
+        title: 'Early call',
+        isOpen: true,
+      },
+      {
+        id: 'q-none',
+        relatedTo: '',
+        projectId: null,
+        project: { slug: '', title: 'No project' },
+        title: 'Studio call',
+        isOpen: true,
+      },
+    ];
+    expect(filterQuestions(mixed, { projectKey: 'early' })[0].id).toBe('q-early');
+    expect(filterQuestions(mixed, { projectKey: 'none' })[0].id).toBe('q-none');
   });
 
   it('sorts by newest, answers, votes, and title', () => {

@@ -69,8 +69,17 @@ const sampleQuestion = {
 
 const listAll = vi.fn(async () => [sampleQuestion]);
 const listProjects = vi.fn(async () => [
-  { id: 'p1', slug: 'tether', title: 'Tether' },
+  { id: 'tether', slug: 'tether', title: 'Tether' },
 ]);
+const listScopes = vi.fn(async () => ({
+  phases: [
+    { id: '', label: 'No project' },
+    { id: 'early', label: 'Early Game' },
+    { id: 'mid', label: 'Mid Game' },
+    { id: 'late', label: 'Late Game' },
+  ],
+  projects: [{ id: 'tether', label: 'Tether' }],
+}));
 const getById = vi.fn(async () => sampleQuestion);
 
 vi.mock('../services/openQuestionsService', async () => {
@@ -80,6 +89,7 @@ vi.mock('../services/openQuestionsService', async () => {
     openQuestionsService: {
       listAll: (...args) => listAll(...args),
       listProjects: (...args) => listProjects(...args),
+      listScopes: (...args) => listScopes(...args),
       getById: (...args) => getById(...args),
       listForProject: vi.fn(async () => [sampleQuestion]),
     },
@@ -94,8 +104,17 @@ describe('Open Questions pages', () => {
     vi.clearAllMocks();
     listAll.mockResolvedValue([sampleQuestion]);
     listProjects.mockResolvedValue([
-      { id: 'p1', slug: 'tether', title: 'Tether' },
+      { id: 'tether', slug: 'tether', title: 'Tether' },
     ]);
+    listScopes.mockResolvedValue({
+      phases: [
+        { id: '', label: 'No project' },
+        { id: 'early', label: 'Early Game' },
+        { id: 'mid', label: 'Mid Game' },
+        { id: 'late', label: 'Late Game' },
+      ],
+      projects: [{ id: 'tether', label: 'Tether' }],
+    });
     getById.mockResolvedValue(sampleQuestion);
   });
 

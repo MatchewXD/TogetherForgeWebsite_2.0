@@ -3,13 +3,24 @@ import { useEffect, useState } from 'react';
 import Button from '../ui/Buttons';
 import CharCount from '../ui/CharCount';
 import Modal from '../ui/Modal';
+import RelatedToSelect from '../ideas/RelatedToSelect';
+import QuestionImageField from './QuestionImageField';
 import {
   OPEN_QUESTION_CONDITION_MAX,
   OPEN_QUESTION_PROMPT_MAX,
   OPEN_QUESTION_TITLE_MAX,
+  QUESTION_RELATED_PHASES,
   emptyQuestionPrompt,
 } from '../../services/openQuestionsService';
 import { fieldControl, fieldLabel } from './questionStyles';
+
+function toDatetimeLocal(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 export default function AskQuestionModal({
   isOpen,
@@ -18,11 +29,15 @@ export default function AskQuestionModal({
   busy = false,
   editing = null,
   projects = [],
+  phases = QUESTION_RELATED_PHASES,
   selectedProjectId = '',
 }) {
   const [title, setTitle] = useState('');
   const [prompt, setPrompt] = useState(emptyQuestionPrompt());
-  const [projectId, setProjectId] = useState(selectedProjectId || '');
+  const [relatedTo, setRelatedTo] = useState(selectedProjectId || '');
+  const [closesAt, setClosesAt] = useState('');
+  const [imageFiles, setImageFiles] = useState([]);
+  const [existingUrls, setExistingUrls] = useState([]);
   const [formError, setFormError] = useState('');
 
   useEffect(() => {
@@ -32,7 +47,15 @@ export default function AskQuestionModal({
       ...emptyQuestionPrompt(),
       ...(editing?.prompt || {}),
     });
-    setProjectId(editing?.projectId || selectedProjectId || '');
+    setRelatedTo(
+      editing?.relatedTo ||
+        editing?.project?.slug ||
+        selectedProjectId ||
+        ''
+    );
+    setClosesAt(toDatetimeLocal(editing?.closesAt));
+    setImageFiles([]);
+    setExistingUrls(editing?.images || []);
     setFormError('');
   }, [isOpen, editing, selectedProjectId]);
 
@@ -40,8 +63,7 @@ export default function AskQuestionModal({
     setPrompt((prev) => ({ ...prev, [key]: value }));
   };
 
-  const needsProject = !editing && !selectedProjectId;
-  const canSubmit = Boolean(title.trim()) && (editing || projectId);
+  const canSubmit = Boolean(title.trim());
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,7 +72,11 @@ export default function AskQuestionModal({
       await onSave({
         title,
         prompt,
-        projectId: editing ? editing.projectId : projectId,
+        relatedTo,
+        projectId: editing ? editing.projectId : relatedTo,
+        closesAt: closesAt || null,
+        imageFiles,
+        existingUrls,
       });
     } catch (err) {
       setFormError(err?.message || 'Could not save.');
@@ -69,25 +95,23 @@ export default function AskQuestionModal({
           Set the brief the same way Ideas does: context first, then the
           question, then what a good answer must and must not be.
         </p>
-        {needsProject ? (
+        {!editing ? (
           <div>
-            <label className={fieldLabel} htmlFor="oq-project">
-              Project
+            <label className={fieldLabel} htmlFor="oq-related">
+              Related to
             </label>
-            <select
-              id="oq-project"
+            <RelatedToSelect
+              id="oq-related"
               className={fieldControl}
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              required
-            >
-              <option value="">Choose a project</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
+              value={relatedTo}
+              onChange={setRelatedTo}
+              phases={phases}
+              projects={projects}
+            />
+            <p className="text-xs text-text-muted mt-1">
+              Early, mid, or late game, a live project, or no project. Not a
+              bind on the task board.
+            </p>
           </div>
         ) : null}
 
@@ -214,6 +238,34 @@ export default function AskQuestionModal({
             placeholder="Links, related tasks, playtest notes, or constraints that are not in Context."
           />
           <CharCount value={prompt.additional} max={OPEN_QUESTION_PROMPT_MAX} />
+        </div>
+
+        <QuestionImageField
+          id="oq-question-images"
+          files={imageFiles}
+          existingUrls={existingUrls}
+          onChange={({ files, existingUrls: urls }) => {
+            setImageFiles(files);
+            setExistingUrls(urls);
+          }}
+          hint="Brief, volume sheets, or mood. Up to 3. JPEG, PNG, WebP, or GIF · max 5MB each."
+        />
+
+        <div>
+          <label className={fieldLabel} htmlFor="oq-closes">
+            Closes at (optional)
+          </label>
+          <input
+            id="oq-closes"
+            type="datetime-local"
+            className={fieldControl}
+            value={closesAt}
+            onChange={(e) => setClosesAt(e.target.value)}
+          />
+          <p className="text-xs text-text-muted mt-1">
+            At that time the question stops taking new replies. Staff can close
+            early. No auto-reopen.
+          </p>
         </div>
 
         {formError ? (

@@ -21,11 +21,14 @@ import {
   OPEN_QUESTION_REPLY_MAX,
   filterSuggestions,
   openQuestionsService,
+  questionCloseLabel,
   questionPath,
   questionsListPath,
   sortSuggestions,
 } from '../services/openQuestionsService';
+import { QuestionImageGrid } from '../components/questions/QuestionImageField';
 import { useStaffRole } from '../hooks/useStaffRole';
+import { pingUserNotices } from '../utils/userNotices';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
 import Card from '../components/ui/Card';
@@ -33,6 +36,7 @@ import CharCount from '../components/ui/CharCount';
 import LoadingScreen from '../components/ui/LoadingScreen';
 import AskQuestionModal from '../components/questions/AskQuestionModal';
 import CloseQuestionModal from '../components/questions/CloseQuestionModal';
+import HideReplyModal from '../components/questions/HideReplyModal';
 import QuestionPromptView from '../components/questions/QuestionPromptView';
 import PostAnswerModal from '../components/questions/PostAnswerModal';
 import AnswerCard from '../components/questions/AnswerCard';
@@ -68,6 +72,7 @@ export default function OpenQuestionDetail() {
   const [replyOpenFor, setReplyOpenFor] = useState(null);
   const [closeNote, setCloseNote] = useState('');
   const [closeOpen, setCloseOpen] = useState(false);
+  const [hideTargetId, setHideTargetId] = useState(null);
   const [searchTerm, setSearchTerm] = useState(() => searchParams.get('q') || '');
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
 
@@ -156,7 +161,11 @@ export default function OpenQuestionDetail() {
       search: debouncedSearch,
       votedOnly,
     });
-    return sortSuggestions(filtered, sortMode);
+    return sortSuggestions(
+      filtered,
+      sortMode,
+      question?.pickedReplyId || question?.adoptedReplyId || null
+    );
   }, [question, debouncedSearch, votedOnly, sortMode]);
 
   const listHref = questionsListPath({
@@ -181,16 +190,21 @@ export default function OpenQuestionDetail() {
     }
   };
 
-  const postSuggestion = async (body) => {
+  const postSuggestion = async (body, imageFiles = []) => {
     if (!question || !user?.id) {
       throw new Error('Sign in to post an answer.');
     }
     setBusy(true);
     try {
+      const imageUrls = await openQuestionsService.uploadQuestionImages(
+        imageFiles,
+        user.id
+      );
       await openQuestionsService.postReply({
         questionId: question.id,
         userId: user.id,
         body,
+        imageUrls,
       });
       showToast('Answer posted.', 'success');
       await load();
@@ -247,8 +261,8 @@ export default function OpenQuestionDetail() {
     if (!question || !isStaff) return;
     setBusy(true);
     try {
-      await openQuestionsService.adoptSuggestion(question.id, suggestionId);
-      showToast('Suggestion adopted as the official decision.', 'success');
+      await openQuestionsService.pickSuggestion(question.id, suggestionId);
+      showToast('Answer marked Picked.', 'success');
       await load();
     } catch (err) {
       showToast(err?.message || 'Could not adopt.', 'error');
@@ -277,11 +291,51 @@ export default function OpenQuestionDetail() {
     }
   };
 
-  const saveQuestion = async ({ title, prompt }) => {
+  const requestHideSuggestion = (suggestionId, hidden) => {
+    if (!hidden) {
+      void hideSuggestion(suggestionId, false, '');
+      return;
+    }
+    setHideTargetId(suggestionId);
+  };
+
+  const hideSuggestion = async (suggestionId, hidden, note = '') => {
     if (!question || !isStaff) return;
     setBusy(true);
     try {
-      await openQuestionsService.updateQuestion(question.id, { title, prompt });
+      await openQuestionsService.hideReply(suggestionId, hidden, note);
+      showToast(hidden ? 'Reply hidden. The author was notified.' : 'Reply shown again.', 'success');
+      setHideTargetId(null);
+      pingUserNotices();
+      await load();
+    } catch (err) {
+      if (hidden) throw err;
+      showToast(err?.message || 'Could not update that reply.', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveQuestion = async ({
+    title,
+    prompt,
+    closesAt,
+    imageFiles,
+    existingUrls,
+  }) => {
+    if (!question || !isStaff) return;
+    setBusy(true);
+    try {
+      const uploaded = await openQuestionsService.uploadQuestionImages(
+        imageFiles,
+        user.id
+      );
+      await openQuestionsService.updateQuestion(question.id, {
+        title,
+        prompt,
+        closesAt,
+        imageUrls: [...(existingUrls || []), ...uploaded],
+      });
       showToast('Question updated.', 'success');
       setFormOpen(false);
       await load();
@@ -398,6 +452,7 @@ export default function OpenQuestionDetail() {
             setReplyOpenFor={setReplyOpenFor}
             onVote={toggleSupport}
             onAdopt={adoptSuggestion}
+            onHide={requestHideSuggestion}
             onPostComment={postComment}
             onPostReply={postNestedReply}
           />
@@ -418,6 +473,7 @@ export default function OpenQuestionDetail() {
             patchParams={patchParams}
             onVote={toggleSupport}
             onAdopt={adoptSuggestion}
+            onHide={requestHideSuggestion}
             onPostSuggestion={postSuggestion}
             onCloseQuestion={() => setCloseOpen(true)}
             onEdit={() => setFormOpen(true)}
@@ -432,6 +488,12 @@ export default function OpenQuestionDetail() {
         onSave={saveQuestion}
         busy={busy}
         editing={question}
+      />
+      <HideReplyModal
+        isOpen={Boolean(hideTargetId)}
+        onClose={() => !busy && setHideTargetId(null)}
+        onSubmit={(note) => hideSuggestion(hideTargetId, true, note)}
+        busy={busy}
       />
       <CloseQuestionModal
         isOpen={closeOpen}
@@ -460,6 +522,7 @@ function QuestionPage({
   patchParams,
   onVote,
   onAdopt,
+  onHide,
   onPostSuggestion,
   onCloseQuestion,
   onEdit,
@@ -485,9 +548,9 @@ function QuestionPage({
           >
             {question.isOpen ? 'Open' : 'Closed'}
           </Badge>
-          {question.adoptedSuggestion ? (
+          {question.pickedSuggestion || question.adoptedSuggestion ? (
             <Badge variant="success" className="!normal-case">
-              Adopted
+              Picked
             </Badge>
           ) : null}
           {projectLabel ? (
@@ -542,15 +605,25 @@ function QuestionPage({
         </div>
       </header>
 
+      {questionCloseLabel(question) ? (
+        <p
+          className={`text-sm font-mono ${
+            question.isOpen ? 'text-neon-cyan' : 'text-semantic-success'
+          }`}
+        >
+          {questionCloseLabel(question)}
+        </p>
+      ) : null}
+
       <QuestionPromptView question={question} />
 
-      {question.adoptedSuggestion ? (
+      {(question.pickedSuggestion || question.adoptedSuggestion) ? (
         <div className="rounded-lg border border-semantic-success/40 bg-semantic-success/10 px-4 py-3">
           <p className="text-[10px] font-mono tracking-widest text-semantic-success uppercase mb-1">
-            Adopted decision
+            Picked
           </p>
           <p className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap">
-            {question.adoptedSuggestion.body}
+            {(question.pickedSuggestion || question.adoptedSuggestion).body}
           </p>
         </div>
       ) : null}
@@ -587,6 +660,9 @@ function QuestionPage({
             </Button>
           ) : null}
         </div>
+        <p className="text-sm text-text-secondary">
+          Votes inform staff. Replies that miss the conditions are off-brief.
+        </p>
 
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
@@ -644,6 +720,7 @@ function QuestionPage({
                   busy={busy}
                   onVote={onVote}
                   onAdopt={onAdopt}
+                  onHide={onHide}
                 />
               </li>
             ))}
@@ -686,10 +763,13 @@ function AnswerPage({
   setReplyOpenFor,
   onVote,
   onAdopt,
+  onHide,
   onPostComment,
   onPostReply,
 }) {
-  const isAdopted = question.adoptedSuggestion?.id === suggestion.id;
+  const isPicked =
+    (question.pickedSuggestion || question.adoptedSuggestion)?.id ===
+    suggestion.id;
 
   return (
     <div className="space-y-6">
@@ -717,9 +797,9 @@ function AnswerPage({
           {question.title}
         </h1>
         <div className="flex flex-wrap items-center gap-2">
-          {isAdopted ? (
+          {isPicked ? (
             <Badge variant="success" className="!normal-case">
-              Adopted
+              Picked
             </Badge>
           ) : null}
           <AuthorLine
@@ -739,17 +819,40 @@ function AnswerPage({
       <p className="text-base sm:text-lg text-text-primary leading-relaxed whitespace-pre-wrap">
         {suggestion.body}
       </p>
-
-      {isStaff && question.isOpen && !isAdopted ? (
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={busy}
-          onClick={() => onAdopt(suggestion.id)}
-        >
-          Adopt this answer
-        </Button>
+      {suggestion.hidden && suggestion.hiddenNote ? (
+        <div className="rounded-lg border border-cyber-border bg-cyber-surface/80 px-4 py-3">
+          <p className="text-[10px] font-mono tracking-widest text-text-muted uppercase mb-1">
+            Staff note
+          </p>
+          <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
+            {suggestion.hiddenNote}
+          </p>
+        </div>
       ) : null}
+      <QuestionImageGrid urls={suggestion.images} alt="" />
+
+      <div className="flex flex-wrap gap-2">
+        {isStaff && question.isOpen && !isPicked ? (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => onAdopt(suggestion.id)}
+          >
+            Mark Picked
+          </Button>
+        ) : null}
+        {isStaff ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => onHide?.(suggestion.id, !suggestion.hidden)}
+          >
+            {suggestion.hidden ? 'Show reply' : 'Hide off-brief'}
+          </Button>
+        ) : null}
+      </div>
 
       <div className="border-t border-white/10 pt-6 space-y-4">
         <div className="font-mono tracking-widest text-sm text-neon-cyan flex items-center gap-2">

@@ -29,6 +29,38 @@ export function readSeenNoticeKeys(userId) {
   }
 }
 
+const deletedStorageKey = (userId) =>
+  `tf_dash_notices_deleted_${userId || 'anon'}`;
+
+export function readDeletedNoticeIds(userId) {
+  if (!userId) return new Set();
+  try {
+    const raw = localStorage.getItem(deletedStorageKey(userId));
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.map((k) => String(k)));
+  } catch {
+    return new Set();
+  }
+}
+
+export function rememberDeletedNoticeIds(userId, ids) {
+  if (!userId) return;
+  const next = readDeletedNoticeIds(userId);
+  for (const id of ids || []) {
+    if (id) next.add(String(id));
+  }
+  const arr = [...next];
+  const overflow = arr.length - 400;
+  if (overflow > 0) arr.splice(0, overflow);
+  try {
+    localStorage.setItem(deletedStorageKey(userId), JSON.stringify(arr));
+  } catch {
+    /* ignore quota */
+  }
+}
+
 export function rememberNoticeKeys(userId, keys) {
   if (!userId) return;
   const next = readSeenNoticeKeys(userId);
@@ -52,6 +84,7 @@ export function rememberNoticeKeys(userId, keys) {
  *   suggestions?: Array<{id: string, status?: string}>,
  *   noticeItems?: Array<{id: string}>,
  *   seen?: Set<string>,
+ *   deleted?: Set<string>,
  * }} input
  */
 export function summarizeUserNotices({
@@ -59,6 +92,7 @@ export function summarizeUserNotices({
   suggestions = [],
   noticeItems = [],
   seen = new Set(),
+  deleted = new Set(),
 } = {}) {
   const joinUnseen = (joinRequests || []).filter(
     (row) => row?.id && !seen.has(noticeKey('join', row.id))
@@ -68,9 +102,12 @@ export function summarizeUserNotices({
     if (!REVIEWED_SUGGESTION_STATUSES.has(row.status)) return false;
     return !seen.has(noticeKey('suggestion', row.id));
   });
-  const noticeUnseen = (noticeItems || []).filter(
-    (row) => row?.id && !seen.has(noticeKey('notice', row.id))
-  );
+  const noticeUnseen = (noticeItems || []).filter((row) => {
+    if (!row?.id) return false;
+    if (deleted.has(String(row.id))) return false;
+    if (row.readAt || row.read_at) return false;
+    return !seen.has(noticeKey('notice', row.id));
+  });
 
   const joinRequestsFlag = joinUnseen.length > 0;
   const suggestionsFlag = suggestionUnseen.length > 0;
@@ -97,6 +134,5 @@ export function keysFromNoticeSummary(summary) {
   return [
     ...(summary.joinIds || []).map((id) => noticeKey('join', id)),
     ...(summary.suggestionIds || []).map((id) => noticeKey('suggestion', id)),
-    ...(summary.noticeIds || []).map((id) => noticeKey('notice', id)),
   ];
 }
