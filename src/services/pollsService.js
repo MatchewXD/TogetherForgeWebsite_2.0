@@ -24,11 +24,20 @@ export const POLL_PROJECT_TAGS = [
   { value: 'other', label: 'Other' },
 ];
 
+export const POLL_HEADER_TITLE = 'Polls';
+export const POLL_HEADER_SUBTITLE = 'Help Together Forge hear the room.';
+export const POLL_HEADER_BODY =
+  'When we need a clear choice, the options land here. Pick one, or pick none of these. Change your mind until it closes. Your vote tells us what people want.';
+
 export const POLL_INFORM_COPY =
-  'Votes inform staff. They do not lock the work.';
+  'Your vote tells us what people want. It does not lock the game.';
 
 export const POLL_EMPTY_LIVE =
-  'No live polls. Staff will post one when there is a short list to pick from.';
+  'There are currently no live polls.';
+
+export const POLL_NONE_NAME = 'None of these';
+export const POLL_NONE_DESCRIPTION = 'I do not want any of these.';
+export const POLL_NONE_SORT = 100;
 
 function asUserError(error, fallback) {
   const msg = error?.message || fallback;
@@ -64,6 +73,8 @@ export function pollManagePath(pollId) {
   return `/moderator?${params.toString()}`;
 }
 
+export const POLL_LIVE_HOLD_MS = 3 * 60 * 1000;
+
 export function isPollLive(poll) {
   if (!poll || poll.status !== 'live') return false;
   if (poll.closesAt && new Date(poll.closesAt).getTime() <= Date.now()) {
@@ -72,11 +83,45 @@ export function isPollLive(poll) {
   return true;
 }
 
+export function pollClosedAtMs(poll) {
+  if (!poll) return null;
+  if (poll.closedAt) {
+    const ms = new Date(poll.closedAt).getTime();
+    return Number.isFinite(ms) ? ms : null;
+  }
+  if (poll.closesAt) {
+    const ms = new Date(poll.closesAt).getTime();
+    if (Number.isFinite(ms) && ms <= Date.now()) return ms;
+  }
+  return null;
+}
+
+/** Closed polls stay in the Live list for 3 minutes so people can see the result. */
+export function isHeldOnLiveIndex(poll, now = Date.now()) {
+  if (isPollLive(poll)) return true;
+  const closedAt = pollClosedAtMs(poll);
+  if (closedAt == null) return false;
+  return now - closedAt < POLL_LIVE_HOLD_MS;
+}
+
 export function pollVoteTotal(poll) {
   return (poll?.options || []).reduce(
     (sum, o) => sum + (Number(o.voteCount) || 0),
     0
   );
+}
+
+export function winningOptionIds(options) {
+  let max = 0;
+  for (const option of options || []) {
+    const n = Number(option?.voteCount) || 0;
+    if (n > max) max = n;
+  }
+  if (max <= 0) return [];
+  return (options || [])
+    .filter((option) => (Number(option?.voteCount) || 0) === max)
+    .map((option) => option.id)
+    .filter(Boolean);
 }
 
 export function optionPercent(option, total) {
@@ -131,12 +176,34 @@ function normalizeTag(tag) {
   throw new Error('Project tag must be Tether, Studio, or Other.');
 }
 
+export function isNoneOptionName(name) {
+  return String(name || '').trim().toLowerCase() === POLL_NONE_NAME.toLowerCase();
+}
+
+export function staffPollOptions(options) {
+  return (options || []).filter((o) => !o?.isNone);
+}
+
+export function nonePollOption(options) {
+  return (options || []).find((o) => o?.isNone) || null;
+}
+
+export function orderedPollOptions(options) {
+  const staff = staffPollOptions(options).sort(
+    (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)
+  );
+  const none = nonePollOption(options);
+  return none ? [...staff, none] : staff;
+}
+
 function assertOptions(options) {
   const list = (options || [])
     .map((o) => ({
       name: String(o?.name || '').trim(),
       description: String(o?.description || '').trim(),
+      isNone: Boolean(o?.isNone) || isNoneOptionName(o?.name),
     }))
+    .filter((o) => !o.isNone)
     .filter((o) => o.name || o.description);
   if (list.length < POLL_OPTION_MIN) {
     throw new Error(`A poll needs at least ${POLL_OPTION_MIN} options.`);
@@ -182,20 +249,23 @@ function assertPollFields({ title, context, staffNote, closesAt }) {
 
 function mapOption(row) {
   if (!row) return null;
+  const isNone = Boolean(row.is_none) || isNoneOptionName(row.name);
   return {
     id: row.id,
     pollId: row.poll_id,
     sortOrder: row.sort_order,
-    name: row.name || '',
-    description: row.description || '',
+    name: isNone ? POLL_NONE_NAME : row.name || '',
+    description: isNone ? POLL_NONE_DESCRIPTION : row.description || '',
     voteCount: Number(row.vote_count) || 0,
+    isNone,
   };
 }
 
 function mapPoll(row, options = [], myOptionId = null, opener = null) {
   if (!row) return null;
-  const opts = (options || []).map(mapOption).filter(Boolean);
-  opts.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const opts = orderedPollOptions(
+    (options || []).map(mapOption).filter(Boolean)
+  );
   const status = row.status;
   const effectiveLive = status === 'live' && isPollLive({
     status,
@@ -218,8 +288,9 @@ function mapPoll(row, options = [], myOptionId = null, opener = null) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     options: opts,
-    optionCount: opts.length,
+    optionCount: staffPollOptions(opts).length,
     voteTotal: opts.reduce((s, o) => s + (o.voteCount || 0), 0),
+    noneOption: nonePollOption(opts),
     myOptionId: myOptionId || null,
     openerName: opener?.username || null,
     isLive: effectiveLive,
@@ -230,13 +301,24 @@ function mapPoll(row, options = [], myOptionId = null, opener = null) {
 
 async function loadOptions(pollIds) {
   if (!pollIds.length) return [];
-  const { data, error } = await supabase
+  const full = await supabase
+    .from('poll_options')
+    .select('id, poll_id, sort_order, name, description, vote_count, is_none')
+    .in('poll_id', pollIds)
+    .order('sort_order', { ascending: true });
+  if (!full.error) return full.data || [];
+  if (!/is_none/i.test(full.error.message || '')) {
+    throw asUserError(full.error, 'Could not load poll options.');
+  }
+  const fallback = await supabase
     .from('poll_options')
     .select('id, poll_id, sort_order, name, description, vote_count')
     .in('poll_id', pollIds)
     .order('sort_order', { ascending: true });
-  if (error) throw asUserError(error, 'Could not load poll options.');
-  return data || [];
+  if (fallback.error) {
+    throw asUserError(fallback.error, 'Could not load poll options.');
+  }
+  return fallback.data || [];
 }
 
 async function loadMyVotes(pollIds, userId) {
@@ -355,14 +437,21 @@ export const pollsService = {
   },
 
   async create({ title, context, projectTag, closesAt, options, publish }, userId) {
-    if (!userId) throw new Error('Sign in to create a poll.');
+    let uid = userId;
+    if (!uid) {
+      const { data } = await supabase.auth.getUser();
+      uid = data?.user?.id || null;
+    }
+    if (!uid) {
+      throw new Error('Could not read your session. Refresh and try again.');
+    }
     const fields = assertPollFields({ title, context, closesAt });
     const opts = assertOptions(options);
     const tag = normalizeTag(projectTag);
     const { data, error } = await supabase
       .from('polls')
       .insert({
-        created_by: userId,
+        created_by: uid,
         title: fields.title,
         context: fields.context || null,
         project_tag: tag,
@@ -382,7 +471,7 @@ export const pollsService = {
       await supabase.from('polls').delete().eq('id', pollId);
       throw err;
     }
-    return this.getById(pollId, { viewerUserId: userId });
+    return this.getById(pollId, { viewerUserId: uid });
   },
 
   async replaceOptions(pollId, options) {
@@ -390,17 +479,37 @@ export const pollsService = {
     const { error: delError } = await supabase
       .from('poll_options')
       .delete()
-      .eq('poll_id', pollId);
-    if (delError) throw asUserError(delError, 'Could not update options.');
-    const { error } = await supabase.from('poll_options').insert(
-      opts.map((o, i) => ({
-        poll_id: pollId,
-        sort_order: i,
-        name: o.name,
-        description: o.description,
-      }))
-    );
+      .eq('poll_id', pollId)
+      .eq('is_none', false);
+    if (delError) {
+      const all = await supabase.from('poll_options').delete().eq('poll_id', pollId);
+      if (all.error) throw asUserError(all.error, 'Could not update options.');
+    }
+    const staffRows = opts.map((o, i) => ({
+      poll_id: pollId,
+      sort_order: i,
+      name: o.name,
+      description: o.description,
+      is_none: false,
+    }));
+    const { error } = await supabase.from('poll_options').insert(staffRows);
     if (error) throw asUserError(error, 'Could not save options.');
+    const noneRow = {
+      poll_id: pollId,
+      sort_order: POLL_NONE_SORT,
+      name: POLL_NONE_NAME,
+      description: POLL_NONE_DESCRIPTION,
+      is_none: true,
+    };
+    const { error: noneError } = await supabase.from('poll_options').insert(noneRow);
+    if (noneError && !/unique|duplicate|one_none|already/i.test(noneError.message || '')) {
+      throw asUserError(noneError, 'Could not save options.');
+    }
+    try {
+      await supabase.rpc('ensure_poll_none_option', { p_poll_id: pollId });
+    } catch {
+      /* column/function may not exist yet; insert above is enough */
+    }
   },
 
   async update(pollId, { title, context, projectTag, closesAt, options, staffNote }) {

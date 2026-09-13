@@ -3,7 +3,7 @@
  * Public /polls is read and vote only.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Loader2, Plus, RefreshCw } from 'lucide-react';
 
@@ -12,6 +12,7 @@ import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Modal from '../ui/Modal';
 import CharCount from '../ui/CharCount';
+import { useStaffRole } from '../../hooks/useStaffRole';
 import {
   POLL_CONTEXT_MAX,
   POLL_INFORM_COPY,
@@ -21,12 +22,15 @@ import {
   POLL_OPTION_NAME_MAX,
   POLL_PROJECT_TAGS,
   POLL_STAFF_NOTE_MAX,
+  POLL_NONE_NAME,
   POLL_TITLE_MAX,
   emptyPollOptions,
   formatPollWhen,
+  orderedPollOptions,
   pollPath,
   pollsService,
   projectTagLabel,
+  staffPollOptions,
 } from '../../services/pollsService';
 
 const fieldClass =
@@ -60,7 +64,7 @@ function formFromPoll(poll) {
     context: poll.context || '',
     projectTag: poll.projectTag || '',
     closesAt: toDatetimeLocal(poll.closesAt),
-    options: (poll.options || []).map((o) => ({
+    options: staffPollOptions(poll.options).map((o) => ({
       name: o.name,
       description: o.description,
     })),
@@ -74,7 +78,22 @@ function statusBadge(poll) {
   return { variant: 'success', label: 'Closed' };
 }
 
+function ActionNotice({ message, kind = 'error' }) {
+  if (!message) return null;
+  return (
+    <p
+      role="alert"
+      className={`text-sm ${
+        kind === 'success' ? 'text-semantic-success' : 'text-semantic-danger'
+      }`}
+    >
+      {message}
+    </p>
+  );
+}
+
 export default function PollsPanel() {
+  const { userId } = useStaffRole();
   const [searchParams, setSearchParams] = useSearchParams();
   const [polls, setPolls] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -85,9 +104,12 @@ export default function PollsPanel() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState('');
+  const [modalError, setModalError] = useState('');
+  const [cardError, setCardError] = useState(null);
   const [closeTarget, setCloseTarget] = useState(null);
   const [closeNote, setCloseNote] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const actionNoticeRef = useRef(null);
 
   const selectedId = searchParams.get('poll');
 
@@ -113,6 +135,14 @@ export default function PollsPanel() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!formError) return;
+    actionNoticeRef.current?.scrollIntoView({
+      block: 'nearest',
+      behavior: 'smooth',
+    });
+  }, [formError]);
 
   useEffect(() => {
     if (!selectedId || !polls.length) return;
@@ -192,6 +222,7 @@ export default function PollsPanel() {
   const save = async ({ publish = false } = {}) => {
     setBusyKey('save');
     setFormError('');
+    setCardError(null);
     try {
       if (editing) {
         await pollsService.update(editing.id, payloadFromForm(false));
@@ -202,7 +233,7 @@ export default function PollsPanel() {
           showToast('Poll saved.');
         }
       } else {
-        await pollsService.create(payloadFromForm(publish));
+        await pollsService.create(payloadFromForm(publish), userId);
         showToast(publish ? 'Poll is live.' : 'Draft saved.');
       }
       closeEditor();
@@ -216,13 +247,16 @@ export default function PollsPanel() {
 
   const openPoll = async (poll) => {
     setBusyKey(`open-${poll.id}`);
-    setError('');
+    setCardError(null);
     try {
       await pollsService.open(poll.id);
       showToast('Poll is live.');
       await load();
     } catch (err) {
-      setError(err?.message || 'Could not open poll.');
+      setCardError({
+        id: poll.id,
+        message: err?.message || 'Could not open poll.',
+      });
     } finally {
       setBusyKey(null);
     }
@@ -231,7 +265,7 @@ export default function PollsPanel() {
   const confirmClose = async () => {
     if (!closeTarget) return;
     setBusyKey(`close-${closeTarget.id}`);
-    setError('');
+    setModalError('');
     try {
       await pollsService.close(closeTarget.id, { staffNote: closeNote });
       showToast('Poll closed.');
@@ -239,7 +273,7 @@ export default function PollsPanel() {
       setCloseNote('');
       await load();
     } catch (err) {
-      setError(err?.message || 'Could not close poll.');
+      setModalError(err?.message || 'Could not close poll.');
     } finally {
       setBusyKey(null);
     }
@@ -248,14 +282,14 @@ export default function PollsPanel() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     setBusyKey(`del-${deleteTarget.id}`);
-    setError('');
+    setModalError('');
     try {
       await pollsService.remove(deleteTarget.id);
       showToast('Poll deleted.');
       setDeleteTarget(null);
       await load();
     } catch (err) {
-      setError(err?.message || 'Could not delete poll.');
+      setModalError(err?.message || 'Could not delete poll.');
     } finally {
       setBusyKey(null);
     }
@@ -293,24 +327,21 @@ export default function PollsPanel() {
             {POLL_INFORM_COPY} The public page is read and vote only.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={load} className="gap-2">
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </Button>
-          <Button size="sm" onClick={openCreate} className="gap-2">
-            <Plus className="w-4 h-4" />
-            New poll
-          </Button>
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" onClick={load} className="gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </Button>
+            <Button size="sm" onClick={openCreate} className="gap-2">
+              <Plus className="w-4 h-4" />
+              New poll
+            </Button>
+          </div>
+          <ActionNotice message={toast} kind="success" />
+          <ActionNotice message={error} />
         </div>
       </div>
-
-      {toast ? <p className="text-sm text-semantic-success">{toast}</p> : null}
-      {error ? (
-        <p className="text-sm text-semantic-danger" role="alert">
-          {error}
-        </p>
-      ) : null}
 
       {loading ? (
         <div className="flex items-center gap-2 text-text-muted text-sm">
@@ -340,12 +371,18 @@ export default function PollsPanel() {
                     </div>
                     <p className="text-xs font-mono text-text-muted">
                       {projectTagLabel(poll.projectTag) || 'No tag'} ·{' '}
-                      {poll.optionCount} options · {poll.voteTotal} vote
+                      {poll.optionCount} options + {POLL_NONE_NAME} ·{' '}
+                      {poll.voteTotal} vote
                       {poll.voteTotal === 1 ? '' : 's'}
                       {poll.closesAt
                         ? ` · closes ${formatPollWhen(poll.closesAt)}`
                         : ''}
                       {poll.openerName ? ` · opened by ${poll.openerName}` : ''}
+                    </p>
+                    <p className="text-xs font-mono text-text-secondary mt-2">
+                      {orderedPollOptions(poll.options)
+                        .map((o) => `${o.name} ${o.voteCount}`)
+                        .join(' · ')}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -380,6 +417,7 @@ export default function PollsPanel() {
                         size="sm"
                         disabled={busy}
                         onClick={() => {
+                          setModalError('');
                           setCloseNote(poll.staffNote || '');
                           setCloseTarget(poll);
                         }}
@@ -391,12 +429,20 @@ export default function PollsPanel() {
                       variant="danger"
                       size="sm"
                       disabled={busy}
-                      onClick={() => setDeleteTarget(poll)}
+                      onClick={() => {
+                        setModalError('');
+                        setDeleteTarget(poll);
+                      }}
                     >
                       Delete
                     </Button>
                   </div>
                 </div>
+                {cardError?.id === poll.id ? (
+                  <div className="mt-3">
+                    <ActionNotice message={cardError.message} />
+                  </div>
+                ) : null}
               </Card>
             );
           })}
@@ -417,13 +463,9 @@ export default function PollsPanel() {
           }}
         >
           <p className="text-sm text-text-secondary leading-relaxed">
-            {POLL_INFORM_COPY} No write-in. No comments. Two to eight options.
+            {POLL_INFORM_COPY} No write-in. No comments. Two to eight staff
+            options. {POLL_NONE_NAME} is always last and is not one of those.
           </p>
-          {formError ? (
-            <p className="text-sm text-semantic-danger" role="alert">
-              {formError}
-            </p>
-          ) : null}
           <div>
             <label className={labelClass} htmlFor="poll-title">
               Title
@@ -492,19 +534,15 @@ export default function PollsPanel() {
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className={labelClass + ' !mb-0'}>Options</p>
-              {!optionsLocked && form.options.length < POLL_OPTION_MAX ? (
-                <Button type="button" variant="ghost" size="sm" onClick={addOption}>
-                  Add option
-                </Button>
-              ) : null}
-            </div>
+            <p className={labelClass + ' !mb-0'}>Options</p>
             {optionsLocked ? (
               <p className="text-xs text-text-muted">
                 Options are locked while the poll is live or closed.
               </p>
             ) : null}
+            <p className="text-xs text-text-muted">
+              {POLL_NONE_NAME} is added automatically. Members can pick it.
+            </p>
             {form.options.map((option, index) => (
               <div
                 key={index}
@@ -544,6 +582,11 @@ export default function PollsPanel() {
                 />
               </div>
             ))}
+            {!optionsLocked && form.options.length < POLL_OPTION_MAX ? (
+              <Button type="button" variant="ghost" size="sm" onClick={addOption}>
+                Add option
+              </Button>
+            ) : null}
           </div>
 
           {editing?.isClosed ? (
@@ -565,7 +608,9 @@ export default function PollsPanel() {
             </div>
           ) : null}
 
-          <div className="flex flex-wrap gap-2 pt-2">
+          <div ref={actionNoticeRef} className="space-y-3 pt-2">
+            <ActionNotice message={formError} />
+            <div className="flex flex-wrap gap-2">
             <Button type="submit" variant="secondary" disabled={Boolean(busyKey)}>
               {editing && !editing.isDraft ? 'Save' : 'Save draft'}
             </Button>
@@ -591,6 +636,7 @@ export default function PollsPanel() {
             <Button type="button" variant="ghost" onClick={closeEditor}>
               Cancel
             </Button>
+            </div>
           </div>
         </form>
       </Modal>
@@ -614,13 +660,16 @@ export default function PollsPanel() {
           value={closeNote}
           onChange={(e) => setCloseNote(e.target.value)}
         />
-        <div className="flex gap-2 mt-4">
+        <div className="space-y-3 mt-4">
+          <ActionNotice message={modalError} />
+          <div className="flex gap-2">
           <Button disabled={Boolean(busyKey)} onClick={confirmClose}>
             Close poll
           </Button>
           <Button variant="ghost" onClick={() => setCloseTarget(null)}>
             Cancel
           </Button>
+          </div>
         </div>
       </Modal>
 
@@ -633,7 +682,9 @@ export default function PollsPanel() {
           Deleting a live poll should be rare. Prefer close. This cannot be
           undone.
         </p>
-        <div className="flex gap-2">
+        <div className="space-y-3">
+          <ActionNotice message={modalError} />
+          <div className="flex gap-2">
           <Button
             variant="danger"
             disabled={Boolean(busyKey)}
@@ -644,6 +695,7 @@ export default function PollsPanel() {
           <Button variant="ghost" onClick={() => setDeleteTarget(null)}>
             Cancel
           </Button>
+          </div>
         </div>
       </Modal>
     </section>

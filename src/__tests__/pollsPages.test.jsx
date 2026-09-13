@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 vi.mock('../lib/supabase', () => ({
@@ -35,6 +35,7 @@ vi.mock('../services/pollsService', async () => {
 
 import Polls from '../pages/Polls';
 import PollDetail from '../pages/PollDetail';
+import PollVotePanel from '../components/polls/PollVotePanel';
 import { pollsService } from '../services/pollsService';
 
 describe('Polls pages', () => {
@@ -49,9 +50,16 @@ describe('Polls pages', () => {
         <Polls />
       </MemoryRouter>
     );
-    expect(await screen.findByText(/No live polls/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Help Together Forge hear the room/i)
+    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Polls' })).toBeInTheDocument();
+    expect(
+      await screen.findByText(/There are currently no live polls/i)
+    ).toBeInTheDocument();
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(screen.queryByText(/write-in/i)).toBeNull();
+    expect(screen.queryByText(/Moderation Dashboard/i)).toBeNull();
   });
 
   it('has no comment thread on a missing poll', async () => {
@@ -64,5 +72,31 @@ describe('Polls pages', () => {
     );
     expect(await screen.findByText(/Poll not found/i)).toBeInTheDocument();
     expect(screen.queryByText(/comment/i)).toBeNull();
+  });
+
+  it('pops a sign-in notice if a logged-out visitor tries to vote', async () => {
+    render(
+      <MemoryRouter>
+        <PollVotePanel
+          poll={{
+            status: 'live',
+            isClosed: false,
+            options: [
+              { id: 'a', name: 'Spark', description: 'Zap.', isNone: false },
+              {
+                id: 'n',
+                name: 'None of these',
+                description: '',
+                isNone: true,
+              },
+            ],
+          }}
+          user={null}
+          selectedId={null}
+        />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Spark/i }));
+    expect(await screen.findByText(/Sign in to vote/i)).toBeInTheDocument();
   });
 });

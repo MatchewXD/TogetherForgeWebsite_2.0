@@ -16,7 +16,6 @@ import {
 import { useStaffRole } from '../hooks/useStaffRole';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
-import Card from '../components/ui/Card';
 import LoadingScreen from '../components/ui/LoadingScreen';
 import PollVotePanel from '../components/polls/PollVotePanel';
 
@@ -73,6 +72,8 @@ export default function PollDetail() {
 
   const vote = async (optionId) => {
     if (!user?.id || !optionId) return;
+    const previous = selectedId;
+    setSelectedId(optionId);
     setBusy(true);
     setError('');
     try {
@@ -82,6 +83,7 @@ export default function PollDetail() {
       setToast('Vote saved.');
       window.setTimeout(() => setToast(''), 4000);
     } catch (err) {
+      setSelectedId(previous);
       setError(err?.message || 'Could not save your vote.');
     } finally {
       setBusy(false);
@@ -134,13 +136,13 @@ export default function PollDetail() {
           Polls
         </Link>
 
-        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
           <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
             {poll.title}
           </h1>
           <Badge
             variant={poll.isLive ? 'neon' : 'success'}
-            className="!normal-case"
+            className="!normal-case shrink-0"
           >
             {poll.isLive ? 'Live' : 'Closed'}
           </Badge>
@@ -149,39 +151,35 @@ export default function PollDetail() {
           <p className="text-xs font-mono text-neon-cyan mb-3">{tag}</p>
         ) : null}
         {poll.context ? (
-          <p className="text-text-secondary leading-relaxed mb-6">
+          <p className="text-text-secondary leading-relaxed mb-4">
             {poll.context}
           </p>
         ) : null}
-
         {isStaff ? (
-          <p className="text-sm mb-6">
+          <p className="text-sm mb-4">
             <Link to={pollManagePath(poll.id)} className="text-neon-cyan">
               Manage
             </Link>
           </p>
         ) : null}
 
+        <PollVotePanel
+          poll={poll}
+          user={user}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onVote={vote}
+          busy={busy}
+          canVote={enabled}
+        />
         {toast ? (
-          <p className="text-sm text-semantic-success mb-4">{toast}</p>
+          <p className="text-sm text-semantic-success mt-3">{toast}</p>
         ) : null}
         {error ? (
-          <p className="text-sm text-semantic-danger mb-4" role="alert">
+          <p className="text-sm text-semantic-danger mt-3" role="alert">
             {error}
           </p>
         ) : null}
-
-        <Card variant="subtle" className="p-5 sm:p-6">
-          <PollVotePanel
-            poll={poll}
-            user={user}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onVote={vote}
-            busy={busy}
-            canVote={enabled}
-          />
-        </Card>
       </div>
     </div>
   );

@@ -659,22 +659,9 @@ const IdeaEdit = () => {
 
             {/* Key Features */}
             <section className="space-y-3 border border-cyber-border rounded-xl p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-mono text-sm tracking-widest text-neon-cyan uppercase">
-                  Key Features
-                </h3>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  className="gap-1.5"
-                  disabled={(formData.features || []).length >= MAX_MULTI}
-                  onClick={addFeature}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Add feature
-                </Button>
-              </div>
+              <h3 className="font-mono text-sm tracking-widest text-neon-cyan uppercase">
+                Key Features
+              </h3>
               {(formData.features || []).length === 0 && (
                 <p className="text-sm text-text-muted italic">
                   No features added yet.
@@ -726,6 +713,17 @@ const IdeaEdit = () => {
                   </div>
                 </div>
               ))}
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="gap-1.5"
+                disabled={(formData.features || []).length >= MAX_MULTI}
+                onClick={addFeature}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add feature
+              </Button>
             </section>
 
             {SINGLE_SECTIONS.map((sec) => {
@@ -739,18 +737,7 @@ const IdeaEdit = () => {
                     <h3 className="font-mono text-sm tracking-widest text-neon-cyan uppercase">
                       {sec.label}
                     </h3>
-                    {!active ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        className="gap-1.5"
-                        onClick={() => addSingleSection(sec.key)}
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        Add
-                      </Button>
-                    ) : (
+                    {active ? (
                       <button
                         type="button"
                         onClick={() =>
@@ -761,7 +748,7 @@ const IdeaEdit = () => {
                         <Trash2 className="w-4 h-4" />
                         Remove
                       </button>
-                    )}
+                    ) : null}
                   </div>
                   {active ? (
                     <div>
@@ -779,9 +766,21 @@ const IdeaEdit = () => {
                       />
                     </div>
                   ) : (
-                    <p className="text-sm text-text-muted italic">
-                      Not added. Click Add to include this section.
-                    </p>
+                    <>
+                      <p className="text-sm text-text-muted italic">
+                        Not added. Click Add to include this section.
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="gap-1.5"
+                        onClick={() => addSingleSection(sec.key)}
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Add
+                      </Button>
+                    </>
                   )}
                 </section>
               );
@@ -789,24 +788,9 @@ const IdeaEdit = () => {
 
             {/* Additional Notes */}
             <section className="space-y-3 border border-cyber-border rounded-xl p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-mono text-sm tracking-widest text-neon-cyan uppercase">
-                  Additional Notes
-                </h3>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  className="gap-1.5"
-                  disabled={
-                    (formData.additionalNotes || []).length >= MAX_MULTI
-                  }
-                  onClick={addNote}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Add note
-                </Button>
-              </div>
+              <h3 className="font-mono text-sm tracking-widest text-neon-cyan uppercase">
+                Additional Notes
+              </h3>
               {(formData.additionalNotes || []).length === 0 && (
                 <p className="text-sm text-text-muted italic">
                   No notes added yet.
@@ -838,6 +822,19 @@ const IdeaEdit = () => {
                   </button>
                 </div>
               ))}
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="gap-1.5"
+                disabled={
+                  (formData.additionalNotes || []).length >= MAX_MULTI
+                }
+                onClick={addNote}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add note
+              </Button>
             </section>
           </Card>
 

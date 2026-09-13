@@ -1279,37 +1279,6 @@ const IdeaSubmit = () => {
                 </div>
               </div>
 
-              {/* Picker grid for inactive sections */}
-              {inactivePickerItems.length > 0 && (
-                <div>
-                  <div className="font-mono text-xs tracking-widest text-text-muted uppercase mb-3">
-                    Add a section
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                    {inactivePickerItems.map((item) => (
-                      <button
-                        key={item.key}
-                        type="button"
-                        onClick={() => activateSection(item.key)}
-                        className="text-left rounded-xl border border-cyber-border bg-cyber-surface/50 hover:border-neon-cyan/50 hover:bg-neon-cyan/5 p-3.5 transition-colors group"
-                      >
-                        <div className="flex items-start gap-2">
-                          <Plus className="w-4 h-4 text-neon-cyan shrink-0 mt-0.5 opacity-70 group-hover:opacity-100" />
-                          <div className="min-w-0">
-                            <div className="font-mono text-xs tracking-widest text-neon-cyan uppercase mb-1">
-                              {item.label}
-                            </div>
-                            <p className="text-xs text-text-muted leading-relaxed line-clamp-2">
-                              {item.description}
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Expanded active sections */}
               {activePickerItems.length > 0 && (
                 <div className="space-y-4">
@@ -1540,9 +1509,39 @@ const IdeaSubmit = () => {
 
               {activePickerItems.length === 0 && (
                 <p className="text-sm text-text-muted italic text-center py-4">
-                  No optional sections added yet. Use the buttons above, or
+                  No optional sections added yet. Use the buttons below, or
                   continue to preview.
                 </p>
+              )}
+
+              {inactivePickerItems.length > 0 && (
+                <div>
+                  <div className="font-mono text-xs tracking-widest text-text-muted uppercase mb-3">
+                    Add a section
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                    {inactivePickerItems.map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => activateSection(item.key)}
+                        className="text-left rounded-xl border border-cyber-border bg-cyber-surface/50 hover:border-neon-cyan/50 hover:bg-neon-cyan/5 p-3.5 transition-colors group"
+                      >
+                        <div className="flex items-start gap-2">
+                          <Plus className="w-4 h-4 text-neon-cyan shrink-0 mt-0.5 opacity-70 group-hover:opacity-100" />
+                          <div className="min-w-0">
+                            <div className="font-mono text-xs tracking-widest text-neon-cyan uppercase mb-1">
+                              {item.label}
+                            </div>
+                            <p className="text-xs text-text-muted leading-relaxed line-clamp-2">
+                              {item.description}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}
