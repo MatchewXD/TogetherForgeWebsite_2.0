@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase';
 import AvatarMenu from './account/AvatarMenu';
 import { onProfileUpdated } from '../utils/profileEvents';
 import { SHOW_RELEASED_GAMES } from '../constants/featureFlags';
+import { arePollsEnabled } from '../constants/pollsEnabled';
 
 const TF_LOGO_SRC = '/images/TF_Logo_Ideas_V2.webp';
 
@@ -35,16 +36,19 @@ const EXPLORE_LINKS = [
     : []),
 ];
 
-const SUPPORT_LINKS = [
-  { to: '/open-work', label: 'Open Work' },
-  { to: '/questions', label: 'Open Questions' },
-  { to: '/donate', label: 'Donate' },
-  { to: '/transparency', label: 'Transparency' },
-  { to: '/faq', label: 'FAQ' },
-  { to: '/contact', label: 'Contact' },
-  { to: '/bugs', label: 'Bug Tracker' },
-  { to: '/bugs/report', label: 'Report a Bug' },
-];
+function getSupportLinks() {
+  return [
+    { to: '/open-work', label: 'Open Work' },
+    { to: '/questions', label: 'Open Questions' },
+    ...(arePollsEnabled() ? [{ to: '/polls', label: 'Polls' }] : []),
+    { to: '/donate', label: 'Donate' },
+    { to: '/transparency', label: 'Transparency' },
+    { to: '/faq', label: 'FAQ' },
+    { to: '/contact', label: 'Contact' },
+    { to: '/bugs', label: 'Bug Tracker' },
+    { to: '/bugs/report', label: 'Report a Bug' },
+  ];
+}
 
 function pathMatches(pathname, to, end = false) {
   if (end || to === '/') return pathname === to;
@@ -274,6 +278,7 @@ const Navbar = () => {
   }, []);
 
   const isActive = (to, end) => pathMatches(location.pathname, to, end);
+  const supportLinks = getSupportLinks();
 
   return (
     <nav className="navbar fixed top-0 left-0 right-0 z-50">
@@ -328,8 +333,8 @@ const Navbar = () => {
 
           <DesktopDropdown
             label="Support"
-            links={SUPPORT_LINKS}
-            active={isGroupActive(location.pathname, SUPPORT_LINKS)}
+            links={supportLinks}
+            active={isGroupActive(location.pathname, supportLinks)}
           />
 
           {user ? (
@@ -430,7 +435,7 @@ const Navbar = () => {
             <button
               type="button"
               className={`flex items-center justify-between py-2.5 text-left ${
-                isGroupActive(location.pathname, SUPPORT_LINKS)
+                isGroupActive(location.pathname, supportLinks)
                   ? 'text-neon-cyan'
                   : 'text-text-secondary'
               }`}
@@ -446,7 +451,7 @@ const Navbar = () => {
             </button>
             {mobileSupportOpen && (
               <div className="pl-3 border-l border-white/10 flex flex-col gap-1 mb-2">
-                {SUPPORT_LINKS.map((link) => (
+                {supportLinks.map((link) => (
                   <Link
                     key={link.to}
                     to={link.to}

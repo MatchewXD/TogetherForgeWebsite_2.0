@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import DiscordLink from '../ui/DiscordLink';
 import { useReportConcern } from '../../context/ReportConcernContext';
 import { SHOW_RELEASED_GAMES } from '../../constants/featureFlags';
+import { arePollsEnabled } from '../../constants/pollsEnabled';
 
 const Footer = () => {
   const { openReportConcern } = useReportConcern();
@@ -47,6 +48,14 @@ const Footer = () => {
             >
               QUESTIONS
             </Link>
+            {arePollsEnabled() ? (
+              <Link
+                to="/polls"
+                className="hover:text-neon-cyan transition-colors"
+              >
+                POLLS
+              </Link>
+            ) : null}
             <Link
               to="/get-involved"
               className="hover:text-neon-cyan transition-colors"

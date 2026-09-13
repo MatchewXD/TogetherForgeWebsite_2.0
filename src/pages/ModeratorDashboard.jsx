@@ -34,6 +34,7 @@ import {
   EyeOff,
   Award,
   Scale,
+  BarChart3,
 } from 'lucide-react';
 
 import Card from '../components/ui/Card';
@@ -59,6 +60,7 @@ import StudioExpensesManager from '../components/transparency/StudioExpensesMana
 import TrafficPanel from '../components/moderation/TrafficPanel';
 import GrantCreditPanel from '../components/staff/GrantCreditPanel';
 import ConductPanel from '../components/conduct/ConductPanel';
+import PollsPanel from '../components/moderation/PollsPanel';
 import OpenConductCaseButton from '../components/conduct/OpenConductCaseButton';
 import platformSuggestionsService from '../services/platformSuggestionsService';
 import {
@@ -74,6 +76,7 @@ const TABS = [
   { id: 'credit', label: 'Grant Credit', icon: Award },
   { id: 'ideas', label: 'Ideas', icon: Lightbulb },
   { id: 'suggestions', label: 'Suggestions', icon: MessageSquare },
+  { id: 'polls', label: 'Polls', icon: BarChart3 },
   { id: 'tags', label: 'Tags', icon: Tags },
   { id: 'decisions', label: 'Decision logs', icon: ScrollText },
   { id: 'expenses', label: 'Studio expenses', icon: Receipt },
@@ -755,7 +758,8 @@ const ModeratorDashboard = () => {
           !ideas.length &&
           tab !== 'traffic' &&
           tab !== 'credit' &&
-          tab !== 'conduct' && (
+          tab !== 'conduct' &&
+          tab !== 'polls' && (
           <LoadingScreen variant="section" message="Loading…" />
         )}
 
@@ -763,6 +767,8 @@ const ModeratorDashboard = () => {
         {tab === 'traffic' && <TrafficPanel />}
 
         {tab === 'conduct' && <ConductPanel />}
+
+        {tab === 'polls' && <PollsPanel />}
 
         {tab === 'credit' && (
           <section aria-labelledby="credit-heading">

@@ -10,6 +10,8 @@ import IdeaWizard from './pages/IdeaWizard';
 import IdeaDetail from './pages/IdeaDetail';
 import OpenQuestions from './pages/OpenQuestions';
 import OpenQuestionDetail from './pages/OpenQuestionDetail';
+import Polls from './pages/Polls';
+import PollDetail from './pages/PollDetail';
 import Projects from './pages/Projects';
 import GetInvolved from './pages/GetInvolved';
 import HowItWorks from './pages/HowItWorks';
@@ -114,6 +116,8 @@ function App() {
                           path="/questions/:questionId"
                           element={<OpenQuestionDetail />}
                         />
+                        <Route path="/polls" element={<Polls />} />
+                        <Route path="/polls/:pollId" element={<PollDetail />} />
                         <Route path="/projects" element={<Projects />} />
                         <Route path="/open-work" element={<OpenWork />} />
                         <Route path="/task-boards" element={<OpenWork />} />

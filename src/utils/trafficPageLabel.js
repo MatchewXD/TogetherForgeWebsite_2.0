@@ -13,6 +13,7 @@ const EXACT = {
   '/ideas/submit': 'Submit Idea',
   '/ideas/wizard': 'Idea Wizard',
   '/questions': 'Open Questions',
+  '/polls': 'Polls',
   '/projects': 'Projects',
   '/open-work': 'Open Work',
   '/task-boards': 'Open Work',
@@ -175,6 +176,16 @@ export function classifyTrafficPath(path) {
       label: 'Open question',
       group: 'question',
       kind: 'question',
+      entityId: null,
+    };
+  }
+
+  if (p === '/polls/:pollId' || /^\/polls\/[^/]+$/.test(p)) {
+    return {
+      path: p,
+      label: 'Poll',
+      group: 'poll',
+      kind: 'poll',
       entityId: null,
     };
   }
