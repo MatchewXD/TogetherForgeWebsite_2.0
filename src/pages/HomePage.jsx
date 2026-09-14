@@ -18,6 +18,7 @@ import {
   Eye,
   Shield,
   Globe,
+  Youtube,
   Lightbulb,
   MessageSquare,
   Layers,
@@ -40,8 +41,13 @@ import {
   getHomeCommunityStats,
   getHomeRecentActivity,
 } from '../services/communityStatsService';
-import { DISCORD_URL, DISCORD_LABELS } from '../constants/communityLinks';
+import {
+  DISCORD_URL,
+  DISCORD_LABELS,
+  YOUTUBE_URL,
+} from '../constants/communityLinks';
 import DiscordLink from '../components/ui/DiscordLink';
+import XLink from '../components/ui/XLink';
 import BannerImage from '../components/ui/BannerImage';
 
 const TF_LOGO_SRC = '/images/TF_Logo_Ideas_V2.webp';
@@ -168,7 +174,7 @@ function formatPulseValue(value) {
   return n.toLocaleString('en-US');
 }
 
-const INTRO_VIDEO_URL = 'https://www.youtube.com/@MXDGameGuides';
+const INTRO_VIDEO_URL = YOUTUBE_URL;
 
 const HomePage = () => {
   const [communityStats, setCommunityStats] = useState(EMPTY_STATS);
@@ -333,6 +339,20 @@ const HomePage = () => {
                 >
                   <MessageCircle className="w-3.5 h-3.5" />
                   {DISCORD_LABELS.join}
+                </a>
+                <XLink
+                  variant="link"
+                  labelKey="handle"
+                  className="hover:text-neon-cyan"
+                />
+                <a
+                  href={YOUTUBE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 hover:text-neon-cyan transition-colors"
+                >
+                  <Youtube className="w-3.5 h-3.5" />
+                  YouTube
                 </a>
               </div>
 

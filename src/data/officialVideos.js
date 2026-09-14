@@ -8,8 +8,10 @@
  * Community / fan content stays on /showcase — never here.
  */
 
+import { YOUTUBE_URL } from '../constants/communityLinks';
+
 /** Official channel (header / empty-state links) */
-export const YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/@MXDGameGuides';
+export const YOUTUBE_CHANNEL_URL = YOUTUBE_URL;
 
 /** Fan and community content lives here — never on /media */
 export const COMMUNITY_SHOWCASE_PATH = '/showcase';

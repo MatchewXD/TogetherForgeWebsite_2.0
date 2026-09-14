@@ -1,5 +1,8 @@
 import { Link } from 'react-router-dom';
+import { Youtube } from 'lucide-react';
 import DiscordLink from '../ui/DiscordLink';
+import XLink from '../ui/XLink';
+import { YOUTUBE_URL } from '../../constants/communityLinks';
 import { useReportConcern } from '../../context/ReportConcernContext';
 import { SHOW_RELEASED_GAMES } from '../../constants/featureFlags';
 import { arePollsEnabled } from '../../constants/pollsEnabled';
@@ -19,12 +22,26 @@ const Footer = () => {
             <div className="text-xs text-text-muted mt-1">
               Community-first independent game studio • Est. 2026
             </div>
-            <div className="mt-3 flex justify-center md:justify-start">
+            <div className="mt-3 flex flex-wrap items-center justify-center md:justify-start gap-x-4 gap-y-2">
               <DiscordLink
                 variant="link"
                 labelKey="join"
                 className="text-xs font-mono tracking-widest text-text-muted hover:text-neon-cyan"
               />
+              <XLink
+                variant="link"
+                labelKey="handle"
+                className="text-xs font-mono tracking-widest text-text-muted hover:text-neon-cyan"
+              />
+              <a
+                href={YOUTUBE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-mono tracking-widest text-text-muted hover:text-neon-cyan transition-colors"
+              >
+                <Youtube className="w-3.5 h-3.5 shrink-0 opacity-80" aria-hidden />
+                YouTube
+              </a>
             </div>
           </div>
 

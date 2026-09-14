@@ -15,6 +15,7 @@ import Button from '../components/ui/Buttons';
 import BannerImage from '../components/ui/BannerImage';
 import Modal from '../components/ui/Modal';
 import DiscordLink from '../components/ui/DiscordLink';
+import XLink from '../components/ui/XLink';
 import VolunteerOfferForm from '../components/getInvolved/VolunteerOfferForm';
 import { COMMUNITY_MODERATOR_ACTIVITIES } from '../constants/volunteer';
 
@@ -721,14 +722,13 @@ const GetInvolved = () => {
               <p className="text-sm sm:text-base text-text-secondary leading-relaxed">
                 The site is the public home for each path and for private
                 applications. Discord is where day-to-day coordination and chat
-                continue, not a wall before you can start.
+                continue.
               </p>
             </div>
-            <DiscordLink
-              variant="button"
-              labelKey="join"
-              className="shrink-0 self-start md:self-auto"
-            />
+            <div className="flex flex-col sm:flex-row gap-2 shrink-0 self-start md:self-auto">
+              <DiscordLink variant="button" labelKey="join" />
+              <XLink variant="button" labelKey="follow" />
+            </div>
           </Card>
         </section>
 

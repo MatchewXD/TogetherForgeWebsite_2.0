@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import FaqAccordion from '../components/ui/FaqAccordion';
-import { DISCORD_URL } from '../constants/communityLinks';
+import { DISCORD_URL, X_URL } from '../constants/communityLinks';
 
 const linkClass = 'text-neon-cyan hover:underline';
 
@@ -114,6 +114,16 @@ const FAQ = () => {
           >
             Discord
           </a>
+          . Updates also go out on{' '}
+          <a
+            href={X_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={linkClass}
+          >
+            X @TogetherForge
+          </a>
+          .
         </>
       ),
     },

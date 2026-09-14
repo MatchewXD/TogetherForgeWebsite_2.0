@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { ArrowRight, Play, Users } from 'lucide-react';
+import { YOUTUBE_URL } from '../constants/communityLinks';
 
 const HeroSection = () => {
   return (
@@ -44,7 +45,7 @@ const HeroSection = () => {
             </a>
             
             <a 
-              href="https://www.youtube.com/@MXDGameGuides" 
+              href={YOUTUBE_URL} 
               target="_blank"
               rel="noopener noreferrer"
               className="btn-neon w-full sm:w-auto text-base px-8 py-4 flex items-center justify-center gap-3"

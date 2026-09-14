@@ -37,6 +37,7 @@ import LoadingScreen from '../components/ui/LoadingScreen';
 import AskQuestionModal from '../components/questions/AskQuestionModal';
 import CloseQuestionModal from '../components/questions/CloseQuestionModal';
 import HideReplyModal from '../components/questions/HideReplyModal';
+import DeleteQuestionModal from '../components/questions/DeleteQuestionModal';
 import QuestionPromptView from '../components/questions/QuestionPromptView';
 import PostAnswerModal from '../components/questions/PostAnswerModal';
 import AnswerCard from '../components/questions/AnswerCard';
@@ -73,6 +74,8 @@ export default function OpenQuestionDetail() {
   const [closeNote, setCloseNote] = useState('');
   const [closeOpen, setCloseOpen] = useState(false);
   const [hideTargetId, setHideTargetId] = useState(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const [searchTerm, setSearchTerm] = useState(() => searchParams.get('q') || '');
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
 
@@ -346,16 +349,14 @@ export default function OpenQuestionDetail() {
 
   const removeQuestion = async () => {
     if (!question || !isStaff) return;
-    const ok = window.confirm(
-      `Delete “${question.title}” and all suggestions? This cannot be undone.`
-    );
-    if (!ok) return;
+    setDeleteError('');
     setBusy(true);
     try {
       await openQuestionsService.deleteQuestion(question.id);
+      setDeleteOpen(false);
       navigate(listHref);
     } catch (err) {
-      showToast(err?.message || 'Could not delete.', 'error');
+      setDeleteError(err?.message || 'Could not delete.');
       setBusy(false);
     }
   };
@@ -477,7 +478,10 @@ export default function OpenQuestionDetail() {
             onPostSuggestion={postSuggestion}
             onCloseQuestion={() => setCloseOpen(true)}
             onEdit={() => setFormOpen(true)}
-            onDelete={removeQuestion}
+            onDelete={() => {
+              setDeleteError('');
+              setDeleteOpen(true);
+            }}
           />
         )}
       </div>
@@ -488,6 +492,14 @@ export default function OpenQuestionDetail() {
         onSave={saveQuestion}
         busy={busy}
         editing={question}
+      />
+      <DeleteQuestionModal
+        isOpen={deleteOpen}
+        onClose={() => !busy && setDeleteOpen(false)}
+        onConfirm={removeQuestion}
+        title={question.title}
+        busy={busy}
+        error={deleteError}
       />
       <HideReplyModal
         isOpen={Boolean(hideTargetId)}

@@ -4,7 +4,8 @@ import { MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Buttons';
 import LoadingScreen from '../components/ui/LoadingScreen';
-import { DISCORD_URL } from '../constants/communityLinks';
+import { DISCORD_URL, X_URL } from '../constants/communityLinks';
+import XLink from '../components/ui/XLink';
 import { useReportConcern } from '../context/ReportConcernContext';
 
 const NAME_MAX = 80;
@@ -94,8 +95,17 @@ const Contact = () => {
           <div className="text-center mb-10">
             <MessageCircle className="w-16 h-16 mx-auto text-neon-cyan mb-6" />
             <p className="text-text-secondary">
-              Have questions, ideas, or want to collaborate? Reach out below or
-              join our community on Discord.
+              Have questions, ideas, or want to collaborate? Reach out below,
+              join Discord, or follow{' '}
+              <a
+                href={X_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-neon-cyan hover:underline"
+              >
+                @TogetherForge
+              </a>{' '}
+              on X.
             </p>
           </div>
 
@@ -214,16 +224,21 @@ const Contact = () => {
           </button>
         </div>
 
-        <div className="text-center mt-12 text-text-muted text-sm">
-          Prefer real-time chat?{' '}
-          <a
-            href={DISCORD_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-neon-cyan hover:underline"
-          >
-            Join the Discord
-          </a>
+        <div className="text-center mt-12 text-text-muted text-sm space-y-2">
+          <p>
+            Prefer real-time chat?{' '}
+            <a
+              href={DISCORD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-neon-cyan hover:underline"
+            >
+              Join the Discord
+            </a>
+          </p>
+          <p className="inline-flex items-center justify-center">
+            <XLink labelKey="follow" />
+          </p>
         </div>
       </div>
     </div>
