@@ -11,14 +11,14 @@ export const termsMeta = {
 export const termsSections = [
   {
     body: [
-      'Welcome to Together Forge. These Terms of Service (“Terms”) govern your access to and use of the Together Forge website, services, and community features (the “Platform”).',
+      'These Terms of Service (“Terms”) govern your access to and use of the Together Forge website, services, and community features (the “Platform”), operated by Together Forge LLC (“Together Forge,” “we”).',
       'By creating an account or using the Platform you agree to these Terms.',
     ],
   },
   {
     heading: '1. What Together Forge Is',
     body: [
-      'Together Forge is an independent, community-driven platform and studio focused on cooperative game development. We operate without outside investors. The Platform exists to support volunteer collaboration, idea sharing, transparent development, and the creation of games.',
+      'Together Forge is an independent, community-driven platform and studio focused on cooperative game development. The Platform is operated by Together Forge LLC. We operate without outside investors. The Platform exists to support volunteer collaboration, idea sharing, transparent development, and the creation of games.',
     ],
   },
   {
@@ -43,7 +43,7 @@ export const termsSections = [
       'Interfere with or disrupt the Platform.',
       'Use the Platform to distribute malware or harmful code.',
       'Scrape, harvest, or systematically collect data without permission.',
-      'Use the Platform for commercial advertising or solicitation without prior written permission from Together Forge.',
+      'Use the Platform for commercial advertising or solicitation without prior written permission from Together Forge LLC.',
     ],
     bodyAfter: [
       'Moderation and enforcement decisions will be based on these Terms, the Community Guidelines, and observable conduct. They will not be used to require ideological agreement or to exclude participants solely for lawful viewpoints.',
@@ -52,11 +52,12 @@ export const termsSections = [
   {
     heading: '4. User Content and Ownership',
     list: [
-      'You retain ownership of the original content you submit (ideas, comments, Showcase entries, profile information, etc.).',
-      'By submitting content you grant Together Forge a non-exclusive, worldwide, royalty-free license to host, display, reproduce, and distribute that content as needed to operate the Platform and credit contributors.',
+      'You retain ownership of the original content you submit (ideas, comments, Showcase entries, Open Question answers, poll participation, task-board work and comments, profile information, applications, reports, and similar).',
+      'By submitting content you grant Together Forge LLC a non-exclusive, worldwide, royalty-free license to host, display, reproduce, and distribute that content as needed to operate the Platform and credit contributors.',
+      'If you submit work to a game project (code, art, audio, design, writing, or similar) you keep ownership of what you made. You also grant Together Forge LLC a non-exclusive, worldwide, royalty-free license to use, modify, ship, and commercially release that work as part of the project and related marketing, and to credit you as designed on the Platform. Paid work, if any, is a separate written agreement.',
       'You confirm that you have the rights necessary to submit the content and to grant this license.',
       'You are solely responsible for the content you post.',
-      'Together Forge may remove content that violates these Terms or the Community Guidelines.',
+      'Together Forge LLC may remove content that violates these Terms or the Community Guidelines.',
     ],
   },
   {
@@ -72,6 +73,7 @@ export const termsSections = [
     list: [
       'Donations and membership subscriptions support the studio and are generally non-refundable except where required by law or at our discretion.',
       'Founder Runway is personal support for the founder. It is not studio support and the two never mix.',
+      'Studio support, studio subscriptions, and AI Tokens are processed for Together Forge LLC by Stripe. Founder Runway, when offered, is personal support. It is not processed on the Together Forge LLC Stripe account. It is processed through Ko-fi. The two never mix.',
       'AI Token purchases are a separate system from donations. Tokens are consumed for specific AI-assisted features and are also generally non-refundable once used or expired according to the rules shown at purchase.',
       'We keep donation records and token purchase records separate in both the interface and the underlying data.',
     ],
@@ -95,7 +97,7 @@ export const termsSections = [
   {
     heading: '8. Intellectual Property of the Platform',
     body: [
-      'The Together Forge name, branding, website design, code, and original Platform content are owned by Together Forge or its licensors. You may not copy, modify, or distribute them except as expressly allowed.',
+      'The Together Forge name, branding, website design, code, and original Platform content are owned by Together Forge LLC or its licensors. “Together Forge” is a trademark of Together Forge LLC. Do not use the registration symbol until registration issues. You may not copy, modify, or distribute these materials except as expressly allowed.',
     ],
   },
   {
@@ -107,13 +109,13 @@ export const termsSections = [
   {
     heading: '10. Limitation of Liability',
     body: [
-      'To the maximum extent permitted by law, Together Forge and its operators will not be liable for any indirect, incidental, special, consequential, or punitive damages, or for any loss of profits, data, or goodwill, arising from your use of the Platform. Our total liability for any claim related to the Platform is limited to the greater of (a) the amount you paid us in the twelve months before the claim or (b) fifty US dollars.',
+      'To the maximum extent permitted by law, Together Forge LLC and its operators will not be liable for any indirect, incidental, special, consequential, or punitive damages, or for any loss of profits, data, or goodwill, arising from your use of the Platform. Our total liability for any claim related to the Platform is limited to the greater of (a) the amount you paid us in the twelve months before the claim or (b) fifty US dollars.',
     ],
   },
   {
     heading: '11. Indemnity',
     body: [
-      'You agree to indemnify and hold harmless Together Forge and its operators from claims arising out of your content, your use of the Platform, or your violation of these Terms.',
+      'You agree to indemnify and hold harmless Together Forge LLC and its operators from claims arising out of your content, your use of the Platform, or your violation of these Terms.',
     ],
   },
   {

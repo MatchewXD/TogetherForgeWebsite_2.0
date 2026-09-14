@@ -21,8 +21,9 @@ export const paymentsSections = [
   {
     heading: 'Studio support and Founder Runway',
     body: [
-      'Donations to Together Forge stay with the studio. The founder does not take donations as wages.',
-      'Founder Runway is personal support for the founder so he can work on Together Forge full time. It does not go to the studio. The two never mix.',
+      'Donations to Together Forge stay with Together Forge LLC. The founder does not take studio donations as wages.',
+      'Studio support, studio subscriptions, and AI Tokens are paid through Stripe to Together Forge LLC.',
+      'Founder Runway is personal support for the founder so he can work on Together Forge full time. It does not go to the studio. When it is offered, it is paid through Ko-fi, not through Together Forge LLC Stripe, and not onto Together Forge books. The two never mix.',
     ],
   },
   {

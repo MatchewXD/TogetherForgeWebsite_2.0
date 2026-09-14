@@ -41,10 +41,13 @@ describe('Payments and refunds policy copy', () => {
   it('states the required public rules in first person for founder pay', () => {
     const text = policyText();
     expect(text).toContain(
-      'Donations to Together Forge stay with the studio. The founder does not take donations as wages.'
+      'Donations to Together Forge stay with Together Forge LLC. The founder does not take studio donations as wages.'
     );
     expect(text).toContain(
-      'Founder Runway is personal support for the founder so he can work on Together Forge full time. It does not go to the studio. The two never mix.'
+      'Studio support, studio subscriptions, and AI Tokens are paid through Stripe to Together Forge LLC.'
+    );
+    expect(text).toContain(
+      'Founder Runway is personal support for the founder so he can work on Together Forge full time. It does not go to the studio. When it is offered, it is paid through Ko-fi, not through Together Forge LLC Stripe, and not onto Together Forge books. The two never mix.'
     );
     expect(text).toContain(
       'None of this is a charity gift and none of it is tax-deductible. Together Forge is a for-profit studio.'
@@ -67,10 +70,8 @@ describe('Payments and refunds policy copy', () => {
     expect(text).toContain('Questions: contact@togetherforge.net.');
   });
 
-  it('does not name processors or implementation details', () => {
+  it('does not name implementation internals', () => {
     const text = policyText().toLowerCase();
-    expect(text).not.toMatch(/stripe/);
-    expect(text).not.toMatch(/ko-?fi/);
     expect(text).not.toMatch(/webhook/);
     expect(text).not.toMatch(/\brelay\b/);
   });

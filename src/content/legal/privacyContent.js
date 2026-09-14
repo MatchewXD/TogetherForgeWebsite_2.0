@@ -17,7 +17,7 @@ export const privacySections = [
   {
     heading: '1. Who We Are',
     body: [
-      'Together Forge operates the website and related services. We are an independent community-driven project.',
+      'Together Forge LLC operates the website and related services. We are an independent, community-driven studio. No outside investors.',
     ],
   },
   {
@@ -25,9 +25,9 @@ export const privacySections = [
     subheading: 'Information you provide',
     list: [
       'Account information (email, username, password or authentication provider data, optional profile details).',
-      'Content you submit (ideas, comments, Showcase entries, bug reports, etc.).',
+      'Content you submit (ideas, comments, Showcase entries, Open Question answers, poll participation, task-board work and comments, bug reports, applications, and similar).',
       'Payment and billing information when you donate, subscribe, or purchase AI Tokens (processed by Stripe; we do not store full payment card numbers).',
-      'Communications you send us.',
+      'Communications you send us, including Contact messages and Report a concern submissions. Concern reports are private and are read by the founder.',
     ],
   },
   {
@@ -43,6 +43,8 @@ export const privacySections = [
     list: [
       'Authentication providers (for example Google or GitHub) if you choose to sign in with them.',
       'Stripe, for payment processing and related fraud prevention.',
+      'Discord, if you join the Together Forge Discord. Discord is a separate service with its own privacy policy.',
+      'Ko-fi, if you choose to support Founder Runway. Ko-fi is a separate service with its own privacy policy. Runway payments are not processed by Together Forge LLC Stripe.',
     ],
   },
   {
@@ -54,6 +56,7 @@ export const privacySections = [
       'Process donations, subscriptions, and AI Token purchases.',
       'Display public contributor credit and Showcase content as designed.',
       'Enforce the Terms of Service and Community Guidelines.',
+      'Review Report a concern submissions.',
       'Prevent abuse, spam, and security threats.',
       'Communicate with you about your account or important service changes.',
       'Comply with legal obligations.',
@@ -67,7 +70,7 @@ export const privacySections = [
     ],
     list: [
       'Username and public profile details you choose to show.',
-      'Ideas, Showcase entries, and contribution credits.',
+      'Ideas, Open Question answers, Showcase entries, and contribution credits that the Platform is designed to show publicly.',
       'Certain donation acknowledgments (name or “Anonymous” according to the choice you make).',
     ],
   },

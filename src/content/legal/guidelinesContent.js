@@ -60,13 +60,14 @@ export const guidelinesSections = [
     ],
     bodyAfter: [
       'Moderation decisions will be based on these published guidelines and on observable behavior and content. Moderation will not be used to enforce ideological conformity or to punish people for holding or expressing lawful viewpoints.',
-      'If you believe a moderation action was made in error, you may contact the team through the official Contact or support channels.',
+      'If you believe a moderation action was made in error, use Report a concern. That form is private. Reports about moderators go to the founder.',
     ],
   },
   {
     heading: 'Reporting',
     body: [
-      'If you see something that violates these guidelines, report it through the available report tools or contact a moderator. Do not engage in public call-outs that escalate conflict or attempt to organize pile-ons.',
+      'If you see something that violates these guidelines, use Report a concern for community or moderation issues, including reports about a moderator. Use Contact or Report a bug for site or account problems. Do not engage in public call-outs that escalate conflict or attempt to organize pile-ons.',
+      'Retaliation against someone for a good-faith report is a serious violation of these guidelines.',
       'These guidelines may be updated. Continued use of Together Forge after changes means you accept the updated version.',
     ],
   },

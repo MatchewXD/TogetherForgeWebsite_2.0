@@ -839,8 +839,9 @@ const SupportPage = () => {
               ownership.
             </li>
             <li>
-              Founder pay comes only from future profits, not from supporter
-              contributions.
+              Studio donations stay with Together Forge LLC. They are not
+              founder wages. Founder Runway, when offered, is separate personal
+              support and is never taken from studio donations.
             </li>
             <li>
               Perks are thank-you incentives only and may evolve as the forge
