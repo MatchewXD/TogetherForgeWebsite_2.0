@@ -6,8 +6,10 @@
  *   whatHappened, whereHappened (discord|website|both),
  *   reference?, contact?, website? (honeypot)
  *
- * Secrets (optional for email):
- *   REPORTS_EMAIL, FOUNDER_EMAIL, RESEND_API_KEY, REPORTS_FROM_EMAIL
+ * Destinations (override with secrets if needed):
+ *   REPORTS_EMAIL default contact@togetherforge.net
+ *   FOUNDER_EMAIL default Matthew@togetherforge.net
+ * Also needs RESEND_API_KEY to send mail. Reports still persist without it.
  *
  * Deploy: supabase functions deploy submit-concern-report --no-verify-jwt
  */
@@ -122,13 +124,13 @@ async function sendReportEmails(report) {
   const reportsEmail = clean(
     Deno.env.get('REPORTS_EMAIL') ||
       Deno.env.get('REPORTS_EMAIL_PLACEHOLDER') ||
-      '',
+      'contact@togetherforge.net',
     254
   );
   const founderEmail = clean(
     Deno.env.get('FOUNDER_EMAIL') ||
       Deno.env.get('FOUNDER_EMAIL_PLACEHOLDER') ||
-      '',
+      'Matthew@togetherforge.net',
     254
   );
   const resendKey = String(Deno.env.get('RESEND_API_KEY') || '').trim();

@@ -38,6 +38,7 @@ import {
   Bug,
   ClipboardList,
   Handshake,
+  Mail,
 } from 'lucide-react';
 
 import Card from '../components/ui/Card';
@@ -99,6 +100,14 @@ import {
 } from '../services/volunteerService';
 import { listConductCases } from '../services/conductService';
 import {
+  listConcernReports,
+  updateConcernReportStatus,
+  OPEN_CONCERN_STATUSES,
+  CONCERN_STATUSES,
+  CONCERN_STATUS_LABELS,
+  CONCERN_WHERE_LABELS,
+} from '../services/reportConcernService';
+import {
   COMMUNITY_MOD_ROLES,
   OPEN_NEEDS,
   VOLUNTEER_SKILL_OPTIONS,
@@ -125,8 +134,9 @@ const TABS = [
   { id: 'suggested', label: 'Suggested tasks', icon: ClipboardList },
 ];
 
+const CONCERNS_TAB = { id: 'concerns', label: 'Concerns', icon: Mail };
 const ROLES_TAB = { id: 'roles', label: 'Role Management', icon: UserCog };
-const ALL_TABS = [...TABS, ROLES_TAB];
+const ALL_TABS = [...TABS, CONCERNS_TAB, ROLES_TAB];
 
 const SCOPE_RESOLUTION_LABELS = {
   breakdown: 'Broken into sub-tasks',
@@ -298,6 +308,9 @@ const ModeratorDashboard = () => {
   const [volunteerSearch, setVolunteerSearch] = useState('');
   const [volunteerSort, setVolunteerSort] = useState('newest');
   const [conductOpenCount, setConductOpenCount] = useState(0);
+  const [concerns, setConcerns] = useState([]);
+  const [concernsMissing, setConcernsMissing] = useState(false);
+  const [concernStatusFilter, setConcernStatusFilter] = useState('open');
 
   const showToast = (msg) => {
     setToast(msg);
@@ -509,9 +522,27 @@ const ModeratorDashboard = () => {
         console.error('[ModeratorDashboard] role log', e);
         errs.push(e?.message || 'Could not load role change log');
       }
+      try {
+        const rows = await listConcernReports({ status: 'all', limit: 200 });
+        setConcerns(rows);
+        setConcernsMissing(false);
+      } catch (e) {
+        setConcerns([]);
+        const missing =
+          e?.code === 'MISSING_TABLE' ||
+          /concern reports are not set up|concern_reports|does not exist|schema cache/i.test(
+            e?.message || ''
+          );
+        setConcernsMissing(missing);
+        if (!missing && e?.message) {
+          errs.push(e.message);
+        }
+      }
     } else {
       setRoleLog([]);
       setRoleLogMissing(false);
+      setConcerns([]);
+      setConcernsMissing(false);
     }
 
     if (errs.length) setError(errs.join(' · '));
@@ -619,6 +650,19 @@ const ModeratorDashboard = () => {
     volunteerSort,
   ]);
 
+  const filteredConcerns = useMemo(() => {
+    let list = concerns.filter((row) => {
+      if (concernStatusFilter === 'open') {
+        return OPEN_CONCERN_STATUSES.includes(row.status);
+      }
+      if (concernStatusFilter === 'all') return true;
+      return row.status === concernStatusFilter;
+    });
+    return [...list].sort(
+      (a, b) => Date.parse(b.createdAt || '') - Date.parse(a.createdAt || '')
+    );
+  }, [concerns, concernStatusFilter]);
+
   const handleSuggestionStatus = async (id, status) => {
     setBusyKey(`sug-${id}`);
     setError('');
@@ -699,6 +743,21 @@ const ModeratorDashboard = () => {
       pingUserNotices();
     } catch (e) {
       setError(e?.message || 'Could not accept suggested task.');
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleConcernStatus = async (id, status) => {
+    setBusyKey(`concern-${id}`);
+    setError('');
+    try {
+      const updated = await updateConcernReportStatus(id, status);
+      setConcerns((prev) => prev.map((c) => (c.id === id ? updated : c)));
+      showToast(`Concern → ${CONCERN_STATUS_LABELS[status] || status}`);
+      pingUserNotices();
+    } catch (e) {
+      setError(e?.message || 'Could not update concern.');
     } finally {
       setBusyKey(null);
     }
@@ -959,6 +1018,9 @@ const ModeratorDashboard = () => {
   const volunteerOpenCount = volunteers.filter((v) =>
     OPEN_VOLUNTEER_STATUSES.includes(v.status)
   ).length;
+  const concernOpenCount = concerns.filter((c) =>
+    OPEN_CONCERN_STATUSES.includes(c.status)
+  ).length;
 
   return (
     <div className="pt-20 min-h-screen bg-cyber-bg text-text-primary">
@@ -1110,6 +1172,13 @@ const ModeratorDashboard = () => {
                       label={`${volunteerOpenCount} volunteer applications`}
                     />
                   )}
+                  {t.id === 'concerns' && (
+                    <QueueMark
+                      count={concernOpenCount}
+                      className="bg-semantic-warning/20 text-semantic-warning"
+                      label={`${concernOpenCount} private concern reports`}
+                    />
+                  )}
                 </button>
               );
             })}
@@ -1134,7 +1203,8 @@ const ModeratorDashboard = () => {
           tab !== 'conduct' &&
           tab !== 'polls' &&
           tab !== 'volunteers' &&
-          tab !== 'suggested' && (
+          tab !== 'suggested' &&
+          tab !== 'concerns' && (
           <LoadingScreen variant="section" message="Loading…" />
         )}
 
@@ -3059,6 +3129,155 @@ const ModeratorDashboard = () => {
                   </div>
                 </div>
               )}
+          </section>
+        )}
+
+        {/* ---------- Private concerns (Founder only) ---------- */}
+        {tab === 'concerns' && isFounder && (
+          <section aria-labelledby="concerns-heading">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
+              <div>
+                <h2
+                  id="concerns-heading"
+                  className="text-xl sm:text-2xl font-bold text-white tracking-tight"
+                >
+                  Concern reports
+                </h2>
+                <p className="text-sm text-text-secondary mt-1 max-w-xl">
+                  Private Report a concern submissions. Not public. Not the
+                  Reports tab. Founder only.
+                </p>
+                <p className="text-xs font-mono text-text-muted mt-1">
+                  Showing {filteredConcerns.length}
+                  {filteredConcerns.length !== concerns.length
+                    ? ` of ${concerns.length}`
+                    : ''}
+                </p>
+              </div>
+              <div>
+                <label className={filterLabel} htmlFor="mod-concern-status">
+                  Status
+                </label>
+                <select
+                  id="mod-concern-status"
+                  className={filterControl + ' w-auto min-w-[10rem]'}
+                  value={concernStatusFilter}
+                  onChange={(e) => setConcernStatusFilter(e.target.value)}
+                >
+                  <option value="open">Open (new + reviewing)</option>
+                  <option value="all">All</option>
+                  {CONCERN_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {CONCERN_STATUS_LABELS[s]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {concernsMissing && (
+              <Card className="bg-cyber-card/80 border-amber-500/30 mb-4">
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  Concern reports are not set up yet. Run{' '}
+                  <code className="text-neon-cyan text-xs font-mono">
+                    supabase/sql/supabase_concern_reports.sql
+                  </code>{' '}
+                  in Supabase, then refresh.
+                </p>
+              </Card>
+            )}
+
+            {!concernsMissing && filteredConcerns.length === 0 && !loading && (
+              <Card className="bg-cyber-card/80 text-sm text-text-muted">
+                {concerns.length === 0
+                  ? 'No concern reports yet.'
+                  : 'No reports in this view.'}
+              </Card>
+            )}
+
+            <div className="space-y-3">
+              {filteredConcerns.map((row) => {
+                const busy = busyKey === `concern-${row.id}`;
+                return (
+                  <Card key={row.id} className="bg-cyber-card/80">
+                    <div className="grid gap-4 lg:grid-cols-12">
+                      <div className="lg:col-span-4 space-y-3">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge
+                            variant={
+                              row.status === 'new'
+                                ? 'warning'
+                                : row.status === 'reviewing'
+                                  ? 'neon'
+                                  : 'default'
+                            }
+                          >
+                            {CONCERN_STATUS_LABELS[row.status] || row.status}
+                          </Badge>
+                          <Badge variant="default">
+                            {CONCERN_WHERE_LABELS[row.whereHappened] ||
+                              row.whereHappened}
+                          </Badge>
+                        </div>
+                        <dl className="space-y-2 text-sm">
+                          <div>
+                            <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
+                              Submitted
+                            </dt>
+                            <dd className="text-text-secondary">
+                              {row.createdAt ? formatDate(row.createdAt) : 'n/a'}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
+                              Contact
+                            </dt>
+                            <dd className="text-text-secondary break-all">
+                              {row.contact || 'Anonymous'}
+                            </dd>
+                          </div>
+                          {row.reference ? (
+                            <div>
+                              <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
+                                Reference
+                              </dt>
+                              <dd className="text-text-secondary break-all">
+                                {row.reference}
+                              </dd>
+                            </div>
+                          ) : null}
+                        </dl>
+                      </div>
+                      <div className="lg:col-span-8 min-w-0">
+                        <div className="text-[10px] font-mono tracking-widest uppercase text-text-muted mb-1">
+                          What happened
+                        </div>
+                        <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
+                          {row.whatHappened}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 mt-4">
+                      <select
+                        className="bg-cyber-surface border border-cyber-border rounded-lg px-2 py-1.5 text-xs text-white"
+                        value={row.status}
+                        disabled={busy}
+                        onChange={(e) =>
+                          void handleConcernStatus(row.id, e.target.value)
+                        }
+                        aria-label="Concern status"
+                      >
+                        {CONCERN_STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {CONCERN_STATUS_LABELS[s]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
           </section>
         )}
 

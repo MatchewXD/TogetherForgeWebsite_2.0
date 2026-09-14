@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import Button from '../ui/Buttons';
 import { submitConcernReport } from '../../services/reportConcernService';
+import { pingUserNotices } from '../../utils/userNotices';
 
 const fieldClass =
   'w-full bg-cyber-surface border border-cyber-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-neon-cyan focus:outline-none';
@@ -54,6 +55,7 @@ export default function ReportConcernForm({
         return;
       }
       setDone(true);
+      pingUserNotices();
     } finally {
       setBusy(false);
     }

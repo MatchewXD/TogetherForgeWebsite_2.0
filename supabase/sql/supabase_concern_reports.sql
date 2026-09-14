@@ -56,15 +56,33 @@ begin
       on public.concern_reports
       for select
       to authenticated
-      using (public.is_staff());
+      using (
+        exists (
+          select 1 from public.profiles p
+          where p.id = auth.uid()
+            and coalesce(p.role, 'user') = 'founder'
+        )
+      );
 
     drop policy if exists "Staff can update concern reports" on public.concern_reports;
     create policy "Staff can update concern reports"
       on public.concern_reports
       for update
       to authenticated
-      using (public.is_staff())
-      with check (public.is_staff());
+      using (
+        exists (
+          select 1 from public.profiles p
+          where p.id = auth.uid()
+            and coalesce(p.role, 'user') = 'founder'
+        )
+      )
+      with check (
+        exists (
+          select 1 from public.profiles p
+          where p.id = auth.uid()
+            and coalesce(p.role, 'user') = 'founder'
+        )
+      );
   end if;
 end $$;
 

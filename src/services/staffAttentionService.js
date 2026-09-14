@@ -8,6 +8,7 @@ import { OPEN_SUGGESTION_STATUSES } from '../constants/platformSuggestions';
 import { OPEN_BUG_STATUSES } from './bugReportsService';
 import { CONDUCT_OPEN_STATUSES } from '../constants/conduct';
 import { OPEN_VOLUNTEER_STATUSES } from './volunteerService';
+import { OPEN_CONCERN_STATUSES } from './reportConcernService';
 import { tasksService } from './tasksService';
 
 const STAFF_ROLES = new Set([
@@ -26,6 +27,7 @@ export const EMPTY_STAFF_ATTENTION = {
   suggested: 0,
   conduct: 0,
   volunteers: 0,
+  concerns: 0,
   total: 0,
 };
 
@@ -44,10 +46,20 @@ export async function isStaffProfile(userId) {
   return STAFF_ROLES.has(String(data?.role || '').trim());
 }
 
+async function staffRole(userId) {
+  if (!userId) return '';
+  const { data } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle();
+  return String(data?.role || '').trim();
+}
+
 export async function loadStaffAttentionCounts(userId) {
   if (!userId) return { ...EMPTY_STAFF_ATTENTION };
-  const staff = await isStaffProfile(userId);
-  if (!staff) return { ...EMPTY_STAFF_ATTENTION };
+  const role = await staffRole(userId);
+  if (!STAFF_ROLES.has(role)) return { ...EMPTY_STAFF_ATTENTION };
 
   const [
     suggestionsRes,
@@ -58,6 +70,7 @@ export async function loadStaffAttentionCounts(userId) {
     suggestedRes,
     conductRes,
     volunteersRes,
+    concernsRes,
   ] = await Promise.all([
     supabase
       .from('platform_suggestions')
@@ -88,6 +101,12 @@ export async function loadStaffAttentionCounts(userId) {
       .from('volunteer_applications')
       .select('id', { count: 'exact', head: true })
       .in('status', OPEN_VOLUNTEER_STATUSES),
+    role === 'founder'
+      ? supabase
+          .from('concern_reports')
+          .select('id', { count: 'exact', head: true })
+          .in('status', OPEN_CONCERN_STATUSES)
+      : Promise.resolve({ count: 0, error: null }),
   ]);
 
   const suggestions = countOrZero(suggestionsRes);
@@ -97,6 +116,7 @@ export async function loadStaffAttentionCounts(userId) {
   const suggested = countOrZero(suggestedRes);
   const conduct = countOrZero(conductRes);
   const volunteers = countOrZero(volunteersRes);
+  const concerns = countOrZero(concernsRes);
   const scopeCount = typeof scope === 'number' ? scope : 0;
   const total =
     suggestions +
@@ -106,7 +126,8 @@ export async function loadStaffAttentionCounts(userId) {
     showcase +
     suggested +
     conduct +
-    volunteers;
+    volunteers +
+    concerns;
   return {
     suggestions,
     scope: scopeCount,
@@ -116,6 +137,7 @@ export async function loadStaffAttentionCounts(userId) {
     suggested,
     conduct,
     volunteers,
+    concerns,
     total,
   };
 }
