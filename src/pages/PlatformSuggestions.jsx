@@ -21,6 +21,7 @@ import UserNameWithBadge from '../components/badges/UserNameWithBadge';
 import useIsModerator from '../hooks/useIsModerator';
 import platformSuggestionsService from '../services/platformSuggestionsService';
 import { SUGGESTION_CATEGORIES } from '../constants/platformSuggestions';
+import { pingUserNotices } from '../utils/userNotices';
 
 const fieldLabel =
   'block text-sm font-mono tracking-widest text-neon-cyan mb-2';
@@ -122,6 +123,7 @@ const PlatformSuggestions = () => {
       setDescription('');
       setCategory('Other');
       setSubmitted(true);
+      pingUserNotices();
       await load();
     } catch (err) {
       setSubmitError(err.message || 'Could not submit.');

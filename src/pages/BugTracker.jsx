@@ -24,6 +24,7 @@ import bugReportsService, {
   severityBadgeVariant,
   statusBadgeVariant,
 } from '../services/bugReportsService';
+import { pingUserNotices } from '../utils/userNotices';
 
 const FILTERS = [
   { id: 'open', label: 'Open' },
@@ -98,6 +99,7 @@ const BugTracker = () => {
       const updated = await bugReportsService.updateStatus(id, status);
       setBugs((prev) => prev.map((b) => (b.id === id ? updated : b)));
       showToast(`Status → ${status}`);
+      pingUserNotices();
       if (filter === 'open' && !OPEN_BUG_STATUSES.includes(status)) {
         setBugs((prev) => prev.filter((b) => b.id !== id));
       }

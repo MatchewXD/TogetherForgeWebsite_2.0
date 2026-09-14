@@ -200,6 +200,20 @@ export const platformSuggestionsService = {
     const profiles = await loadProfiles([data.user_id]);
     return mapRow(data, profiles);
   },
+
+  /**
+   * Staff: delete a suggestion.
+   * @param {string} id
+   */
+  async remove(id) {
+    if (!id) throw new Error('Suggestion not found.');
+    const { error } = await supabase
+      .from('platform_suggestions')
+      .delete()
+      .eq('id', id);
+    if (error) throw new Error(error.message || 'Could not delete suggestion.');
+    return true;
+  },
 };
 
 export default platformSuggestionsService;

@@ -76,6 +76,7 @@ grant usage on schema public to anon, authenticated;
 grant select on table public.platform_suggestions to anon, authenticated;
 grant insert on table public.platform_suggestions to authenticated;
 grant update on table public.platform_suggestions to authenticated;
+grant delete on table public.platform_suggestions to authenticated;
 
 alter table public.platform_suggestions enable row level security;
 
@@ -107,3 +108,18 @@ create policy platform_suggestions_update_staff
   to authenticated
   using (public.is_staff())
   with check (public.is_staff());
+
+-- Staff delete (founder included: production is_staff() may omit founder)
+drop policy if exists platform_suggestions_delete_staff on public.platform_suggestions;
+create policy platform_suggestions_delete_staff
+  on public.platform_suggestions
+  for delete
+  to authenticated
+  using (
+    public.is_staff()
+    or exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid()
+        and coalesce(p.role, 'user') = 'founder'
+    )
+  );

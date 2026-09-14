@@ -10,6 +10,11 @@ import {
   extractGithubUrlsFromEvidence,
 } from '../constants/taskReviewEvidence';
 import { taskMatchesCategoryFilter } from '../constants/taskCategories';
+import {
+  areClaimsEnabled,
+  CLAIMS_PAUSED_CODE,
+  CLAIMS_PAUSED_ERROR,
+} from '../constants/claimsEnabled';
 
 /** Hard max active claims (trusted volunteers, 5+ accepted tasks). */
 export const MAX_ACTIVE_CLAIMS = 5;
@@ -2626,9 +2631,42 @@ export const tasksService = {
       }
     }
 
-    const { data, error } = await supabase.rpc('claim_task', {
-      p_task_id: taskId,
+    if (!areClaimsEnabled() && !opts.isStaff) {
+      const err = new Error(CLAIMS_PAUSED_ERROR);
+      err.code = CLAIMS_PAUSED_CODE;
+      throw err;
+    }
+
+    let data;
+    let error;
+    const invoked = await supabase.functions.invoke('claim-task', {
+      body: { taskId },
     });
+    const payload = invoked.data || {};
+    const invokeMsg = payload.error || invoked.error?.message || '';
+    const invokeCode = payload.code || '';
+    if (
+      invokeCode === CLAIMS_PAUSED_CODE ||
+      /CLAIMS_PAUSED/i.test(invokeMsg)
+    ) {
+      const err = new Error(CLAIMS_PAUSED_ERROR);
+      err.code = CLAIMS_PAUSED_CODE;
+      throw err;
+    }
+    if (invoked.error && /not found|404|FunctionsRelayError/i.test(invokeMsg)) {
+      if (!areClaimsEnabled() && !opts.isStaff) {
+        const err = new Error(CLAIMS_PAUSED_ERROR);
+        err.code = CLAIMS_PAUSED_CODE;
+        throw err;
+      }
+      const rpc = await supabase.rpc('claim_task', { p_task_id: taskId });
+      data = rpc.data;
+      error = rpc.error;
+    } else if (invoked.error || payload.error) {
+      error = { message: invokeMsg || 'Could not claim that task' };
+    } else {
+      data = payload.data ?? payload;
+    }
     if (error) {
       const msg = error.message || '';
       if (/IDENTITY_GATE/i.test(msg)) {

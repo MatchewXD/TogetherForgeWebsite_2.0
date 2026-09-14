@@ -29,6 +29,7 @@ import {
   setLinkedAccountsNote,
   setNoisyReporter,
 } from '../../services/conductService';
+import { pingUserNotices } from '../../utils/userNotices';
 
 const fieldClass =
   'w-full bg-cyber-surface border border-cyber-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-neon-cyan focus:outline-none';
@@ -181,6 +182,7 @@ const ConductPanel = () => {
     try {
       await applyConductReview(detail, form);
       flash('Review saved.');
+      pingUserNotices();
       setConfirmOpen(false);
       await openCase(detail.id);
       void loadQueue();

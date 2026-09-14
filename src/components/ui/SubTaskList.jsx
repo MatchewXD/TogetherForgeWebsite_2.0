@@ -7,6 +7,10 @@ import Badge from './Badge';
 import Button from './Buttons';
 import WaitingOnLinks from './WaitingOnLinks';
 import { isTaskVisuallyBlocked, taskLevelLabel } from '../../services/tasksService';
+import {
+  areClaimsEnabled,
+  CLAIMS_PAUSED_LINE,
+} from '../../constants/claimsEnabled';
 
 const isTaskDone = (task) =>
   Boolean(
@@ -107,8 +111,16 @@ const SubTaskList = ({
               child.volunteerClaimable &&
               !hasActiveClaim &&
               !isDone;
+            const claimsEnabled = areClaimsEnabled();
             const showClaim =
-              structurallyClaimable && (!isStaffOnly || isStaff);
+              structurallyClaimable &&
+              (!isStaffOnly || isStaff) &&
+              (claimsEnabled || isStaff);
+            const showClaimsPausedLine =
+              structurallyClaimable &&
+              !isStaffOnly &&
+              !claimsEnabled &&
+              !isStaff;
             const showStaffOnlyInsteadOfClaim =
               structurallyClaimable && isStaffOnly && !isStaff;
             const depth = child.depth ?? parentDepth + 1;
@@ -226,6 +238,11 @@ const SubTaskList = ({
                       {claimingId === child.id ? '…' : 'Claim'}
                     </Button>
                   )}
+                  {showClaimsPausedLine ? (
+                    <p className="text-[11px] text-text-muted leading-snug max-w-[14rem]">
+                      {CLAIMS_PAUSED_LINE}
+                    </p>
+                  ) : null}
                   {showStaffOnlyInsteadOfClaim && (
                     <Badge
                       variant="gold"

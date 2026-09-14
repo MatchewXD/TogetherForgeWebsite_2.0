@@ -13,6 +13,10 @@ import {
 } from '../../services/tasksService';
 import { progressTone } from '../../utils/progressTone';
 import WaitingOnLinks from './WaitingOnLinks';
+import {
+  areClaimsEnabled,
+  CLAIMS_PAUSED_LINE,
+} from '../../constants/claimsEnabled';
 
 /**
  * Hierarchy rail on chamfered panels (see index.css).
@@ -90,7 +94,16 @@ const TaskCard = ({
   });
   const structurallyClaimable =
     !claimBlocked && !hasActiveClaim && !isCompleted;
-  const showClaim = structurallyClaimable && (!isStaffOnly || staffViewer);
+  const claimsEnabled = areClaimsEnabled();
+  const showClaim =
+    structurallyClaimable &&
+    (!isStaffOnly || staffViewer) &&
+    (claimsEnabled || staffViewer);
+  const showClaimsPausedLine =
+    structurallyClaimable &&
+    !isStaffOnly &&
+    !claimsEnabled &&
+    !staffViewer;
   const showStaffOnlyInsteadOfClaim =
     structurallyClaimable && isStaffOnly && !staffViewer;
 
@@ -451,6 +464,11 @@ const TaskCard = ({
             {claiming ? 'Claiming…' : 'Claim Task'}
           </Button>
         )}
+        {showClaimsPausedLine ? (
+          <p className="text-[11px] text-text-muted leading-snug">
+            {CLAIMS_PAUSED_LINE}
+          </p>
+        ) : null}
         {showStaffOnlyInsteadOfClaim && (
           <Badge variant="gold" className="!normal-case tracking-wide">
             Staff Only

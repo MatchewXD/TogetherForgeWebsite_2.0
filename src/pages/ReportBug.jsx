@@ -20,6 +20,7 @@ import bugReportsService, {
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
+import { pingUserNotices } from '../utils/userNotices';
 
 const fieldLabel =
   'block text-sm font-mono tracking-widest text-neon-cyan mb-2';
@@ -107,6 +108,7 @@ const ReportBug = () => {
       );
       setSubmittedId(bug.id);
       setScreenshotSkipped(Boolean(bug.screenshotSkipped));
+      pingUserNotices();
     } catch (err) {
       setError(err.message || 'Could not submit bug report.');
     } finally {

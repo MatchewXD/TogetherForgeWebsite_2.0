@@ -129,6 +129,32 @@ export function pingUserNotices() {
   window.dispatchEvent(new Event('tf-user-notices-refresh'));
 }
 
+/** Open staff queues (suggestions, scope, reports, bugs). Independent of member inbox. */
+export function hasStaffQueuePin(staffAttention) {
+  return (Number(staffAttention?.total) || 0) > 0;
+}
+
+/** Member dashboard inbox only. Must not include staff queues. */
+export function hasMemberNoticePin(summary) {
+  return Boolean(summary?.global);
+}
+
+/** Avatar marker: member inbox or staff queues. */
+export function hasAvatarNoticePin(summary) {
+  return hasMemberNoticePin(summary) || hasStaffQueuePin(summary?.staffAttention);
+}
+
+/**
+ * Which account-menu rows get a pin.
+ * Staff queues go on Moderator Dashboard, never on Dashboard.
+ */
+export function menuNoticeTargets(summary) {
+  return {
+    dashboard: hasMemberNoticePin(summary),
+    moderatorDashboard: hasStaffQueuePin(summary?.staffAttention),
+  };
+}
+
 export function keysFromNoticeSummary(summary) {
   if (!summary) return [];
   return [

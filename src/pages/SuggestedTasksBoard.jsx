@@ -30,6 +30,7 @@ import {
 } from '../services/taskSuggestionsService';
 import CharCount from '../components/ui/CharCount';
 import { canonicalProjectSlug } from '../utils/ideaStatus';
+import { pingUserNotices } from '../utils/userNotices';
 
 const FILTERS = [
   { id: 'pending', label: 'Pending' },
@@ -117,6 +118,7 @@ const SuggestedTasksBoard = () => {
       setRejectReason('');
       setStrikeTarget(null);
       setStrikeNote('');
+      pingUserNotices();
       await load();
     } catch (err) {
       showToast(err?.message || 'Review failed.', 'error');

@@ -9,6 +9,7 @@ import {
   APPLICATION_TYPES,
 } from '../../constants/volunteer';
 import { submitVolunteerApplication } from '../../services/volunteerService';
+import { pingUserNotices } from '../../utils/userNotices';
 
 const fieldClass =
   'w-full bg-cyber-surface border border-cyber-border rounded-lg px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-neon-cyan focus:outline-none';
@@ -99,6 +100,7 @@ export default function VolunteerOfferForm({
         return;
       }
       setDone(true);
+      pingUserNotices();
     } finally {
       setBusy(false);
     }
@@ -117,26 +119,13 @@ export default function VolunteerOfferForm({
           not public. A small trusted group will follow up if there is a fit.
           You can keep browsing open work while you wait.
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-          {onDone ? (
+        {onDone ? (
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
             <Button type="button" size="sm" onClick={() => onDone()}>
               Close
             </Button>
-          ) : null}
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setDone(false);
-              setDescription('');
-              setSkillOther('');
-              setPortfolioUrl('');
-            }}
-          >
-            Submit another
-          </Button>
-        </div>
+          </div>
+        ) : null}
       </div>
     );
   }

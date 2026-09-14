@@ -19,12 +19,18 @@ import { taskSuggestionsService } from '../services/taskSuggestionsService';
 import { dashboardNoticesService } from '../services/dashboardNoticesService';
 import { openQuestionsService } from '../services/openQuestionsService';
 import {
+  hasMemberNoticePin,
+  hasStaffQueuePin,
   keysFromNoticeSummary,
   readDeletedNoticeIds,
   readSeenNoticeKeys,
   rememberNoticeKeys,
   summarizeUserNotices,
 } from '../utils/userNotices';
+import {
+  EMPTY_STAFF_ATTENTION,
+  loadStaffAttentionCounts,
+} from '../services/staffAttentionService';
 
 const EMPTY = {
   joinRequests: false,
@@ -34,10 +40,13 @@ const EMPTY = {
   joinIds: [],
   suggestionIds: [],
   noticeIds: [],
+  staffAttention: EMPTY_STAFF_ATTENTION,
 };
 
 const UserNoticesContext = createContext({
   ...EMPTY,
+  memberPin: false,
+  staffPin: false,
   refresh: async () => {},
   ingestItems: () => {},
   markDashboardSeen: () => {},
@@ -105,12 +114,18 @@ export function UserNoticesProvider({ children }) {
       setFlags(EMPTY);
       return EMPTY;
     }
-    const items = await loadNoticeItems();
-    const next = summarizeUserNotices({
-      ...items,
-      seen: readSeenNoticeKeys(uid),
-      deleted: readDeletedNoticeIds(uid),
-    });
+    const [items, staffAttention] = await Promise.all([
+      loadNoticeItems(),
+      loadStaffAttentionCounts(uid),
+    ]);
+    const next = {
+      ...summarizeUserNotices({
+        ...items,
+        seen: readSeenNoticeKeys(uid),
+        deleted: readDeletedNoticeIds(uid),
+      }),
+      staffAttention: staffAttention || EMPTY_STAFF_ATTENTION,
+    };
     setFlags(next);
     return next;
   }, []);
@@ -122,13 +137,17 @@ export function UserNoticesProvider({ children }) {
       } = await supabase.auth.getUser();
       const uid = user?.id;
       if (!uid) return;
-      const next = summarizeUserNotices({
-        joinRequests: items?.joinRequests || [],
-        suggestions: items?.suggestions || [],
-        noticeItems: items?.noticeItems || [],
-        seen: readSeenNoticeKeys(uid),
-        deleted: readDeletedNoticeIds(uid),
-      });
+      const next = {
+        ...summarizeUserNotices({
+          joinRequests: items?.joinRequests || [],
+          suggestions: items?.suggestions || [],
+          noticeItems: items?.noticeItems || [],
+          seen: readSeenNoticeKeys(uid),
+          deleted: readDeletedNoticeIds(uid),
+        }),
+        staffAttention:
+          flagsRef.current.staffAttention || EMPTY_STAFF_ATTENTION,
+      };
       setFlags(next);
     })();
   }, []);
@@ -220,6 +239,8 @@ export function UserNoticesProvider({ children }) {
   const value = useMemo(
     () => ({
       ...flags,
+      memberPin: hasMemberNoticePin(flags),
+      staffPin: hasStaffQueuePin(flags.staffAttention),
       refresh,
       ingestItems,
       markDashboardSeen,

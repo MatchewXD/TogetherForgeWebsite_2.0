@@ -20,6 +20,7 @@ import { accountPath } from '../../constants/accountSections';
 import { useStaffRole } from '../../hooks/useStaffRole';
 import { useUserNotices } from '../../context/UserNoticesContext';
 import NoticeDot from '../ui/NoticeDot';
+import StaffNoticeMark from '../ui/StaffNoticeMark';
 
 /**
  * @param {object} props
@@ -42,7 +43,14 @@ export default function AvatarMenu({
   const rootRef = useRef(null);
   const navigate = useNavigate();
   const { canSeeModeratorDashboard } = useStaffRole();
-  const { global: hasGlobalNotice } = useUserNotices();
+  const { memberPin: hasMemberPin, staffPin: hasStaffPin } = useUserNotices();
+  const avatarLabel = hasStaffPin && hasMemberPin
+    ? 'Open account menu, new notices and moderator queues'
+    : hasStaffPin
+      ? 'Open account menu, moderator queues need attention'
+      : hasMemberPin
+        ? 'Open account menu, new notices'
+        : 'Open account menu';
 
   const displayName =
     (username && String(username).trim()) ||
@@ -126,7 +134,7 @@ export default function AvatarMenu({
         <Link to="/dashboard" className={linkClass} onClick={() => go()}>
           <LayoutDashboard className="w-4 h-4 shrink-0 text-neon-purple" />
           <span className="flex-1">Dashboard</span>
-          {hasGlobalNotice ? (
+          {hasMemberPin ? (
             <NoticeDot label="Dashboard has new notices" />
           ) : null}
         </Link>
@@ -180,7 +188,10 @@ export default function AvatarMenu({
           <p className={sectionLabel}>Staff</p>
           <Link to="/moderator" className={linkClass} onClick={() => go()}>
             <Shield className="w-4 h-4 shrink-0 text-semantic-warning" />
-            Moderator Dashboard
+            <span className="flex-1">Moderator Dashboard</span>
+            {hasStaffPin ? (
+              <StaffNoticeMark label="Moderator queues need attention" />
+            ) : null}
           </Link>
         </div>
       )}
@@ -206,9 +217,7 @@ export default function AvatarMenu({
         className="relative overflow-visible rounded-full hover:opacity-90 transition ring-1 ring-white/20 hover:ring-neon-cyan focus:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan"
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label={
-          hasGlobalNotice ? 'Open account menu, new notices' : 'Open account menu'
-        }
+        aria-label={avatarLabel}
         onClick={() => setOpen((v) => !v)}
       >
         <UserAvatar
@@ -220,11 +229,21 @@ export default function AvatarMenu({
           className="!w-9 !h-9"
           borderClass="border border-transparent"
         />
-        {hasGlobalNotice ? (
+        {hasMemberPin ? (
           <NoticeDot
             overlap
-            className="!w-3 !h-3 !bg-red-500"
+            className={`!w-3 !h-3 !bg-red-500 ${
+              hasStaffPin
+                ? '!top-auto !bottom-0 translate-y-[35%] !-translate-y-0'
+                : ''
+            }`}
             label="New notices"
+          />
+        ) : null}
+        {hasStaffPin ? (
+          <StaffNoticeMark
+            overlap
+            label="Moderator queues need attention"
           />
         ) : null}
       </button>

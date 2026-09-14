@@ -192,6 +192,47 @@ export const taskSuggestionsService = {
     return (data || []).map(mapSuggestion);
   },
 
+  async listPendingAll({ limit = 80 } = {}) {
+    const cap = Math.min(100, Math.max(1, Number(limit) || 80));
+    const withProject = await supabase
+      .from('task_suggestions')
+      .select(
+        'id, project_id, created_by, title, description, category, difficulty, estimated_effort, subtasks, parent_task_id, status, reject_reason, reviewed_by, reviewed_at, accepted_task_id, created_at, profiles:created_by ( username, avatar_url ), projects ( slug, title )'
+      )
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(cap);
+    let { data, error } = withProject;
+    if (error && /profiles|projects|relationship/i.test(error.message || '')) {
+      const retry = await supabase
+        .from('task_suggestions')
+        .select(
+          'id, project_id, created_by, title, description, category, difficulty, estimated_effort, subtasks, parent_task_id, status, reject_reason, reviewed_by, reviewed_at, accepted_task_id, created_at'
+        )
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(cap);
+      if (retry.error) {
+        if (
+          /does not exist|schema cache|could not find the table/i.test(
+            retry.error.message || ''
+          )
+        ) {
+          return [];
+        }
+        throw retry.error;
+      }
+      return (retry.data || []).map(mapSuggestion);
+    }
+    if (error) {
+      if (/does not exist|schema cache|could not find the table/i.test(error.message || '')) {
+        return [];
+      }
+      throw error;
+    }
+    return (data || []).map(mapSuggestion);
+  },
+
   async countPending(projectId) {
     if (!projectId) return 0;
     const { count, error } = await supabase

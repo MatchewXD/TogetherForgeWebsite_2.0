@@ -35,6 +35,9 @@ import {
   Award,
   Scale,
   BarChart3,
+  Bug,
+  ClipboardList,
+  Handshake,
 } from 'lucide-react';
 
 import Card from '../components/ui/Card';
@@ -53,7 +56,11 @@ import moderationService, {
 } from '../services/moderationService';
 import { tasksService } from '../services/tasksService';
 import { STATUS_LABELS, displayProjectTitle } from '../utils/ideaStatus';
-import { listShowcaseForModeration } from '../services/showcaseService';
+import {
+  listShowcaseForModeration,
+  moderateShowcasePost,
+  showcaseHref,
+} from '../services/showcaseService';
 import IdeaTagsAdminPanel from '../components/ideas/IdeaTagsAdminPanel';
 import DecisionLogsManager from '../components/transparency/DecisionLogsManager';
 import StudioExpensesManager from '../components/transparency/StudioExpensesManager';
@@ -68,11 +75,41 @@ import {
   OPEN_SUGGESTION_STATUSES,
 } from '../constants/platformSuggestions';
 import UserNameWithBadge from '../components/badges/UserNameWithBadge';
+import StaffNoticeMark from '../components/ui/StaffNoticeMark';
+import { pingUserNotices } from '../utils/userNotices';
+import bugReportsService, {
+  BUG_STATUSES,
+  OPEN_BUG_STATUSES,
+  severityBadgeVariant,
+  statusBadgeVariant,
+} from '../services/bugReportsService';
+import taskSuggestionsService from '../services/taskSuggestionsService';
+import {
+  listVolunteerApplications,
+  updateVolunteerApplicationStatus,
+  listVolunteerApplyBlocks,
+  blockVolunteerApplicant,
+  unblockVolunteerApplicant,
+  applicationMatchesBlock,
+  normalizeVolunteerEmail,
+  normalizeVolunteerDiscord,
+  OPEN_VOLUNTEER_STATUSES,
+  VOLUNTEER_STATUSES,
+  VOLUNTEER_STATUS_LABELS,
+} from '../services/volunteerService';
+import { listConductCases } from '../services/conductService';
+import {
+  COMMUNITY_MOD_ROLES,
+  OPEN_NEEDS,
+  VOLUNTEER_SKILL_OPTIONS,
+  TIME_COMMITMENT_OPTIONS,
+} from '../constants/volunteer';
 
 const TABS = [
   { id: 'traffic', label: 'Traffic', icon: Activity },
   { id: 'users', label: 'Users', icon: Users },
   { id: 'conduct', label: 'Conduct', icon: Scale },
+  { id: 'volunteers', label: 'Volunteers', icon: Handshake },
   { id: 'credit', label: 'Grant Credit', icon: Award },
   { id: 'ideas', label: 'Ideas', icon: Lightbulb },
   { id: 'suggestions', label: 'Suggestions', icon: MessageSquare },
@@ -83,6 +120,9 @@ const TABS = [
   { id: 'scope', label: 'Scope help', icon: SplitSquareVertical },
   { id: 'restrictions', label: 'Claim restrict', icon: Ban },
   { id: 'reports', label: 'Reports', icon: Flag },
+  { id: 'bugs', label: 'Bugs', icon: Bug },
+  { id: 'showcase', label: 'Showcase', icon: LayoutGrid },
+  { id: 'suggested', label: 'Suggested tasks', icon: ClipboardList },
 ];
 
 const ROLES_TAB = { id: 'roles', label: 'Role Management', icon: UserCog };
@@ -101,6 +141,42 @@ const filterControl =
 
 const filterLabel =
   'block text-[10px] font-mono tracking-widest uppercase text-text-muted mb-1';
+
+function volunteerTypeLabel(type) {
+  if (type === 'moderation_role') return 'Community moderator';
+  if (type === 'open_need') return 'Open need';
+  return 'Skill offer';
+}
+
+function volunteerRoleLabel(roleId) {
+  return COMMUNITY_MOD_ROLES.find((r) => r.id === roleId)?.title || roleId || '';
+}
+
+function volunteerNeedLabel(needId) {
+  return OPEN_NEEDS.find((n) => n.id === needId)?.title || needId || '';
+}
+
+function volunteerSkillLabel(id) {
+  return VOLUNTEER_SKILL_OPTIONS.find((s) => s.id === id)?.label || id;
+}
+
+function volunteerTimeLabel(id) {
+  return TIME_COMMITMENT_OPTIONS.find((t) => t.id === id)?.label || id || '';
+}
+
+function QueueMark({ count, className, label }) {
+  if (!count) return null;
+  return (
+    <span className="inline-flex items-center gap-1.5 ml-1">
+      <StaffNoticeMark label={label || `${count} need attention`} />
+      <span
+        className={`text-xs font-mono tabular-nums px-1.5 py-0.5 rounded ${className}`}
+      >
+        {count}
+      </span>
+    </span>
+  );
+}
 
 const formatDate = (iso) => {
   if (!iso) return 'n/a';
@@ -175,7 +251,8 @@ const ModeratorDashboard = () => {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [busyKey, setBusyKey] = useState(null);
-  const [showcasePendingCount, setShowcasePendingCount] = useState(0);
+  const [showcasePending, setShowcasePending] = useState([]);
+  const [showcaseMissing, setShowcaseMissing] = useState(false);
   const [scopeRequests, setScopeRequests] = useState([]);
   const [scopeMissing, setScopeMissing] = useState(false);
   const [scopeLoadError, setScopeLoadError] = useState('');
@@ -210,6 +287,17 @@ const ModeratorDashboard = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [suggestionsMissing, setSuggestionsMissing] = useState(false);
   const [suggestionStatusFilter, setSuggestionStatusFilter] = useState('all');
+  const [bugs, setBugs] = useState([]);
+  const [bugsMissing, setBugsMissing] = useState(false);
+  const [suggestedTasks, setSuggestedTasks] = useState([]);
+  const [volunteers, setVolunteers] = useState([]);
+  const [volunteersMissing, setVolunteersMissing] = useState(false);
+  const [volunteerBlocks, setVolunteerBlocks] = useState([]);
+  const [volunteerStatusFilter, setVolunteerStatusFilter] = useState('open');
+  const [volunteerTypeFilter, setVolunteerTypeFilter] = useState('all');
+  const [volunteerSearch, setVolunteerSearch] = useState('');
+  const [volunteerSort, setVolunteerSort] = useState('newest');
+  const [conductOpenCount, setConductOpenCount] = useState(0);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -233,6 +321,11 @@ const ModeratorDashboard = () => {
       tasksService.countPendingScopeRequests(),
       tasksService.listRestrictionEvents(80),
       platformSuggestionsService.list({ includeHidden: true, limit: 100 }),
+      bugReportsService.listBugs({ status: 'open', limit: 80 }),
+      taskSuggestionsService.listPendingAll({ limit: 80 }),
+      listVolunteerApplications({ status: 'all', limit: 200 }),
+      listVolunteerApplyBlocks(),
+      listConductCases({ status: 'queue', limit: 80 }),
     ]);
 
     const errs = [];
@@ -275,9 +368,17 @@ const ModeratorDashboard = () => {
     }
 
     if (results[3].status === 'fulfilled') {
-      setShowcasePendingCount((results[3].value || []).length);
+      setShowcasePending(results[3].value || []);
+      setShowcaseMissing(false);
     } else {
-      setShowcasePendingCount(0);
+      setShowcasePending([]);
+      const reason = results[3].reason;
+      const missing =
+        reason?.code === 'TABLE_MISSING' ||
+        /showcase table missing|community_showcase|does not exist|schema cache/i.test(
+          reason?.message || ''
+        );
+      setShowcaseMissing(missing);
     }
 
     if (results[4].status === 'fulfilled') {
@@ -345,6 +446,58 @@ const ModeratorDashboard = () => {
       }
     }
 
+    if (results[8].status === 'fulfilled') {
+      setBugs(results[8].value || []);
+      setBugsMissing(false);
+    } else {
+      setBugs([]);
+      const reason = results[8].reason;
+      const missing =
+        reason?.code === 'MISSING_TABLE' ||
+        /bug tracker is not set up|bug_reports|does not exist|schema cache/i.test(
+          reason?.message || ''
+        );
+      setBugsMissing(missing);
+      if (!missing && reason?.message) {
+        errs.push(reason.message);
+      }
+    }
+
+    if (results[9].status === 'fulfilled') {
+      setSuggestedTasks(results[9].value || []);
+    } else {
+      setSuggestedTasks([]);
+    }
+
+    if (results[10].status === 'fulfilled') {
+      setVolunteers(results[10].value || []);
+      setVolunteersMissing(false);
+    } else {
+      setVolunteers([]);
+      const reason = results[10].reason;
+      const missing =
+        reason?.code === 'MISSING_TABLE' ||
+        /volunteer applications are not set up|volunteer_applications|does not exist|schema cache/i.test(
+          reason?.message || ''
+        );
+      setVolunteersMissing(missing);
+      if (!missing && reason?.message) {
+        errs.push(reason.message);
+      }
+    }
+
+    if (results[11].status === 'fulfilled') {
+      setVolunteerBlocks(results[11].value || []);
+    } else {
+      setVolunteerBlocks([]);
+    }
+
+    if (results[12].status === 'fulfilled') {
+      setConductOpenCount((results[12].value || []).length);
+    } else {
+      setConductOpenCount(0);
+    }
+
     if (isFounder) {
       try {
         const log = await moderationService.listRoleChanges({ limit: 50 });
@@ -363,6 +516,7 @@ const ModeratorDashboard = () => {
 
     if (errs.length) setError(errs.join(' · '));
     setLoading(false);
+    pingUserNotices();
   }, [isModerator, isFounder, scopeStatusFilter]);
 
   useEffect(() => {
@@ -403,6 +557,68 @@ const ModeratorDashboard = () => {
     return suggestions.filter((s) => s.status === suggestionStatusFilter);
   }, [suggestions, suggestionStatusFilter]);
 
+  const filteredVolunteers = useMemo(() => {
+    const q = volunteerSearch.trim().toLowerCase();
+    let list = volunteers.filter((app) => {
+      if (volunteerStatusFilter === 'open') {
+        if (!OPEN_VOLUNTEER_STATUSES.includes(app.status)) return false;
+      } else if (volunteerStatusFilter === 'blocked') {
+        if (!volunteerBlocks.some((b) => applicationMatchesBlock(app, b))) {
+          return false;
+        }
+      } else if (
+        volunteerStatusFilter !== 'all' &&
+        app.status !== volunteerStatusFilter
+      ) {
+        return false;
+      }
+      if (
+        volunteerTypeFilter !== 'all' &&
+        app.applicationType !== volunteerTypeFilter
+      ) {
+        return false;
+      }
+      if (q) {
+        const hay = [
+          app.handle,
+          app.email,
+          app.discordUsername,
+          app.description,
+          volunteerTypeLabel(app.applicationType),
+          volunteerRoleLabel(app.roleId),
+          volunteerNeedLabel(app.openNeedId),
+          ...(app.skillAreas || []).map(volunteerSkillLabel),
+          app.skillOther,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    list = [...list];
+    list.sort((a, b) => {
+      if (volunteerSort === 'oldest') {
+        return Date.parse(a.createdAt || '') - Date.parse(b.createdAt || '');
+      }
+      if (volunteerSort === 'handle') {
+        return String(a.handle || '').localeCompare(String(b.handle || ''), undefined, {
+          sensitivity: 'base',
+        });
+      }
+      return Date.parse(b.createdAt || '') - Date.parse(a.createdAt || '');
+    });
+    return list;
+  }, [
+    volunteers,
+    volunteerBlocks,
+    volunteerStatusFilter,
+    volunteerTypeFilter,
+    volunteerSearch,
+    volunteerSort,
+  ]);
+
   const handleSuggestionStatus = async (id, status) => {
     setBusyKey(`sug-${id}`);
     setError('');
@@ -410,6 +626,7 @@ const ModeratorDashboard = () => {
       const updated = await platformSuggestionsService.updateStatus(id, status);
       setSuggestions((prev) => prev.map((x) => (x.id === id ? updated : x)));
       showToast(`Status → ${status}`);
+      pingUserNotices();
     } catch (e) {
       setError(e?.message || 'Could not update suggestion.');
     } finally {
@@ -424,8 +641,167 @@ const ModeratorDashboard = () => {
       const updated = await platformSuggestionsService.setHidden(id, hidden);
       setSuggestions((prev) => prev.map((x) => (x.id === id ? updated : x)));
       showToast(hidden ? 'Hidden from the public list' : 'Visible on the public list');
+      pingUserNotices();
     } catch (e) {
       setError(e?.message || 'Could not update visibility.');
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleSuggestionDelete = (item) => {
+    if (!item?.id) return;
+    setConfirmDialog({
+      title: 'Delete suggestion',
+      message: `Delete “${item.title || 'this suggestion'}”? This cannot be undone.`,
+      confirmLabel: 'Delete',
+      onConfirm: () => {
+        void (async () => {
+          setBusyKey(`sug-${item.id}`);
+          setError('');
+          try {
+            await platformSuggestionsService.remove(item.id);
+            setSuggestions((prev) => prev.filter((x) => x.id !== item.id));
+            showToast('Suggestion deleted');
+            pingUserNotices();
+          } catch (e) {
+            setError(e?.message || 'Could not delete suggestion.');
+          } finally {
+            setBusyKey(null);
+          }
+        })();
+      },
+    });
+  };
+
+  const handleShowcaseAction = async (id, action, successMsg) => {
+    setBusyKey(`showcase-${id}`);
+    setError('');
+    try {
+      await moderateShowcasePost(id, action);
+      setShowcasePending((prev) => prev.filter((p) => p.id !== id));
+      showToast(successMsg);
+      pingUserNotices();
+    } catch (e) {
+      setError(e?.message || 'Could not update showcase submission.');
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleSuggestedAccept = async (id) => {
+    setBusyKey(`suggested-${id}`);
+    setError('');
+    try {
+      await taskSuggestionsService.review(id, 'accept');
+      setSuggestedTasks((prev) => prev.filter((x) => x.id !== id));
+      showToast('Accepted — card is on Staging');
+      pingUserNotices();
+    } catch (e) {
+      setError(e?.message || 'Could not accept suggested task.');
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleVolunteerStatus = async (id, status) => {
+    setBusyKey(`vol-${id}`);
+    setError('');
+    try {
+      const updated = await updateVolunteerApplicationStatus(id, status);
+      setVolunteers((prev) => prev.map((v) => (v.id === id ? updated : v)));
+      showToast(`Application → ${VOLUNTEER_STATUS_LABELS[status] || status}`);
+      pingUserNotices();
+    } catch (e) {
+      setError(e?.message || 'Could not update application.');
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleVolunteerBlock = (app) => {
+    if (!app?.id) return;
+    setConfirmDialog({
+      title: 'Block applicant',
+      message: `Block ${app.handle || 'this applicant'} from submitting more Get Involved applications? We match their account, email, and Discord username. Open applications from them will be declined.`,
+      confirmLabel: 'Block applicant',
+      onConfirm: () => {
+        void (async () => {
+          setBusyKey(`vol-${app.id}`);
+          setError('');
+          try {
+            await blockVolunteerApplicant(app);
+            setVolunteers((prev) =>
+              prev.map((v) =>
+                applicationMatchesBlock(v, {
+                  active: true,
+                  userId: app.userId,
+                  email: normalizeVolunteerEmail(app.email) || null,
+                  discordUsername:
+                    normalizeVolunteerDiscord(app.discordUsername) || null,
+                }) && OPEN_VOLUNTEER_STATUSES.includes(v.status)
+                  ? { ...v, status: 'declined' }
+                  : v
+              )
+            );
+            const blocks = await listVolunteerApplyBlocks();
+            setVolunteerBlocks(blocks);
+            showToast('Applicant blocked from further applications');
+            pingUserNotices();
+          } catch (e) {
+            setError(e?.message || 'Could not block this applicant.');
+          } finally {
+            setBusyKey(null);
+          }
+        })();
+      },
+    });
+  };
+
+  const handleVolunteerUnblock = (block) => {
+    if (!block?.id) return;
+    setConfirmDialog({
+      title: 'Lift application block',
+      message: `Allow ${
+        block.email || block.discordUsername || 'this contact'
+      } to submit Get Involved applications again?`,
+      confirmLabel: 'Lift block',
+      onConfirm: () => {
+        void (async () => {
+          setBusyKey(`volblock-${block.id}`);
+          setError('');
+          try {
+            await unblockVolunteerApplicant(block.id);
+            setVolunteerBlocks((prev) =>
+              prev.filter((b) => b.id !== block.id)
+            );
+            showToast('Block lifted');
+          } catch (e) {
+            setError(e?.message || 'Could not lift this block.');
+          } finally {
+            setBusyKey(null);
+          }
+        })();
+      },
+    });
+  };
+
+  const handleBugStatus = async (id, status) => {
+    setBusyKey(`bug-${id}`);
+    setError('');
+    try {
+      const updated = await bugReportsService.updateStatus(id, status);
+      setBugs((prev) => {
+        const next = prev.map((b) => (b.id === id ? updated : b));
+        if (!OPEN_BUG_STATUSES.includes(updated.status)) {
+          return next.filter((b) => b.id !== id);
+        }
+        return next;
+      });
+      showToast(`Bug status → ${status}`);
+      pingUserNotices();
+    } catch (e) {
+      setError(e?.message || 'Could not update bug.');
     } finally {
       setBusyKey(null);
     }
@@ -576,6 +952,13 @@ const ModeratorDashboard = () => {
   }
 
   const pendingCount = reports.filter((r) => r.status === 'pending').length;
+  const openBugCount = bugs.filter((b) =>
+    OPEN_BUG_STATUSES.includes(b.status)
+  ).length;
+  const showcasePendingCount = showcasePending.length;
+  const volunteerOpenCount = volunteers.filter((v) =>
+    OPEN_VOLUNTEER_STATUSES.includes(v.status)
+  ).length;
 
   return (
     <div className="pt-20 min-h-screen bg-cyber-bg text-text-primary">
@@ -631,72 +1014,21 @@ const ModeratorDashboard = () => {
             </Button>
           </div>
 
-          {/* Content queues + policy reference */}
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link to="/guidelines" className="inline-flex">
-              <Button
-                type="button"
-                variant="secondary"
-                className="gap-2 min-h-[2.75rem]"
-              >
-                <BookOpen className="w-4 h-4 text-neon-green" aria-hidden />
-                Community Guidelines
-                <span className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
-                  Policy
-                </span>
-                <ExternalLink className="w-3.5 h-3.5 opacity-60" aria-hidden />
-              </Button>
+          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+            <Link
+              to="/guidelines"
+              className="inline-flex items-center gap-1.5 text-text-secondary hover:text-white"
+            >
+              <BookOpen className="w-4 h-4 text-neon-green" aria-hidden />
+              Community Guidelines
             </Link>
-            <Link to="/media/edit" className="inline-flex">
-              <Button
-                type="button"
-                variant="secondary"
-                className="gap-2 min-h-[2.75rem]"
-              >
-                <Film className="w-4 h-4 text-neon-cyan" aria-hidden />
-                Official Media
-                <span className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
-                  Queue
-                </span>
-                <ExternalLink className="w-3.5 h-3.5 opacity-60" aria-hidden />
-              </Button>
-            </Link>
-            <Link to="/moderator?tab=suggestions" className="inline-flex">
-              <Button
-                type="button"
-                variant="secondary"
-                className="gap-2 min-h-[2.75rem]"
-              >
-                <MessageSquare className="w-4 h-4 text-neon-cyan" />
-                Suggestions
-                <span className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
-                  Queue
-                </span>
-                {openSuggestionCount > 0 && (
-                  <span className="text-xs font-mono tabular-nums bg-neon-cyan/20 text-neon-cyan px-1.5 py-0.5 rounded">
-                    {openSuggestionCount}
-                  </span>
-                )}
-              </Button>
-            </Link>
-            <Link to="/showcase/moderate" className="inline-flex">
-              <Button
-                type="button"
-                variant="secondary"
-                className="gap-2 min-h-[2.75rem]"
-              >
-                <LayoutGrid className="w-4 h-4 text-neon-purple" aria-hidden />
-                Showcase Moderation
-                <span className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
-                  Queue
-                </span>
-                {showcasePendingCount > 0 && (
-                  <span className="text-xs font-mono tabular-nums bg-neon-magenta/20 text-neon-magenta px-1.5 py-0.5 rounded">
-                    {showcasePendingCount}
-                  </span>
-                )}
-                <ExternalLink className="w-3.5 h-3.5 opacity-60" aria-hidden />
-              </Button>
+            <Link
+              to="/media/edit"
+              className="inline-flex items-center gap-1.5 text-text-secondary hover:text-white"
+            >
+              <Film className="w-4 h-4 text-neon-cyan" aria-hidden />
+              Official Media
+              <ExternalLink className="w-3.5 h-3.5 opacity-50" aria-hidden />
             </Link>
           </div>
 
@@ -722,20 +1054,61 @@ const ModeratorDashboard = () => {
                 >
                   <Icon className="w-4 h-4" />
                   {t.label}
-                  {t.id === 'reports' && pendingCount > 0 && (
-                    <span className="ml-1 text-xs bg-neon-magenta/20 text-neon-magenta px-1.5 py-0.5 rounded">
-                      {pendingCount}
-                    </span>
+                  {t.id === 'reports' && (
+                    <QueueMark
+                      count={pendingCount}
+                      className="bg-neon-magenta/20 text-neon-magenta"
+                      label={`${pendingCount} pending reports`}
+                    />
                   )}
-                  {t.id === 'scope' && scopePendingCount > 0 && (
-                    <span className="ml-1 text-xs bg-semantic-warning/20 text-semantic-warning px-1.5 py-0.5 rounded">
-                      {scopePendingCount}
-                    </span>
+                  {t.id === 'scope' && (
+                    <QueueMark
+                      count={scopePendingCount}
+                      className="bg-semantic-warning/20 text-semantic-warning"
+                      label={`${scopePendingCount} pending scope requests`}
+                    />
                   )}
-                  {t.id === 'suggestions' && openSuggestionCount > 0 && (
-                    <span className="ml-1 text-xs bg-neon-cyan/20 text-neon-cyan px-1.5 py-0.5 rounded">
-                      {openSuggestionCount}
-                    </span>
+                  {t.id === 'suggestions' && (
+                    <QueueMark
+                      count={openSuggestionCount}
+                      className="bg-neon-cyan/20 text-neon-cyan"
+                      label={`${openSuggestionCount} open suggestions`}
+                    />
+                  )}
+                  {t.id === 'bugs' && (
+                    <QueueMark
+                      count={openBugCount}
+                      className="bg-red-500/20 text-red-300"
+                      label={`${openBugCount} open bugs`}
+                    />
+                  )}
+                  {t.id === 'showcase' && (
+                    <QueueMark
+                      count={showcasePendingCount}
+                      className="bg-neon-purple/20 text-neon-purple"
+                      label={`${showcasePendingCount} pending showcase submissions`}
+                    />
+                  )}
+                  {t.id === 'suggested' && (
+                    <QueueMark
+                      count={suggestedTasks.length}
+                      className="bg-forge-gold/20 text-forge-gold"
+                      label={`${suggestedTasks.length} pending suggested tasks`}
+                    />
+                  )}
+                  {t.id === 'conduct' && (
+                    <QueueMark
+                      count={conductOpenCount}
+                      className="bg-semantic-warning/20 text-semantic-warning"
+                      label={`${conductOpenCount} open conduct cases`}
+                    />
+                  )}
+                  {t.id === 'volunteers' && (
+                    <QueueMark
+                      count={volunteerOpenCount}
+                      className="bg-neon-green/20 text-neon-green"
+                      label={`${volunteerOpenCount} volunteer applications`}
+                    />
                   )}
                 </button>
               );
@@ -759,7 +1132,9 @@ const ModeratorDashboard = () => {
           tab !== 'traffic' &&
           tab !== 'credit' &&
           tab !== 'conduct' &&
-          tab !== 'polls' && (
+          tab !== 'polls' &&
+          tab !== 'volunteers' &&
+          tab !== 'suggested' && (
           <LoadingScreen variant="section" message="Loading…" />
         )}
 
@@ -1342,8 +1717,8 @@ const ModeratorDashboard = () => {
                   Platform suggestions
                 </h2>
                 <p className="text-sm text-text-secondary mt-1 max-w-xl">
-                  Site feedback (not game ideas). Set status, or hide a row from
-                  the public list.
+                  Site feedback (not game ideas). Set status, hide a row from
+                  the public list, or delete it.
                 </p>
                 <Link
                   to="/suggestions"
@@ -1487,6 +1862,16 @@ const ModeratorDashboard = () => {
                           </>
                         )}
                       </button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="gap-1 text-red-300"
+                        disabled={busy}
+                        onClick={() => handleSuggestionDelete(item)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete
+                      </Button>
                     </div>
                   </Card>
                 );
@@ -2015,6 +2400,665 @@ const ModeratorDashboard = () => {
                 );
               })}
             </div>
+          </section>
+        )}
+
+        {/* ---------- Bug reports ---------- */}
+        {tab === 'bugs' && (
+          <section aria-labelledby="bugs-heading">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
+              <div>
+                <h2
+                  id="bugs-heading"
+                  className="text-xl sm:text-2xl font-bold text-white tracking-tight"
+                >
+                  Bug reports
+                </h2>
+                <p className="text-sm text-text-secondary mt-1 max-w-xl">
+                  Open reports from the public tracker. Change status here, or
+                  open the full list.
+                </p>
+                <Link
+                  to="/bugs"
+                  className="inline-flex items-center gap-1 text-xs font-mono tracking-widest text-neon-cyan hover:underline mt-2"
+                >
+                  Open bug tracker
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+
+            {bugsMissing && (
+              <Card className="bg-cyber-card/80 border-amber-500/30 mb-4">
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  Bug tracker is not set up yet. Run{' '}
+                  <code className="text-neon-cyan text-xs font-mono">
+                    supabase/sql/supabase_bug_reports.sql
+                  </code>{' '}
+                  in Supabase, then refresh.
+                </p>
+              </Card>
+            )}
+
+            {!bugsMissing && bugs.length === 0 && !loading && (
+              <Card className="bg-cyber-card/80 text-sm text-text-muted">
+                No open bug reports.
+              </Card>
+            )}
+
+            <div className="space-y-3">
+              {bugs.map((bug) => {
+                const busy = busyKey === `bug-${bug.id}`;
+                return (
+                  <Card key={bug.id} className="bg-cyber-card/80">
+                    <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+                      <h3 className="text-base font-semibold text-white pr-2">
+                        {bug.title}
+                      </h3>
+                      <div className="flex flex-wrap gap-1.5 shrink-0">
+                        <Badge variant={severityBadgeVariant(bug.severity)}>
+                          {bug.severity}
+                        </Badge>
+                        <Badge variant={statusBadgeVariant(bug.status)}>
+                          {bug.status}
+                        </Badge>
+                      </div>
+                    </div>
+                    <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap line-clamp-4">
+                      {bug.description}
+                    </p>
+                    <p className="text-xs font-mono text-text-muted mt-2">
+                      {bug.createdAt ? formatDate(bug.createdAt) : ''}
+                      {bug.reporterName ? ` · ${bug.reporterName}` : ''}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 mt-3">
+                      <select
+                        className="bg-cyber-surface border border-cyber-border rounded-lg px-2 py-1.5 text-xs text-white"
+                        value={bug.status}
+                        disabled={busy}
+                        onChange={(e) =>
+                          void handleBugStatus(bug.id, e.target.value)
+                        }
+                        aria-label={`Status for ${bug.title}`}
+                      >
+                        {BUG_STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                      <Link
+                        to="/bugs"
+                        className="inline-flex items-center gap-1 text-xs font-mono text-neon-cyan hover:underline"
+                      >
+                        Full tracker
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ---------- Showcase submissions ---------- */}
+        {tab === 'showcase' && (
+          <section aria-labelledby="showcase-heading">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
+              <div>
+                <h2
+                  id="showcase-heading"
+                  className="text-xl sm:text-2xl font-bold text-white tracking-tight"
+                >
+                  Showcase submissions
+                </h2>
+                <p className="text-sm text-text-secondary mt-1 max-w-xl">
+                  Community posts wait here until staff approve them. They do
+                  not go live on their own.
+                </p>
+                <Link
+                  to="/showcase/moderate"
+                  className="inline-flex items-center gap-1 text-xs font-mono tracking-widest text-neon-cyan hover:underline mt-2"
+                >
+                  Full showcase queue
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+
+            {showcaseMissing && (
+              <Card className="bg-cyber-card/80 border-amber-500/30 mb-4">
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  Showcase is not set up yet. Run{' '}
+                  <code className="text-neon-cyan text-xs font-mono">
+                    supabase/sql/supabase_community_showcase.sql
+                  </code>{' '}
+                  in Supabase, then refresh.
+                </p>
+              </Card>
+            )}
+
+            {!showcaseMissing &&
+              showcasePending.length === 0 &&
+              !loading && (
+                <Card className="bg-cyber-card/80 text-sm text-text-muted">
+                  No pending showcase submissions.
+                </Card>
+              )}
+
+            <div className="space-y-3">
+              {showcasePending.map((post) => {
+                const busy = busyKey === `showcase-${post.id}`;
+                const href = showcaseHref(post);
+                return (
+                  <Card key={post.id} className="bg-cyber-card/80">
+                    <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+                      <h3 className="text-base font-semibold text-white pr-2">
+                        {post.title}
+                      </h3>
+                      <Badge variant="warning">
+                        {post.contentType || 'pending'}
+                      </Badge>
+                    </div>
+                    {post.description ? (
+                      <p className="text-sm text-text-secondary leading-relaxed line-clamp-3">
+                        {post.description}
+                      </p>
+                    ) : null}
+                    <p className="text-xs font-mono text-text-muted mt-2">
+                      {post.createdAt ? formatDate(post.createdAt) : ''}
+                      {post.creatorDisplayName
+                        ? ` · ${post.creatorDisplayName}`
+                        : ''}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 mt-3">
+                      {href ? (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-mono text-neon-cyan hover:underline"
+                        >
+                          Open
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      ) : null}
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={busy}
+                        onClick={() =>
+                          void handleShowcaseAction(
+                            post.id,
+                            'approve',
+                            'Approved — now live'
+                          )
+                        }
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-red-300"
+                        disabled={busy}
+                        onClick={() =>
+                          void handleShowcaseAction(
+                            post.id,
+                            'reject',
+                            'Rejected'
+                          )
+                        }
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ---------- Suggested tasks ---------- */}
+        {tab === 'suggested' && (
+          <section aria-labelledby="suggested-heading">
+            <div className="mb-4">
+              <h2
+                id="suggested-heading"
+                className="text-xl sm:text-2xl font-bold text-white tracking-tight"
+              >
+                Suggested tasks
+              </h2>
+              <p className="text-sm text-text-secondary mt-1 max-w-xl">
+                Volunteer proposals waiting for staff. Accept copies the card
+                onto that project&apos;s Staging board. Reject and strike stay
+                on the project queue.
+              </p>
+            </div>
+
+            {suggestedTasks.length === 0 && !loading && (
+              <Card className="bg-cyber-card/80 text-sm text-text-muted">
+                No pending suggested tasks.
+              </Card>
+            )}
+
+            <div className="space-y-3">
+              {suggestedTasks.map((row) => {
+                const busy = busyKey === `suggested-${row.id}`;
+                const boardHref = row.projectSlug
+                  ? `/projects/${row.projectSlug}/board/suggested`
+                  : null;
+                return (
+                  <Card key={row.id} className="bg-cyber-card/80">
+                    <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+                      <h3 className="text-base font-semibold text-white pr-2">
+                        {row.title}
+                      </h3>
+                      <div className="flex flex-wrap gap-1.5 shrink-0">
+                        {row.projectTitle ? (
+                          <Badge variant="neon">{row.projectTitle}</Badge>
+                        ) : null}
+                        {row.category ? (
+                          <TaskCategoryBadge category={row.category} size="sm" />
+                        ) : null}
+                      </div>
+                    </div>
+                    {row.description ? (
+                      <p className="text-sm text-text-secondary leading-relaxed line-clamp-4 whitespace-pre-wrap">
+                        {row.description}
+                      </p>
+                    ) : null}
+                    <p className="text-xs font-mono text-text-muted mt-2">
+                      {row.createdAt ? formatDate(row.createdAt) : ''}
+                      {row.authorName ? ` · ${row.authorName}` : ''}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 mt-3">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={busy}
+                        onClick={() => void handleSuggestedAccept(row.id)}
+                      >
+                        Accept to Staging
+                      </Button>
+                      {boardHref ? (
+                        <Link
+                          to={boardHref}
+                          className="inline-flex items-center gap-1 text-xs font-mono text-neon-cyan hover:underline"
+                        >
+                          Project queue
+                          <ExternalLink className="w-3 h-3" />
+                        </Link>
+                      ) : null}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ---------- Volunteer applications ---------- */}
+        {tab === 'volunteers' && (
+          <section aria-labelledby="volunteers-heading">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
+              <div>
+                <h2
+                  id="volunteers-heading"
+                  className="text-xl sm:text-2xl font-bold text-white tracking-tight"
+                >
+                  Volunteer applications
+                </h2>
+                <p className="text-sm text-text-secondary mt-1 max-w-xl">
+                  Private Get Involved offers. New and reviewing stay pinned.
+                  Block stops further applications from the same account, email,
+                  or Discord username.
+                </p>
+                <p className="text-xs font-mono text-text-muted mt-1">
+                  Showing {filteredVolunteers.length}
+                  {filteredVolunteers.length !== volunteers.length
+                    ? ` of ${volunteers.length}`
+                    : ''}
+                </p>
+              </div>
+              {(volunteerSearch ||
+                volunteerStatusFilter !== 'open' ||
+                volunteerTypeFilter !== 'all' ||
+                volunteerSort !== 'newest') && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setVolunteerSearch('');
+                    setVolunteerStatusFilter('open');
+                    setVolunteerTypeFilter('all');
+                    setVolunteerSort('newest');
+                  }}
+                >
+                  Clear filters
+                </Button>
+              )}
+            </div>
+
+            <Card className="bg-cyber-card/80 mb-4 p-4 sm:p-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                  <label className={filterLabel} htmlFor="mod-vol-search">
+                    Search
+                  </label>
+                  <div className="relative">
+                    <Search
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none"
+                      aria-hidden
+                    />
+                    <input
+                      id="mod-vol-search"
+                      type="search"
+                      className={`${filterControl} pl-9`}
+                      placeholder="Handle, email, Discord, skills…"
+                      value={volunteerSearch}
+                      onChange={(e) => setVolunteerSearch(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className={filterLabel} htmlFor="mod-vol-status">
+                    Status
+                  </label>
+                  <select
+                    id="mod-vol-status"
+                    className={filterControl}
+                    value={volunteerStatusFilter}
+                    onChange={(e) => setVolunteerStatusFilter(e.target.value)}
+                  >
+                    <option value="open">Open (new + reviewing)</option>
+                    <option value="all">All statuses</option>
+                    {VOLUNTEER_STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {VOLUNTEER_STATUS_LABELS[s]}
+                      </option>
+                    ))}
+                    <option value="blocked">Blocked contacts</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={filterLabel} htmlFor="mod-vol-type">
+                    Type
+                  </label>
+                  <select
+                    id="mod-vol-type"
+                    className={filterControl}
+                    value={volunteerTypeFilter}
+                    onChange={(e) => setVolunteerTypeFilter(e.target.value)}
+                  >
+                    <option value="all">All types</option>
+                    <option value="skill_offer">Skill offer</option>
+                    <option value="moderation_role">Community moderator</option>
+                    <option value="open_need">Open need</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={filterLabel} htmlFor="mod-vol-sort">
+                    Sort
+                  </label>
+                  <select
+                    id="mod-vol-sort"
+                    className={filterControl}
+                    value={volunteerSort}
+                    onChange={(e) => setVolunteerSort(e.target.value)}
+                  >
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                    <option value="handle">Handle A–Z</option>
+                  </select>
+                </div>
+              </div>
+            </Card>
+
+            {volunteersMissing && (
+              <Card className="bg-cyber-card/80 border-amber-500/30 mb-4">
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  Volunteer applications are not set up yet. Run{' '}
+                  <code className="text-neon-cyan text-xs font-mono">
+                    supabase/sql/supabase_volunteer_applications.sql
+                  </code>{' '}
+                  in Supabase, then refresh.
+                </p>
+              </Card>
+            )}
+
+            {!volunteersMissing &&
+              filteredVolunteers.length === 0 &&
+              !loading && (
+                <Card className="bg-cyber-card/80 text-sm text-text-muted">
+                  {volunteers.length === 0
+                    ? 'No volunteer applications yet.'
+                    : 'No applications match this view.'}
+                </Card>
+              )}
+
+            <div className="space-y-3">
+              {filteredVolunteers.map((app) => {
+                const busy = busyKey === `vol-${app.id}`;
+                const blocked = volunteerBlocks.some((b) =>
+                  applicationMatchesBlock(app, b)
+                );
+                const skills = [
+                  ...app.skillAreas.map(volunteerSkillLabel),
+                  app.skillOther ? `Other: ${app.skillOther}` : null,
+                ].filter(Boolean);
+                return (
+                  <Card key={app.id} className="bg-cyber-card/80">
+                    <div className="grid gap-4 lg:grid-cols-12">
+                      <div className="lg:col-span-4 space-y-3">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <h3 className="text-base font-semibold text-white">
+                            {app.handle}
+                          </h3>
+                          <div className="flex flex-wrap gap-1.5">
+                            <Badge variant="warning">
+                              {volunteerTypeLabel(app.applicationType)}
+                            </Badge>
+                            {blocked ? (
+                              <Badge variant="danger">Blocked</Badge>
+                            ) : null}
+                          </div>
+                        </div>
+                        <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-x-4 gap-y-2 text-sm">
+                          <div>
+                            <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
+                              Submitted
+                            </dt>
+                            <dd className="text-text-secondary">
+                              {app.createdAt ? formatDate(app.createdAt) : 'n/a'}
+                            </dd>
+                          </div>
+                          {app.email ? (
+                            <div>
+                              <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
+                                Email
+                              </dt>
+                              <dd className="text-text-secondary break-all">
+                                {app.email}
+                              </dd>
+                            </div>
+                          ) : null}
+                          {app.discordUsername ? (
+                            <div>
+                              <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
+                                Discord
+                              </dt>
+                              <dd className="text-text-secondary">
+                                {app.discordUsername}
+                              </dd>
+                            </div>
+                          ) : null}
+                          {app.roleId ? (
+                            <div>
+                              <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
+                                Role
+                              </dt>
+                              <dd className="text-text-secondary">
+                                {volunteerRoleLabel(app.roleId)}
+                              </dd>
+                            </div>
+                          ) : null}
+                          {app.openNeedId ? (
+                            <div>
+                              <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
+                                Open need
+                              </dt>
+                              <dd className="text-text-secondary">
+                                {volunteerNeedLabel(app.openNeedId)}
+                              </dd>
+                            </div>
+                          ) : null}
+                          {app.timeCommitment ? (
+                            <div>
+                              <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
+                                Time
+                              </dt>
+                              <dd className="text-text-secondary">
+                                {volunteerTimeLabel(app.timeCommitment)}
+                              </dd>
+                            </div>
+                          ) : null}
+                          {app.portfolioUrl ? (
+                            <div className="sm:col-span-2 lg:col-span-1">
+                              <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
+                                Portfolio
+                              </dt>
+                              <dd>
+                                <a
+                                  href={app.portfolioUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-neon-cyan hover:underline break-all text-sm"
+                                >
+                                  {app.portfolioUrl}
+                                </a>
+                              </dd>
+                            </div>
+                          ) : null}
+                        </dl>
+                      </div>
+                      <div className="lg:col-span-8 space-y-3 min-w-0">
+                        <div>
+                          <div className="text-[10px] font-mono tracking-widest uppercase text-text-muted mb-1">
+                            How they can help
+                          </div>
+                          <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
+                            {app.description}
+                          </p>
+                        </div>
+                        {skills.length ? (
+                          <div>
+                            <div className="text-[10px] font-mono tracking-widest uppercase text-text-muted mb-1.5">
+                              Skills
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {skills.map((s) => (
+                                <Badge key={s} variant="default">
+                                  {s}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 mt-4">
+                      <select
+                        className="bg-cyber-surface border border-cyber-border rounded-lg px-2 py-1.5 text-xs text-white"
+                        value={app.status}
+                        disabled={busy}
+                        onChange={(e) =>
+                          void handleVolunteerStatus(app.id, e.target.value)
+                        }
+                        aria-label={`Status for ${app.handle}`}
+                      >
+                        {VOLUNTEER_STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {VOLUNTEER_STATUS_LABELS[s]}
+                          </option>
+                        ))}
+                      </select>
+                      {blocked ? (
+                        <span className="text-xs text-semantic-danger">
+                          This contact is blocked from applying again.
+                        </span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="gap-1 text-red-300"
+                          disabled={busy}
+                          onClick={() => handleVolunteerBlock(app)}
+                        >
+                          <Ban className="w-3.5 h-3.5" />
+                          Block from applying
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+
+            {volunteerBlocks.length > 0 &&
+              volunteerStatusFilter !== 'blocked' && (
+                <div className="mt-8">
+                  <h3 className="text-sm font-semibold text-white mb-2">
+                    Blocked contacts
+                  </h3>
+                  <p className="text-xs text-text-muted mb-3">
+                    These people cannot submit another Get Involved application.
+                  </p>
+                  <div className="space-y-2">
+                    {volunteerBlocks.map((block) => {
+                      const busy = busyKey === `volblock-${block.id}`;
+                      return (
+                        <Card
+                          key={block.id}
+                          className="bg-cyber-card/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                        >
+                          <div className="text-sm text-text-secondary min-w-0">
+                            <p className="text-white font-medium">
+                              {block.email ||
+                                block.discordUsername ||
+                                'Blocked contact'}
+                            </p>
+                            <p className="text-xs font-mono text-text-muted mt-0.5">
+                              {[
+                                block.email,
+                                block.discordUsername
+                                  ? `Discord ${block.discordUsername}`
+                                  : null,
+                                block.createdAt
+                                  ? formatDate(block.createdAt)
+                                  : null,
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={busy}
+                            onClick={() => handleVolunteerUnblock(block)}
+                          >
+                            Lift block
+                          </Button>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
           </section>
         )}
 

@@ -66,6 +66,11 @@ import UserNameWithBadge from '../components/badges/UserNameWithBadge';
 import LoadingScreen from '../components/ui/LoadingScreen';
 import IdeaCard from '../components/ui/IdeaCard';
 import { useIsModerator } from '../hooks/useIsModerator';
+import {
+  areClaimsEnabled,
+  CLAIMS_PAUSED_CODE,
+  CLAIMS_PAUSED_LINE,
+} from '../constants/claimsEnabled';
 import OpenConductCaseButton from '../components/conduct/OpenConductCaseButton';
 import {
   tasksService,
@@ -695,12 +700,23 @@ const ProjectWorkspace = () => {
       selectedTaskWaitBlockers.length > 0 &&
       (selectedTask.isLocked || selectedTask.isVisuallyBlocked)
   );
+  const claimsEnabled = areClaimsEnabled();
   const selectedTaskCanClaim = Boolean(
     selectedTask &&
       selectedTask.status === 'todo' &&
       !selectedTask.claimedBy &&
       !getUserTaskClaimBlockedReason(selectedTask, { isStaff: isModerator }) &&
-      (!selectedTask.staffOnly || isModerator)
+      (!selectedTask.staffOnly || isModerator) &&
+      (claimsEnabled || isModerator)
+  );
+  const selectedTaskClaimsPaused = Boolean(
+    selectedTask &&
+      !claimsEnabled &&
+      !isModerator &&
+      selectedTask.status === 'todo' &&
+      !selectedTask.claimedBy &&
+      !selectedTask.staffOnly &&
+      !getUserTaskClaimBlockedReason(selectedTask, { isStaff: false })
   );
 
   /**
@@ -1669,7 +1685,8 @@ const ProjectWorkspace = () => {
         err?.code === 'CLAIM_HIERARCHY' ||
         err?.code === 'IDENTITY_GATE' ||
         err?.code === 'CLAIM_RESTRICTED' ||
-        err?.code === 'STAFF_ONLY';
+        err?.code === 'STAFF_ONLY' ||
+        err?.code === CLAIMS_PAUSED_CODE;
       showToast(msg, soft ? 'warn' : 'error');
       refreshClaimQuota();
     } finally {
@@ -2860,6 +2877,11 @@ const ProjectWorkspace = () => {
                     ) : null}
                   </button>
                 </div>
+                {!claimsEnabled && !isModerator ? (
+                  <p className="text-sm text-text-muted leading-relaxed">
+                    {CLAIMS_PAUSED_LINE}
+                  </p>
+                ) : null}
                 {boardFiltersActive && !loading && (
                   <p className="text-[11px] font-mono text-text-muted">
                     Showing {boardTasks.length} match
@@ -4709,6 +4731,11 @@ const ProjectWorkspace = () => {
                   </Button>
                 </div>
               )}
+            {selectedTaskClaimsPaused && (
+              <p className="text-sm text-text-muted pt-2 border-t border-cyber-border leading-relaxed">
+                {CLAIMS_PAUSED_LINE}
+              </p>
+            )}
           </div>
         )}
       </Modal>

@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
+  hasAvatarNoticePin,
+  hasMemberNoticePin,
+  hasStaffQueuePin,
   keysFromNoticeSummary,
+  menuNoticeTargets,
   noticeKey,
   readDeletedNoticeIds,
   readSeenNoticeKeys,
@@ -113,5 +117,86 @@ describe('summarizeUserNotices', () => {
     });
     expect(summary.noticeIds).toEqual(['n2']);
     expect(summary.noticesCard).toBe(true);
+  });
+});
+
+describe('staff queue pins', () => {
+  it('pins the avatar when staff queues have open work', () => {
+    const member = summarizeUserNotices({
+      joinRequests: [],
+      suggestions: [],
+      noticeItems: [],
+      seen: new Set(),
+    });
+    expect(member.global).toBe(false);
+    expect(hasAvatarNoticePin(member)).toBe(false);
+    expect(hasStaffQueuePin({ total: 0 })).toBe(false);
+    expect(
+      hasAvatarNoticePin({
+        ...member,
+        staffAttention: { suggestions: 1, scope: 0, reports: 0, bugs: 0, total: 1 },
+      })
+    ).toBe(true);
+    expect(hasStaffQueuePin({ total: 2 })).toBe(true);
+  });
+
+  it('does not treat staff queues as member dashboard notices', () => {
+    const member = summarizeUserNotices({
+      joinRequests: [],
+      suggestions: [{ id: 's-wait', status: 'pending' }],
+      noticeItems: [],
+      seen: new Set(),
+    });
+    expect(member.global).toBe(false);
+    expect(member.suggestions).toBe(false);
+    expect(
+      hasStaffQueuePin({
+        suggestions: 3,
+        scope: 1,
+        reports: 2,
+        bugs: 4,
+        showcase: 1,
+        total: 11,
+      })
+    ).toBe(true);
+  });
+
+  it('puts staff-only pins on Moderator Dashboard, not Dashboard', () => {
+    const staffOnly = {
+      ...summarizeUserNotices({
+        joinRequests: [],
+        suggestions: [],
+        noticeItems: [],
+        seen: new Set(),
+      }),
+      staffAttention: {
+        suggestions: 1,
+        scope: 0,
+        reports: 0,
+        bugs: 0,
+        total: 1,
+      },
+    };
+    expect(hasMemberNoticePin(staffOnly)).toBe(false);
+    expect(menuNoticeTargets(staffOnly)).toEqual({
+      dashboard: false,
+      moderatorDashboard: true,
+    });
+  });
+
+  it('keeps member inbox on Dashboard when both kinds are present', () => {
+    const both = {
+      ...summarizeUserNotices({
+        joinRequests: [{ id: 'j1' }],
+        suggestions: [],
+        noticeItems: [],
+        seen: new Set(),
+      }),
+      staffAttention: { total: 2 },
+    };
+    expect(menuNoticeTargets(both)).toEqual({
+      dashboard: true,
+      moderatorDashboard: true,
+    });
   });
 });

@@ -24,6 +24,7 @@ import {
   SHOWCASE_CONTENT_TYPES,
 } from '../services/showcaseService';
 import { loadRelatedProjectOptions } from '../utils/relatedToOptions';
+import { pingUserNotices } from '../utils/userNotices';
 
 const fieldClass =
   'w-full bg-cyber-surface border border-cyber-border rounded-lg px-4 py-3 text-text-primary placeholder:text-text-muted focus:border-neon-cyan focus:outline-none transition-colors';
@@ -137,6 +138,7 @@ const ShowcaseSubmit = () => {
         title,
         signedIn: true,
       });
+      pingUserNotices();
       setForm(emptyForm());
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {

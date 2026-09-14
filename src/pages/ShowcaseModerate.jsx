@@ -31,6 +31,7 @@ import {
   showcaseThumb,
 } from '../services/showcaseService';
 import OpenConductCaseButton from '../components/conduct/OpenConductCaseButton';
+import { pingUserNotices } from '../utils/userNotices';
 
 const QUEUE_TABS = [
   { id: 'pending', label: 'Pending' },
@@ -91,6 +92,7 @@ const ShowcaseModerate = () => {
     try {
       await moderateShowcasePost(id, action, notes[id] || '');
       showToast(successMsg);
+      pingUserNotices();
       await load();
     } catch (err) {
       showToast(err?.message || 'Action failed.');
@@ -109,6 +111,7 @@ const ShowcaseModerate = () => {
         try {
           await deleteShowcasePost(id);
           showToast('Deleted.');
+          pingUserNotices();
           await load();
         } catch (err) {
           showToast(err?.message || 'Delete failed.');

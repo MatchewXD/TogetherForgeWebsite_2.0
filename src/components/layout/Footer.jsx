@@ -179,7 +179,7 @@ const Footer = () => {
               © 2026 Together Forge. All Rights Reserved.
               <br />
               &quot;Together Forge&quot; is a trademark of Together Forge
-              Community.
+              LLC.
             </div>
           </div>
         </div>

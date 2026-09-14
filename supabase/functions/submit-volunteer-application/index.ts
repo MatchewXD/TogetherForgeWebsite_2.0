@@ -111,9 +111,6 @@ function validate(body) {
   if (!description || description.length < 10) {
     return { error: 'Please add a short description (at least a sentence).' };
   }
-  if (applicationType === 'moderation_role' && !roleId) {
-    return { error: 'Choose a Community & Moderation role.' };
-  }
   if (
     applicationType === 'skill_offer' &&
     skillAreas.length === 0 &&
@@ -209,6 +206,25 @@ Deno.serve(async (req) => {
     const openNeedTitle = v.openNeedTitle || null;
 
     const sb = admin();
+    const { data: blocked, error: blockErr } = await sb.rpc(
+      'volunteer_apply_is_blocked',
+      {
+        p_user_id: user?.id || null,
+        p_email: row.email,
+        p_discord: row.discord_username,
+      }
+    );
+    if (!blockErr && blocked) {
+      return json(
+        {
+          error:
+            'This contact cannot submit volunteer applications right now.',
+          code: 'VOLUNTEER_APPLY_BLOCKED',
+        },
+        403
+      );
+    }
+
     const { data, error } = await sb
       .from('volunteer_applications')
       .insert(row)
@@ -217,6 +233,16 @@ Deno.serve(async (req) => {
 
     if (error) {
       console.error('[submit-volunteer] insert', error.message);
+      if (/VOLUNTEER_APPLY_BLOCKED/i.test(error.message || '')) {
+        return json(
+          {
+            error:
+              'This contact cannot submit volunteer applications right now.',
+            code: 'VOLUNTEER_APPLY_BLOCKED',
+          },
+          403
+        );
+      }
       // Table missing: still try Discord so staff see it
       if (/relation|does not exist|schema cache/i.test(error.message || '')) {
         await notifyDiscord({ ...row, open_need_title: openNeedTitle });
