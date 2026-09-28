@@ -282,11 +282,11 @@ const HomePage = () => {
 
               <div className="max-w-xl mx-auto mb-10 sm:mb-12 space-y-4">
                 <p className="text-xl sm:text-2xl md:text-[1.65rem] font-semibold text-white leading-snug tracking-tight">
-                  No investors.
+                  No Profit Mandate.
                   <br />
-                  No third-party ownership.
+                  No Third-party Ownership.
                   <br />
-                  No ideological agendas.
+                  No Ideological Agendas.
                 </p>
                 <p className="text-base sm:text-lg text-white/90 leading-relaxed">
                   Just game development driven by the people who actually care.
