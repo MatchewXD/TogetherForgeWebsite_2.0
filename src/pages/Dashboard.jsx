@@ -74,6 +74,7 @@ import {
   rememberNoticeKeys,
 } from '../utils/userNotices';
 import NoticeDot from '../components/ui/NoticeDot';
+import InfoHoverTip from '../components/ui/InfoHoverTip';
 import {
   ensureUsernameFromSignup,
 } from '../utils/ensureUserProfile';
@@ -878,6 +879,9 @@ const Dashboard = () => {
                           {claims.length}
                         </Badge>
                       )}
+                      <InfoHoverTip label="Claim auto-release rules">
+                        {CLAIM_AUTO_RELEASE_POLICY_COPY}
+                      </InfoHoverTip>
                     </div>
                     <Link
                       to="/projects"
@@ -889,8 +893,7 @@ const Dashboard = () => {
                   <div className={DASH_PANEL_BODY}>
                   <p className="text-[11px] text-text-muted mb-3">
                     Open claims are work in progress and submissions waiting
-                    for review. Both use a claim slot.{' '}
-                    {CLAIM_AUTO_RELEASE_POLICY_COPY}
+                    for review. Both use a claim slot.
                   </p>
 
                   {claims.length === 0 ? (
@@ -908,11 +911,14 @@ const Dashboard = () => {
                       {claims.map((c) => {
                         const releaseInfo = c.inReview
                           ? null
-                          : getClaimAutoReleaseInfo({
-                              status: 'Active',
-                              claimedAt: c.claimedAt,
-                              lastActivityAt: c.lastActivityAt,
-                            });
+                          : getClaimAutoReleaseInfo(
+                              {
+                                status: 'Active',
+                                claimedAt: c.claimedAt,
+                                lastActivityAt: c.lastActivityAt,
+                              },
+                              { holdClaim: Boolean(c.holdClaim) }
+                            );
                         return (
                         <li
                           key={c.claimId}
@@ -957,6 +963,14 @@ const Dashboard = () => {
                                     className="!normal-case tracking-wide"
                                   >
                                     Staff Only
+                                  </Badge>
+                                )}
+                                {c.holdClaim && !c.inReview && (
+                                  <Badge
+                                    variant="default"
+                                    className="!normal-case tracking-wide"
+                                  >
+                                    Held
                                   </Badge>
                                 )}
                                 {releaseInfo?.warn && (

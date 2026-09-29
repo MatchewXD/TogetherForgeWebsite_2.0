@@ -48,6 +48,8 @@ import SubTaskList from '../components/ui/SubTaskList';
 import TaskDependencyPicker from '../components/ui/TaskDependencyPicker';
 import TaskStagingTree from '../components/ui/TaskStagingTree';
 import SuggestTaskModal from '../components/tasks/SuggestTaskModal';
+import ClaimPolicyInfoTip from '../components/tasks/ClaimPolicyInfoTip';
+import InfoHoverTip from '../components/ui/InfoHoverTip';
 import WaitingOnLinks from '../components/ui/WaitingOnLinks';
 import CompletedTaskTree from '../components/ui/CompletedTaskTree';
 import BoardTaskTree from '../components/ui/BoardTaskTree';
@@ -97,6 +99,9 @@ import {
   CLAIM_IDLE_RELEASE_DAYS,
   CLAIM_MAX_DURATION_DAYS,
   CLAIM_AUTO_RELEASE_POLICY_COPY,
+  HOLD_CLAIM_STAFF_HELP,
+  HOLD_CLAIM_DETAIL_COPY,
+  isClaimAutoReleaseExempt,
   getClaimAutoReleaseInfo,
   formatAutoReleaseReason,
 } from '../services/tasksService';
@@ -271,6 +276,8 @@ const EMPTY_TASK_FORM = {
   dependencyOverride: false,
   /** Staff: volunteers can view but cannot claim */
   staffOnly: false,
+  /** Staff: skip 14/30-day auto-release on this card */
+  holdClaim: false,
 };
 
 const fieldLabelClass =
@@ -1055,6 +1062,7 @@ const ProjectWorkspace = () => {
       blockedByTaskIds: [],
       dependencyOverride: false,
       staffOnly: false,
+      holdClaim: false,
     });
     setTaskFormError(null);
     setTaskFormOpen(true);
@@ -1097,6 +1105,7 @@ const ProjectWorkspace = () => {
       ).filter((id) => id && String(id) !== String(task.id)),
       dependencyOverride: Boolean(task.dependencyOverride),
       staffOnly: Boolean(task.staffOnly),
+      holdClaim: Boolean(task.holdClaim),
     });
     setTaskFormError(null);
     setSelectedTaskId(null);
@@ -1140,6 +1149,7 @@ const ProjectWorkspace = () => {
       // Fresh copy should respect blockers unless lead re-enables override
       dependencyOverride: false,
       staffOnly: Boolean(task.staffOnly),
+      holdClaim: Boolean(task.holdClaim),
     });
     setTaskFormError(null);
     setSelectedTaskId(null);
@@ -1382,6 +1392,7 @@ const ProjectWorkspace = () => {
       ),
       dependencyOverride: Boolean(taskForm.dependencyOverride),
       staffOnly: Boolean(taskForm.staffOnly),
+      holdClaim: Boolean(taskForm.holdClaim),
       boardScope: isStagingBoard ? BOARD_SCOPE_STAGING : BOARD_SCOPE_PUBLIC,
     };
 
@@ -1448,6 +1459,7 @@ const ProjectWorkspace = () => {
         blockedByTaskIds: [],
         dependencyOverride: false,
         staffOnly: false,
+        holdClaim: false,
       });
       if (reopenParent) setSelectedTaskId(reopenParent);
     } catch (err) {
@@ -1602,12 +1614,35 @@ const ProjectWorkspace = () => {
    * Staff test: evaluate Active claims as if the 14-day idle window already
    * elapsed (releases current Active claims without waiting real time).
    */
+  const handleToggleHoldClaim = async (task) => {
+    if (!isModerator || !task?.id) return;
+    const next = !task.holdClaim;
+    setActionBusy(true);
+    try {
+      await tasksService.updateTaskMeta(task.id, { holdClaim: next });
+      await refreshBoard(projectUuid);
+      showToast(
+        next
+          ? 'Auto-release is off for this card. The claim stays until it is returned or completed.'
+          : 'Auto-release is on again for this card.',
+        'success'
+      );
+    } catch (err) {
+      showToast(
+        friendlyError(err) || 'Could not update the Hold claim setting.',
+        'error'
+      );
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   const handleRunAutoReleaseCheck = async () => {
     if (!isModerator) return;
     const ok = window.confirm(
       `Test auto-release (14-day idle simulation)\n\n` +
         `This treats every Active claim as if it has had no meaningful progress for ${CLAIM_IDLE_RELEASE_DAYS} days, and will release those claims now so you can verify the flow.\n\n` +
-        `Pending-review claims are not touched. Continue?`
+        `Pending-review claims and held cards are not touched. Continue?`
     );
     if (!ok) return;
 
@@ -2485,8 +2520,13 @@ const ProjectWorkspace = () => {
 
             {/* Contribution loop: TF board vs GitHub — below title, above controls */}
             <div className="rounded-lg border border-cyber-border/80 bg-cyber-bg/40 px-3 py-2.5 text-xs text-text-secondary leading-relaxed">
-              <p className="font-mono tracking-widest text-[10px] text-text-muted uppercase mb-1">
+              <p className="font-mono tracking-widest text-[10px] text-text-muted uppercase mb-1 flex items-center gap-1.5">
                 {isStagingBoard ? 'How staging works' : 'How contributing works'}
+                {!isStagingBoard ? (
+                  <InfoHoverTip label="Claim auto-release rules">
+                    {CLAIM_AUTO_RELEASE_POLICY_COPY}
+                  </InfoHoverTip>
+                ) : null}
               </p>
               <p>
                 {isStagingBoard ? (
@@ -2528,11 +2568,6 @@ const ProjectWorkspace = () => {
                   </>
                 )}
               </p>
-              {!isStagingBoard && (
-              <p className="mt-2 text-[11px] text-text-muted leading-relaxed border-t border-cyber-border/50 pt-2">
-                {CLAIM_AUTO_RELEASE_POLICY_COPY}
-              </p>
-              )}
             </div>
 
             {!isStagingBoard && autoReleaseNotices.length > 0 && (
@@ -3896,6 +3931,21 @@ const ProjectWorkspace = () => {
                       />
                     </>
                   )}
+                  {isClaimAutoReleaseExempt(selectedTask) &&
+                    selectedTask.status !== 'completed' && (
+                      <>
+                        <span className="text-white/20 shrink-0" aria-hidden>
+                          ·
+                        </span>
+                        <Badge
+                          variant="default"
+                          className="!normal-case tracking-wide"
+                          title={HOLD_CLAIM_DETAIL_COPY}
+                        >
+                          Held
+                        </Badge>
+                      </>
+                    )}
                   {!selectedTask.isEpic &&
                     !selectedTask.hasChildren &&
                     (selectedTask.difficulty ||
@@ -3967,6 +4017,22 @@ const ProjectWorkspace = () => {
                     <Pencil className="w-3.5 h-3.5" />
                     Edit Task
                   </Button>
+                  {selectedTask.status !== 'completed' ? (
+                    <Button
+                      size="sm"
+                      variant="gold"
+                      className="gap-1.5 !py-1 !px-2 text-xs"
+                      onClick={() => handleToggleHoldClaim(selectedTask)}
+                      disabled={actionBusy}
+                      title={
+                        selectedTask.holdClaim
+                          ? 'Turn auto-release back on for this card'
+                          : HOLD_CLAIM_STAFF_HELP
+                      }
+                    >
+                      {selectedTask.holdClaim ? 'Remove hold' : 'Hold claim'}
+                    </Button>
+                  ) : null}
                 </StaffToolsBar>
               ) : null}
 
@@ -4220,7 +4286,9 @@ const ProjectWorkspace = () => {
             {canEditProgress && (
               <>
                 {(() => {
-                  const info = getClaimAutoReleaseInfo(selectedTask.claim);
+                  const info = getClaimAutoReleaseInfo(selectedTask.claim, {
+                    holdClaim: isClaimAutoReleaseExempt(selectedTask),
+                  });
                   return (
                     <div
                       className={`rounded-lg border px-3 py-2 text-xs leading-relaxed ${
@@ -4709,26 +4777,23 @@ const ProjectWorkspace = () => {
                       Staff Only
                     </Badge>
                   )}
-                  <p className="text-[11px] text-text-muted leading-relaxed">
-                    Claiming reserves this task for you on Together Forge.
-                    {isCodeLikeCategory(selectedTask.category)
-                      ? ' Do the technical work on GitHub, then submit for review with a PR or branch link.'
-                      : ' Do the work, then submit for review with a clear proof link.'}
-                  </p>
-                  <p className="text-[11px] text-text-muted leading-relaxed">
-                    {CLAIM_AUTO_RELEASE_POLICY_COPY}
-                  </p>
-                  <Button
-                    size="sm"
-                    onClick={() => handleClaim(selectedTask.id)}
-                    disabled={claimingId === selectedTask.id || !user}
-                  >
-                    {claimingId === selectedTask.id
-                      ? 'Claiming…'
-                      : !user
-                        ? 'Sign in to claim'
-                        : 'Claim Task'}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => handleClaim(selectedTask.id)}
+                      disabled={claimingId === selectedTask.id || !user}
+                    >
+                      {claimingId === selectedTask.id
+                        ? 'Claiming…'
+                        : !user
+                          ? 'Sign in to claim'
+                          : 'Claim Task'}
+                    </Button>
+                    <ClaimPolicyInfoTip
+                      category={selectedTask.category}
+                      holdClaim={isClaimAutoReleaseExempt(selectedTask)}
+                    />
+                  </div>
                 </div>
               )}
             {selectedTaskClaimsPaused && (
@@ -5289,6 +5354,23 @@ const ProjectWorkspace = () => {
               <span className="text-sm text-text-secondary leading-snug">
                 Volunteers can see this task on the board but cannot claim it.
                 Staff and founders can claim, work, and complete it as usual.
+              </span>
+            </label>
+          </div>
+
+          <div>
+            <label className={fieldLabelClass}>HOLD CLAIM</label>
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-0.5 accent-cyan-400 shrink-0"
+                checked={Boolean(taskForm.holdClaim)}
+                onChange={(e) =>
+                  updateTaskFormField('holdClaim', e.target.checked)
+                }
+              />
+              <span className="text-sm text-text-secondary leading-snug">
+                Disable auto-release. {HOLD_CLAIM_STAFF_HELP}
               </span>
             </label>
           </div>

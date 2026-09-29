@@ -45,6 +45,12 @@ export const CLAIM_IDLE_RELEASE_DAYS = CLAIM_STALE_DAYS;
  * Hard maximum claim duration in days (from claimed_at), even with occasional updates.
  */
 export const CLAIM_MAX_DURATION_DAYS = 30;
+/** Shown on held cards instead of the 14/30-day countdown. */
+export const HOLD_CLAIM_DETAIL_COPY =
+  'Staff disabled auto-release on this card. The claim stays until it is returned or completed.';
+/** Staff form / toggle help. */
+export const HOLD_CLAIM_STAFF_HELP =
+  'The claim on this card will not auto-release after 14 days idle or 30 days total. Use for long-running staff work such as palette lock until the game is done.';
 
 /** Submit-for-review caps per rolling 24h by trust tier. */
 export const NEW_USER_SUBMIT_LIMIT_24H = 2;
@@ -323,6 +329,11 @@ export function isTaskStaffOnly(task) {
   return Boolean(task?.staffOnly || task?.staff_only);
 }
 
+/** True when staff disabled 14/30-day auto-release on this card. */
+export function isTaskClaimHeld(task) {
+  return Boolean(task?.holdClaim || task?.hold_claim);
+}
+
 function normalizeWaitingBlocker(entry) {
   if (entry == null) return null;
   if (typeof entry === 'string') {
@@ -401,6 +412,14 @@ export function isCommunityDecisionsEpic(task) {
   if (isTaskCompletedAccepted(task)) return false;
   const title = String(task.title || '').trim();
   return /^Tether-CD(?:\s|$)/i.test(title);
+}
+
+/**
+ * Claims that run_claim_auto_release will not return.
+ * Hold claim is the staff flag; Tether-CD epic is also skipped in SQL.
+ */
+export function isClaimAutoReleaseExempt(task) {
+  return isTaskClaimHeld(task) || isCommunityDecisionsEpic(task);
 }
 
 /**
@@ -806,6 +825,7 @@ export function getClaimAutoReleaseInfo(claim, opts = {}) {
     reason: null,
     warn: false,
     urgent: false,
+    held: false,
     idleDays: null,
     heldDays: null,
     idleDaysLeft: null,
@@ -815,6 +835,14 @@ export function getClaimAutoReleaseInfo(claim, opts = {}) {
   };
   if (!claim || claim.status === 'Completed' || claim.status === 'Returned') {
     return empty;
+  }
+  if (opts.holdClaim) {
+    return {
+      ...empty,
+      held: true,
+      shortLabel: 'Held',
+      detailLabel: HOLD_CLAIM_DETAIL_COPY,
+    };
   }
   // PendingReview waits on staff — do not show volunteer auto-release countdown
   if (claim.status === 'PendingReview') return empty;
@@ -884,6 +912,7 @@ export function getClaimAutoReleaseInfo(claim, opts = {}) {
     reason,
     warn,
     urgent,
+    held: false,
     idleDays,
     heldDays,
     idleDaysLeft: idleLeft,
@@ -1094,6 +1123,8 @@ export function mapTaskRow(row) {
     dependencyOverride: Boolean(row.dependency_override),
     /** Volunteers can view; only staff/founders can claim or join */
     staffOnly: Boolean(row.staff_only),
+    /** Staff: skip 14/30-day claim auto-release on this card */
+    holdClaim: Boolean(row.hold_claim),
     boardScope:
       row.board_scope === BOARD_SCOPE_STAGING
         ? BOARD_SCOPE_STAGING
@@ -1441,6 +1472,7 @@ const TASK_SELECT = `
   created_at,
   dependency_override,
   staff_only,
+  hold_claim,
   board_scope,
   sort_order,
   published_task_id,
@@ -1634,6 +1666,19 @@ export const tasksService = {
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true });
     let { data, error } = await query;
+
+    if (error && /hold_claim/i.test(error.message || '')) {
+      const retry = await supabase
+        .from('tasks')
+        .select(TASK_SELECT.replace(/hold_claim,\s*/g, ''))
+        .eq('project_id', projectId)
+        .eq('board_scope', boardScope)
+        .is('archived_at', null)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (
       error &&
@@ -3406,6 +3451,9 @@ export const tasksService = {
     if (payload.staffOnly != null) {
       row.staff_only = Boolean(payload.staffOnly);
     }
+    if (payload.holdClaim != null) {
+      row.hold_claim = Boolean(payload.holdClaim);
+    }
     row.board_scope =
       payload.boardScope === BOARD_SCOPE_STAGING
         ? BOARD_SCOPE_STAGING
@@ -3423,6 +3471,11 @@ export const tasksService = {
     if (error && /staff_only/i.test(error.message || '')) {
       throw new Error(
         'Staff Only is not set up yet. Run supabase/sql/supabase_task_staff_only.sql in Supabase.'
+      );
+    }
+    if (error && /hold_claim/i.test(error.message || '')) {
+      throw new Error(
+        'Hold claim is not set up yet. Run supabase/sql/supabase_task_hold_claim.sql in Supabase.'
       );
     }
     if (error && /board_scope|sort_order/i.test(error.message || '')) {
@@ -3512,6 +3565,9 @@ export const tasksService = {
     if (fields.staffOnly !== undefined) {
       patch.staff_only = Boolean(fields.staffOnly);
     }
+    if (fields.holdClaim !== undefined) {
+      patch.hold_claim = Boolean(fields.holdClaim);
+    }
     if (fields.sortOrder !== undefined) {
       patch.sort_order = Number(fields.sortOrder) || 0;
     }
@@ -3526,6 +3582,11 @@ export const tasksService = {
     if (error && /staff_only/i.test(error.message || '')) {
       throw new Error(
         'Staff Only is not set up yet. Run supabase/sql/supabase_task_staff_only.sql in Supabase.'
+      );
+    }
+    if (error && /hold_claim/i.test(error.message || '')) {
+      throw new Error(
+        'Hold claim is not set up yet. Run supabase/sql/supabase_task_hold_claim.sql in Supabase.'
       );
     }
     if (error && /board_scope|sort_order/i.test(error.message || '')) {
@@ -3686,7 +3747,7 @@ export const tasksService = {
     } = await supabase.auth.getUser();
     if (!user) return [];
 
-    const claimsSelect = (withStaffOnly) => `
+    const claimsSelect = (withStaffOnly, withHoldClaim = withStaffOnly) => `
         id,
         task_id,
         claimed_at,
@@ -3702,6 +3763,7 @@ export const tasksService = {
           category,
           difficulty,
           ${withStaffOnly ? 'staff_only,' : ''}
+          ${withHoldClaim ? 'hold_claim,' : ''}
           project_id,
           projects ( id, slug, title )
         )
@@ -3709,15 +3771,26 @@ export const tasksService = {
 
     let { data, error } = await supabase
       .from('task_claims')
-      .select(claimsSelect(true))
+      .select(claimsSelect(true, true))
       .eq('user_id', user.id)
       .in('status', ['Active', 'PendingReview'])
       .order('claimed_at', { ascending: false });
 
+    if (error && /hold_claim/i.test(error.message || '')) {
+      const retry = await supabase
+        .from('task_claims')
+        .select(claimsSelect(true, false))
+        .eq('user_id', user.id)
+        .in('status', ['Active', 'PendingReview'])
+        .order('claimed_at', { ascending: false });
+      data = retry.data;
+      error = retry.error;
+    }
+
     if (error && /staff_only/i.test(error.message || '')) {
       const retry = await supabase
         .from('task_claims')
-        .select(claimsSelect(false))
+        .select(claimsSelect(false, false))
         .eq('user_id', user.id)
         .in('status', ['Active', 'PendingReview'])
         .order('claimed_at', { ascending: false });
@@ -3757,6 +3830,7 @@ export const tasksService = {
         category: task?.category || null,
         difficulty: task?.difficulty || null,
         staffOnly: Boolean(task?.staff_only || task?.staffOnly),
+        holdClaim: Boolean(task?.hold_claim || task?.holdClaim),
         projectId,
         projectSlug,
         // Prefer slug for /projects/:id workspace routes

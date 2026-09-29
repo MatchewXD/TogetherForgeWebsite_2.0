@@ -8,11 +8,13 @@ import {
   formatClaimHeldSince,
   getClaimAutoReleaseInfo,
   getUserTaskClaimBlockedReason,
+  isClaimAutoReleaseExempt,
   isTaskVisuallyBlocked,
   getTaskWaitingOnBlockers,
 } from '../../services/tasksService';
 import { progressTone } from '../../utils/progressTone';
 import WaitingOnLinks from './WaitingOnLinks';
+import ClaimPolicyInfoTip from '../tasks/ClaimPolicyInfoTip';
 import {
   areClaimsEnabled,
   CLAIMS_PAUSED_LINE,
@@ -138,9 +140,10 @@ const TaskCard = ({
       ? formatClaimHeldSince(task.claim?.claimedAt)
       : '');
 
+  const claimHeld = isClaimAutoReleaseExempt(task);
   const releaseInfo =
     hasActiveClaim && !isCompleted && !isPendingReview
-      ? getClaimAutoReleaseInfo(task.claim)
+      ? getClaimAutoReleaseInfo(task.claim, { holdClaim: claimHeld })
       : null;
   const stale = Boolean(releaseInfo?.warn);
 
@@ -230,6 +233,11 @@ const TaskCard = ({
         {isStaffOnly && (
           <Badge variant="gold" className="!normal-case tracking-wide">
             Staff Only
+          </Badge>
+        )}
+        {claimHeld && !isCompleted && (
+          <Badge variant="default" className="!normal-case tracking-wide">
+            Held
           </Badge>
         )}
         {isCompleted && (
@@ -456,13 +464,19 @@ const TaskCard = ({
 
       <div className="flex flex-wrap items-center gap-2">
         {showClaim && onClaim && (
-          <Button
-            size="sm"
-            onClick={() => onClaim(task.id)}
-            disabled={claiming}
-          >
-            {claiming ? 'Claiming…' : 'Claim Task'}
-          </Button>
+          <>
+            <Button
+              size="sm"
+              onClick={() => onClaim(task.id)}
+              disabled={claiming}
+            >
+              {claiming ? 'Claiming…' : 'Claim Task'}
+            </Button>
+            <ClaimPolicyInfoTip
+              category={task.category}
+              holdClaim={claimHeld}
+            />
+          </>
         )}
         {showClaimsPausedLine ? (
           <p className="text-[11px] text-text-muted leading-snug">

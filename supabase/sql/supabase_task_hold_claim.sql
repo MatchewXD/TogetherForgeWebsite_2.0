@@ -1,25 +1,54 @@
 -- =============================================================================
--- Together Forge - Claim auto-release (idle 14d + hard max 30d)
--- Run AFTER: supabase_claim_anti_hoarding.sql (and later claim_task patches)
+-- Hold claim (staff disables auto-release on a specific card)
+-- Run AFTER: supabase_claim_auto_release.sql
 -- Safe to re-run
 -- =============================================================================
--- Rules:
---   * Idle: Active claim with no meaningful progress for p_idle_days (default 14)
---     Meaningful progress = last_activity_at (updated on progress notes, checklist,
---     submit-for-review, etc. — not on mere task views).
---   * Hard max: Active claim older than p_max_claim_days from claimed_at (default 30)
---     even if the volunteer is still posting occasional updates.
---   * PendingReview is not auto-released (waiting on staff).
---   * Released claims → Returned; task → ToDo when no other open claim.
---   * tasks.hold_claim skips auto-release (staff long-hold). See
---     supabase_task_hold_claim.sql for the flag + protect trigger.
+-- Staff can flag a task so its Active claim is not returned by the 14-day idle
+-- or 30-day hard-max auto-release. Use for long-running staff work (palette
+-- lock, Community Decisions) that must stay claimed until the game is done.
+-- Volunteers cannot flip this flag.
 -- =============================================================================
 
 alter table if exists public.tasks
   add column if not exists hold_claim boolean not null default false;
 
+comment on column public.tasks.hold_claim is
+  'When true, Active claims on this card skip idle/max auto-release. Staff only.';
+
 -- ---------------------------------------------------------------------------
--- 1. Core dual-rule release (returns detail for staff tooling + user notices)
+-- Keep non-staff from flipping the flag via the claimant UPDATE policy
+-- ---------------------------------------------------------------------------
+create or replace function public.protect_task_hold_claim_flag()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    if coalesce(new.hold_claim, false) and not public.is_project_staff() then
+      raise exception 'HOLD_CLAIM: Only staff can create a held claim card.';
+    end if;
+    return new;
+  end if;
+
+  if coalesce(new.hold_claim, false) is distinct from coalesce(old.hold_claim, false)
+     and not public.is_project_staff() then
+    raise exception 'HOLD_CLAIM: Only staff can change the Hold claim flag.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_protect_task_hold_claim on public.tasks;
+create trigger trg_protect_task_hold_claim
+  before insert or update of hold_claim on public.tasks
+  for each row
+  execute function public.protect_task_hold_claim_flag();
+
+-- ---------------------------------------------------------------------------
+-- Auto-release skips held cards (and still skips the Tether-CD epic)
 -- ---------------------------------------------------------------------------
 create or replace function public.run_claim_auto_release(
   p_idle_days integer default 14,
@@ -170,65 +199,5 @@ $$;
 grant execute on function public.run_claim_auto_release(integer, integer)
   to authenticated, anon;
 
--- ---------------------------------------------------------------------------
--- Staff test: treat every Active claim as if the 14-day idle window elapsed.
--- Does NOT wait real time — for moderation / QA of the auto-release path.
--- ---------------------------------------------------------------------------
-create or replace function public.run_claim_auto_release_test()
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_uid uuid := auth.uid();
-  v_result jsonb;
-begin
-  if v_uid is null then
-    raise exception 'You must be signed in';
-  end if;
-
-  if not public.is_project_staff() then
-    raise exception 'Only project leads and admins can run the auto-release test';
-  end if;
-
-  -- idle_days = 0 → simulate “14 days idle” for every Active claim
-  v_result := public.run_claim_auto_release(0, 30);
-
-  return v_result || jsonb_build_object(
-    'mode', 'test_idle_14d',
-    'message', 'Test run: Active claims were evaluated as if idle for 14 days.'
-  );
-end;
-$$;
-
-grant execute on function public.run_claim_auto_release_test() to authenticated;
-
--- ---------------------------------------------------------------------------
--- 2. Back-compat: return_stale_claims(p_days) → idle window; hard max 30
---    Still returns integer count for older callers.
--- ---------------------------------------------------------------------------
-create or replace function public.return_stale_claims(p_days integer default 14)
-returns integer
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_result jsonb;
-begin
-  v_result := public.run_claim_auto_release(
-    greatest(coalesce(p_days, 14), 1),
-    30
-  );
-  return coalesce((v_result ->> 'released_count')::integer, 0);
-end;
-$$;
-
-grant execute on function public.return_stale_claims(integer) to authenticated, anon;
-
 comment on function public.run_claim_auto_release(integer, integer) is
   'Auto-release Active claims: idle (no last_activity_at progress) or hard max from claimed_at. Skips hold_claim cards and the Tether-CD epic.';
-
-comment on function public.return_stale_claims(integer) is
-  'Back-compat wrapper: idle days param + 30-day hard max. Prefer run_claim_auto_release.';

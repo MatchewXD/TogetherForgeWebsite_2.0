@@ -7,10 +7,13 @@ import {
   CLAIM_MAX_DURATION_DAYS,
   CLAIM_STALE_DAYS,
   CLAIM_AUTO_RELEASE_POLICY_COPY,
+  HOLD_CLAIM_DETAIL_COPY,
   daysSinceIso,
   getClaimAutoReleaseInfo,
   formatAutoReleaseReason,
   formatClaimSplitNotice,
+  isTaskClaimHeld,
+  isClaimAutoReleaseExempt,
 } from '../services/tasksService';
 
 function daysAgoIso(days) {
@@ -99,6 +102,46 @@ describe('getClaimAutoReleaseInfo', () => {
       lastActivityAt: daysAgoIso(20),
     });
     expect(info.reason).toBe('max_duration');
+  });
+
+  it('skips countdown when staff holds the card', () => {
+    const info = getClaimAutoReleaseInfo(
+      {
+        status: 'Active',
+        claimedAt: daysAgoIso(40),
+        lastActivityAt: daysAgoIso(20),
+      },
+      { holdClaim: true }
+    );
+    expect(info.held).toBe(true);
+    expect(info.warn).toBe(false);
+    expect(info.urgent).toBe(false);
+    expect(info.reason).toBeNull();
+    expect(info.detailLabel).toBe(HOLD_CLAIM_DETAIL_COPY);
+  });
+});
+
+describe('hold claim exemption', () => {
+  it('treats the staff flag as held', () => {
+    expect(isTaskClaimHeld({ holdClaim: true })).toBe(true);
+    expect(isTaskClaimHeld({ hold_claim: true })).toBe(true);
+    expect(isTaskClaimHeld({ holdClaim: false })).toBe(false);
+  });
+
+  it('exempts held cards and the Tether-CD epic', () => {
+    expect(isClaimAutoReleaseExempt({ holdClaim: true, depth: 2 })).toBe(true);
+    expect(
+      isClaimAutoReleaseExempt({
+        title: 'Tether-CD Community Decisions',
+        parentTaskId: null,
+      })
+    ).toBe(true);
+    expect(
+      isClaimAutoReleaseExempt({
+        title: 'Tether-CD.1 Suit and world palette',
+        parentTaskId: 'epic',
+      })
+    ).toBe(false);
   });
 });
 
