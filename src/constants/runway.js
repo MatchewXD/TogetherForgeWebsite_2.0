@@ -33,8 +33,10 @@ export const RUNWAY_LIVING_LINES = [
 
 export const RUNWAY_MONTHLY_LIVING_USD = 4338;
 export const RUNWAY_LIVING_YEAR_USD = 52056;
+/** Extra gross above the after-fee target, for small-gift PayPal $0.49 stacking. */
+export const RUNWAY_FEE_BUFFER_USD = 1000;
 /** Public amount supporters pay toward (Ko-fi ledger gross). */
-export const RUNWAY_RAISE_GOAL_USD = 79000;
+export const RUNWAY_RAISE_GOAL_USD = 80000;
 /** Target after estimated PayPal fees (Ko-fi one-time tip fee is 0%). */
 export const RUNWAY_AFTER_FEES_GOAL_USD = 69408;
 /** 25% of what landed after fees. */
@@ -46,6 +48,9 @@ export const RUNWAY_TAX_RESERVE_PCT = 0.25;
 export const RUNWAY_PAYPAL_FEE_RATE = 0.0349;
 export const RUNWAY_PAYPAL_FEE_FIXED_USD = 0.49;
 export const RUNWAY_KOFI_ONE_TIME_TIP_FEE_RATE = 0;
+/** Fee estimates treat the ledger as this gift size (3.49% + $0.49 each). */
+export const RUNWAY_ASSUMED_GIFT_USD = 5;
+export const RUNWAY_ASSUMED_GIFT_CENTS = RUNWAY_ASSUMED_GIFT_USD * 100;
 
 /** @deprecated use RUNWAY_RAISE_GOAL_USD — public progress target */
 export const RUNWAY_GRAND_TOTAL_USD = RUNWAY_RAISE_GOAL_USD;
@@ -84,20 +89,31 @@ export const RUNWAY_TOTALS_COPY = {
   living: 'Runway net: $52,056 per year ($4,338 a month)',
   tax: 'Tax reserve (25%): $17,352',
   afterFees: 'After fees: $69,408',
-  raise: 'Public raise goal: $79,000',
+  raise: 'Public raise goal: $80,000',
   grandNote:
-    'The public raise goal is $79,000 so about $69,408 lands after estimated PayPal fees (about 3.49% + $0.49 per payment). $17,352 of what lands is a 25% tax reserve. $52,056 is a year of living costs. Studio support is not part of this fund. This is personal support for the Founder (MatchewXD | Matthew Seagren).',
+    'The public raise goal is $80,000 so about $69,408 lands after estimated PayPal fees (about 3.49% + $0.49 per payment). $17,352 of what lands is a 25% tax reserve. $52,056 is a year of living costs. Studio support is not part of this fund. This is personal support for the Founder (MatchewXD | Matthew Seagren).',
 };
 
 /**
- * Estimated PayPal fees on Ko-fi runway payments.
+ * How many $5 gifts would make this gross.
  * @param {number} grossCents
- * @param {number} paymentCount
+ * @returns {number}
  */
-export function estimateRunwayServiceFeesCents(grossCents, paymentCount) {
+export function assumedRunwayGiftCount(grossCents) {
   const gross = Math.max(0, Number(grossCents) || 0);
-  const n = Math.max(0, Math.floor(Number(paymentCount) || 0));
-  if (gross <= 0 || n <= 0) return 0;
+  if (gross <= 0) return 0;
+  return Math.max(1, Math.round(gross / RUNWAY_ASSUMED_GIFT_CENTS));
+}
+
+/**
+ * Estimated PayPal fees on Ko-fi runway payments.
+ * Count is gross / $5, not the live payment count.
+ * @param {number} grossCents
+ */
+export function estimateRunwayServiceFeesCents(grossCents) {
+  const gross = Math.max(0, Number(grossCents) || 0);
+  if (gross <= 0) return 0;
+  const n = assumedRunwayGiftCount(gross);
   return Math.round(
     gross * RUNWAY_PAYPAL_FEE_RATE + RUNWAY_PAYPAL_FEE_FIXED_USD * 100 * n
   );
@@ -124,7 +140,7 @@ export function runwayMoneyStack({
   const hasStoredFee = feeCents != null && Number.isFinite(Number(feeCents));
   const feesEstimated = !hasStoredNet && !hasStoredFee;
   const fees = feesEstimated
-    ? estimateRunwayServiceFeesCents(raised, count)
+    ? estimateRunwayServiceFeesCents(raised)
     : Math.max(0, Number(hasStoredFee ? feeCents : raised - afterFeesCents) || 0);
   const after = hasStoredNet
     ? Math.max(0, Number(afterFeesCents) || 0)
@@ -143,17 +159,19 @@ export function runwayMoneyStack({
 }
 
 /**
- * @param {number} totalCents
- * @param {number} [monthlyCostCents]
+ * Months of the 12-month full-time runway, from gross raised vs the $80,000 goal.
+ * $80,000 raised is 12 months (bar full). Living-cost net is a separate ledger line.
+ * @param {number} raisedCents
+ * @param {number} [goalCents]
  * @returns {number} fractional months of coverage
  */
 export function runwayCoverageMonths(
-  totalCents,
-  monthlyCostCents = RUNWAY_MONTHLY_COST_CENTS
+  raisedCents,
+  goalCents = RUNWAY_RAISE_GOAL_CENTS
 ) {
-  const monthly = Math.max(1, Number(monthlyCostCents) || RUNWAY_MONTHLY_COST_CENTS);
-  const total = Math.max(0, Number(totalCents) || 0);
-  return total / monthly;
+  const goal = Math.max(1, Number(goalCents) || RUNWAY_RAISE_GOAL_CENTS);
+  const raised = Math.max(0, Number(raisedCents) || 0);
+  return (raised / goal) * RUNWAY_YEAR_MONTHS;
 }
 
 /**
@@ -161,8 +179,8 @@ export function runwayCoverageMonths(
  * @returns {string}
  */
 /**
- * Progress bar for the $79,000 raise. After the goal, the bar is the
- * leftover fraction of the next $79,000 and multiplier is floor(raised/goal).
+ * Progress bar for the $80,000 raise. After the goal, the bar is the
+ * leftover fraction of the next $80,000 and multiplier is floor(raised/goal).
  * 3.3× → 3× and 30% fill.
  * @param {number} raisedUsd
  * @param {number} [goalUsd]

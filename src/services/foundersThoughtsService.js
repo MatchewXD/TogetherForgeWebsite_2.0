@@ -67,6 +67,22 @@ export const LOCAL_THOUGHTS = [
     likes: 0,
     localOnly: true,
   },
+  {
+    id: null,
+    slug: 'why-the-system-works',
+    title: 'Why the system works',
+    lead: '',
+    theme: 'Philosophy',
+    published_at: '2026-09-30',
+    content: [
+      'This system only works because of benevolence. Most companies follow a different path. A founder builds a business to make money, the business grows, investors buy in, and the purpose changes. It stops being about the product and the people it serves. It becomes about making money for the owners. Then a stock offering shows up, the founder takes it, and ownership splits across people who do not care about the work. They care about the number. They will do mass layoffs for a short bump. They will make the product worse if that squeezes more cash out of it. The customer comes last. The employees come last. Money comes first.',
+      'Together Forge works because the founder is not building it for money. The founder is building a better system, one that actually serves the people. Ownership stays with that founder, so if anyone wants to trade the long-term vision for short-term cash, the owner can say no and make it stick. Full control is what lets a benevolent founder push that pressure off and keep the company pointed at the work.',
+      'The hard part is what happens after that founder is no longer the owner. That is the trillion-dollar question, and it is the same problem the American founding fathers were trying to solve: how do you build a system that can resist human greed and tyranny after the first people are gone.',
+      'As the sole owner of Together Forge I can keep the vision intact. I can keep outside ideologies from taking over, and I can keep Jack Welch-style money games out of this company. Making good games for the people who want them matters more to me than the money. As long as I own Together Forge, I will do everything in my power to keep that vision alive.',
+    ].join('\n\n'),
+    likes: 0,
+    localOnly: true,
+  },
 ];
 
 function normalizeThought(row) {
@@ -99,11 +115,25 @@ function paragraphsFromContent(content) {
     .filter(Boolean);
 }
 
+const THOUGHTS_PINNED_LAST = new Set(['why-the-system-works']);
+
+function pinThoughtsLast(thoughts) {
+  if (!Array.isArray(thoughts) || thoughts.length === 0) return thoughts;
+  const rest = [];
+  const tail = [];
+  for (const thought of thoughts) {
+    if (THOUGHTS_PINNED_LAST.has(thought.slug)) tail.push(thought);
+    else rest.push(thought);
+  }
+  return rest.concat(tail);
+}
+
 export const foundersThoughtsService = {
   paragraphsFromContent,
 
   /**
-   * Load all thoughts newest first. Falls back to LOCAL_THOUGHTS if table missing.
+   * Load all thoughts newest first, with selected notes pinned last.
+   * Falls back to LOCAL_THOUGHTS if table missing.
    * @returns {Promise<{ thoughts: object[], fromDb: boolean, error: string|null }>}
    */
   async listThoughts() {
@@ -122,7 +152,7 @@ export const foundersThoughtsService = {
     if (error) {
       console.warn('[founders_thoughts] list failed', error);
       return {
-        thoughts: LOCAL_THOUGHTS.map((t) => ({ ...t })),
+        thoughts: pinThoughtsLast(LOCAL_THOUGHTS.map((t) => ({ ...t }))),
         fromDb: false,
         error: error.message || 'Could not load thoughts',
       };
@@ -130,14 +160,14 @@ export const foundersThoughtsService = {
 
     if (!data || data.length === 0) {
       return {
-        thoughts: LOCAL_THOUGHTS.map((t) => ({ ...t })),
+        thoughts: pinThoughtsLast(LOCAL_THOUGHTS.map((t) => ({ ...t }))),
         fromDb: false,
         error: null,
       };
     }
 
     return {
-      thoughts: data.map(normalizeThought).filter(Boolean),
+      thoughts: pinThoughtsLast(data.map(normalizeThought).filter(Boolean)),
       fromDb: true,
       error: null,
     };

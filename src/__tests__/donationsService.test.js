@@ -3,6 +3,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const rpc = vi.fn();
 const from = vi.fn();
 
+function profilesQuery(rows = []) {
+  const result = Promise.resolve({ data: rows, error: null });
+  const query = {
+    select: vi.fn(() => query),
+    in: vi.fn(() => result),
+    or: vi.fn(() => result),
+  };
+  return query;
+}
+
 vi.mock('../lib/supabase', () => ({
   supabase: {
     rpc: (...args) => rpc(...args),
@@ -13,6 +23,8 @@ vi.mock('../lib/supabase', () => ({
 import {
   getPublicSupportSummary,
   getPublicRecentDonations,
+  getPublicFundContributors,
+  hydrateContributorProfiles,
   uniqueContributorsFromLocal,
   formatTimeAgo,
   formatUsdFromCents,
@@ -23,6 +35,7 @@ describe('donationsService.getPublicSupportSummary', () => {
     rpc.mockReset();
     from.mockReset();
     localStorage.clear();
+    from.mockImplementation(() => profilesQuery([]));
   });
 
   it('maps RPC payload to studio totals and MRR', async () => {
@@ -170,5 +183,187 @@ describe('uniqueContributorsFromLocal', () => {
     expect(uniqueContributorsFromLocal('studio')[0].username).toBe(
       'studio_only'
     );
+  });
+});
+
+describe('hydrateContributorProfiles', () => {
+  beforeEach(() => {
+    from.mockReset();
+  });
+
+  it('overlays live avatar and pinned badge onto a Ko-fi name-only row', async () => {
+    from.mockImplementation(() =>
+      profilesQuery([
+        {
+          id: 'u1',
+          username: 'MatchewXD',
+          avatar_url: 'https://cdn.example/avatar.jpg',
+          pinned_badge_key: 'status_active_subscriber',
+        },
+      ])
+    );
+    const out = await hydrateContributorProfiles([
+      {
+        username: null,
+        displayName: 'MatchewXD',
+        avatarUrl: null,
+        pinnedBadgeKey: null,
+      },
+    ]);
+    expect(out[0].username).toBe('MatchewXD');
+    expect(out[0].avatarUrl).toBe('https://cdn.example/avatar.jpg');
+    expect(out[0].pinnedBadgeKey).toBe('status_active_subscriber');
+  });
+
+  it('replaces a stale snapshot with the current profile avatar and badge', async () => {
+    from.mockImplementation(() =>
+      profilesQuery([
+        {
+          id: 'u1',
+          username: 'alice',
+          avatar_url: 'https://cdn.example/new.png',
+          pinned_badge_key: 'donor_gold',
+        },
+      ])
+    );
+    const out = await hydrateContributorProfiles([
+      {
+        userId: 'u1',
+        username: 'alice',
+        displayName: 'alice',
+        avatarUrl: 'https://cdn.example/old.png',
+        pinnedBadgeKey: null,
+      },
+    ]);
+    expect(out[0].avatarUrl).toBe('https://cdn.example/new.png');
+    expect(out[0].pinnedBadgeKey).toBe('donor_gold');
+  });
+});
+
+describe('getPublicFundContributors', () => {
+  beforeEach(() => {
+    rpc.mockReset();
+    from.mockReset();
+    from.mockImplementation(() => profilesQuery([]));
+  });
+
+  it('hydrates RPC rows from live profiles', async () => {
+    rpc.mockResolvedValue({
+      data: [
+        {
+          display_name: 'MatchewXD',
+          username: null,
+          avatar_url: null,
+          pinned_badge_key: null,
+        },
+      ],
+      error: null,
+    });
+    from.mockImplementation(() =>
+      profilesQuery([
+        {
+          id: 'u1',
+          username: 'MatchewXD',
+          avatar_url: 'https://cdn.example/live.jpg',
+          pinned_badge_key: 'status_active_subscriber',
+        },
+      ])
+    );
+    const res = await getPublicFundContributors('runway');
+    expect(res.source).toBe('supabase');
+    expect(res.items[0].avatarUrl).toBe('https://cdn.example/live.jpg');
+    expect(res.items[0].pinnedBadgeKey).toBe('status_active_subscriber');
+    expect(res.items[0].username).toBe('MatchewXD');
+  });
+});
+
+describe('hydrateContributorProfiles', () => {
+  beforeEach(() => {
+    from.mockReset();
+  });
+
+  it('overlays live avatar and pinned badge onto a Ko-fi name-only row', async () => {
+    from.mockImplementation(() =>
+      profilesQuery([
+        {
+          id: 'u1',
+          username: 'MatchewXD',
+          avatar_url: 'https://cdn.example/avatar.jpg',
+          pinned_badge_key: 'status_active_subscriber',
+        },
+      ])
+    );
+    const out = await hydrateContributorProfiles([
+      {
+        username: null,
+        displayName: 'MatchewXD',
+        avatarUrl: null,
+        pinnedBadgeKey: null,
+      },
+    ]);
+    expect(out[0].username).toBe('MatchewXD');
+    expect(out[0].avatarUrl).toBe('https://cdn.example/avatar.jpg');
+    expect(out[0].pinnedBadgeKey).toBe('status_active_subscriber');
+  });
+
+  it('replaces a stale snapshot with the current profile avatar and badge', async () => {
+    from.mockImplementation(() =>
+      profilesQuery([
+        {
+          id: 'u1',
+          username: 'alice',
+          avatar_url: 'https://cdn.example/new.png',
+          pinned_badge_key: 'donor_gold',
+        },
+      ])
+    );
+    const out = await hydrateContributorProfiles([
+      {
+        userId: 'u1',
+        username: 'alice',
+        displayName: 'alice',
+        avatarUrl: 'https://cdn.example/old.png',
+        pinnedBadgeKey: null,
+      },
+    ]);
+    expect(out[0].avatarUrl).toBe('https://cdn.example/new.png');
+    expect(out[0].pinnedBadgeKey).toBe('donor_gold');
+  });
+});
+
+describe('getPublicFundContributors', () => {
+  beforeEach(() => {
+    rpc.mockReset();
+    from.mockReset();
+    from.mockImplementation(() => profilesQuery([]));
+  });
+
+  it('hydrates RPC rows from live profiles', async () => {
+    rpc.mockResolvedValue({
+      data: [
+        {
+          display_name: 'MatchewXD',
+          username: null,
+          avatar_url: null,
+          pinned_badge_key: null,
+        },
+      ],
+      error: null,
+    });
+    from.mockImplementation(() =>
+      profilesQuery([
+        {
+          id: 'u1',
+          username: 'MatchewXD',
+          avatar_url: 'https://cdn.example/live.jpg',
+          pinned_badge_key: 'status_active_subscriber',
+        },
+      ])
+    );
+    const res = await getPublicFundContributors('runway');
+    expect(res.source).toBe('supabase');
+    expect(res.items[0].avatarUrl).toBe('https://cdn.example/live.jpg');
+    expect(res.items[0].pinnedBadgeKey).toBe('status_active_subscriber');
+    expect(res.items[0].username).toBe('MatchewXD');
   });
 });

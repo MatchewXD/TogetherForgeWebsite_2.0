@@ -13,7 +13,6 @@ import { parseEnableFlag } from '../../constants/donationsEnabled';
 import useStaffRole from '../../hooks/useStaffRole';
 import {
   RUNWAY_LIVING_LINES,
-  RUNWAY_MONTHLY_COST_CENTS,
   RUNWAY_MONTHLY_LIVING_USD,
   RUNWAY_RAISE_GOAL_USD,
   RUNWAY_TOTALS_COPY,
@@ -122,10 +121,7 @@ function useRunwayRaised(preview) {
     afterFeesCents,
   ]);
 
-  const months = runwayCoverageMonths(
-    stack.runwayNetCents,
-    RUNWAY_MONTHLY_COST_CENTS
-  );
+  const months = runwayCoverageMonths(stack.raisedCents);
 
   return { stack, months };
 }

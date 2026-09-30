@@ -162,6 +162,20 @@ I created a separate option for people who want to support my personal runway di
   $c$I want Together Forge to become the gold standard of game development. We will create systems that help aligned indie developers get support, brainstorm directly with the community, and rapidly test new mechanics and ideas with low risk. Together Forge will also create systems that teach people how to become indie developers and how to work in any specific field of game development.
 
 Together Forge will release revolutionary games that change the industry. Our success will force other companies, through market pressure, to adopt real transparency and put players first. We will build unifying cooperative experiences and MMOs where people form real connections and work together in shared worlds.$c$
+),
+(
+  'why-the-system-works',
+  'Why the system works',
+  null,
+  'Philosophy',
+  '2026-09-30',
+  $c$This system only works because of benevolence. Most companies follow a different path. A founder builds a business to make money, the business grows, investors buy in, and the purpose changes. It stops being about the product and the people it serves. It becomes about making money for the owners. Then a stock offering shows up, the founder takes it, and ownership splits across people who do not care about the work. They care about the number. They will do mass layoffs for a short bump. They will make the product worse if that squeezes more cash out of it. The customer comes last. The employees come last. Money comes first.
+
+Together Forge works because the founder is not building it for money. The founder is building a better system, one that actually serves the people. Ownership stays with that founder, so if anyone wants to trade the long-term vision for short-term cash, the owner can say no and make it stick. Full control is what lets a benevolent founder push that pressure off and keep the company pointed at the work.
+
+The hard part is what happens after that founder is no longer the owner. That is the trillion-dollar question, and it is the same problem the American founding fathers were trying to solve: how do you build a system that can resist human greed and tyranny after the first people are gone.
+
+As the sole owner of Together Forge I can keep the vision intact. I can keep outside ideologies from taking over, and I can keep Jack Welch-style money games out of this company. Making good games for the people who want them matters more to me than the money. As long as I own Together Forge, I will do everything in my power to keep that vision alive.$c$
 )
 on conflict (slug) do update set
   title = excluded.title,

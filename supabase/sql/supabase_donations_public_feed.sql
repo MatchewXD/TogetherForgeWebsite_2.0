@@ -142,6 +142,8 @@ comment on function get_public_recent_donations(integer, text) is
 
 -- ---------------------------------------------------------------------------
 -- Unique public supporters for one fund (studio or runway). No anonymous rows.
+-- Live runway definition (Ko-fi + profile join) is in supabase_kofi_runway.sql.
+-- Re-running this file without that join drops live avatars/badges for Ko-fi names.
 -- ---------------------------------------------------------------------------
 create or replace function get_public_fund_contributors(
   p_fund_type text default 'studio'

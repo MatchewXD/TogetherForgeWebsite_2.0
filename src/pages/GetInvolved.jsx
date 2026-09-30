@@ -530,16 +530,16 @@ const GetInvolved = () => {
               </h3>
               <p className="text-text-secondary text-sm sm:text-base leading-relaxed">
                 A select team that plans and produces official Together Forge
-                YouTube videos. Right now the focus is foundational pieces:
-                what Together Forge is, what we are about, how we plan to make a
-                difference,
-                and how the system works.
+                YouTube videos. The work is trailers, progress updates, donation
+                and runway updates, volunteer shoutouts, project status, and
+                stories from this community and other indie devs.
               </p>
               <p className="text-text-secondary text-sm sm:text-base leading-relaxed">
-                Later the same team will cover trailers, progress updates,
-                donation and runway updates, volunteer shoutouts, project
-                status, and more. Volunteer help earns public credit for now;
-                this becomes a paid role when the studio can support it.
+                This seat is limited on purpose. These videos keep volunteers in
+                the loop and keep the forge in public view, so the people on
+                this team have to be skilled and locked onto the same vision.
+                Volunteer help earns public credit for now, and the role becomes
+                paid when the studio can support it.
               </p>
               <div className="flex flex-wrap gap-3 pt-2">
                 <Button

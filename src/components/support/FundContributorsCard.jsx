@@ -4,13 +4,11 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Users } from 'lucide-react';
 import Card from '../ui/Card';
 import UserAvatar from '../ui/UserAvatar';
-import BadgeIcon from '../badges/BadgeIcon';
+import UserNameWithBadge from '../badges/UserNameWithBadge';
 import { getPublicFundContributors } from '../../services/donationsService';
-import { publicProfilePath } from '../../utils/profileLinks';
 
 const COPY = {
   studio: {
@@ -92,39 +90,26 @@ export default function FundContributorsCard({
           <ul className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
             {items.map((p) => {
               const name = p.displayName || p.username;
-              const path = p.username ? publicProfilePath(p.username) : null;
               return (
-                <li key={p.username || name} className="min-w-0">
+                <li key={p.userId || p.username || name} className="min-w-0">
                   <div className="h-[8.5rem] rounded-lg border border-cyber-border bg-cyber-card/80 px-2 py-2 flex flex-col items-center justify-center text-center gap-1 overflow-hidden">
                     <UserAvatar
                       src={p.avatarUrl}
                       name={name}
                       username={p.username}
-                      linkProfile={Boolean(path)}
+                      linkProfile={Boolean(p.username)}
                       size="sm"
                       className="!w-11 !h-11"
                       borderClass="border border-neon-cyan/35"
                     />
-                    <div className="flex items-center justify-center gap-0.5 min-w-0 w-full">
-                      {path ? (
-                        <Link
-                          to={path}
-                          className="text-xs sm:text-sm font-semibold text-white hover:text-neon-cyan truncate"
-                          title={name}
-                        >
-                          {name}
-                        </Link>
-                      ) : (
-                        <span
-                          className="text-xs sm:text-sm font-semibold text-white truncate"
-                          title={name}
-                        >
-                          {name}
-                        </span>
-                      )}
-                      {p.pinnedBadgeKey ? (
-                        <BadgeIcon badgeKey={p.pinnedBadgeKey} size="xs" />
-                      ) : null}
+                    <div className="flex items-center justify-center min-w-0 w-full">
+                      <UserNameWithBadge
+                        username={p.username}
+                        displayName={name}
+                        pinnedBadgeKey={p.pinnedBadgeKey || p.pinned_badge_key}
+                        className="justify-center max-w-full"
+                        linkClassName="text-xs sm:text-sm font-semibold text-white hover:text-neon-cyan truncate"
+                      />
                     </div>
                   </div>
                 </li>

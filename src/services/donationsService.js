@@ -108,19 +108,25 @@ export async function getPublicRecentDonations(limit = 12, opts = {}) {
       console.warn('[donations] recent RPC failed', error.message);
       const local = recentFromLocalStorage(lim, fundType);
       return {
-        items: local,
+        items: await hydrateContributorProfiles(local),
         source: local.length ? 'local' : 'empty',
         error: error.message,
       };
     }
 
     const rows = Array.isArray(data) ? data : [];
-    const items = rows.map(mapRecentRow).filter(Boolean);
+    const items = await hydrateContributorProfiles(
+      rows.map(mapRecentRow).filter(Boolean)
+    );
 
     if (items.length === 0) {
       const local = recentFromLocalStorage(lim, fundType);
       if (local.length) {
-        return { items: local, source: 'local', error: null };
+        return {
+          items: await hydrateContributorProfiles(local),
+          source: 'local',
+          error: null,
+        };
       }
     }
 
@@ -133,7 +139,7 @@ export async function getPublicRecentDonations(limit = 12, opts = {}) {
     console.error('[donations] getPublicRecentDonations', e);
     const local = recentFromLocalStorage(lim, fundType);
     return {
-      items: local,
+      items: await hydrateContributorProfiles(local),
       source: local.length ? 'local' : 'empty',
       error: e?.message || 'Failed to load recent support',
     };
@@ -296,24 +302,30 @@ export async function getPublicFundContributors(fundType = 'studio') {
       console.warn('[donations] fund contributors RPC failed', error.message);
       const local = uniqueContributorsFromLocal(fund);
       return {
-        items: local,
+        items: await hydrateContributorProfiles(local),
         source: local.length ? 'local' : 'empty',
         error: error.message,
       };
     }
     const rows = Array.isArray(data) ? data : [];
-    const items = rows.map(mapContributorRow).filter(Boolean);
+    const items = await hydrateContributorProfiles(
+      rows.map(mapContributorRow).filter(Boolean)
+    );
     if (items.length === 0) {
       const local = uniqueContributorsFromLocal(fund);
       if (local.length) {
-        return { items: local, source: 'local', error: null };
+        return {
+          items: await hydrateContributorProfiles(local),
+          source: 'local',
+          error: null,
+        };
       }
     }
     return { items, source: 'supabase', error: null };
   } catch (e) {
     const local = uniqueContributorsFromLocal(fund);
     return {
-      items: local,
+      items: await hydrateContributorProfiles(local),
       source: local.length ? 'local' : 'empty',
       error: e?.message || 'Failed to load contributors',
     };
@@ -328,12 +340,93 @@ function mapContributorRow(row) {
     null;
   if (!displayName && !username) return null;
   return {
+    userId: row.user_id || row.userId || null,
     username,
     displayName: displayName || username,
     avatarUrl: row.avatar_url || row.avatarUrl || null,
     pinnedBadgeKey: row.pinned_badge_key || row.pinnedBadgeKey || null,
     firstAt: row.first_at || row.firstAt || null,
   };
+}
+
+/**
+ * Overlay live profile avatar + pinned badge (same source as public credit).
+ * Ko-fi / snapshot rows only store a name; credit lists must follow profiles.
+ */
+export async function hydrateContributorProfiles(items) {
+  if (!Array.isArray(items) || items.length === 0) return items;
+
+  const ids = [
+    ...new Set(items.map((item) => item.userId).filter(Boolean)),
+  ];
+  const names = [
+    ...new Set(
+      items
+        .flatMap((item) => [item.username, item.displayName, item.label])
+        .map((n) => String(n || '').trim())
+        .filter(Boolean)
+    ),
+  ];
+
+  const byId = new Map();
+  const byName = new Map();
+
+  const remember = (profile) => {
+    if (!profile) return;
+    if (profile.id) byId.set(profile.id, profile);
+    if (profile.username) byName.set(profile.username.toLowerCase(), profile);
+  };
+
+  try {
+    if (ids.length) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url, pinned_badge_key')
+        .in('id', ids);
+      if (!error) (data || []).forEach(remember);
+    }
+
+    const missingNames = names.filter((n) => !byName.has(n.toLowerCase()));
+    if (missingNames.length) {
+      const clauses = missingNames
+        .slice(0, 80)
+        .map((n) => {
+          const safe = String(n).trim().replace(/[,()%*_]/g, '');
+          return safe ? `username.ilike.${safe}` : null;
+        })
+        .filter(Boolean);
+      if (clauses.length) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url, pinned_badge_key')
+          .or(clauses.join(','));
+        if (!error) (data || []).forEach(remember);
+      }
+    }
+  } catch (e) {
+    console.warn('[donations] hydrate contributor profiles', e);
+    return items;
+  }
+
+  if (byId.size === 0 && byName.size === 0) return items;
+
+  return items.map((item) => {
+    const profile =
+      (item.userId && byId.get(item.userId)) ||
+      byName.get(String(item.username || '').trim().toLowerCase()) ||
+      byName.get(String(item.displayName || '').trim().toLowerCase()) ||
+      byName.get(String(item.label || '').trim().toLowerCase()) ||
+      null;
+    if (!profile) return item;
+    return {
+      ...item,
+      userId: item.userId || profile.id || null,
+      username: profile.username || item.username,
+      displayName: item.displayName || profile.username,
+      avatarUrl: profile.avatar_url || null,
+      pinnedBadgeKey: profile.pinned_badge_key || null,
+    };
+  });
 }
 
 /** Unique named supporters from the local device ledger (opt-in only). */
@@ -430,6 +523,7 @@ export default {
   getPublicSupportSummary,
   getPublicRecentDonations,
   getPublicFundContributors,
+  hydrateContributorProfiles,
   uniqueContributorsFromLocal,
   formatTimeAgo,
   formatUsdFromCents,
