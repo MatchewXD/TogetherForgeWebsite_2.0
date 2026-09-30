@@ -98,6 +98,7 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 29. `supabase_contributions_memorial.sql` — permanent ledger + triggers  
 30. `supabase_official_videos.sql` — Official Media library  
 31. `supabase_community_showcase.sql` — showcase posts + moderation RLS  
+31b. `supabase_community_showcase_images.sql` — showcase art upload bucket  
 32. `supabase_community_showcase_likes.sql` — showcase likes  
 33. `supabase_founders_thoughts.sql` — Founders Thoughts + likes  
 34. `supabase_platform_suggestions.sql` — platform/site suggestions  
@@ -213,6 +214,7 @@ supabase db query --linked -f supabase/sql/supabase_project_contributions.sql
 supabase db query --linked -f supabase/sql/supabase_contributions_memorial.sql
 supabase db query --linked -f supabase/sql/supabase_official_videos.sql
 supabase db query --linked -f supabase/sql/supabase_community_showcase.sql
+supabase db query --linked -f supabase/sql/supabase_community_showcase_images.sql
 supabase db query --linked -f supabase/sql/supabase_community_showcase_likes.sql
 supabase db query --linked -f supabase/sql/supabase_founders_thoughts.sql
 supabase db query --linked -f supabase/sql/supabase_platform_suggestions.sql
@@ -269,6 +271,7 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_projects_release_meta.sql` | release_meta JSON for Released Game Detail |
 | `supabase_official_videos.sql` | Official Media library + RLS |
 | `supabase_community_showcase.sql` | Community Showcase posts + moderation RLS |
+| `supabase_community_showcase_images.sql` | Showcase art uploads (`showcase-images` bucket) |
 | `supabase_require_auth_to_post.sql` | Auth-only inserts for showcase + bugs + ideas |
 | `supabase_ideas_insert_rls.sql` | Ideas insert: `user_id = auth.uid()` |
 | `supabase_community_showcase_likes.sql` | Showcase likes |

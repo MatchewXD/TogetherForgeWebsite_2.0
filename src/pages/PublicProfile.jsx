@@ -77,7 +77,7 @@ const chip = (text) =>
 
 /** Fixed-height scroll panels for contribution lists */
 const scrollCardBody =
-  'task-scroll max-h-56 overflow-y-auto overscroll-contain pr-1 space-y-0 divide-y divide-cyber-border';
+  'task-scroll max-h-56 overflow-y-auto pr-1 space-y-0 divide-y divide-cyber-border';
 
 const sectionTone = {
   cyan: 'text-neon-cyan',
@@ -1273,7 +1273,7 @@ const PublicProfile = () => {
                     again to unpin.
                   </p>
                 )}
-                <div className="task-scroll flex-1 min-h-0 overflow-y-auto overscroll-contain pr-0.5">
+                <div className="task-scroll flex-1 min-h-0 overflow-y-auto pr-0.5">
                   {earnedBadges.length === 0 ? (
                     <p className="text-sm text-text-muted py-2">
                       No badges yet.{' '}

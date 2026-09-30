@@ -292,7 +292,7 @@ const PlatformSuggestions = () => {
               No suggestions yet. Be the first.
             </p>
           ) : (
-            <div className="task-scroll max-h-[28rem] sm:max-h-[32rem] overflow-y-auto overscroll-contain rounded-xl border border-cyber-border/80 bg-cyber-bg/30 p-2 sm:p-2.5 space-y-3">
+            <div className="task-scroll max-h-[28rem] sm:max-h-[32rem] overflow-y-auto rounded-xl border border-cyber-border/80 bg-cyber-bg/30 p-2 sm:p-2.5 space-y-3">
             <ul className="space-y-3">
               {items.map((item) => (
                 <li key={item.id}>

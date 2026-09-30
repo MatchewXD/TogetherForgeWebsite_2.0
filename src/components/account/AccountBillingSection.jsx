@@ -275,7 +275,7 @@ export default function AccountBillingSection() {
             No payments yet on this account.
           </p>
         ) : (
-          <div className="task-scroll max-h-72 overflow-y-auto overscroll-contain rounded-lg border border-cyber-border/80">
+          <div className="task-scroll max-h-72 overflow-y-auto rounded-lg border border-cyber-border/80">
             <table className="w-full text-sm text-left">
               <thead className="bg-cyber-surface/80 text-[10px] font-mono tracking-widest uppercase text-text-muted sticky top-0">
                 <tr>

@@ -584,12 +584,16 @@ a.cyber-card:focus-visible,
  * Themed thin neon scrollbar for overflow panels / cards.
  * Use class "task-scroll" (or alias "dashboard-panel-scroll") on any
  * overflow-y-auto / overflow-auto container.
+ * In-page cards chain leftover wheel motion to the page; add
+ * Tailwind `overscroll-contain` on overlays (modals, side panels)
+ * so they keep scroll trapped.
  * Firefox: scrollbar-width + scrollbar-color.
  * Chromium/Safari: ::-webkit-scrollbar*.
  */
 .task-scroll,
 .dashboard-panel-scroll {
     -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 249, 255, 0.4) transparent;
 }
@@ -1236,7 +1240,7 @@ html {
 .tf-decision-log-scroll {
     max-height: 22rem;
     overflow-y: auto;
-    overscroll-behavior: contain;
+    overscroll-behavior-y: auto;
     scrollbar-width: thin;
     scrollbar-color: rgb(var(--tf-cyber-border) / 0.9) transparent;
 }

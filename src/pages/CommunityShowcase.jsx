@@ -693,25 +693,23 @@ const CommunityShowcase = () => {
       <header className="relative pt-20 border-b border-cyber-border bg-cyber-surface/80">
         <div className="container-custom py-10 sm:py-12 md:py-14">
           <div className="max-w-3xl">
-            <div className="flex flex-wrap items-center gap-3 mb-3">
-              <div className="section-header mb-0">Community</div>
+            <div className="flex flex-wrap items-end gap-x-4 gap-y-2 mb-4">
+              <h1 className="section-header dashboard-page-title !mb-0 !text-3xl sm:!text-4xl !font-bold !tracking-tight !normal-case">
+                Community Showcase
+              </h1>
               {isModerator && (
                 <Link
                   to="/showcase/moderate"
-                  className={`inline-flex items-center gap-1.5 text-xs font-mono tracking-widest text-neon-cyan hover:text-white rounded ${focusRing}`}
+                  className={`inline-flex items-center gap-1.5 text-xs font-mono tracking-widest text-neon-cyan hover:text-white rounded pb-1 ${focusRing}`}
                 >
                   <Shield className="w-3 h-3" />
                   Moderate queue
                 </Link>
               )}
             </div>
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white mb-4">
-              Community Showcase
-            </h1>
             <p className="text-base sm:text-lg text-text-secondary leading-relaxed max-w-2xl">
-              Community-made videos, streams, art, and posts about Together
-              Forge. Official studio videos stay on the Media page. Everything
-              here is moderated before it goes live.
+              Community made videos, streams, clips, art and posts related to
+              Together Forge.
             </p>
             <div className="mt-6 flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-center">
               <Link to="/showcase/submit" className={`rounded-lg ${focusRing}`}>

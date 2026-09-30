@@ -45,7 +45,7 @@ export default function AwardNotesSection({
       </button>
 
       {open && (
-        <div className="mt-3 task-scroll max-h-56 overflow-y-auto overscroll-contain rounded-xl border border-cyber-border/70 bg-cyber-surface/40">
+        <div className="mt-3 task-scroll max-h-56 overflow-y-auto rounded-xl border border-cyber-border/70 bg-cyber-surface/40">
           <ul className="divide-y divide-cyber-border/60 list-none p-0 m-0">
             {notes.map((note) => {
               const tier =

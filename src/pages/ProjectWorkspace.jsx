@@ -118,7 +118,11 @@ import {
   canonicalProjectSlug,
   TETHER_SLUG,
 } from '../utils/ideaStatus';
-import { pingUserNotices } from '../utils/userNotices';
+import {
+  filterUnseenAutoReleases,
+  pingUserNotices,
+  rememberAutoReleaseSeen,
+} from '../utils/userNotices';
 import {
   TASK_CATEGORIES,
   getTaskCategoryTextClass,
@@ -1573,14 +1577,7 @@ const ProjectWorkspace = () => {
             limit: 5,
           });
           if (!cancelled && notices?.length) {
-            const seenKey = 'tf_auto_release_seen';
-            let seen = [];
-            try {
-              seen = JSON.parse(localStorage.getItem(seenKey) || '[]');
-            } catch {
-              seen = [];
-            }
-            const unseen = notices.filter((n) => !seen.includes(n.id));
+            const unseen = filterUnseenAutoReleases(notices);
             if (unseen.length) setAutoReleaseNotices(unseen);
           }
         } catch {
@@ -1596,16 +1593,7 @@ const ProjectWorkspace = () => {
 
   const dismissAutoReleaseNotices = useCallback(() => {
     setAutoReleaseNotices((prev) => {
-      const seenKey = 'tf_auto_release_seen';
-      try {
-        const seen = JSON.parse(localStorage.getItem(seenKey) || '[]');
-        const next = [...new Set([...seen, ...prev.map((n) => n.id)])].slice(
-          -50
-        );
-        localStorage.setItem(seenKey, JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
+      rememberAutoReleaseSeen(prev.map((n) => n.id));
       return [];
     });
   }, []);

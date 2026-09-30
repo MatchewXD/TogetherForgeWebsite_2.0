@@ -85,7 +85,7 @@ export default function FundContributorsCard({
         </p>
       ) : (
         <div
-          className="mt-3 task-scroll max-h-72 overflow-y-auto overscroll-contain rounded-xl border border-cyber-border bg-cyber-surface/40 p-2 [scrollbar-gutter:stable]"
+          className="mt-3 task-scroll max-h-72 overflow-y-auto rounded-xl border border-cyber-border bg-cyber-surface/40 p-2 [scrollbar-gutter:stable]"
           role="region"
           aria-label={copy.title}
         >

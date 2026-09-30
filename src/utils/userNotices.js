@@ -32,6 +32,47 @@ export function readSeenNoticeKeys(userId) {
 const deletedStorageKey = (userId) =>
   `tf_dash_notices_deleted_${userId || 'anon'}`;
 
+/** Local dismiss list for activity-log auto-release banners / inbox rows. */
+export const AUTO_RELEASE_SEEN_STORAGE_KEY = 'tf_auto_release_seen';
+
+export function readAutoReleaseSeenIds() {
+  try {
+    const raw = JSON.parse(
+      localStorage.getItem(AUTO_RELEASE_SEEN_STORAGE_KEY) || '[]'
+    );
+    return Array.isArray(raw) ? raw.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function rememberAutoReleaseSeen(ids) {
+  const incoming = (ids || []).map(String).filter(Boolean);
+  if (!incoming.length) return;
+  const next = [...new Set([...readAutoReleaseSeenIds(), ...incoming])].slice(
+    -50
+  );
+  try {
+    localStorage.setItem(AUTO_RELEASE_SEEN_STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore quota */
+  }
+}
+
+export function filterUnseenAutoReleases(rows) {
+  const seen = new Set(readAutoReleaseSeenIds());
+  return (rows || []).filter((n) => n?.id && !seen.has(String(n.id)));
+}
+
+export function asAutoReleaseNotice(row) {
+  if (!row) return null;
+  return {
+    ...row,
+    kind: 'auto_release',
+    title: row.title || row.taskTitle || '',
+  };
+}
+
 export function readDeletedNoticeIds(userId) {
   if (!userId) return new Set();
   try {

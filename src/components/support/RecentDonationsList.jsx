@@ -134,7 +134,7 @@ const RecentDonationsList = ({
       {!loading && items.length > 0 && (
         <>
           <div
-            className="task-scroll max-h-[28rem] sm:max-h-[32rem] overflow-y-auto overscroll-contain rounded-xl border border-cyber-border bg-cyber-surface/30 p-3 sm:p-4 [scrollbar-gutter:stable]"
+            className="task-scroll max-h-[28rem] sm:max-h-[32rem] overflow-y-auto rounded-xl border border-cyber-border bg-cyber-surface/30 p-3 sm:p-4 [scrollbar-gutter:stable]"
             role="region"
             aria-label="Recent supporters list"
           >

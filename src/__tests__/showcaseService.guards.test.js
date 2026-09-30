@@ -139,6 +139,93 @@ describe('submitShowcasePost guards', () => {
     expect(post.id).toBe('post-1');
     expect(post.status || 'pending').toBeTruthy();
   });
+
+  function mockSignedInWithUsername() {
+    getUser.mockResolvedValue({
+      data: { user: { id: 'u1', email: 'a@b.com' } },
+    });
+    let call = 0;
+    from.mockImplementation(() => {
+      call += 1;
+      if (call === 1) {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: { username: 'alice' },
+                  error: null,
+                }),
+            }),
+          }),
+        };
+      }
+      return {
+        insert: (row) => ({
+          select: () => ({
+            maybeSingle: () =>
+              Promise.resolve({
+                data: { ...row, id: 'post-art' },
+                error: null,
+              }),
+          }),
+        }),
+      };
+    });
+  }
+
+  it('rejects art with neither image nor link', async () => {
+    mockSignedInWithUsername();
+    await expect(
+      submitShowcasePost({
+        contentType: 'art',
+        title: 'My drawing',
+      })
+    ).rejects.toThrow(/upload an image or share an image link/i);
+  });
+
+  it('accepts art with an image link only', async () => {
+    mockSignedInWithUsername();
+    const post = await submitShowcasePost({
+      contentType: 'art',
+      title: 'My drawing',
+      url: 'https://example.com/art.webp',
+    });
+    expect(post.id).toBe('post-art');
+    expect(post.imageUrl).toBe('https://example.com/art.webp');
+  });
+
+  it('rejects a stream with no URL', async () => {
+    mockSignedInWithUsername();
+    await expect(
+      submitShowcasePost({
+        contentType: 'stream',
+        title: 'Live now',
+      })
+    ).rejects.toThrow(/stream URL/i);
+  });
+
+  it('accepts a stream with a non-YouTube URL', async () => {
+    mockSignedInWithUsername();
+    const post = await submitShowcasePost({
+      contentType: 'stream',
+      title: 'Live now',
+      url: 'https://www.twitch.tv/togetherforge',
+    });
+    expect(post.id).toBe('post-art');
+    expect(post.url).toBe('https://www.twitch.tv/togetherforge');
+  });
+
+  it('accepts art with an uploaded image URL only', async () => {
+    mockSignedInWithUsername();
+    const post = await submitShowcasePost({
+      contentType: 'art',
+      title: 'My drawing',
+      imageUrl: 'https://cdn.example.com/uploaded.png',
+    });
+    expect(post.id).toBe('post-art');
+    expect(post.imageUrl).toBe('https://cdn.example.com/uploaded.png');
+  });
 });
 
 describe('moderateShowcasePost guards', () => {

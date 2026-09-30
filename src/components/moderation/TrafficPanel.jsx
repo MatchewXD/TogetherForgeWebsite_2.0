@@ -374,7 +374,7 @@ const TrafficPanel = () => {
           </h3>
           {pageRows.length ? (
             <div
-              className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain dashboard-panel-scroll pr-3"
+              className="mt-3 min-h-0 flex-1 overflow-y-auto dashboard-panel-scroll pr-3"
               style={{ scrollbarGutter: 'stable' }}
             >
               <ul className="divide-y divide-cyber-border border-y border-cyber-border pr-2">

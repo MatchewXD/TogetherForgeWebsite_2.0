@@ -303,7 +303,7 @@ export default function ProjectUpdatesSection({
           </p>
         </Card>
       ) : (
-        <div className="task-scroll max-h-[36rem] overflow-y-auto overscroll-contain pr-1">
+        <div className="task-scroll max-h-[36rem] overflow-y-auto pr-1">
           <ul className="grid md:grid-cols-2 gap-4">
             {updates.map((row) => (
               <li key={row.id} className="min-w-0">

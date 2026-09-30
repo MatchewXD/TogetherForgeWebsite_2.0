@@ -684,7 +684,7 @@ const ReleasedGameDetail = () => {
                 </p>
                 <div className="relative rounded-xl border border-cyber-border bg-cyber-surface/40 overflow-hidden">
                   <div
-                    className="task-scroll max-h-[22rem] sm:max-h-[26rem] overflow-y-auto overscroll-contain p-3 sm:p-4 scroll-smooth [scrollbar-gutter:stable]"
+                    className="task-scroll max-h-[22rem] sm:max-h-[26rem] overflow-y-auto p-3 sm:p-4 scroll-smooth [scrollbar-gutter:stable]"
                     role="region"
                     aria-label="Community ideas list"
                     tabIndex={0}

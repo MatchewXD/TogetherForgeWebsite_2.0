@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
+  asAutoReleaseNotice,
+  filterUnseenAutoReleases,
   hasAvatarNoticePin,
   hasMemberNoticePin,
   hasStaffQueuePin,
@@ -8,6 +10,7 @@ import {
   noticeKey,
   readDeletedNoticeIds,
   readSeenNoticeKeys,
+  rememberAutoReleaseSeen,
   rememberDeletedNoticeIds,
   rememberNoticeKeys,
   summarizeUserNotices,
@@ -103,6 +106,45 @@ describe('summarizeUserNotices', () => {
     expect(second.suggestions).toBe(false);
     expect(second.noticesCard).toBe(true);
     expect(second.global).toBe(true);
+  });
+
+  it('flags unread claim auto-releases on the notices card and avatar', () => {
+    const summary = summarizeUserNotices({
+      joinRequests: [],
+      suggestions: [],
+      noticeItems: [
+        asAutoReleaseNotice({
+          id: 'ar1',
+          taskTitle: 'Tether-4.1 ResourceNode',
+          message: 'Your claim was auto-released.',
+        }),
+      ],
+      seen: new Set(),
+    });
+    expect(summary.noticesCard).toBe(true);
+    expect(summary.global).toBe(true);
+    expect(hasMemberNoticePin(summary)).toBe(true);
+    expect(summary.noticeIds).toEqual(['ar1']);
+  });
+
+  it('clears an auto-release pin after it is marked seen', () => {
+    const summary = summarizeUserNotices({
+      joinRequests: [],
+      suggestions: [],
+      noticeItems: [{ id: 'ar1', kind: 'auto_release' }],
+      seen: new Set([noticeKey('notice', 'ar1')]),
+    });
+    expect(summary.noticesCard).toBe(false);
+    expect(summary.global).toBe(false);
+  });
+
+  it('hides auto-releases already dismissed locally', () => {
+    rememberAutoReleaseSeen(['ar-old']);
+    expect(
+      filterUnseenAutoReleases([{ id: 'ar-old' }, { id: 'ar-new' }]).map(
+        (n) => n.id
+      )
+    ).toEqual(['ar-new']);
   });
 
   it('drops deleted notices from the card and avatar', () => {

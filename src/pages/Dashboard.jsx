@@ -66,10 +66,13 @@ import {
 import useIsModerator from '../hooks/useIsModerator';
 import { useUserNotices } from '../context/UserNoticesContext';
 import {
+  asAutoReleaseNotice,
+  filterUnseenAutoReleases,
   noticeKey,
   pingUserNotices,
   readDeletedNoticeIds,
   readSeenNoticeKeys,
+  rememberAutoReleaseSeen,
   rememberDeletedNoticeIds,
   rememberNoticeKeys,
 } from '../utils/userNotices';
@@ -94,11 +97,17 @@ function showcaseStatusLabel(status) {
   return 'Pending review';
 }
 
+function noticeKindLabel(kind) {
+  if (kind === 'oqhide' || kind === 'oq_hide') return 'Open Question reply hidden';
+  if (kind === 'auto_release') return 'Claim auto-released';
+  return 'Task updated';
+}
+
 /** Equal-height dashboard panels; body scrolls when content overflows. */
 const DASH_PANEL =
   'h-[26rem] sm:h-[32rem] flex flex-col overflow-hidden min-h-0';
 const DASH_PANEL_BODY =
-  'dashboard-panel-scroll flex-1 min-h-0 overflow-y-auto overscroll-contain';
+  'dashboard-panel-scroll flex-1 min-h-0 overflow-y-auto';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -269,23 +278,17 @@ const Dashboard = () => {
       setSuggestionAccount(suggestionRes);
       setMySuggestions(mySuggestionsRes || []);
 
-      // Show auto-release notices not yet dismissed
-      const notices = autoRes || [];
-      try {
-        const seen = JSON.parse(
-          localStorage.getItem('tf_auto_release_seen') || '[]'
-        );
-        setAutoReleaseNotices(notices.filter((n) => !seen.includes(n.id)));
-      } catch {
-        setAutoReleaseNotices(notices);
-      }
+      const deleted = readDeletedNoticeIds(current.id);
+      const autoReleaseRows = filterUnseenAutoReleases(autoRes || [])
+        .map(asAutoReleaseNotice)
+        .filter((n) => n?.id && !deleted.has(String(n.id)));
+      setAutoReleaseNotices(autoReleaseRows);
 
       const splits = splitRes || [];
       const oqHides = (oqHideRes || []).map((n) => ({
         ...n,
         kind: n.kind || 'oq_hide',
       }));
-      const deleted = readDeletedNoticeIds(current.id);
       let legacyClaimSeen = [];
       try {
         legacyClaimSeen = JSON.parse(
@@ -307,7 +310,7 @@ const Dashboard = () => {
       userNotices.ingestItems({
         joinRequests: joinsRes || [],
         suggestions: mySuggestionsRes || [],
-        noticeItems: [...splits, ...oqHides],
+        noticeItems: [...splits, ...oqHides, ...autoReleaseRows],
       });
     } catch (err) {
       console.error('[Dashboard]', err);
@@ -317,40 +320,25 @@ const Dashboard = () => {
     }
   }, [userNotices.ingestItems]);
 
-  const dismissAutoReleaseNotices = () => {
-    setAutoReleaseNotices((prev) => {
-      try {
-        const seen = JSON.parse(
-          localStorage.getItem('tf_auto_release_seen') || '[]'
-        );
-        const next = [...new Set([...seen, ...prev.map((n) => n.id)])].slice(
-          -50
-        );
-        localStorage.setItem('tf_auto_release_seen', JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
-      return [];
-    });
-  };
-
   const noticeItems = useMemo(() => {
     if (!user?.id) {
       return [
         ...oqHideNotices.map((n) => ({ ...n, kind: n.kind || 'oqhide' })),
         ...claimSplitNotices.map((n) => ({ ...n, kind: 'claim' })),
+        ...autoReleaseNotices,
       ];
     }
     const deleted = readDeletedNoticeIds(user.id);
     return [
       ...oqHideNotices.map((n) => ({ ...n, kind: n.kind || 'oq_hide' })),
       ...claimSplitNotices.map((n) => ({ ...n, kind: 'claim' })),
+      ...autoReleaseNotices,
     ].filter((n) => {
       if (!n?.id) return false;
-      if (n.kind === 'claim' && deleted.has(String(n.id))) return false;
+      if (deleted.has(String(n.id))) return false;
       return true;
     });
-  }, [user?.id, oqHideNotices, claimSplitNotices]);
+  }, [user?.id, oqHideNotices, claimSplitNotices, autoReleaseNotices]);
 
   const [readNoticeIds, setReadNoticeIds] = useState(() => new Set());
   useEffect(() => {
@@ -403,6 +391,8 @@ const Dashboard = () => {
       if (looksUuid) void dashboardNoticesService.dismiss([id]);
       setOqHideNotices((prev) => prev.filter((n) => n.id !== id));
       setClaimSplitNotices((prev) => prev.filter((n) => n.id !== id));
+      setAutoReleaseNotices((prev) => prev.filter((n) => n.id !== id));
+      rememberAutoReleaseSeen([id]);
       pingUserNotices();
     },
     [user?.id]
@@ -433,10 +423,12 @@ const Dashboard = () => {
     } catch {
       /* ignore */
     }
+    rememberAutoReleaseSeen(autoReleaseNotices.map((n) => n.id));
     setOqHideNotices([]);
     setClaimSplitNotices([]);
+    setAutoReleaseNotices([]);
     pingUserNotices();
-  }, [user?.id, noticeItems, claimSplitNotices]);
+  }, [user?.id, noticeItems, claimSplitNotices, autoReleaseNotices]);
 
   const noticesScrollRef = useRef(null);
 
@@ -683,37 +675,6 @@ const Dashboard = () => {
               </div>
             ) : null}
 
-            {autoReleaseNotices.length > 0 && (
-              <div className="rounded-xl border border-semantic-warning/40 bg-semantic-warning/10 px-4 py-3 flex flex-col sm:flex-row gap-3">
-                <div className="min-w-0 flex-1 space-y-2">
-                  <p className="text-xs font-mono tracking-widest text-semantic-warning uppercase">
-                    Claim auto-released
-                  </p>
-                  {autoReleaseNotices.map((n) => (
-                    <p
-                      key={n.id}
-                      className="text-sm text-text-secondary leading-snug"
-                    >
-                      {n.message}
-                      {n.taskTitle ? (
-                        <span className="text-text-muted">
-                          {' '}
-                          · {n.taskTitle}
-                        </span>
-                      ) : null}
-                    </p>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={dismissAutoReleaseNotices}
-                  className="shrink-0 self-start text-xs font-semibold text-semantic-warning hover:text-white border border-semantic-warning/40 rounded-lg px-3 py-1.5"
-                >
-                  Dismiss
-                </button>
-              </div>
-            )}
-
             {/* Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
               <Card className="bg-cyber-card text-center py-5 h-full border border-neon-magenta/25 border-t-2 border-t-neon-magenta">
@@ -865,6 +826,133 @@ const Dashboard = () => {
                 </Link>
               </div>
             </Card>
+
+            <div className="relative">
+              {userNotices.noticesCard ? (
+                <NoticeDot overlap label="Unseen notices" />
+              ) : null}
+              <Card className="bg-cyber-card border border-semantic-warning/25 border-l-2 border-l-semantic-warning">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <div className="text-sm font-mono tracking-widest text-semantic-warning flex items-center gap-2">
+                    NOTICES
+                    {noticeItems.length > 0 && (
+                      <Badge variant="warning" className="!normal-case">
+                        {noticeItems.length}
+                      </Badge>
+                    )}
+                  </div>
+                  {noticeItems.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={dismissAllNotices}
+                      className="text-xs font-semibold text-semantic-warning hover:text-white"
+                    >
+                      Dismiss all
+                    </button>
+                  )}
+                </div>
+                <div
+                  ref={noticesScrollRef}
+                  className="dashboard-panel-scroll max-h-[20rem] overflow-y-auto"
+                >
+                  {noticeItems.length === 0 &&
+                  !(
+                    quota?.cooldownEndsAt &&
+                    new Date(quota.cooldownEndsAt).getTime() > Date.now()
+                  ) ? (
+                    <p className="text-sm text-text-secondary">
+                      Claim auto-releases, join approvals, and project updates
+                      will surface here.
+                    </p>
+                  ) : (
+                    <ul className="space-y-3">
+                      {noticeItems.map((n) => {
+                        const unread =
+                          !n.readAt && !readNoticeIds.has(String(n.id));
+                        return (
+                          <li
+                            key={n.id}
+                            data-notice-id={n.id}
+                            className={`rounded-lg border p-3 ${
+                              unread
+                                ? 'border-semantic-warning/50 bg-semantic-warning/15 cursor-pointer'
+                                : 'border-white/10 bg-cyber-surface/40'
+                            }`}
+                            onClick={() => {
+                              if (unread) markNoticeRead(n.id);
+                            }}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <p className="text-xs font-mono tracking-widest text-semantic-warning uppercase">
+                                {noticeKindLabel(n.kind)}
+                              </p>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span
+                                  className={`text-[10px] font-mono tracking-widest uppercase ${
+                                    unread
+                                      ? 'text-semantic-warning'
+                                      : 'text-text-muted'
+                                  }`}
+                                >
+                                  {unread ? 'Unread · click to read' : 'Read'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteNotice(n.id);
+                                  }}
+                                  className="text-text-muted hover:text-red-300"
+                                  aria-label="Delete notice"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                            {n.title ? (
+                              <p className="text-sm text-white mb-1">
+                                {n.title}
+                              </p>
+                            ) : null}
+                            <p className="text-sm text-text-secondary leading-snug">
+                              {n.message}
+                            </p>
+                            {n.href ? (
+                              <Link
+                                to={n.href}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (unread) markNoticeRead(n.id);
+                                }}
+                                className="text-xs text-neon-cyan hover:underline mt-2 inline-block"
+                              >
+                                View post →
+                              </Link>
+                            ) : null}
+                            {n.createdAt ? (
+                              <p className="text-[11px] font-mono text-text-muted mt-2">
+                                {new Date(n.createdAt).toLocaleString()}
+                              </p>
+                            ) : null}
+                          </li>
+                        );
+                      })}
+                      {quota?.cooldownEndsAt &&
+                        new Date(quota.cooldownEndsAt).getTime() >
+                          Date.now() && (
+                          <li className="text-xs text-amber-300/90 font-mono">
+                            Claim cooldown until{' '}
+                            {new Date(
+                              quota.cooldownEndsAt
+                            ).toLocaleTimeString()}
+                            .
+                          </li>
+                        )}
+                    </ul>
+                  )}
+                </div>
+              </Card>
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
                 <Card
@@ -1051,6 +1139,131 @@ const Dashboard = () => {
                         </li>
                         );
                       })}
+                    </ul>
+                  )}
+                  </div>
+                </Card>
+
+                {/* My submitted ideas */}
+                <Card
+                  id="my-ideas"
+                  className={`${DASH_PANEL} bg-cyber-card border border-neon-cyan/20 border-l-2 border-l-neon-cyan scroll-mt-24`}
+                >
+                  <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 mb-3">
+                    <div className="text-sm font-mono tracking-widest text-neon-cyan flex items-center gap-2">
+                      <Lightbulb className="w-4 h-4" />
+                      MY IDEAS
+                      <Badge variant="default">{ideaCount}</Badge>
+                      {myIdeas.filter((i) => i.hasNewActivity).length > 0 && (
+                        <Badge
+                          variant="gold"
+                          className="!normal-case tracking-wide"
+                        >
+                          {
+                            myIdeas.filter((i) => i.hasNewActivity).length
+                          }{' '}
+                          with activity
+                        </Badge>
+                      )}
+                    </div>
+                    <Link
+                      to="/ideas/submit"
+                      className="text-xs text-neon-cyan hover:underline font-mono tracking-widest"
+                    >
+                      + New idea
+                    </Link>
+                  </div>
+
+                  <div className={DASH_PANEL_BODY}>
+                  {myIdeas.length === 0 ? (
+                    <div className="text-sm text-text-secondary py-6 text-center border border-dashed border-white/10 rounded-lg">
+                      <p className="mb-3">You have not submitted any ideas yet.</p>
+                      <Link
+                        to="/ideas/submit"
+                        className="btn-neon text-xs px-4 py-2 inline-flex"
+                      >
+                        SUBMIT AN IDEA
+                      </Link>
+                    </div>
+                  ) : (
+                    <ul className="space-y-3">
+                        {myIdeas.map((idea) => {
+                          const chip = deriveIdeaStatus(idea);
+                          const submitted = idea.created_at
+                            ? new Date(idea.created_at).toLocaleDateString()
+                            : null;
+                          return (
+                            <li
+                              key={idea.id}
+                              className={`rounded-lg border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-colors ${
+                                idea.hasNewActivity
+                                  ? 'border-forge-gold/40 bg-forge-gold/5'
+                                  : 'border-white/10 bg-cyber-surface/50 hover:border-neon-cyan/30'
+                              }`}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2 mb-1">
+                                  {idea.hasNewActivity && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-mono tracking-widest uppercase text-forge-gold">
+                                      <Sparkles className="w-3 h-3" />
+                                      New activity
+                                    </span>
+                                  )}
+                                  <span
+                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono tracking-wide border ${statusChipClasses(
+                                      chip
+                                    )}`}
+                                  >
+                                    {statusLabel(chip)}
+                                  </span>
+                                  {idea.category && (
+                                    <span className="text-[10px] font-mono text-text-muted">
+                                      {idea.category}
+                                    </span>
+                                  )}
+                                </div>
+                                <Link
+                                  to={`/ideas/${idea.id}`}
+                                  className="font-semibold text-white hover:text-neon-cyan transition-colors block truncate"
+                                >
+                                  {idea.title || 'Untitled idea'}
+                                </Link>
+                                <div className="text-xs text-text-muted mt-1 flex flex-wrap gap-x-2 gap-y-1">
+                                  {submitted && (
+                                    <span>Submitted {submitted}</span>
+                                  )}
+                                  {(idea.commentCount || 0) > 0 && (
+                                    <span className="inline-flex items-center gap-1">
+                                      <MessageCircle className="w-3 h-3" />
+                                      {idea.commentCount} comment
+                                      {idea.commentCount === 1 ? '' : 's'}
+                                    </span>
+                                  )}
+                                  {(idea.votes || 0) > 0 && (
+                                    <span>{idea.votes} votes</span>
+                                  )}
+                                </div>
+                                {idea.activityHint && (
+                                  <p className="text-xs text-forge-gold mt-1.5">
+                                    {idea.activityHint}
+                                  </p>
+                                )}
+                                {idea.summary && (
+                                  <p className="text-xs text-text-secondary mt-1 line-clamp-2">
+                                    {idea.summary}
+                                  </p>
+                                )}
+                              </div>
+                              <Link
+                                to={`/ideas/${idea.id}`}
+                                className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-neon-cyan/40 text-neon-cyan text-xs font-mono tracking-widest uppercase hover:bg-neon-cyan/10 transition-colors self-start sm:self-center"
+                              >
+                                Open idea
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </Link>
+                            </li>
+                          );
+                        })}
                     </ul>
                   )}
                   </div>
@@ -1371,131 +1584,6 @@ const Dashboard = () => {
                 </Card>
                 </div>
 
-                {/* My submitted ideas */}
-                <Card
-                  id="my-ideas"
-                  className={`${DASH_PANEL} bg-cyber-card border border-neon-cyan/20 border-l-2 border-l-neon-cyan scroll-mt-24`}
-                >
-                  <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 mb-3">
-                    <div className="text-sm font-mono tracking-widest text-neon-cyan flex items-center gap-2">
-                      <Lightbulb className="w-4 h-4" />
-                      MY IDEAS
-                      <Badge variant="default">{ideaCount}</Badge>
-                      {myIdeas.filter((i) => i.hasNewActivity).length > 0 && (
-                        <Badge
-                          variant="gold"
-                          className="!normal-case tracking-wide"
-                        >
-                          {
-                            myIdeas.filter((i) => i.hasNewActivity).length
-                          }{' '}
-                          with activity
-                        </Badge>
-                      )}
-                    </div>
-                    <Link
-                      to="/ideas/submit"
-                      className="text-xs text-neon-cyan hover:underline font-mono tracking-widest"
-                    >
-                      + New idea
-                    </Link>
-                  </div>
-
-                  <div className={DASH_PANEL_BODY}>
-                  {myIdeas.length === 0 ? (
-                    <div className="text-sm text-text-secondary py-6 text-center border border-dashed border-white/10 rounded-lg">
-                      <p className="mb-3">You have not submitted any ideas yet.</p>
-                      <Link
-                        to="/ideas/submit"
-                        className="btn-neon text-xs px-4 py-2 inline-flex"
-                      >
-                        SUBMIT AN IDEA
-                      </Link>
-                    </div>
-                  ) : (
-                    <ul className="space-y-3">
-                        {myIdeas.map((idea) => {
-                          const chip = deriveIdeaStatus(idea);
-                          const submitted = idea.created_at
-                            ? new Date(idea.created_at).toLocaleDateString()
-                            : null;
-                          return (
-                            <li
-                              key={idea.id}
-                              className={`rounded-lg border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-colors ${
-                                idea.hasNewActivity
-                                  ? 'border-forge-gold/40 bg-forge-gold/5'
-                                  : 'border-white/10 bg-cyber-surface/50 hover:border-neon-cyan/30'
-                              }`}
-                            >
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2 mb-1">
-                                  {idea.hasNewActivity && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-mono tracking-widest uppercase text-forge-gold">
-                                      <Sparkles className="w-3 h-3" />
-                                      New activity
-                                    </span>
-                                  )}
-                                  <span
-                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono tracking-wide border ${statusChipClasses(
-                                      chip
-                                    )}`}
-                                  >
-                                    {statusLabel(chip)}
-                                  </span>
-                                  {idea.category && (
-                                    <span className="text-[10px] font-mono text-text-muted">
-                                      {idea.category}
-                                    </span>
-                                  )}
-                                </div>
-                                <Link
-                                  to={`/ideas/${idea.id}`}
-                                  className="font-semibold text-white hover:text-neon-cyan transition-colors block truncate"
-                                >
-                                  {idea.title || 'Untitled idea'}
-                                </Link>
-                                <div className="text-xs text-text-muted mt-1 flex flex-wrap gap-x-2 gap-y-1">
-                                  {submitted && (
-                                    <span>Submitted {submitted}</span>
-                                  )}
-                                  {(idea.commentCount || 0) > 0 && (
-                                    <span className="inline-flex items-center gap-1">
-                                      <MessageCircle className="w-3 h-3" />
-                                      {idea.commentCount} comment
-                                      {idea.commentCount === 1 ? '' : 's'}
-                                    </span>
-                                  )}
-                                  {(idea.votes || 0) > 0 && (
-                                    <span>{idea.votes} votes</span>
-                                  )}
-                                </div>
-                                {idea.activityHint && (
-                                  <p className="text-xs text-forge-gold mt-1.5">
-                                    {idea.activityHint}
-                                  </p>
-                                )}
-                                {idea.summary && (
-                                  <p className="text-xs text-text-secondary mt-1 line-clamp-2">
-                                    {idea.summary}
-                                  </p>
-                                )}
-                              </div>
-                              <Link
-                                to={`/ideas/${idea.id}`}
-                                className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-neon-cyan/40 text-neon-cyan text-xs font-mono tracking-widest uppercase hover:bg-neon-cyan/10 transition-colors self-start sm:self-center"
-                              >
-                                Open idea
-                                <ExternalLink className="w-3.5 h-3.5" />
-                              </Link>
-                            </li>
-                          );
-                        })}
-                    </ul>
-                  )}
-                  </div>
-                </Card>
-
                 {/* Private idea drafts */}
                 <Card
                   id="my-drafts"
@@ -1584,133 +1672,6 @@ const Dashboard = () => {
                   )}
                   </div>
                 </Card>
-
-                <div className="relative h-full min-h-0">
-                {userNotices.noticesCard ? (
-                  <NoticeDot overlap label="Unseen notices" />
-                ) : null}
-                <Card
-                  className={`${DASH_PANEL} bg-cyber-card border border-semantic-warning/25 border-l-2 border-l-semantic-warning`}
-                >
-                  <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <div className="text-sm font-mono tracking-widest text-semantic-warning flex items-center gap-2">
-                      NOTICES
-                      {noticeItems.length > 0 && (
-                        <Badge variant="warning" className="!normal-case">
-                          {noticeItems.length}
-                        </Badge>
-                      )}
-                    </div>
-                    {noticeItems.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={dismissAllNotices}
-                        className="text-xs font-semibold text-semantic-warning hover:text-white"
-                      >
-                        Dismiss all
-                      </button>
-                    )}
-                  </div>
-                  <div ref={noticesScrollRef} className={DASH_PANEL_BODY}>
-                    {noticeItems.length === 0 &&
-                    !(
-                      quota?.cooldownEndsAt &&
-                      new Date(quota.cooldownEndsAt).getTime() > Date.now()
-                    ) ? (
-                      <p className="text-sm text-text-secondary">
-                        Claim cooldowns, join approvals, and project updates
-                        will surface here. For now, check active tasks and join
-                        requests above.
-                      </p>
-                    ) : (
-                      <ul className="space-y-3">
-                        {noticeItems.map((n) => {
-                          const unread =
-                            !n.readAt && !readNoticeIds.has(String(n.id));
-                          return (
-                          <li
-                            key={n.id}
-                            data-notice-id={n.id}
-                            className={`rounded-lg border p-3 ${
-                              unread
-                                ? 'border-semantic-warning/50 bg-semantic-warning/15 cursor-pointer'
-                                : 'border-white/10 bg-cyber-surface/40'
-                            }`}
-                            onClick={() => {
-                              if (unread) markNoticeRead(n.id);
-                            }}
-                          >
-                            <div className="flex items-start justify-between gap-2 mb-1">
-                              <p className="text-xs font-mono tracking-widest text-semantic-warning uppercase">
-                                {n.kind === 'oqhide' || n.kind === 'oq_hide'
-                                  ? 'Open Question reply hidden'
-                                  : 'Task updated'}
-                              </p>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span
-                                  className={`text-[10px] font-mono tracking-widest uppercase ${
-                                    unread
-                                      ? 'text-semantic-warning'
-                                      : 'text-text-muted'
-                                  }`}
-                                >
-                                  {unread ? 'Unread · click to read' : 'Read'}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    deleteNotice(n.id);
-                                  }}
-                                  className="text-text-muted hover:text-red-300"
-                                  aria-label="Delete notice"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                            {n.title ? (
-                              <p className="text-sm text-white mb-1">{n.title}</p>
-                            ) : null}
-                            <p className="text-sm text-text-secondary leading-snug">
-                              {n.message}
-                            </p>
-                            {n.href ? (
-                              <Link
-                                to={n.href}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (unread) markNoticeRead(n.id);
-                                }}
-                                className="text-xs text-neon-cyan hover:underline mt-2 inline-block"
-                              >
-                                View post →
-                              </Link>
-                            ) : null}
-                            {n.createdAt ? (
-                              <p className="text-[11px] font-mono text-text-muted mt-2">
-                                {new Date(n.createdAt).toLocaleString()}
-                              </p>
-                            ) : null}
-                          </li>
-                          );
-                        })}
-                        {quota?.cooldownEndsAt &&
-                          new Date(quota.cooldownEndsAt).getTime() >
-                            Date.now() && (
-                            <li className="text-xs text-amber-300/90 font-mono">
-                              Claim cooldown until{' '}
-                              {new Date(
-                                quota.cooldownEndsAt
-                              ).toLocaleTimeString()}
-                              .
-                            </li>
-                          )}
-                      </ul>
-                    )}
-                  </div>
-                </Card>
-                </div>
             </div>
           </>
         )}

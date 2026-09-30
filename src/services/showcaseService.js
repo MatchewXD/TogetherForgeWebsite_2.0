@@ -20,6 +20,16 @@ import {
 const TABLE = 'community_showcase_posts';
 const LIKES_TABLE = 'community_showcase_likes';
 
+/** Art / image uploads on Community Showcase */
+export const SHOWCASE_IMAGE_BUCKET = 'showcase-images';
+export const SHOWCASE_IMAGE_MAX_BYTES = 5 * 1024 * 1024; // 5MB
+export const SHOWCASE_IMAGE_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+];
+
 const SELECT_BASE =
   'id, content_type, title, description, creator_display_name, creator_user_id, url, youtube_id, image_url, thumbnail_url, project_tag, status, is_featured, moderator_note, moderated_by, moderated_at, published_at, created_at, updated_at';
 
@@ -630,17 +640,23 @@ export async function submitShowcasePost(input) {
     );
   }
 
-  const youtubeId = parseYoutubeId(input.youtubeId || input.youtubeUrl || '');
   const url = String(input.url || '').trim() || null;
-  const imageUrl = String(input.imageUrl || input.thumbnailUrl || '').trim() || null;
+  const youtubeId = parseYoutubeId(
+    input.youtubeId || input.youtubeUrl || url || ''
+  );
+  const imageUrl =
+    String(input.imageUrl || input.thumbnailUrl || '').trim() ||
+    (contentType === 'art' ? url : null) ||
+    null;
 
-  if (contentType === 'video' || contentType === 'stream') {
-    if (!youtubeId && !url) {
-      throw new Error('Add a YouTube link (or video URL) for videos and streams.');
-    }
+  if (contentType === 'video' && !youtubeId && !url) {
+    throw new Error('Add a YouTube link for videos.');
+  }
+  if (contentType === 'stream' && !url && !youtubeId) {
+    throw new Error('Add a stream URL.');
   }
   if (contentType === 'art' && !imageUrl && !url) {
-    throw new Error('Add an image URL or link for art submissions.');
+    throw new Error('Upload an image or share an image link for art submissions.');
   }
   if (contentType === 'article' && !url) {
     throw new Error('Add a link to the article or post.');
@@ -653,7 +669,7 @@ export async function submitShowcasePost(input) {
     creator_display_name: creatorDisplayName,
     creator_user_id: user.id,
     submitter_email: String(input.submitterEmail || user.email || '').trim() || null,
-    url,
+    url: url || imageUrl,
     youtube_id: youtubeId || null,
     image_url: imageUrl,
     thumbnail_url:
@@ -678,6 +694,60 @@ export async function submitShowcasePost(input) {
     throw error;
   }
   return mapRow(data);
+}
+
+/**
+ * Upload an art image to Supabase Storage.
+ * Path: {userId}/{timestamp}-{rand}.ext
+ * @param {File} file
+ * @param {string} userId
+ * @returns {Promise<string>} public URL
+ */
+export async function uploadShowcaseImage(file, userId) {
+  if (!file) return null;
+  if (!userId) throw new Error('Sign in to upload an image.');
+  if (!SHOWCASE_IMAGE_TYPES.includes(file.type)) {
+    throw new Error('Image must be JPEG, PNG, WebP, or GIF.');
+  }
+  if (file.size > SHOWCASE_IMAGE_MAX_BYTES) {
+    throw new Error('Image must be under 5MB.');
+  }
+
+  const ext =
+    (file.name && file.name.split('.').pop()?.toLowerCase()) ||
+    (file.type === 'image/png' ? 'png' : 'jpg');
+  const safeExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)
+    ? ext
+    : 'jpg';
+  const path = `${userId}/${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 10)}.${safeExt}`;
+
+  const { error: upErr } = await supabase.storage
+    .from(SHOWCASE_IMAGE_BUCKET)
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type,
+    });
+
+  if (upErr) {
+    if (/bucket|not found|does not exist/i.test(upErr.message || '')) {
+      throw new Error(
+        'Image storage is not set up. Create a public "showcase-images" bucket or run supabase/sql/supabase_community_showcase_images.sql.'
+      );
+    }
+    throw upErr;
+  }
+
+  const { data } = supabase.storage
+    .from(SHOWCASE_IMAGE_BUCKET)
+    .getPublicUrl(path);
+  const publicUrl = data?.publicUrl || null;
+  if (!publicUrl) {
+    throw new Error('Could not get a public URL for the uploaded image.');
+  }
+  return publicUrl;
 }
 
 /**
@@ -800,6 +870,7 @@ export const showcaseService = {
   listMyShowcaseSubmissions,
   listShowcaseForModeration,
   submitShowcasePost,
+  uploadShowcaseImage,
   moderateShowcasePost,
   deleteShowcasePost,
   projectsPresentInPosts,

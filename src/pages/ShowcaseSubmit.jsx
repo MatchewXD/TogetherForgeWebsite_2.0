@@ -14,6 +14,8 @@ import {
   CheckCircle2,
   LayoutDashboard,
   Plus,
+  ImagePlus,
+  X,
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Buttons';
@@ -21,7 +23,10 @@ import LoadingScreen from '../components/ui/LoadingScreen';
 import { supabase } from '../lib/supabase';
 import {
   submitShowcasePost,
+  uploadShowcaseImage,
   SHOWCASE_CONTENT_TYPES,
+  SHOWCASE_IMAGE_MAX_BYTES,
+  SHOWCASE_IMAGE_TYPES,
 } from '../services/showcaseService';
 import { loadRelatedProjectOptions } from '../utils/relatedToOptions';
 import { pingUserNotices } from '../utils/userNotices';
@@ -54,6 +59,8 @@ const ShowcaseSubmit = () => {
   const [authLoading, setAuthLoading] = useState(true);
   /** Official TF projects only (from projects table). */
   const [officialProjects, setOfficialProjects] = useState([]);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -107,6 +114,16 @@ const ShowcaseSubmit = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!imageFile) {
+      setImagePreview(null);
+      return undefined;
+    }
+    const url = URL.createObjectURL(imageFile);
+    setImagePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [imageFile]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitError('');
@@ -120,17 +137,30 @@ const ShowcaseSubmit = () => {
       );
       return;
     }
+    const imageLink = (form.url || '').trim();
+    if (form.contentType === 'art' && !imageFile && !imageLink) {
+      setSubmitError('Please upload an image or share a link.');
+      return;
+    }
     setSubmitting(true);
     try {
       const title = (form.title || '').trim();
+      let uploadedUrl = null;
+      if (form.contentType === 'art' && imageFile) {
+        uploadedUrl = await uploadShowcaseImage(imageFile, authUser.id);
+      }
+      const artImageUrl = uploadedUrl || imageLink || null;
       await submitShowcasePost({
         contentType: form.contentType,
         title: form.title,
         description: form.description,
-        youtubeUrl: form.youtubeUrl,
-        url: form.url,
-        imageUrl: form.imageUrl,
-        thumbnailUrl: form.imageUrl,
+        youtubeUrl: form.contentType === 'video' ? form.youtubeUrl : '',
+        url:
+          form.contentType === 'art'
+            ? imageLink || uploadedUrl
+            : form.url,
+        imageUrl: form.contentType === 'art' ? artImageUrl : form.imageUrl,
+        thumbnailUrl: form.contentType === 'art' ? artImageUrl : form.imageUrl,
         projectTag: form.projectTag,
         submitterEmail: form.submitterEmail,
       });
@@ -140,6 +170,7 @@ const ShowcaseSubmit = () => {
       });
       pingUserNotices();
       setForm(emptyForm());
+      setImageFile(null);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setSubmitError(err?.message || 'Could not submit. Try again.');
@@ -152,6 +183,34 @@ const ShowcaseSubmit = () => {
     setSubmittedMeta(null);
     setSubmitError('');
     setForm(emptyForm());
+    setImageFile(null);
+  };
+
+  const artMissingMedia =
+    form.contentType === 'art' &&
+    !imageFile &&
+    !(form.url || '').trim();
+  const artMediaHint = 'Please upload an image or share a link';
+
+  const onArtImagePick = (e) => {
+    const next = e.target.files?.[0] || null;
+    e.target.value = '';
+    if (!next) {
+      setImageFile(null);
+      return;
+    }
+    if (!SHOWCASE_IMAGE_TYPES.includes(next.type)) {
+      setSubmitError('Image must be JPEG, PNG, WebP, or GIF.');
+      setImageFile(null);
+      return;
+    }
+    if (next.size > SHOWCASE_IMAGE_MAX_BYTES) {
+      setSubmitError('Image must be under 5MB.');
+      setImageFile(null);
+      return;
+    }
+    setSubmitError('');
+    setImageFile(next);
   };
 
   return (
@@ -165,15 +224,15 @@ const ShowcaseSubmit = () => {
             <ArrowLeft className="w-3.5 h-3.5" />
             Community Showcase
           </Link>
-          <div className="section-header">Community</div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-white mb-3">
+          <h1 className="section-header dashboard-page-title !mb-4 !text-3xl sm:!text-4xl !font-bold !tracking-tight !normal-case">
             {submittedMeta ? 'Submission received' : 'Submit content'}
           </h1>
-          <p className="text-base sm:text-lg text-text-secondary leading-relaxed max-w-2xl">
-            {submittedMeta
-              ? 'Your post is in the moderation queue. Nothing is public until a moderator approves it.'
-              : 'Share a community video, stream, art piece, or article about Together Forge. Posts go to a private queue first. Moderators approve before anything is public.'}
-          </p>
+          {!submittedMeta && (
+            <p className="text-base sm:text-lg text-text-secondary leading-relaxed max-w-2xl">
+              Community made videos, streams, clips, art and posts related to
+              Together Forge.
+            </p>
+          )}
         </div>
       </header>
 
@@ -211,7 +270,7 @@ const ShowcaseSubmit = () => {
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
               Thanks for your submission
             </h2>
-            <p className="text-sm sm:text-base text-text-secondary max-w-lg mx-auto leading-relaxed mb-6">
+            <p className="text-sm sm:text-base text-text-secondary max-w-lg mx-auto leading-relaxed mb-8">
               We received your showcase submission
               {submittedMeta.title ? (
                 <>
@@ -224,22 +283,6 @@ const ShowcaseSubmit = () => {
               . Moderators will review it before it appears on the Showcase.
               That can take a few days.
             </p>
-
-            <div className="rounded-xl border border-cyber-border bg-cyber-surface/50 px-4 py-3 text-left text-sm text-text-secondary max-w-md mx-auto mb-8 space-y-1.5">
-              <p>
-                <span className="font-mono text-[10px] tracking-widest uppercase text-text-muted">
-                  Status
-                </span>
-                <br />
-                <span className="text-forge-gold font-semibold">
-                  Pending review
-                </span>
-              </p>
-              <p className="text-xs text-text-muted pt-1">
-                Track pending / approved / rejected on your Dashboard under
-                Showcase submissions.
-              </p>
-            </div>
 
             <div className="flex flex-col sm:flex-row flex-wrap gap-3 justify-center">
               <Link to="/showcase">
@@ -292,9 +335,11 @@ const ShowcaseSubmit = () => {
                   id="sc-type"
                   className={fieldClass}
                   value={form.contentType}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, contentType: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    const contentType = e.target.value;
+                    setForm((f) => ({ ...f, contentType }));
+                    if (contentType !== 'art') setImageFile(null);
+                  }}
                   required
                 >
                   {SHOWCASE_CONTENT_TYPES.map((t) => (
@@ -333,8 +378,7 @@ const ShowcaseSubmit = () => {
                   maxLength={500}
                 />
               </div>
-              {(form.contentType === 'video' ||
-                form.contentType === 'stream') && (
+              {form.contentType === 'video' && (
                 <div>
                   <label className={labelClass} htmlFor="sc-yt">
                     YouTube URL *
@@ -348,16 +392,32 @@ const ShowcaseSubmit = () => {
                       setForm((f) => ({ ...f, youtubeUrl: e.target.value }))
                     }
                     placeholder="https://www.youtube.com/watch?v=…"
+                    required
                   />
                 </div>
               )}
-              {(form.contentType === 'art' ||
-                form.contentType === 'article') && (
+              {form.contentType === 'stream' && (
+                <div>
+                  <label className={labelClass} htmlFor="sc-stream-url">
+                    URL *
+                  </label>
+                  <input
+                    id="sc-stream-url"
+                    type="url"
+                    className={fieldClass}
+                    value={form.url}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, url: e.target.value }))
+                    }
+                    placeholder="https://…"
+                    required
+                  />
+                </div>
+              )}
+              {form.contentType === 'article' && (
                 <div>
                   <label className={labelClass} htmlFor="sc-url">
-                    {form.contentType === 'art'
-                      ? 'Image or portfolio link *'
-                      : 'Article / post link *'}
+                    Article / post link *
                   </label>
                   <input
                     id="sc-url"
@@ -368,25 +428,71 @@ const ShowcaseSubmit = () => {
                       setForm((f) => ({ ...f, url: e.target.value }))
                     }
                     placeholder="https://…"
+                    required
                   />
                 </div>
               )}
               {form.contentType === 'art' && (
-                <div>
-                  <label className={labelClass} htmlFor="sc-img">
-                    Direct image URL (optional, for thumbnail)
-                  </label>
-                  <input
-                    id="sc-img"
-                    type="url"
-                    className={fieldClass}
-                    value={form.imageUrl}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, imageUrl: e.target.value }))
-                    }
-                    placeholder="https://…/image.webp"
-                  />
-                </div>
+                <>
+                  <div>
+                    <p className={labelClass}>Image</p>
+                    <p className="text-xs text-text-muted mb-3 leading-relaxed">
+                      JPEG, PNG, WebP, or GIF · max 5MB. Upload a file or share
+                      an image link below.
+                    </p>
+                    {imagePreview ? (
+                      <div className="mb-3 relative rounded-xl overflow-hidden border border-cyber-border bg-cyber-surface max-w-md">
+                        <img
+                          src={imagePreview}
+                          alt="Art preview"
+                          className="w-full max-h-56 object-contain bg-cyber-bg/50"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setImageFile(null)}
+                          className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-lg border border-cyber-border bg-cyber-bg/90 px-2 py-1 text-xs text-text-secondary hover:text-white"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          Remove
+                        </button>
+                      </div>
+                    ) : null}
+                    <label
+                      htmlFor="sc-art-file"
+                      className="inline-flex items-center gap-2 cursor-pointer rounded-lg border border-cyber-border bg-cyber-surface px-4 py-2.5 text-sm font-semibold text-text-secondary hover:border-neon-cyan hover:text-neon-cyan transition-colors"
+                    >
+                      <ImagePlus className="w-4 h-4" aria-hidden />
+                      {imageFile ? 'Replace image' : 'Choose image'}
+                      <input
+                        id="sc-art-file"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        className="sr-only"
+                        onChange={onArtImagePick}
+                      />
+                    </label>
+                    {imageFile && (
+                      <span className="ml-3 text-xs text-neon-cyan align-middle">
+                        {imageFile.name}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <label className={labelClass} htmlFor="sc-url">
+                      Image link
+                    </label>
+                    <input
+                      id="sc-url"
+                      type="url"
+                      className={fieldClass}
+                      value={form.url}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, url: e.target.value }))
+                      }
+                      placeholder="https://…/image.webp"
+                    />
+                  </div>
+                </>
               )}
               <div>
                 <label className={labelClass} htmlFor="sc-project">
@@ -454,24 +560,51 @@ const ShowcaseSubmit = () => {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row flex-wrap gap-3 pt-1">
-                <Button
-                  type="submit"
-                  size="lg"
-                  className="gap-2"
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Sending…
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4" />
-                      Submit for review
-                    </>
-                  )}
-                </Button>
+                {artMissingMedia ? (
+                  <span
+                    className="group/art-submit relative inline-flex cursor-not-allowed"
+                    tabIndex={0}
+                    aria-label={artMediaHint}
+                  >
+                    <span className="pointer-events-none">
+                      <Button
+                        type="button"
+                        size="lg"
+                        className="gap-2 !opacity-40 !bg-cyber-surface !border-cyber-border !text-text-muted !shadow-none"
+                        disabled
+                        aria-disabled="true"
+                      >
+                        <Send className="w-4 h-4" />
+                        Submit for review
+                      </Button>
+                    </span>
+                    <span
+                      role="tooltip"
+                      className="pointer-events-none absolute left-0 bottom-full z-20 mb-2 hidden w-max max-w-xs rounded-lg border border-cyber-border bg-cyber-card px-3 py-1.5 text-xs text-text-primary shadow-lg group-hover/art-submit:block group-focus-within/art-submit:block"
+                    >
+                      {artMediaHint}
+                    </span>
+                  </span>
+                ) : (
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="gap-2"
+                    disabled={submitting}
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Sending…
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Submit for review
+                      </>
+                    )}
+                  </Button>
+                )}
                 <Link to="/showcase">
                   <Button type="button" size="lg" variant="secondary">
                     Cancel

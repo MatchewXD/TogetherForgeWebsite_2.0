@@ -890,7 +890,7 @@ const IdeaDetail = () => {
                 No related ideas yet. Be the first to build on this pitch.
               </p>
             ) : (
-              <div className="task-scroll max-h-72 sm:max-h-80 overflow-y-auto overscroll-contain rounded-xl border border-cyber-border/80 bg-cyber-bg/30 p-2 sm:p-2.5 pr-1.5 space-y-2.5">
+              <div className="task-scroll max-h-72 sm:max-h-80 overflow-y-auto rounded-xl border border-cyber-border/80 bg-cyber-bg/30 p-2 sm:p-2.5 pr-1.5 space-y-2.5">
                 <ul className="space-y-2.5">
                   {childIdeas.map((child) => (
                     <li key={child.id}>

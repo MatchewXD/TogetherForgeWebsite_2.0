@@ -22,6 +22,8 @@ import {
   hasMemberNoticePin,
   hasStaffQueuePin,
   keysFromNoticeSummary,
+  asAutoReleaseNotice,
+  filterUnseenAutoReleases,
   readDeletedNoticeIds,
   readSeenNoticeKeys,
   rememberNoticeKeys,
@@ -63,11 +65,18 @@ function filterLegacyClaimSplits(splits) {
 }
 
 async function loadNoticeItems() {
-  const [joinRequests, suggestions, claimSplits, inbox, hiddenReplies] =
-    await Promise.all([
+  const [
+    joinRequests,
+    suggestions,
+    claimSplits,
+    autoReleases,
+    inbox,
+    hiddenReplies,
+  ] = await Promise.all([
       tasksService.listMyPendingJoinRequests().catch(() => []),
       taskSuggestionsService.listMine().catch(() => []),
       tasksService.listMyRecentClaimSplits({ days: 14, limit: 20 }).catch(() => []),
+      tasksService.listMyRecentAutoReleases({ days: 14, limit: 20 }).catch(() => []),
       dashboardNoticesService.listMine({ limit: 30 }).catch((err) => {
         console.warn('[notices] dashboard inbox', err);
         return [];
@@ -93,6 +102,9 @@ async function loadNoticeItems() {
         ...n,
         kind: n.kind || 'claim',
       })),
+      ...filterUnseenAutoReleases(autoReleases)
+        .map(asAutoReleaseNotice)
+        .filter(Boolean),
     ],
   };
 }
