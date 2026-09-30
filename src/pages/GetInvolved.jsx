@@ -654,10 +654,12 @@ const GetInvolved = () => {
           }
         >
           <p>
-            Optional financial support helps cover tools, hosting, and
-            operations. Totals and spending stay transparent. Studio support is
-            separate from AI token purchases, and giving is never required to
-            contribute or belong here.
+            Money is value. Together Forge turns that value into good games.
+          </p>
+          <p>
+            Tools, hosting, and operations are what it costs to keep the work
+            moving so those games can get built. Donations feed that loop and
+            push Together Forge forward.
           </p>
         </PathSection>
 
