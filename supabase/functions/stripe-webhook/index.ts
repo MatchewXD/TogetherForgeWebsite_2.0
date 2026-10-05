@@ -47,6 +47,12 @@
 import Stripe from 'https://esm.sh/stripe@14?target=deno';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno';
 import { fulfillTokenPurchase } from '../_shared/aiTokenEconomy.ts';
+import {
+  idOf,
+  invoiceCustomerId,
+  invoicePaymentIntentId,
+  invoiceSubscriptionId,
+} from '../_shared/stripeInvoiceIds.ts';
 
 const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
 const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') ?? '';
@@ -85,13 +91,6 @@ function admin() {
   return createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-}
-
-function idOf(field: unknown): string | null {
-  if (!field) return null;
-  if (typeof field === 'string') return field;
-  if (typeof field === 'object' && field.id) return String(field.id);
-  return null;
 }
 
 /** Map custom / missing tier by amount (matches src/constants/badges.js). */
@@ -943,8 +942,19 @@ async function handleInvoicePaid(invoice: Stripe.Invoice, eventId: string) {
 
   let fundType = 'studio';
   let tierId: string | null = invoice.metadata?.tierId || null;
-  const subId = idOf(invoice.subscription);
+  let subId = invoiceSubscriptionId(invoice);
+  if (!subId) {
+    subId = await resolveSubscriptionIdFromCustomer(invoice);
+  }
   let subMeta: Record<string, string> | null = null;
+
+  wlog('invoice_paid_ids', {
+    invoiceId: invoice.id,
+    billingReason: invoice.billing_reason || null,
+    subId,
+    paymentIntent: invoicePaymentIntentId(invoice),
+    customerId: invoiceCustomerId(invoice),
+  });
 
   if (subId && stripeKey) {
     try {
@@ -982,9 +992,9 @@ async function handleInvoicePaid(invoice: Stripe.Invoice, eventId: string) {
     is_anonymous: credit.isAnonymous,
     stripe_session_id: null,
     // Unique per invoice charge → new feed card each renewal
-    stripe_payment_intent: idOf(invoice.payment_intent),
+    stripe_payment_intent: invoicePaymentIntentId(invoice),
     stripe_subscription_id: subId,
-    stripe_customer_id: idOf(invoice.customer),
+    stripe_customer_id: invoiceCustomerId(invoice),
     raw_event_id: eventId,
     user_id: credit.userId,
     display_name: credit.displayName,
@@ -1038,9 +1048,45 @@ async function syncSubscriptionFromStripe(
  * Subscription renewal (or first invoice) failed to charge.
  * Do not write a donations row — only update My Plan status.
  */
+async function resolveSubscriptionIdFromCustomer(
+  invoice: Stripe.Invoice
+): Promise<string | null> {
+  const customerId = invoiceCustomerId(invoice);
+  if (!customerId) return null;
+  const amount = Number(invoice.amount_paid || invoice.amount_due || 0);
+  try {
+    const { data: rows } = await admin()
+      .from('stripe_subscriptions')
+      .select('id, amount_cents, updated_at')
+      .eq('customer_id', customerId)
+      .in('status', ['active', 'trialing', 'past_due'])
+      .order('updated_at', { ascending: false })
+      .limit(5);
+    const list = rows || [];
+    const matchAmt = list.find((r) => Number(r.amount_cents) === amount);
+    const pick = matchAmt || list[0];
+    if (pick?.id) {
+      wlog('invoice_sub_from_customer', {
+        customerId,
+        subId: pick.id,
+        amount,
+      });
+      return String(pick.id);
+    }
+  } catch (e) {
+    wlog('invoice_sub_from_customer_FAILED', {
+      error: String(e?.message || e),
+    });
+  }
+  return null;
+}
+
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
-  const subId = idOf(invoice.subscription);
-  const pi = idOf(invoice.payment_intent);
+  let subId = invoiceSubscriptionId(invoice);
+  if (!subId) {
+    subId = await resolveSubscriptionIdFromCustomer(invoice);
+  }
+  const pi = invoicePaymentIntentId(invoice);
   wlog('invoice_payment_failed', {
     invoiceId: invoice.id,
     subId,
