@@ -197,21 +197,6 @@ function FinanceDashboardView({
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Card variant="subtle" className="!p-4">
             <div className="flex items-center gap-2 text-text-muted mb-1.5">
-              <Shield className="w-3.5 h-3.5 text-text-muted" />
-              <span className="text-[10px] font-sans font-semibold tracking-widest uppercase">
-                Reserved
-              </span>
-            </div>
-            <div className="text-lg sm:text-xl font-semibold text-white tabular-nums">
-              {formatMoney(reserved)}
-            </div>
-            <p className="text-[11px] text-text-muted mt-1">
-              Taxes and obligations ({reserveTargetPct}% of net)
-            </p>
-          </Card>
-
-          <Card variant="subtle" className="!p-4">
-            <div className="flex items-center gap-2 text-text-muted mb-1.5">
               <Wallet className="w-3.5 h-3.5 text-text-muted" />
               <span className="text-[10px] font-sans font-semibold tracking-widest uppercase">
                 Gross received
@@ -252,6 +237,21 @@ function FinanceDashboardView({
             </div>
             <p className="text-[11px] text-text-muted mt-1">
               After processing fees
+            </p>
+          </Card>
+
+          <Card variant="subtle" className="!p-4">
+            <div className="flex items-center gap-2 text-text-muted mb-1.5">
+              <Shield className="w-3.5 h-3.5 text-text-muted" />
+              <span className="text-[10px] font-sans font-semibold tracking-widest uppercase">
+                Reserved
+              </span>
+            </div>
+            <div className="text-lg sm:text-xl font-semibold text-white tabular-nums">
+              {formatMoney(reserved)}
+            </div>
+            <p className="text-[11px] text-text-muted mt-1">
+              Taxes and obligations ({reserveTargetPct}% of net)
             </p>
           </Card>
         </div>
