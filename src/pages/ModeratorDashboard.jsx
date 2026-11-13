@@ -9,59 +9,22 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Shield,
-  Users,
-  Lightbulb,
-  Flag,
   Loader2,
   RefreshCw,
-  Trash2,
   ExternalLink,
-  Ban,
-  PauseCircle,
-  CheckCircle2,
   Film,
-  LayoutGrid,
-  Search,
-  SplitSquareVertical,
-  Tags,
   BookOpen,
-  UserCog,
-  ScrollText,
-  Receipt,
-  Activity,
-  MessageSquare,
-  Eye,
-  EyeOff,
-  Award,
-  Scale,
-  BarChart3,
-  Bug,
-  ClipboardList,
-  Handshake,
-  Mail,
 } from 'lucide-react';
 
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Buttons';
 import Modal from '../components/ui/Modal';
-import UserAvatar from '../components/ui/UserAvatar';
-import TaskCategoryBadge from '../components/ui/TaskCategoryBadge';
 import LoadingScreen from '../components/ui/LoadingScreen';
 import useStaffRole from '../hooks/useStaffRole';
-import moderationService, {
-  WORKFLOW_STATUSES,
-  MODERATION_STATUSES,
-  ASSIGNABLE_ROLES,
-  roleLabel,
-} from '../services/moderationService';
+import moderationService from '../services/moderationService';
 import { tasksService } from '../services/tasksService';
-import { STATUS_LABELS, displayProjectTitle } from '../utils/ideaStatus';
-import {
-  listShowcaseForModeration,
-  moderateShowcasePost,
-  showcaseHref,
-} from '../services/showcaseService';
+import { listShowcaseForModeration, moderateShowcasePost } from '../services/showcaseService';
 import IdeaTagsAdminPanel from '../components/ideas/IdeaTagsAdminPanel';
 import DecisionLogsManager from '../components/transparency/DecisionLogsManager';
 import StudioExpensesManager from '../components/transparency/StudioExpensesManager';
@@ -69,21 +32,10 @@ import TrafficPanel from '../components/moderation/TrafficPanel';
 import GrantCreditPanel from '../components/staff/GrantCreditPanel';
 import ConductPanel from '../components/conduct/ConductPanel';
 import PollsPanel from '../components/moderation/PollsPanel';
-import OpenConductCaseButton from '../components/conduct/OpenConductCaseButton';
 import platformSuggestionsService from '../services/platformSuggestionsService';
-import {
-  SUGGESTION_STATUSES,
-  OPEN_SUGGESTION_STATUSES,
-} from '../constants/platformSuggestions';
-import UserNameWithBadge from '../components/badges/UserNameWithBadge';
-import StaffNoticeMark from '../components/ui/StaffNoticeMark';
+import { OPEN_SUGGESTION_STATUSES } from '../constants/platformSuggestions';
 import { pingUserNotices } from '../utils/userNotices';
-import bugReportsService, {
-  BUG_STATUSES,
-  OPEN_BUG_STATUSES,
-  severityBadgeVariant,
-  statusBadgeVariant,
-} from '../services/bugReportsService';
+import bugReportsService, { OPEN_BUG_STATUSES } from '../services/bugReportsService';
 import taskSuggestionsService from '../services/taskSuggestionsService';
 import {
   listVolunteerApplications,
@@ -95,7 +47,6 @@ import {
   normalizeVolunteerEmail,
   normalizeVolunteerDiscord,
   OPEN_VOLUNTEER_STATUSES,
-  VOLUNTEER_STATUSES,
   VOLUNTEER_STATUS_LABELS,
 } from '../services/volunteerService';
 import { listConductCases } from '../services/conductService';
@@ -103,128 +54,31 @@ import {
   listConcernReports,
   updateConcernReportStatus,
   OPEN_CONCERN_STATUSES,
-  CONCERN_STATUSES,
   CONCERN_STATUS_LABELS,
-  CONCERN_WHERE_LABELS,
 } from '../services/reportConcernService';
+import ScopeRequestsTab from './moderator/ScopeRequestsTab';
+import UsersTab from './moderator/UsersTab';
+import PlatformSuggestionsTab from './moderator/PlatformSuggestionsTab';
+import IdeasTab from './moderator/IdeasTab';
+import RestrictionsTab from './moderator/RestrictionsTab';
+import ReportsTab from './moderator/ReportsTab';
+import BugsTab from './moderator/BugsTab';
+import QueueMark from './moderator/QueueMark';
+import ShowcaseTab from './moderator/ShowcaseTab';
+import SuggestedTasksTab from './moderator/SuggestedTasksTab';
+import VolunteersTab from './moderator/VolunteersTab';
+import ConcernsTab from './moderator/ConcernsTab';
+import RolesTab from './moderator/RolesTab';
 import {
-  COMMUNITY_MOD_ROLES,
-  OPEN_NEEDS,
-  VOLUNTEER_SKILL_OPTIONS,
-  TIME_COMMITMENT_OPTIONS,
-} from '../constants/volunteer';
-
-const TABS = [
-  { id: 'traffic', label: 'Traffic', icon: Activity },
-  { id: 'users', label: 'Users', icon: Users },
-  { id: 'conduct', label: 'Conduct', icon: Scale },
-  { id: 'volunteers', label: 'Volunteers', icon: Handshake },
-  { id: 'credit', label: 'Grant Credit', icon: Award },
-  { id: 'ideas', label: 'Ideas', icon: Lightbulb },
-  { id: 'suggestions', label: 'Suggestions', icon: MessageSquare },
-  { id: 'polls', label: 'Polls', icon: BarChart3 },
-  { id: 'tags', label: 'Tags', icon: Tags },
-  { id: 'decisions', label: 'Decision logs', icon: ScrollText },
-  { id: 'expenses', label: 'Studio expenses', icon: Receipt },
-  { id: 'scope', label: 'Scope help', icon: SplitSquareVertical },
-  { id: 'restrictions', label: 'Claim restrict', icon: Ban },
-  { id: 'reports', label: 'Reports', icon: Flag },
-  { id: 'bugs', label: 'Bugs', icon: Bug },
-  { id: 'showcase', label: 'Showcase', icon: LayoutGrid },
-  { id: 'suggested', label: 'Suggested tasks', icon: ClipboardList },
-];
-
-const CONCERNS_TAB = { id: 'concerns', label: 'Concerns', icon: Mail };
-const ROLES_TAB = { id: 'roles', label: 'Role Management', icon: UserCog };
-const ALL_TABS = [...TABS, CONCERNS_TAB, ROLES_TAB];
-
-const SCOPE_RESOLUTION_LABELS = {
-  breakdown: 'Broken into sub-tasks',
-  promoted: 'Promoted / re-parented',
-  adjusted: 'Adjusted in place',
-  kept: 'Clarified / keep as-is',
-  other: 'Other',
-};
-
-const filterControl =
-  'w-full min-w-0 bg-cyber-surface border border-cyber-border rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-neon-cyan';
-
-const filterLabel =
-  'block text-[10px] font-mono tracking-widest uppercase text-text-muted mb-1';
-
-function volunteerTypeLabel(type) {
-  if (type === 'moderation_role') return 'Community moderator';
-  if (type === 'open_need') return 'Open need';
-  return 'Skill offer';
-}
-
-function volunteerRoleLabel(roleId) {
-  return COMMUNITY_MOD_ROLES.find((r) => r.id === roleId)?.title || roleId || '';
-}
-
-function volunteerNeedLabel(needId) {
-  return OPEN_NEEDS.find((n) => n.id === needId)?.title || needId || '';
-}
-
-function volunteerSkillLabel(id) {
-  return VOLUNTEER_SKILL_OPTIONS.find((s) => s.id === id)?.label || id;
-}
-
-function volunteerTimeLabel(id) {
-  return TIME_COMMITMENT_OPTIONS.find((t) => t.id === id)?.label || id || '';
-}
-
-function QueueMark({ count, className, label }) {
-  if (!count) return null;
-  return (
-    <span className="inline-flex items-center gap-1.5 ml-1">
-      <StaffNoticeMark label={label || `${count} need attention`} />
-      <span
-        className={`text-xs font-mono tabular-nums px-1.5 py-0.5 rounded ${className}`}
-      >
-        {count}
-      </span>
-    </span>
-  );
-}
-
-const formatDate = (iso) => {
-  if (!iso) return 'n/a';
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return 'n/a';
-  }
-};
-
-const formatDateTime = (iso) => {
-  if (!iso) return 'n/a';
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  } catch {
-    return 'n/a';
-  }
-};
-
-function joinTime(u) {
-  const t = Date.parse(u?.joined_at || u?.created_at || '');
-  return Number.isFinite(t) ? t : 0;
-}
-
-function ideaTime(idea) {
-  const t = Date.parse(idea?.created_at || '');
-  return Number.isFinite(t) ? t : 0;
-}
+  TABS,
+  ALL_TABS,
+  volunteerTypeLabel,
+  volunteerRoleLabel,
+  volunteerNeedLabel,
+  volunteerSkillLabel,
+  joinTime,
+  ideaTime,
+} from './moderator/shared';
 
 const ModeratorDashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1237,717 +1091,54 @@ const ModeratorDashboard = () => {
         )}
 
         {tab === 'scope' && (
-          <section aria-labelledby="scope-heading">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
-              <div>
-                <h2
-                  id="scope-heading"
-                  className="text-xl sm:text-2xl font-bold text-white tracking-tight"
-                >
-                  Scope help
-                </h2>
-                <p className="text-sm text-text-secondary mt-1 max-w-xl">
-                  Volunteers flagged work as larger than expected. Open the
-                  board task, break it down or re-scope, then mark resolved.
-                  Scope discovery is expected, not a failure.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="sr-only" htmlFor="mod-scope-status">
-                  Status filter
-                </label>
-                <select
-                  id="mod-scope-status"
-                  className={filterControl + ' w-auto min-w-[9rem]'}
-                  value={scopeStatusFilter}
-                  onChange={(e) => setScopeStatusFilter(e.target.value)}
-                >
-                  <option value="pending">Pending</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="cancelled">Cancelled</option>
-                  <option value="all">All</option>
-                </select>
-              </div>
-            </div>
-
-            {scopeMissing && (
-              <Card className="bg-semantic-warning/10 border-semantic-warning/40 mb-4">
-                <p className="text-sm text-text-secondary leading-relaxed">
-                  Scope requests table is not installed yet. Run{' '}
-                  <code className="text-neon-cyan text-xs">
-                    supabase/sql/supabase_task_scope_requests.sql
-                  </code>{' '}
-                  in the Supabase SQL Editor, then click Refresh.
-                </p>
-              </Card>
-            )}
-
-            {!scopeMissing && scopeLoadError && (
-              <Card className="bg-red-400/10 border-red-400/40 mb-4">
-                <p className="text-sm text-red-100" role="alert">
-                  {scopeLoadError}
-                </p>
-              </Card>
-            )}
-
-            {!scopeMissing &&
-              !scopeLoadError &&
-              scopeRequests.length === 0 &&
-              !loading && (
-              <Card className="bg-cyber-card/80 text-center py-10 px-6">
-                <SplitSquareVertical className="w-8 h-8 text-text-muted mx-auto mb-3" />
-                <p className="text-sm text-text-secondary">
-                  {scopeStatusFilter === 'pending'
-                    ? 'No open scope help requests. When claimants flag oversized work, they appear here.'
-                    : 'No requests in this filter.'}
-                </p>
-              </Card>
-            )}
-
-            <div className="space-y-3">
-              {scopeRequests.map((req) => {
-                const busy = busyKey === `scope-${req.id}`;
-                return (
-                  <Card
-                    key={req.id}
-                    className="bg-cyber-card/80 border-cyber-border"
-                  >
-                    <div className="flex flex-col gap-3">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="min-w-0 space-y-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge
-                              variant={
-                                req.status === 'pending'
-                                  ? 'warning'
-                                  : req.status === 'resolved'
-                                    ? 'success'
-                                    : 'default'
-                              }
-                              className="!normal-case"
-                            >
-                              {req.status}
-                            </Badge>
-                            {req.resolution && (
-                              <span className="text-[11px] font-mono text-text-muted">
-                                {SCOPE_RESOLUTION_LABELS[req.resolution] ||
-                                  req.resolution}
-                              </span>
-                            )}
-                            <span className="text-[11px] font-mono text-text-muted">
-                              {formatDate(req.createdAt)}
-                            </span>
-                          </div>
-                          <h3 className="text-base sm:text-lg font-semibold text-white truncate flex flex-wrap items-center gap-2">
-                            {req.taskTitle}
-                            {req.staffOnly && (
-                              <Badge
-                                variant="gold"
-                                className="!normal-case tracking-wide !text-[10px]"
-                              >
-                                Staff Only
-                              </Badge>
-                            )}
-                          </h3>
-                          <p className="text-xs font-mono text-text-muted">
-                            {displayProjectTitle({
-                              title: req.projectTitle,
-                              slug: req.projectSlug,
-                            })}
-                            {req.taskCategory ? ` · ${req.taskCategory}` : ''}
-                            {req.taskDifficulty
-                              ? ` · Difficulty: ${req.taskDifficulty}`
-                              : ''}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <UserAvatar
-                            src={req.avatarUrl}
-                            name={req.username}
-                            username={req.username}
-                            size="sm"
-                          />
-                          <span className="text-sm text-text-secondary">
-                            {req.username}
-                          </span>
-                        </div>
-                      </div>
-
-                      <p className="text-sm text-text-secondary whitespace-pre-wrap border-l-2 border-semantic-warning/40 pl-3">
-                        {req.note}
-                      </p>
-
-                      {req.staffNote && (
-                        <p className="text-sm text-text-secondary whitespace-pre-wrap border-l-2 border-neon-cyan/30 pl-3">
-                          <span className="text-[10px] font-mono tracking-widest uppercase text-text-muted block mb-1">
-                            Staff note
-                          </span>
-                          {req.staffNote}
-                        </p>
-                      )}
-
-                      {req.taskCategory && (
-                        <div>
-                          <TaskCategoryBadge
-                            category={req.taskCategory}
-                            size="sm"
-                          />
-                        </div>
-                      )}
-
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        <Link to={req.boardPath}>
-                          <Button size="sm" variant="secondary" className="gap-1.5">
-                            Open board
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </Button>
-                        </Link>
-                      </div>
-
-                      {req.status === 'pending' && (
-                        <div className="space-y-2 pt-1 border-t border-cyber-border/60">
-                          <label
-                            className="block text-[10px] font-mono tracking-widest uppercase text-text-muted"
-                            htmlFor={`scope-staff-note-${req.id}`}
-                          >
-                            Resolve note (optional)
-                          </label>
-                          <textarea
-                            id={`scope-staff-note-${req.id}`}
-                            rows={2}
-                            maxLength={1000}
-                            placeholder="What you did or told the volunteer (e.g. split into three Small tasks under this parent)."
-                            className={`${filterControl} resize-y min-h-[3.5rem]`}
-                            value={scopeStaffNotes[req.id] || ''}
-                            onChange={(e) =>
-                              setScopeStaffNotes((prev) => ({
-                                ...prev,
-                                [req.id]: e.target.value,
-                              }))
-                            }
-                            disabled={busy}
-                          />
-                          <p className="text-[11px] text-text-muted">
-                            Saved with the resolution on this request (and in
-                            activity history). Optional but helpful for the
-                            volunteer and future staff.
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            <Button
-                              size="sm"
-                              variant="success"
-                              disabled={busy}
-                              onClick={() =>
-                                runAction(
-                                  `scope-${req.id}`,
-                                  () =>
-                                    tasksService.resolveScopeRequest(
-                                      req.id,
-                                      'breakdown',
-                                      scopeStaffNotes[req.id] || ''
-                                    ),
-                                  'Marked as broken into sub-tasks'
-                                )
-                              }
-                            >
-                              Broken into sub-tasks
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={busy}
-                              onClick={() =>
-                                runAction(
-                                  `scope-${req.id}`,
-                                  () =>
-                                    tasksService.resolveScopeRequest(
-                                      req.id,
-                                      'promoted',
-                                      scopeStaffNotes[req.id] || ''
-                                    ),
-                                  'Marked as promoted / re-parented'
-                                )
-                              }
-                            >
-                              Promoted
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={busy}
-                              onClick={() =>
-                                runAction(
-                                  `scope-${req.id}`,
-                                  () =>
-                                    tasksService.resolveScopeRequest(
-                                      req.id,
-                                      'adjusted',
-                                      scopeStaffNotes[req.id] || ''
-                                    ),
-                                  'Marked as adjusted'
-                                )
-                              }
-                            >
-                              Adjusted
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={busy}
-                              onClick={() =>
-                                runAction(
-                                  `scope-${req.id}`,
-                                  () =>
-                                    tasksService.resolveScopeRequest(
-                                      req.id,
-                                      'kept',
-                                      scopeStaffNotes[req.id] || ''
-                                    ),
-                                  'Closed as clarified'
-                                )
-                              }
-                            >
-                              Clarified / keep
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
+          <ScopeRequestsTab
+            busyKey={busyKey}
+            loading={loading}
+            runAction={runAction}
+            scopeLoadError={scopeLoadError}
+            scopeMissing={scopeMissing}
+            scopeRequests={scopeRequests}
+            scopeStaffNotes={scopeStaffNotes}
+            scopeStatusFilter={scopeStatusFilter}
+            setScopeStaffNotes={setScopeStaffNotes}
+            setScopeStatusFilter={setScopeStatusFilter}
+          />
         )}
 
         {/* ---------- Users ---------- */}
         {tab === 'users' && (
-          <section aria-labelledby="users-heading">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-4">
-              <div>
-                <h2
-                  id="users-heading"
-                  className="text-xl sm:text-2xl font-bold text-white tracking-tight"
-                >
-                  All Users
-                </h2>
-                <p className="text-xs font-mono text-text-muted mt-1">
-                  Showing {filteredUsers.length}
-                  {filteredUsers.length !== users.length
-                    ? ` of ${users.length}`
-                    : ''}
-                </p>
-              </div>
-              {(userSearch ||
-                userRoleFilter !== 'all' ||
-                userStatusFilter !== 'all' ||
-                userSort !== 'newest') && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setUserSearch('');
-                    setUserRoleFilter('all');
-                    setUserStatusFilter('all');
-                    setUserSort('newest');
-                  }}
-                >
-                  Clear filters
-                </Button>
-              )}
-            </div>
-
-            <Card className="bg-cyber-card/80 mb-4 p-4 sm:p-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="sm:col-span-2 lg:col-span-1">
-                  <label className={filterLabel} htmlFor="mod-user-search">
-                    Search
-                  </label>
-                  <div className="relative">
-                    <Search
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none"
-                      aria-hidden
-                    />
-                    <input
-                      id="mod-user-search"
-                      type="search"
-                      className={`${filterControl} pl-9`}
-                      placeholder="Username, email, id…"
-                      value={userSearch}
-                      onChange={(e) => setUserSearch(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className={filterLabel} htmlFor="mod-user-role">
-                    Role
-                  </label>
-                  <select
-                    id="mod-user-role"
-                    className={filterControl}
-                    value={userRoleFilter}
-                    onChange={(e) => setUserRoleFilter(e.target.value)}
-                  >
-                    <option value="all">All roles</option>
-                    {userRoles.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={filterLabel} htmlFor="mod-user-status">
-                    Status
-                  </label>
-                  <select
-                    id="mod-user-status"
-                    className={filterControl}
-                    value={userStatusFilter}
-                    onChange={(e) => setUserStatusFilter(e.target.value)}
-                  >
-                    <option value="all">All statuses</option>
-                    {MODERATION_STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={filterLabel} htmlFor="mod-user-sort">
-                    Sort
-                  </label>
-                  <select
-                    id="mod-user-sort"
-                    className={filterControl}
-                    value={userSort}
-                    onChange={(e) => setUserSort(e.target.value)}
-                  >
-                    <option value="newest">Newest joined</option>
-                    <option value="oldest">Oldest joined</option>
-                    <option value="name_az">Name A–Z</option>
-                    <option value="name_za">Name Z–A</option>
-                    <option value="role">Role</option>
-                  </select>
-                </div>
-              </div>
-            </Card>
-
-            <div className="space-y-3">
-              {users.length === 0 && !loading && (
-                <Card className="bg-cyber-card/80 text-sm text-text-muted">
-                  No profiles found (or staff read policy not applied yet).
-                </Card>
-              )}
-              {users.length > 0 && filteredUsers.length === 0 && !loading && (
-                <Card className="bg-cyber-card/80 text-sm text-text-muted">
-                  No users match these filters.
-                </Card>
-              )}
-              {filteredUsers.map((u) => {
-                const status = u.moderation_status || 'active';
-                const busy = busyKey === `user-${u.id}`;
-                return (
-                  <Card
-                    key={u.id}
-                    className="bg-cyber-card/80 flex flex-col sm:flex-row sm:items-center gap-4"
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <UserAvatar
-                        src={u.avatar_url}
-                        name={u.username || 'User'}
-                        size="lg"
-                      />
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold text-white truncate">
-                            {u.username || 'Unnamed'}
-                          </span>
-                          <Badge variant="default">
-                            {roleLabel(u.role || 'user')}
-                          </Badge>
-                          {status !== 'active' && (
-                            <Badge
-                              variant={
-                                status === 'banned' ? 'purple' : 'default'
-                              }
-                            >
-                              {status}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs font-mono text-text-muted mt-1 truncate">
-                          {u.id?.slice(0, 8)}… · joined{' '}
-                          {formatDate(u.joined_at || u.created_at)}
-                        </p>
-                        {u.moderation_note && (
-                          <p className="text-xs text-text-secondary mt-1">
-                            Note: {u.moderation_note}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2 shrink-0">
-                      {u.username && (
-                        <Link
-                          to={`/u/${u.username}`}
-                          className="inline-flex items-center gap-1 text-xs font-mono text-neon-cyan hover:underline px-2"
-                        >
-                          Profile <ExternalLink className="w-3 h-3" />
-                        </Link>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={busy || status === 'active'}
-                        className="gap-1"
-                        onClick={() =>
-                          runAction(
-                            `user-${u.id}`,
-                            () =>
-                              moderationService.setUserModerationStatus(
-                                u.id,
-                                'active',
-                                null
-                              ),
-                            'User restored to active'
-                          )
-                        }
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        Active
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={busy || status === 'suspended'}
-                        className="gap-1"
-                        onClick={() =>
-                          runAction(
-                            `user-${u.id}`,
-                            () =>
-                              moderationService.setUserModerationStatus(
-                                u.id,
-                                'suspended',
-                                'Suspended by staff'
-                              ),
-                            'User suspended'
-                          )
-                        }
-                      >
-                        <PauseCircle className="w-3.5 h-3.5" />
-                        Suspend
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={busy || status === 'banned'}
-                        className="gap-1 text-red-300 hover:text-red-200"
-                        onClick={() => {
-                          setConfirmDialog({
-                            title: 'Ban user',
-                            message: `Ban ${u.username || 'this user'}? They will not be able to participate while banned.`,
-                            confirmLabel: 'Ban user',
-                            onConfirm: () =>
-                              runAction(
-                                `user-${u.id}`,
-                                () =>
-                                  moderationService.setUserModerationStatus(
-                                    u.id,
-                                    'banned',
-                                    'Banned by staff'
-                                  ),
-                                'User banned'
-                              ),
-                          });
-                        }}
-                      >
-                        <Ban className="w-3.5 h-3.5" />
-                        Ban
-                      </Button>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
+          <UsersTab
+            busyKey={busyKey}
+            filteredUsers={filteredUsers}
+            loading={loading}
+            runAction={runAction}
+            setConfirmDialog={setConfirmDialog}
+            setUserRoleFilter={setUserRoleFilter}
+            setUserSearch={setUserSearch}
+            setUserSort={setUserSort}
+            setUserStatusFilter={setUserStatusFilter}
+            userRoleFilter={userRoleFilter}
+            userRoles={userRoles}
+            users={users}
+            userSearch={userSearch}
+            userSort={userSort}
+            userStatusFilter={userStatusFilter}
+          />
         )}
 
         {/* ---------- Platform suggestions ---------- */}
         {tab === 'suggestions' && (
-          <section aria-labelledby="suggestions-heading">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
-              <div>
-                <h2
-                  id="suggestions-heading"
-                  className="text-xl sm:text-2xl font-bold text-white tracking-tight"
-                >
-                  Platform suggestions
-                </h2>
-                <p className="text-sm text-text-secondary mt-1 max-w-xl">
-                  Site feedback (not game ideas). Set status, hide a row from
-                  the public list, or delete it.
-                </p>
-                <Link
-                  to="/suggestions"
-                  className="inline-flex items-center gap-1 text-xs font-mono tracking-widest text-neon-cyan hover:underline mt-2"
-                >
-                  View public list
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-              <div>
-                <label className={filterLabel} htmlFor="mod-sug-status">
-                  Status
-                </label>
-                <select
-                  id="mod-sug-status"
-                  className={filterControl}
-                  value={suggestionStatusFilter}
-                  onChange={(e) => setSuggestionStatusFilter(e.target.value)}
-                >
-                  <option value="all">All</option>
-                  {SUGGESTION_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                  <option value="hidden">Hidden</option>
-                </select>
-              </div>
-            </div>
-
-            {suggestionsMissing && (
-              <Card className="bg-cyber-card/80 border-amber-500/30 mb-4">
-                <p className="text-sm text-text-secondary leading-relaxed">
-                  Platform suggestions are not set up yet. Run{' '}
-                  <code className="text-neon-cyan text-xs font-mono">
-                    supabase/sql/supabase_platform_suggestions.sql
-                  </code>{' '}
-                  in Supabase, then refresh.
-                </p>
-              </Card>
-            )}
-
-            {!suggestionsMissing &&
-              filteredSuggestions.length === 0 &&
-              !loading && (
-                <Card className="bg-cyber-card/80 text-sm text-text-muted">
-                  No suggestions in this view.
-                </Card>
-              )}
-
-            <div className="space-y-3">
-              {filteredSuggestions.map((item) => {
-                const busy = busyKey === `sug-${item.id}`;
-                return (
-                  <Card
-                    key={item.id}
-                    className={`bg-cyber-card/80 ${
-                      item.isHidden ? 'opacity-80 border-amber-400/30' : ''
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-                      <h3 className="text-base font-semibold text-white pr-2">
-                        {item.title}
-                      </h3>
-                      <div className="flex flex-wrap gap-1.5 shrink-0">
-                        <Badge variant="default">{item.category}</Badge>
-                        <Badge
-                          variant={
-                            item.status === 'Done'
-                              ? 'success'
-                              : item.status === 'Under consideration'
-                                ? 'neon'
-                                : 'default'
-                          }
-                        >
-                          {item.status}
-                        </Badge>
-                        {item.isHidden && (
-                          <Badge variant="warning">Hidden</Badge>
-                        )}
-                      </div>
-                    </div>
-                    <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
-                      {item.description}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2 pt-2 text-xs text-text-muted font-mono">
-                      <UserAvatar
-                        src={
-                          item.creator?.avatar_url || item.creator?.avatarUrl
-                        }
-                        name={item.creator?.username || 'Member'}
-                        username={item.creator?.username}
-                        size="xs"
-                      />
-                      <UserNameWithBadge
-                        username={item.creator?.username}
-                        displayName={item.creator?.username || 'Member'}
-                        pinnedBadgeKey={
-                          item.creator?.pinnedBadgeKey ||
-                          item.creator?.pinned_badge_key ||
-                          null
-                        }
-                        linkClassName="text-neon-cyan hover:underline"
-                      />
-                      {item.createdAt && (
-                        <span className="opacity-70">
-                          · {formatDate(item.createdAt)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 mt-3">
-                      <select
-                        className="bg-cyber-surface border border-cyber-border rounded-lg px-2 py-1.5 text-xs text-white"
-                        value={item.status}
-                        disabled={busy}
-                        onChange={(e) =>
-                          void handleSuggestionStatus(item.id, e.target.value)
-                        }
-                      >
-                        {SUGGESTION_STATUSES.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() =>
-                          void handleSuggestionHidden(item.id, !item.isHidden)
-                        }
-                        className="inline-flex items-center gap-1 text-xs text-text-secondary hover:text-white border border-white/15 rounded-lg px-2 py-1.5"
-                      >
-                        {item.isHidden ? (
-                          <>
-                            <Eye className="w-3 h-3" /> Unhide
-                          </>
-                        ) : (
-                          <>
-                            <EyeOff className="w-3 h-3" /> Hide
-                          </>
-                        )}
-                      </button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="gap-1 text-red-300"
-                        disabled={busy}
-                        onClick={() => handleSuggestionDelete(item)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        Delete
-                      </Button>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
+          <PlatformSuggestionsTab
+            busyKey={busyKey}
+            filteredSuggestions={filteredSuggestions}
+            handleSuggestionDelete={handleSuggestionDelete}
+            handleSuggestionHidden={handleSuggestionHidden}
+            handleSuggestionStatus={handleSuggestionStatus}
+            loading={loading}
+            setSuggestionStatusFilter={setSuggestionStatusFilter}
+            suggestionsMissing={suggestionsMissing}
+            suggestionStatusFilter={suggestionStatusFilter}
+          />
         )}
 
         {/* ---------- Idea tags (hybrid catalog) ---------- */}
@@ -2010,1456 +1201,130 @@ const ModeratorDashboard = () => {
 
         {/* ---------- Ideas ---------- */}
         {tab === 'ideas' && (
-          <section aria-labelledby="ideas-heading">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-4">
-              <div>
-                <h2
-                  id="ideas-heading"
-                  className="text-xl sm:text-2xl font-bold text-white tracking-tight"
-                >
-                  All Ideas
-                </h2>
-                <p className="text-xs font-mono text-text-muted mt-1">
-                  Showing {filteredIdeas.length}
-                  {filteredIdeas.length !== ideas.length
-                    ? ` of ${ideas.length}`
-                    : ''}
-                </p>
-              </div>
-              {(ideaSearch ||
-                ideaStatusFilter !== 'all' ||
-                ideaCategoryFilter !== 'all' ||
-                ideaSort !== 'newest') && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setIdeaSearch('');
-                    setIdeaStatusFilter('all');
-                    setIdeaCategoryFilter('all');
-                    setIdeaSort('newest');
-                  }}
-                >
-                  Clear filters
-                </Button>
-              )}
-            </div>
-
-            <Card className="bg-cyber-card/80 mb-4 p-4 sm:p-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="sm:col-span-2 lg:col-span-1">
-                  <label className={filterLabel} htmlFor="mod-idea-search">
-                    Search
-                  </label>
-                  <div className="relative">
-                    <Search
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none"
-                      aria-hidden
-                    />
-                    <input
-                      id="mod-idea-search"
-                      type="search"
-                      className={`${filterControl} pl-9`}
-                      placeholder="Title, summary, id…"
-                      value={ideaSearch}
-                      onChange={(e) => setIdeaSearch(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className={filterLabel} htmlFor="mod-idea-status">
-                    Status
-                  </label>
-                  <select
-                    id="mod-idea-status"
-                    className={filterControl}
-                    value={ideaStatusFilter}
-                    onChange={(e) => setIdeaStatusFilter(e.target.value)}
-                  >
-                    <option value="all">All statuses</option>
-                    {WORKFLOW_STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {STATUS_LABELS[s] || s}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={filterLabel} htmlFor="mod-idea-category">
-                    Category
-                  </label>
-                  <select
-                    id="mod-idea-category"
-                    className={filterControl}
-                    value={ideaCategoryFilter}
-                    onChange={(e) => setIdeaCategoryFilter(e.target.value)}
-                  >
-                    <option value="all">All categories</option>
-                    {ideaCategories.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={filterLabel} htmlFor="mod-idea-sort">
-                    Sort
-                  </label>
-                  <select
-                    id="mod-idea-sort"
-                    className={filterControl}
-                    value={ideaSort}
-                    onChange={(e) => setIdeaSort(e.target.value)}
-                  >
-                    <option value="newest">Newest first</option>
-                    <option value="oldest">Oldest first</option>
-                    <option value="votes_high">Most votes</option>
-                    <option value="votes_low">Fewest votes</option>
-                    <option value="title_az">Title A–Z</option>
-                  </select>
-                </div>
-              </div>
-            </Card>
-
-            <div className="space-y-3">
-              {ideas.length === 0 && !loading && (
-                <Card className="bg-cyber-card/80 text-sm text-text-muted">
-                  No ideas found.
-                </Card>
-              )}
-              {ideas.length > 0 && filteredIdeas.length === 0 && !loading && (
-                <Card className="bg-cyber-card/80 text-sm text-text-muted">
-                  No ideas match these filters.
-                </Card>
-              )}
-              {filteredIdeas.map((idea) => {
-                const busy = busyKey === `idea-${idea.id}`;
-                const status = idea.status || 'Proposed';
-                return (
-                  <Card
-                    key={idea.id}
-                    className="bg-cyber-card/80 flex flex-col gap-3"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-white truncate">
-                            {idea.title || 'Untitled'}
-                          </h3>
-                          <Badge variant="default">
-                            {STATUS_LABELS[status] || status}
-                          </Badge>
-                          <span className="text-xs font-mono text-text-muted">
-                            {idea.votes ?? 0} votes
-                          </span>
-                        </div>
-                        <p className="text-xs text-text-muted font-mono">
-                          #{idea.id} · {formatDate(idea.created_at)}
-                          {idea.category ? ` · ${idea.category}` : ''}
-                        </p>
-                        {idea.summary && (
-                          <p className="text-sm text-text-secondary mt-2 line-clamp-2">
-                            {idea.summary}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-2 shrink-0">
-                        <Link
-                          to={`/ideas/${idea.id}`}
-                          className="inline-flex items-center gap-1 text-xs font-mono text-neon-cyan hover:underline px-2 py-1"
-                        >
-                          Open <ExternalLink className="w-3 h-3" />
-                        </Link>
-                        {idea.user_id ? (
-                          <OpenConductCaseButton
-                            targetUserId={idea.user_id}
-                            contentType="idea"
-                            contentId={String(idea.id)}
-                            contentPath={`/ideas/${idea.id}`}
-                          />
-                        ) : null}
-                        <select
-                          className="text-xs bg-cyber-surface border border-cyber-border rounded-lg px-2 py-1.5 text-text-primary focus:outline-none focus:border-neon-cyan"
-                          value={
-                            WORKFLOW_STATUSES.includes(status)
-                              ? status
-                              : 'Proposed'
-                          }
-                          disabled={busy}
-                          onChange={(e) => {
-                            const next = e.target.value;
-                            runAction(
-                              `idea-${idea.id}`,
-                              () =>
-                                moderationService.updateIdeaStatus(
-                                  idea.id,
-                                  next
-                                ),
-                              `Status → ${STATUS_LABELS[next] || next}`
-                            );
-                          }}
-                          aria-label={`Status for ${idea.title}`}
-                        >
-                          {WORKFLOW_STATUSES.map((s) => (
-                            <option key={s} value={s}>
-                              {STATUS_LABELS[s] || s}
-                            </option>
-                          ))}
-                        </select>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="gap-1 text-red-300"
-                          disabled={busy}
-                          onClick={() => {
-                            setConfirmDialog({
-                              title: 'Delete idea',
-                              message: `Delete idea “${idea.title || 'Untitled'}”? This cannot be undone.`,
-                              confirmLabel: 'Delete idea',
-                              onConfirm: () =>
-                                runAction(
-                                  `idea-${idea.id}`,
-                                  () => moderationService.deleteIdea(idea.id),
-                                  'Idea deleted'
-                                ),
-                            });
-                          }}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
+          <IdeasTab
+            busyKey={busyKey}
+            filteredIdeas={filteredIdeas}
+            ideaCategories={ideaCategories}
+            ideaCategoryFilter={ideaCategoryFilter}
+            ideas={ideas}
+            ideaSearch={ideaSearch}
+            ideaSort={ideaSort}
+            ideaStatusFilter={ideaStatusFilter}
+            loading={loading}
+            runAction={runAction}
+            setConfirmDialog={setConfirmDialog}
+            setIdeaCategoryFilter={setIdeaCategoryFilter}
+            setIdeaSearch={setIdeaSearch}
+            setIdeaSort={setIdeaSort}
+            setIdeaStatusFilter={setIdeaStatusFilter}
+          />
         )}
 
         {/* ---------- Claim restrictions audit ---------- */}
         {tab === 'restrictions' && (
-          <section aria-labelledby="restrictions-heading" className="space-y-4">
-            <div>
-              <h2
-                id="restrictions-heading"
-                className="text-lg font-semibold text-white"
-              >
-                Claim restriction audit
-              </h2>
-              <p className="text-sm text-text-secondary mt-1 leading-relaxed">
-                Fake-work rejections and claim privilege restrictions. Use
-                “Reject as fake work” on a Ready for Review task to log events
-                here. Escalation: 2 flags → 7 days, 3 → 30 days, 4+ → permanent.
-              </p>
-            </div>
-
-            {restrictionsMissing && (
-              <Card className="bg-cyber-card/80 border-amber-500/30">
-                <p className="text-sm text-text-secondary leading-relaxed">
-                  Restriction audit is not set up yet. Run{' '}
-                  <code className="text-neon-cyan text-xs font-mono">
-                    supabase/sql/supabase_task_anti_abuse.sql
-                  </code>{' '}
-                  in Supabase after the review workflow scripts.
-                </p>
-              </Card>
-            )}
-
-            {restrictionsLoadError && (
-              <Card className="bg-red-400/10 border-red-400/40">
-                <p className="text-sm text-red-100">{restrictionsLoadError}</p>
-              </Card>
-            )}
-
-            {!restrictionsMissing &&
-              !restrictionsLoadError &&
-              restrictionEvents.length === 0 && (
-                <Card className="bg-cyber-card/80">
-                  <p className="text-sm text-text-muted">
-                    No restriction events yet. When staff flag fake work on the
-                    Task Board, entries appear here.
-                  </p>
-                </Card>
-              )}
-
-            <div className="space-y-3">
-              {restrictionEvents.map((ev) => {
-                const userLabel =
-                  users.find((u) => u.id === ev.userId)?.username ||
-                  ev.userId?.slice?.(0, 8) ||
-                  'user';
-                const actorLabel =
-                  users.find((u) => u.id === ev.actorId)?.username ||
-                  (ev.actorId ? ev.actorId.slice(0, 8) : 'system');
-                return (
-                  <Card key={ev.id} className="bg-cyber-card/80">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge
-                            variant={
-                              ev.eventType === 'fake_reject' ||
-                              ev.eventType === 'auto_restrict' ||
-                              ev.eventType === 'restrict'
-                                ? 'danger'
-                                : 'default'
-                            }
-                            className="!normal-case tracking-wide"
-                          >
-                            {ev.eventType}
-                          </Badge>
-                          <span className="text-sm text-white font-medium">
-                            {userLabel}
-                          </span>
-                          <span className="text-xs font-mono text-text-muted">
-                            by {actorLabel}
-                          </span>
-                        </div>
-                        {ev.reason && (
-                          <p className="text-sm text-text-secondary leading-relaxed">
-                            {ev.reason}
-                          </p>
-                        )}
-                        <p className="text-[11px] font-mono text-text-muted">
-                          {formatDate(ev.createdAt)}
-                          {ev.metadata?.fake_rejection_count != null
-                            ? ` · fake flags: ${ev.metadata.fake_rejection_count}`
-                            : ''}
-                          {ev.metadata?.is_restricted
-                            ? ' · restricted'
-                            : ''}
-                          {ev.taskId
-                            ? ` · task ${String(ev.taskId).slice(0, 8)}…`
-                            : ''}
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
+          <RestrictionsTab
+            restrictionEvents={restrictionEvents}
+            restrictionsLoadError={restrictionsLoadError}
+            restrictionsMissing={restrictionsMissing}
+            users={users}
+          />
         )}
 
         {/* ---------- Reports ---------- */}
         {tab === 'reports' && (
-          <section aria-labelledby="reports-heading">
-            <h2 id="reports-heading" className="sr-only">
-              Reports
-            </h2>
-
-            {reportsMissing && (
-              <Card className="bg-cyber-card/80 border-amber-500/30 mb-4">
-                <p className="text-sm text-text-secondary leading-relaxed">
-                  The <code className="text-neon-cyan text-xs font-mono">content_reports</code>{' '}
-                  table is not available yet. Run{' '}
-                  <code className="text-neon-cyan text-xs font-mono">
-                    supabase/sql/supabase_moderation.sql
-                  </code>{' '}
-                  in Supabase to enable the reports queue. Pending items will
-                  show here afterward.
-                </p>
-              </Card>
-            )}
-
-            <div className="space-y-3">
-              {!reportsMissing && reports.length === 0 && !loading && (
-                <Card className="bg-cyber-card/80 text-sm text-text-muted">
-                  No reports in the queue. Looking good.
-                </Card>
-              )}
-              {reports.map((r) => {
-                const busy = busyKey === `report-${r.id}`;
-                return (
-                  <Card key={r.id} className="bg-cyber-card/80">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <Badge
-                            variant={
-                              r.status === 'pending' ? 'neon' : 'default'
-                            }
-                          >
-                            {r.status}
-                          </Badge>
-                          <span className="text-xs font-mono text-text-muted uppercase tracking-widest">
-                            {r.target_type} · {r.target_id}
-                          </span>
-                        </div>
-                        <p className="text-sm text-white font-medium">
-                          {r.reason || 'No reason given'}
-                        </p>
-                        {r.details && (
-                          <p className="text-sm text-text-secondary mt-1">
-                            {r.details}
-                          </p>
-                        )}
-                        <p className="text-xs font-mono text-text-muted mt-2">
-                          #{r.id} · {formatDate(r.created_at)}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2 shrink-0">
-                        {r.target_type === 'idea' && (
-                          <Link
-                            to={`/ideas/${r.target_id}`}
-                            className="inline-flex items-center gap-1 text-xs font-mono text-neon-cyan hover:underline px-2 py-1"
-                          >
-                            View idea <ExternalLink className="w-3 h-3" />
-                          </Link>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          disabled={busy || r.status === 'reviewing'}
-                          onClick={() =>
-                            runAction(
-                              `report-${r.id}`,
-                              () =>
-                                moderationService.resolveReport(
-                                  r.id,
-                                  'reviewing'
-                                ),
-                              'Marked reviewing'
-                            )
-                          }
-                        >
-                          Reviewing
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={busy || r.status === 'resolved'}
-                          onClick={() =>
-                            runAction(
-                              `report-${r.id}`,
-                              () =>
-                                moderationService.resolveReport(
-                                  r.id,
-                                  'resolved'
-                                ),
-                              'Report resolved'
-                            )
-                          }
-                        >
-                          Resolve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={busy || r.status === 'dismissed'}
-                          onClick={() =>
-                            runAction(
-                              `report-${r.id}`,
-                              () =>
-                                moderationService.resolveReport(
-                                  r.id,
-                                  'dismissed'
-                                ),
-                              'Report dismissed'
-                            )
-                          }
-                        >
-                          Dismiss
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
+          <ReportsTab
+            busyKey={busyKey}
+            loading={loading}
+            reports={reports}
+            reportsMissing={reportsMissing}
+            runAction={runAction}
+          />
         )}
 
         {/* ---------- Bug reports ---------- */}
         {tab === 'bugs' && (
-          <section aria-labelledby="bugs-heading">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
-              <div>
-                <h2
-                  id="bugs-heading"
-                  className="text-xl sm:text-2xl font-bold text-white tracking-tight"
-                >
-                  Bug reports
-                </h2>
-                <p className="text-sm text-text-secondary mt-1 max-w-xl">
-                  Open reports from the public tracker. Change status here, or
-                  open the full list.
-                </p>
-                <Link
-                  to="/bugs"
-                  className="inline-flex items-center gap-1 text-xs font-mono tracking-widest text-neon-cyan hover:underline mt-2"
-                >
-                  Open bug tracker
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-            </div>
-
-            {bugsMissing && (
-              <Card className="bg-cyber-card/80 border-amber-500/30 mb-4">
-                <p className="text-sm text-text-secondary leading-relaxed">
-                  Bug tracker is not set up yet. Run{' '}
-                  <code className="text-neon-cyan text-xs font-mono">
-                    supabase/sql/supabase_bug_reports.sql
-                  </code>{' '}
-                  in Supabase, then refresh.
-                </p>
-              </Card>
-            )}
-
-            {!bugsMissing && bugs.length === 0 && !loading && (
-              <Card className="bg-cyber-card/80 text-sm text-text-muted">
-                No open bug reports.
-              </Card>
-            )}
-
-            <div className="space-y-3">
-              {bugs.map((bug) => {
-                const busy = busyKey === `bug-${bug.id}`;
-                return (
-                  <Card key={bug.id} className="bg-cyber-card/80">
-                    <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-                      <h3 className="text-base font-semibold text-white pr-2">
-                        {bug.title}
-                      </h3>
-                      <div className="flex flex-wrap gap-1.5 shrink-0">
-                        <Badge variant={severityBadgeVariant(bug.severity)}>
-                          {bug.severity}
-                        </Badge>
-                        <Badge variant={statusBadgeVariant(bug.status)}>
-                          {bug.status}
-                        </Badge>
-                      </div>
-                    </div>
-                    <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap line-clamp-4">
-                      {bug.description}
-                    </p>
-                    <p className="text-xs font-mono text-text-muted mt-2">
-                      {bug.createdAt ? formatDate(bug.createdAt) : ''}
-                      {bug.reporterName ? ` · ${bug.reporterName}` : ''}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 mt-3">
-                      <select
-                        className="bg-cyber-surface border border-cyber-border rounded-lg px-2 py-1.5 text-xs text-white"
-                        value={bug.status}
-                        disabled={busy}
-                        onChange={(e) =>
-                          void handleBugStatus(bug.id, e.target.value)
-                        }
-                        aria-label={`Status for ${bug.title}`}
-                      >
-                        {BUG_STATUSES.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
-                      <Link
-                        to="/bugs"
-                        className="inline-flex items-center gap-1 text-xs font-mono text-neon-cyan hover:underline"
-                      >
-                        Full tracker
-                        <ExternalLink className="w-3 h-3" />
-                      </Link>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
+          <BugsTab
+            bugs={bugs}
+            bugsMissing={bugsMissing}
+            busyKey={busyKey}
+            handleBugStatus={handleBugStatus}
+            loading={loading}
+          />
         )}
 
         {/* ---------- Showcase submissions ---------- */}
         {tab === 'showcase' && (
-          <section aria-labelledby="showcase-heading">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
-              <div>
-                <h2
-                  id="showcase-heading"
-                  className="text-xl sm:text-2xl font-bold text-white tracking-tight"
-                >
-                  Showcase submissions
-                </h2>
-                <p className="text-sm text-text-secondary mt-1 max-w-xl">
-                  Community posts wait here until staff approve them. They do
-                  not go live on their own.
-                </p>
-                <Link
-                  to="/showcase/moderate"
-                  className="inline-flex items-center gap-1 text-xs font-mono tracking-widest text-neon-cyan hover:underline mt-2"
-                >
-                  Full showcase queue
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-            </div>
-
-            {showcaseMissing && (
-              <Card className="bg-cyber-card/80 border-amber-500/30 mb-4">
-                <p className="text-sm text-text-secondary leading-relaxed">
-                  Showcase is not set up yet. Run{' '}
-                  <code className="text-neon-cyan text-xs font-mono">
-                    supabase/sql/supabase_community_showcase.sql
-                  </code>{' '}
-                  in Supabase, then refresh.
-                </p>
-              </Card>
-            )}
-
-            {!showcaseMissing &&
-              showcasePending.length === 0 &&
-              !loading && (
-                <Card className="bg-cyber-card/80 text-sm text-text-muted">
-                  No pending showcase submissions.
-                </Card>
-              )}
-
-            <div className="space-y-3">
-              {showcasePending.map((post) => {
-                const busy = busyKey === `showcase-${post.id}`;
-                const href = showcaseHref(post);
-                return (
-                  <Card key={post.id} className="bg-cyber-card/80">
-                    <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-                      <h3 className="text-base font-semibold text-white pr-2">
-                        {post.title}
-                      </h3>
-                      <Badge variant="warning">
-                        {post.contentType || 'pending'}
-                      </Badge>
-                    </div>
-                    {post.description ? (
-                      <p className="text-sm text-text-secondary leading-relaxed line-clamp-3">
-                        {post.description}
-                      </p>
-                    ) : null}
-                    <p className="text-xs font-mono text-text-muted mt-2">
-                      {post.createdAt ? formatDate(post.createdAt) : ''}
-                      {post.creatorDisplayName
-                        ? ` · ${post.creatorDisplayName}`
-                        : ''}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 mt-3">
-                      {href ? (
-                        <a
-                          href={href}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-mono text-neon-cyan hover:underline"
-                        >
-                          Open
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      ) : null}
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={busy}
-                        onClick={() =>
-                          void handleShowcaseAction(
-                            post.id,
-                            'approve',
-                            'Approved — now live'
-                          )
-                        }
-                      >
-                        Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-red-300"
-                        disabled={busy}
-                        onClick={() =>
-                          void handleShowcaseAction(
-                            post.id,
-                            'reject',
-                            'Rejected'
-                          )
-                        }
-                      >
-                        Reject
-                      </Button>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
+          <ShowcaseTab
+            busyKey={busyKey}
+            handleShowcaseAction={handleShowcaseAction}
+            loading={loading}
+            showcaseMissing={showcaseMissing}
+            showcasePending={showcasePending}
+          />
         )}
 
         {/* ---------- Suggested tasks ---------- */}
         {tab === 'suggested' && (
-          <section aria-labelledby="suggested-heading">
-            <div className="mb-4">
-              <h2
-                id="suggested-heading"
-                className="text-xl sm:text-2xl font-bold text-white tracking-tight"
-              >
-                Suggested tasks
-              </h2>
-              <p className="text-sm text-text-secondary mt-1 max-w-xl">
-                Volunteer proposals waiting for staff. Accept copies the card
-                onto that project&apos;s Staging board. Reject and strike stay
-                on the project queue.
-              </p>
-            </div>
-
-            {suggestedTasks.length === 0 && !loading && (
-              <Card className="bg-cyber-card/80 text-sm text-text-muted">
-                No pending suggested tasks.
-              </Card>
-            )}
-
-            <div className="space-y-3">
-              {suggestedTasks.map((row) => {
-                const busy = busyKey === `suggested-${row.id}`;
-                const boardHref = row.projectSlug
-                  ? `/projects/${row.projectSlug}/board/suggested`
-                  : null;
-                return (
-                  <Card key={row.id} className="bg-cyber-card/80">
-                    <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-                      <h3 className="text-base font-semibold text-white pr-2">
-                        {row.title}
-                      </h3>
-                      <div className="flex flex-wrap gap-1.5 shrink-0">
-                        {row.projectTitle ? (
-                          <Badge variant="neon">{row.projectTitle}</Badge>
-                        ) : null}
-                        {row.category ? (
-                          <TaskCategoryBadge category={row.category} size="sm" />
-                        ) : null}
-                      </div>
-                    </div>
-                    {row.description ? (
-                      <p className="text-sm text-text-secondary leading-relaxed line-clamp-4 whitespace-pre-wrap">
-                        {row.description}
-                      </p>
-                    ) : null}
-                    <p className="text-xs font-mono text-text-muted mt-2">
-                      {row.createdAt ? formatDate(row.createdAt) : ''}
-                      {row.authorName ? ` · ${row.authorName}` : ''}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 mt-3">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={busy}
-                        onClick={() => void handleSuggestedAccept(row.id)}
-                      >
-                        Accept to Staging
-                      </Button>
-                      {boardHref ? (
-                        <Link
-                          to={boardHref}
-                          className="inline-flex items-center gap-1 text-xs font-mono text-neon-cyan hover:underline"
-                        >
-                          Project queue
-                          <ExternalLink className="w-3 h-3" />
-                        </Link>
-                      ) : null}
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
+          <SuggestedTasksTab
+            busyKey={busyKey}
+            handleSuggestedAccept={handleSuggestedAccept}
+            loading={loading}
+            suggestedTasks={suggestedTasks}
+          />
         )}
 
         {/* ---------- Volunteer applications ---------- */}
         {tab === 'volunteers' && (
-          <section aria-labelledby="volunteers-heading">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
-              <div>
-                <h2
-                  id="volunteers-heading"
-                  className="text-xl sm:text-2xl font-bold text-white tracking-tight"
-                >
-                  Volunteer applications
-                </h2>
-                <p className="text-sm text-text-secondary mt-1 max-w-xl">
-                  Private Get Involved offers. New and reviewing stay pinned.
-                  Block stops further applications from the same account, email,
-                  or Discord username.
-                </p>
-                <p className="text-xs font-mono text-text-muted mt-1">
-                  Showing {filteredVolunteers.length}
-                  {filteredVolunteers.length !== volunteers.length
-                    ? ` of ${volunteers.length}`
-                    : ''}
-                </p>
-              </div>
-              {(volunteerSearch ||
-                volunteerStatusFilter !== 'open' ||
-                volunteerTypeFilter !== 'all' ||
-                volunteerSort !== 'newest') && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setVolunteerSearch('');
-                    setVolunteerStatusFilter('open');
-                    setVolunteerTypeFilter('all');
-                    setVolunteerSort('newest');
-                  }}
-                >
-                  Clear filters
-                </Button>
-              )}
-            </div>
-
-            <Card className="bg-cyber-card/80 mb-4 p-4 sm:p-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div>
-                  <label className={filterLabel} htmlFor="mod-vol-search">
-                    Search
-                  </label>
-                  <div className="relative">
-                    <Search
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none"
-                      aria-hidden
-                    />
-                    <input
-                      id="mod-vol-search"
-                      type="search"
-                      className={`${filterControl} pl-9`}
-                      placeholder="Handle, email, Discord, skills…"
-                      value={volunteerSearch}
-                      onChange={(e) => setVolunteerSearch(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className={filterLabel} htmlFor="mod-vol-status">
-                    Status
-                  </label>
-                  <select
-                    id="mod-vol-status"
-                    className={filterControl}
-                    value={volunteerStatusFilter}
-                    onChange={(e) => setVolunteerStatusFilter(e.target.value)}
-                  >
-                    <option value="open">Open (new + reviewing)</option>
-                    <option value="all">All statuses</option>
-                    {VOLUNTEER_STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {VOLUNTEER_STATUS_LABELS[s]}
-                      </option>
-                    ))}
-                    <option value="blocked">Blocked contacts</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={filterLabel} htmlFor="mod-vol-type">
-                    Type
-                  </label>
-                  <select
-                    id="mod-vol-type"
-                    className={filterControl}
-                    value={volunteerTypeFilter}
-                    onChange={(e) => setVolunteerTypeFilter(e.target.value)}
-                  >
-                    <option value="all">All types</option>
-                    <option value="skill_offer">Skill offer</option>
-                    <option value="moderation_role">Community moderator</option>
-                    <option value="open_need">Open need</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={filterLabel} htmlFor="mod-vol-sort">
-                    Sort
-                  </label>
-                  <select
-                    id="mod-vol-sort"
-                    className={filterControl}
-                    value={volunteerSort}
-                    onChange={(e) => setVolunteerSort(e.target.value)}
-                  >
-                    <option value="newest">Newest first</option>
-                    <option value="oldest">Oldest first</option>
-                    <option value="handle">Handle A–Z</option>
-                  </select>
-                </div>
-              </div>
-            </Card>
-
-            {volunteersMissing && (
-              <Card className="bg-cyber-card/80 border-amber-500/30 mb-4">
-                <p className="text-sm text-text-secondary leading-relaxed">
-                  Volunteer applications are not set up yet. Run{' '}
-                  <code className="text-neon-cyan text-xs font-mono">
-                    supabase/sql/supabase_volunteer_applications.sql
-                  </code>{' '}
-                  in Supabase, then refresh.
-                </p>
-              </Card>
-            )}
-
-            {!volunteersMissing &&
-              filteredVolunteers.length === 0 &&
-              !loading && (
-                <Card className="bg-cyber-card/80 text-sm text-text-muted">
-                  {volunteers.length === 0
-                    ? 'No volunteer applications yet.'
-                    : 'No applications match this view.'}
-                </Card>
-              )}
-
-            <div className="space-y-3">
-              {filteredVolunteers.map((app) => {
-                const busy = busyKey === `vol-${app.id}`;
-                const blocked = volunteerBlocks.some((b) =>
-                  applicationMatchesBlock(app, b)
-                );
-                const skills = [
-                  ...app.skillAreas.map(volunteerSkillLabel),
-                  app.skillOther ? `Other: ${app.skillOther}` : null,
-                ].filter(Boolean);
-                return (
-                  <Card key={app.id} className="bg-cyber-card/80">
-                    <div className="grid gap-4 lg:grid-cols-12">
-                      <div className="lg:col-span-4 space-y-3">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <h3 className="text-base font-semibold text-white">
-                            {app.handle}
-                          </h3>
-                          <div className="flex flex-wrap gap-1.5">
-                            <Badge variant="warning">
-                              {volunteerTypeLabel(app.applicationType)}
-                            </Badge>
-                            {blocked ? (
-                              <Badge variant="danger">Blocked</Badge>
-                            ) : null}
-                          </div>
-                        </div>
-                        <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-x-4 gap-y-2 text-sm">
-                          <div>
-                            <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
-                              Submitted
-                            </dt>
-                            <dd className="text-text-secondary">
-                              {app.createdAt ? formatDate(app.createdAt) : 'n/a'}
-                            </dd>
-                          </div>
-                          {app.email ? (
-                            <div>
-                              <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
-                                Email
-                              </dt>
-                              <dd className="text-text-secondary break-all">
-                                {app.email}
-                              </dd>
-                            </div>
-                          ) : null}
-                          {app.discordUsername ? (
-                            <div>
-                              <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
-                                Discord
-                              </dt>
-                              <dd className="text-text-secondary">
-                                {app.discordUsername}
-                              </dd>
-                            </div>
-                          ) : null}
-                          {app.roleId ? (
-                            <div>
-                              <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
-                                Role
-                              </dt>
-                              <dd className="text-text-secondary">
-                                {volunteerRoleLabel(app.roleId)}
-                              </dd>
-                            </div>
-                          ) : null}
-                          {app.openNeedId ? (
-                            <div>
-                              <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
-                                Open need
-                              </dt>
-                              <dd className="text-text-secondary">
-                                {volunteerNeedLabel(app.openNeedId)}
-                              </dd>
-                            </div>
-                          ) : null}
-                          {app.timeCommitment ? (
-                            <div>
-                              <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
-                                Time
-                              </dt>
-                              <dd className="text-text-secondary">
-                                {volunteerTimeLabel(app.timeCommitment)}
-                              </dd>
-                            </div>
-                          ) : null}
-                          {app.portfolioUrl ? (
-                            <div className="sm:col-span-2 lg:col-span-1">
-                              <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
-                                Portfolio
-                              </dt>
-                              <dd>
-                                <a
-                                  href={app.portfolioUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-neon-cyan hover:underline break-all text-sm"
-                                >
-                                  {app.portfolioUrl}
-                                </a>
-                              </dd>
-                            </div>
-                          ) : null}
-                        </dl>
-                      </div>
-                      <div className="lg:col-span-8 space-y-3 min-w-0">
-                        <div>
-                          <div className="text-[10px] font-mono tracking-widest uppercase text-text-muted mb-1">
-                            How they can help
-                          </div>
-                          <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
-                            {app.description}
-                          </p>
-                        </div>
-                        {skills.length ? (
-                          <div>
-                            <div className="text-[10px] font-mono tracking-widest uppercase text-text-muted mb-1.5">
-                              Skills
-                            </div>
-                            <div className="flex flex-wrap gap-1.5">
-                              {skills.map((s) => (
-                                <Badge key={s} variant="default">
-                                  {s}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 mt-4">
-                      <select
-                        className="bg-cyber-surface border border-cyber-border rounded-lg px-2 py-1.5 text-xs text-white"
-                        value={app.status}
-                        disabled={busy}
-                        onChange={(e) =>
-                          void handleVolunteerStatus(app.id, e.target.value)
-                        }
-                        aria-label={`Status for ${app.handle}`}
-                      >
-                        {VOLUNTEER_STATUSES.map((s) => (
-                          <option key={s} value={s}>
-                            {VOLUNTEER_STATUS_LABELS[s]}
-                          </option>
-                        ))}
-                      </select>
-                      {blocked ? (
-                        <span className="text-xs text-semantic-danger">
-                          This contact is blocked from applying again.
-                        </span>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="gap-1 text-red-300"
-                          disabled={busy}
-                          onClick={() => handleVolunteerBlock(app)}
-                        >
-                          <Ban className="w-3.5 h-3.5" />
-                          Block from applying
-                        </Button>
-                      )}
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-
-            {volunteerBlocks.length > 0 &&
-              volunteerStatusFilter !== 'blocked' && (
-                <div className="mt-8">
-                  <h3 className="text-sm font-semibold text-white mb-2">
-                    Blocked contacts
-                  </h3>
-                  <p className="text-xs text-text-muted mb-3">
-                    These people cannot submit another Get Involved application.
-                  </p>
-                  <div className="space-y-2">
-                    {volunteerBlocks.map((block) => {
-                      const busy = busyKey === `volblock-${block.id}`;
-                      return (
-                        <Card
-                          key={block.id}
-                          className="bg-cyber-card/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
-                        >
-                          <div className="text-sm text-text-secondary min-w-0">
-                            <p className="text-white font-medium">
-                              {block.email ||
-                                block.discordUsername ||
-                                'Blocked contact'}
-                            </p>
-                            <p className="text-xs font-mono text-text-muted mt-0.5">
-                              {[
-                                block.email,
-                                block.discordUsername
-                                  ? `Discord ${block.discordUsername}`
-                                  : null,
-                                block.createdAt
-                                  ? formatDate(block.createdAt)
-                                  : null,
-                              ]
-                                .filter(Boolean)
-                                .join(' · ')}
-                            </p>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={busy}
-                            onClick={() => handleVolunteerUnblock(block)}
-                          >
-                            Lift block
-                          </Button>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-          </section>
+          <VolunteersTab
+            busyKey={busyKey}
+            filteredVolunteers={filteredVolunteers}
+            handleVolunteerBlock={handleVolunteerBlock}
+            handleVolunteerStatus={handleVolunteerStatus}
+            handleVolunteerUnblock={handleVolunteerUnblock}
+            loading={loading}
+            setVolunteerSearch={setVolunteerSearch}
+            setVolunteerSort={setVolunteerSort}
+            setVolunteerStatusFilter={setVolunteerStatusFilter}
+            setVolunteerTypeFilter={setVolunteerTypeFilter}
+            volunteerBlocks={volunteerBlocks}
+            volunteers={volunteers}
+            volunteerSearch={volunteerSearch}
+            volunteersMissing={volunteersMissing}
+            volunteerSort={volunteerSort}
+            volunteerStatusFilter={volunteerStatusFilter}
+            volunteerTypeFilter={volunteerTypeFilter}
+          />
         )}
 
         {/* ---------- Private concerns (Founder only) ---------- */}
         {tab === 'concerns' && isFounder && (
-          <section aria-labelledby="concerns-heading">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
-              <div>
-                <h2
-                  id="concerns-heading"
-                  className="text-xl sm:text-2xl font-bold text-white tracking-tight"
-                >
-                  Concern reports
-                </h2>
-                <p className="text-sm text-text-secondary mt-1 max-w-xl">
-                  Private Report a concern submissions. Not public. Not the
-                  Reports tab. Founder only.
-                </p>
-                <p className="text-xs font-mono text-text-muted mt-1">
-                  Showing {filteredConcerns.length}
-                  {filteredConcerns.length !== concerns.length
-                    ? ` of ${concerns.length}`
-                    : ''}
-                </p>
-              </div>
-              <div>
-                <label className={filterLabel} htmlFor="mod-concern-status">
-                  Status
-                </label>
-                <select
-                  id="mod-concern-status"
-                  className={filterControl + ' w-auto min-w-[10rem]'}
-                  value={concernStatusFilter}
-                  onChange={(e) => setConcernStatusFilter(e.target.value)}
-                >
-                  <option value="open">Open (new + reviewing)</option>
-                  <option value="all">All</option>
-                  {CONCERN_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {CONCERN_STATUS_LABELS[s]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {concernsMissing && (
-              <Card className="bg-cyber-card/80 border-amber-500/30 mb-4">
-                <p className="text-sm text-text-secondary leading-relaxed">
-                  Concern reports are not set up yet. Run{' '}
-                  <code className="text-neon-cyan text-xs font-mono">
-                    supabase/sql/supabase_concern_reports.sql
-                  </code>{' '}
-                  in Supabase, then refresh.
-                </p>
-              </Card>
-            )}
-
-            {!concernsMissing && filteredConcerns.length === 0 && !loading && (
-              <Card className="bg-cyber-card/80 text-sm text-text-muted">
-                {concerns.length === 0
-                  ? 'No concern reports yet.'
-                  : 'No reports in this view.'}
-              </Card>
-            )}
-
-            <div className="space-y-3">
-              {filteredConcerns.map((row) => {
-                const busy = busyKey === `concern-${row.id}`;
-                return (
-                  <Card key={row.id} className="bg-cyber-card/80">
-                    <div className="grid gap-4 lg:grid-cols-12">
-                      <div className="lg:col-span-4 space-y-3">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <Badge
-                            variant={
-                              row.status === 'new'
-                                ? 'warning'
-                                : row.status === 'reviewing'
-                                  ? 'neon'
-                                  : 'default'
-                            }
-                          >
-                            {CONCERN_STATUS_LABELS[row.status] || row.status}
-                          </Badge>
-                          <Badge variant="default">
-                            {CONCERN_WHERE_LABELS[row.whereHappened] ||
-                              row.whereHappened}
-                          </Badge>
-                        </div>
-                        <dl className="space-y-2 text-sm">
-                          <div>
-                            <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
-                              Submitted
-                            </dt>
-                            <dd className="text-text-secondary">
-                              {row.createdAt ? formatDate(row.createdAt) : 'n/a'}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
-                              Contact
-                            </dt>
-                            <dd className="text-text-secondary break-all">
-                              {row.contact || 'Anonymous'}
-                            </dd>
-                          </div>
-                          {row.reference ? (
-                            <div>
-                              <dt className="text-[10px] font-mono tracking-widest uppercase text-text-muted">
-                                Reference
-                              </dt>
-                              <dd className="text-text-secondary break-all">
-                                {row.reference}
-                              </dd>
-                            </div>
-                          ) : null}
-                        </dl>
-                      </div>
-                      <div className="lg:col-span-8 min-w-0">
-                        <div className="text-[10px] font-mono tracking-widest uppercase text-text-muted mb-1">
-                          What happened
-                        </div>
-                        <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
-                          {row.whatHappened}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-white/10 mt-4">
-                      <select
-                        className="bg-cyber-surface border border-cyber-border rounded-lg px-2 py-1.5 text-xs text-white"
-                        value={row.status}
-                        disabled={busy}
-                        onChange={(e) =>
-                          void handleConcernStatus(row.id, e.target.value)
-                        }
-                        aria-label="Concern status"
-                      >
-                        {CONCERN_STATUSES.map((s) => (
-                          <option key={s} value={s}>
-                            {CONCERN_STATUS_LABELS[s]}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
+          <ConcernsTab
+            busyKey={busyKey}
+            concerns={concerns}
+            concernsMissing={concernsMissing}
+            concernStatusFilter={concernStatusFilter}
+            filteredConcerns={filteredConcerns}
+            handleConcernStatus={handleConcernStatus}
+            loading={loading}
+            setConcernStatusFilter={setConcernStatusFilter}
+          />
         )}
 
         {/* ---------- Role Management (Founder only) ---------- */}
         {tab === 'roles' && isFounder && (
-          <section aria-labelledby="roles-heading">
-            <div className="mb-4">
-              <h2
-                id="roles-heading"
-                className="text-xl sm:text-2xl font-bold text-white tracking-tight"
-              >
-                Role Management
-              </h2>
-              <p className="text-sm text-text-secondary mt-1 max-w-xl">
-                Change a user&apos;s role. Only a Founder can do this. There
-                can be one Founder.
-              </p>
-              <p className="text-xs font-mono text-text-muted mt-1">
-                Showing {filteredRoleUsers.length}
-                {filteredRoleUsers.length !== users.length
-                  ? ` of ${users.length}`
-                  : ''}
-              </p>
-            </div>
-
-            <Card className="bg-cyber-card/80 mb-4 p-4 sm:p-5">
-              <label className={filterLabel} htmlFor="mod-role-search">
-                Search
-              </label>
-              <div className="relative max-w-md">
-                <Search
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none"
-                  aria-hidden
-                />
-                <input
-                  id="mod-role-search"
-                  type="search"
-                  className={`${filterControl} pl-9`}
-                  placeholder="Username, email, id…"
-                  value={roleSearch}
-                  onChange={(e) => setRoleSearch(e.target.value)}
-                />
-              </div>
-            </Card>
-
-            <div className="space-y-3">
-              {users.length === 0 && !loading && (
-                <Card className="bg-cyber-card/80 text-sm text-text-muted">
-                  No profiles found (or staff read policy not applied yet).
-                </Card>
-              )}
-              {users.length > 0 && filteredRoleUsers.length === 0 && !loading && (
-                <Card className="bg-cyber-card/80 text-sm text-text-muted">
-                  No users match this search.
-                </Card>
-              )}
-              {filteredRoleUsers.map((u) => {
-                const current = String(u.role || 'user');
-                const busy = busyKey === `role-${u.id}`;
-                const isSelf = u.id === userId;
-                const locked = isSelf || current === 'founder';
-                const extraOption = !ASSIGNABLE_ROLES.includes(current);
-                return (
-                  <Card
-                    key={u.id}
-                    className="bg-cyber-card/80 flex flex-col sm:flex-row sm:items-center gap-4"
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <UserAvatar
-                        src={u.avatar_url}
-                        name={u.username || 'User'}
-                        size="lg"
-                      />
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold text-white truncate">
-                            {u.username || 'Unnamed'}
-                          </span>
-                          <Badge variant="default">{roleLabel(current)}</Badge>
-                        </div>
-                        <p className="text-xs font-mono text-text-muted mt-1 truncate">
-                          {u.id?.slice(0, 8)}… · joined{' '}
-                          {formatDate(u.joined_at || u.created_at)}
-                          {isSelf ? ' · you' : ''}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 shrink-0">
-                      <label className="sr-only" htmlFor={`mod-role-${u.id}`}>
-                        Role for {u.username || 'user'}
-                      </label>
-                      <select
-                        id={`mod-role-${u.id}`}
-                        key={`${u.id}-${current}`}
-                        className={filterControl + ' w-auto min-w-[10rem]'}
-                        value={current}
-                        disabled={busy || locked}
-                        onChange={(e) => {
-                          const next = e.target.value;
-                          if (next === current) return;
-                          setConfirmDialog({
-                            title: 'Change role',
-                            message: `Set ${u.username || 'this user'} from ${roleLabel(current)} to ${roleLabel(next)}?`,
-                            confirmLabel: 'Change role',
-                            onConfirm: () =>
-                              runAction(
-                                `role-${u.id}`,
-                                () =>
-                                  moderationService.setUserRole(u.id, next),
-                                `${u.username || 'User'} is now ${roleLabel(next)}`
-                              ),
-                          });
-                        }}
-                      >
-                        {extraOption && (
-                          <option value={current}>{roleLabel(current)}</option>
-                        )}
-                        {ASSIGNABLE_ROLES.map((r) => (
-                          <option key={r} value={r}>
-                            {roleLabel(r)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-
-            <div className="mt-10">
-              <h3 className="text-lg font-bold text-white tracking-tight">
-                Role changes
-              </h3>
-              <p className="text-sm text-text-secondary mt-1 mb-4">
-                Who changed a role, and when.
-              </p>
-
-              {roleLogMissing && (
-                <Card className="bg-semantic-warning/10 border-semantic-warning/40">
-                  <p className="text-sm text-text-secondary leading-relaxed">
-                    Role audit log is not installed yet. Run{' '}
-                    <code className="text-neon-cyan text-xs">
-                      supabase/sql/supabase_role_management.sql
-                    </code>{' '}
-                    in the Supabase SQL Editor, then click Refresh.
-                  </p>
-                </Card>
-              )}
-
-              {!roleLogMissing && roleLog.length === 0 && !loading && (
-                <Card className="bg-cyber-card/80 text-sm text-text-muted">
-                  No role changes recorded yet.
-                </Card>
-              )}
-
-              {!roleLogMissing && roleLog.length > 0 && (
-                <div className="space-y-2">
-                  {roleLog.map((entry) => (
-                    <Card
-                      key={entry.id}
-                      className="bg-cyber-card/80 py-3 px-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
-                    >
-                      <p className="text-sm text-text-secondary">
-                        <span className="text-white font-medium">
-                          {entry.changed_by_username || 'Founder'}
-                        </span>{' '}
-                        set{' '}
-                        <span className="text-white font-medium">
-                          {entry.username || 'a user'}
-                        </span>{' '}
-                        from {roleLabel(entry.old_role)} to{' '}
-                        {roleLabel(entry.new_role)}
-                      </p>
-                      <p className="text-xs font-mono text-text-muted shrink-0">
-                        {formatDateTime(entry.created_at)}
-                      </p>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
+          <RolesTab
+            busyKey={busyKey}
+            filteredRoleUsers={filteredRoleUsers}
+            loading={loading}
+            roleLog={roleLog}
+            roleLogMissing={roleLogMissing}
+            roleSearch={roleSearch}
+            runAction={runAction}
+            setConfirmDialog={setConfirmDialog}
+            setRoleSearch={setRoleSearch}
+            userId={userId}
+            users={users}
+          />
         )}
       </div>
 
