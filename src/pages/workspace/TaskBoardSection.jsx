@@ -3,7 +3,10 @@
  * Presentational: all state and handlers live in ProjectWorkspace and arrive as props.
  */
 
+import { lazy, Suspense } from 'react';
 import LoadingScreen from '../../components/ui/LoadingScreen';
+import BoardViewToggle from '../../components/tasks/BoardViewToggle';
+import { useBoardView } from '../../hooks/useBoardView';
 import TaskStagingTree from '../../components/ui/TaskStagingTree';
 import BoardTaskTree from '../../components/ui/BoardTaskTree';
 import {
@@ -18,6 +21,9 @@ import Button from '../../components/ui/Buttons';
 import DiscordLink from '../../components/ui/DiscordLink';
 import Card from '../../components/ui/Card';
 import { KANBAN_COLUMNS, REVIEW_COLUMN, COMPLETED_COLUMN } from './shared';
+
+// Loaded only when someone switches to the Map view
+const TaskMap = lazy(() => import('../../components/tasks/TaskMap'));
 
 export default function TaskBoardSection({
   boardOnly,
@@ -58,6 +64,7 @@ export default function TaskBoardSection({
   unpublishingId,
   user,
 }) {
+  const [boardView, setBoardView] = useBoardView();
   return boardOnly && isStagingBoard ? (
   <section aria-labelledby="staging-board-heading" className="space-y-4">
     <h2 id="staging-board-heading" className="sr-only">
@@ -86,8 +93,22 @@ export default function TaskBoardSection({
       Task board columns
     </h2>
 
+    <BoardViewToggle view={boardView} onChange={setBoardView} />
+
     {loading ? (
       <LoadingScreen variant="section" message="Loading board…" />
+    ) : boardView === 'map' ? (
+      <div className="space-y-2">
+        <p className="text-xs text-text-muted">
+          The map shows every task on this board. The filters above apply to
+          the Board view.
+        </p>
+        <Suspense
+          fallback={<LoadingScreen variant="section" message="Loading map…" />}
+        >
+          <TaskMap tasks={tasks} onOpenTask={handleViewTask} />
+        </Suspense>
+      </div>
     ) : (
       <div className="space-y-4">
         {/* Main columns: To Do / In Progress */}
