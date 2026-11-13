@@ -17,6 +17,7 @@ import {
   getAiServiceAvailability,
 } from '../_shared/aiTokenEconomy.ts';
 import { getAiProvider } from '../_shared/aiProvider.ts';
+import { withCors } from '../_shared/origins.ts';
 
 const supabaseUrl =
   Deno.env.get('SUPABASE_URL') ?? Deno.env.get('SB_URL') ?? '';
@@ -61,7 +62,7 @@ async function userFromRequest(req) {
   return data.user;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: cors });
   }
@@ -166,4 +167,4 @@ Deno.serve(async (req) => {
     console.error('[ai-token-status]', err?.message || err);
     return json({ error: err?.message || 'Status failed' }, 500);
   }
-});
+}));

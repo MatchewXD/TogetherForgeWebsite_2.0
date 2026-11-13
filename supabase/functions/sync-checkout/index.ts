@@ -20,6 +20,7 @@ import {
   RATE_LIMITS,
 } from '../_shared/rateLimit.ts';
 import { fulfillTokenPurchase } from '../_shared/aiTokenEconomy.ts';
+import { withCors } from '../_shared/origins.ts';
 
 const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
 const supabaseUrl =
@@ -84,7 +85,7 @@ function metaUserId(meta) {
   ).trim();
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: cors });
   }
@@ -482,7 +483,7 @@ Deno.serve(async (req) => {
       500
     );
   }
-});
+}));
 
 function smTier(sub) {
   return sub?.metadata?.tierId || null;

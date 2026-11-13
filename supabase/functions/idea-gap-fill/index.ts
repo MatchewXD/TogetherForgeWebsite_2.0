@@ -34,6 +34,7 @@ import {
   summarizePrompt,
   IDEA_FIELD_DEFS,
 } from '../_shared/ideaAiSchema.ts';
+import { withCors } from '../_shared/origins.ts';
 
 function ideaToPromptBlob(idea) {
   try {
@@ -43,7 +44,7 @@ function ideaToPromptBlob(idea) {
   }
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -279,4 +280,4 @@ Deno.serve(async (req) => {
       500
     );
   }
-});
+}));

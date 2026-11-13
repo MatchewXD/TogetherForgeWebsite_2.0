@@ -27,6 +27,7 @@ import {
   stripePackProductDescription,
   stripePackProductName,
 } from '../_shared/aiTokenPacks.ts';
+import { withCors, isAllowedReturnUrl } from '../_shared/origins.ts';
 
 const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
 const supabaseUrl =
@@ -157,7 +158,7 @@ async function resolveCustomer(userId, email) {
   return created.id;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: cors });
   }
@@ -207,6 +208,17 @@ Deno.serve(async (req) => {
     if (!isHttpUrl(successUrl) || !isHttpUrl(cancelUrl)) {
       return json(
         { error: 'Valid successUrl and cancelUrl are required.' },
+        400
+      );
+    }
+    // Only ever send payers back to our own site (no open redirect via Stripe)
+    if (!isAllowedReturnUrl(successUrl) || !isAllowedReturnUrl(cancelUrl)) {
+      return json(
+        {
+          error:
+            'Checkout must return to the Together Forge site. If this is a staging or preview site, add its origin to the ALLOWED_ORIGINS function secret.',
+          code: 'RETURN_URL_NOT_ALLOWED',
+        },
         400
       );
     }
@@ -300,4 +312,4 @@ Deno.serve(async (req) => {
     console.error('[create-token-checkout] failed', err?.message || err);
     return json({ error: err?.message || 'Checkout failed' }, 500);
   }
-});
+}));

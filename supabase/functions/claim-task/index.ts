@@ -24,6 +24,7 @@ import {
   CLAIMS_PAUSED_CODE,
   CLAIMS_PAUSED_ERROR,
 } from '../_shared/claimsEnabled.ts';
+import { withCors } from '../_shared/origins.ts';
 
 const STAFF_ROLES = new Set([
   'founder',
@@ -61,7 +62,7 @@ async function syncClaimsKillSwitch(paused) {
   }
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -110,4 +111,4 @@ Deno.serve(async (req) => {
     );
   }
   return jsonResponse({ data });
-});
+}));

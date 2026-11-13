@@ -17,6 +17,7 @@
 // deno-lint-ignore-file
 // @ts-nocheck
 import { enforceRateLimit } from '../_shared/rateLimit.ts';
+import { withCors } from '../_shared/origins.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -256,7 +257,7 @@ async function persistReport(report) {
   }
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: cors });
   }
@@ -298,4 +299,4 @@ Deno.serve(async (req) => {
     console.error('[submit-concern-report]', e?.message || e);
     return json({ error: 'Could not send report. Please try again later.' }, 500);
   }
-});
+}));

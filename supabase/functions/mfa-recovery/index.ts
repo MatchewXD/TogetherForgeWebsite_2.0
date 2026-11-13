@@ -19,6 +19,7 @@ import {
   enforceRateLimit,
   RATE_LIMITS,
 } from '../_shared/rateLimit.ts';
+import { withCors } from '../_shared/origins.ts';
 
 const supabaseUrl =
   Deno.env.get('SUPABASE_URL') ?? Deno.env.get('SB_URL') ?? '';
@@ -107,7 +108,7 @@ async function remainingCount(sb, userId) {
   return count || 0;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: cors });
   }
@@ -389,4 +390,4 @@ Deno.serve(async (req) => {
     console.error('[mfa-recovery]', err?.message || err);
     return json({ error: err?.message || 'Request failed.' }, 500);
   }
-});
+}));

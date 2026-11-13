@@ -23,6 +23,7 @@ import {
   enforceRateLimit,
   RATE_LIMITS,
 } from '../_shared/rateLimit.ts';
+import { withCors } from '../_shared/origins.ts';
 
 const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
 const supabaseUrl =
@@ -228,7 +229,7 @@ async function assertSubscriptionOwnedByUser(user, subscriptionId) {
   };
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: cors });
   }
@@ -331,4 +332,4 @@ Deno.serve(async (req) => {
     console.error('[manage-subscription]', err?.message || err);
     return json({ error: err?.message || 'Could not update subscription.' }, 500);
   }
-});
+}));

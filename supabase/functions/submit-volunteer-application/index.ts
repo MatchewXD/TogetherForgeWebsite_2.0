@@ -11,6 +11,7 @@
 // @ts-nocheck
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno';
 import { enforceRateLimit, RATE_LIMITS } from '../_shared/rateLimit.ts';
+import { withCors } from '../_shared/origins.ts';
 
 const supabaseUrl =
   Deno.env.get('SUPABASE_URL') ?? Deno.env.get('SB_URL') ?? '';
@@ -175,7 +176,7 @@ async function notifyDiscord(row) {
   }
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: cors });
   }
@@ -270,4 +271,4 @@ Deno.serve(async (req) => {
     console.error('[submit-volunteer]', e?.message || e);
     return json({ error: e?.message || 'Submit failed.' }, 500);
   }
-});
+}));

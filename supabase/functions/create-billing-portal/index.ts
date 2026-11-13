@@ -17,6 +17,7 @@ import {
   enforceRateLimit,
   RATE_LIMITS,
 } from '../_shared/rateLimit.ts';
+import { withCors, isAllowedReturnUrl } from '../_shared/origins.ts';
 
 const stripeKey = Deno.env.get('STRIPE_SECRET_KEY') ?? '';
 const supabaseUrl =
@@ -89,7 +90,7 @@ function customerOwnedByUser(customer, userId) {
   return metaUserId(customer.metadata) === userId;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: cors });
   }
@@ -120,6 +121,17 @@ Deno.serve(async (req) => {
     let returnUrl = String(body.returnUrl || '').trim();
     if (!returnUrl.startsWith('http')) {
       return json({ error: 'Valid returnUrl is required.' }, 400);
+    }
+    // Only ever send people back to our own site (no open redirect via Stripe)
+    if (!isAllowedReturnUrl(returnUrl)) {
+      return json(
+        {
+          error:
+            'Billing portal must return to the Together Forge site. If this is a staging or preview site, add its origin to the ALLOWED_ORIGINS function secret.',
+          code: 'RETURN_URL_NOT_ALLOWED',
+        },
+        400
+      );
     }
     // Ensure we can refresh payment methods when the user returns from Stripe
     if (!/[?&]portal=/.test(returnUrl)) {
@@ -288,4 +300,4 @@ Deno.serve(async (req) => {
       500
     );
   }
-});
+}));

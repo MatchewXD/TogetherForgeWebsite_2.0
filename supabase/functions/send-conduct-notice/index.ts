@@ -1,18 +1,50 @@
 /**
- * Email a Conduct notice and optionally ban/suspend the Auth user.
+ * Email a Conduct notice and sync the Auth ban for a user.
  * Staff JWT required. Reply-To: conduct@togetherforge.net
  *
- * POST JSON: { noticeId?, authAction?, targetUserId? }
+ * POST JSON: { noticeId?, targetUserId? }
+ *
+ * The Auth ban is derived from conduct_account_state (banned_at /
+ * suspended_until), which only the conduct review RPC writes. A legacy
+ * `authAction` field in the body is ignored.
  * Deploy: supabase functions deploy send-conduct-notice --no-verify-jwt
  */
 
 // deno-lint-ignore-file
 // @ts-nocheck
 import { adminClient, jsonResponse, userFromRequest, corsHeaders } from '../_shared/edgeAuth.ts';
+import { withCors } from '../_shared/origins.ts';
 
 const CONDUCT_REPLY = 'conduct@togetherforge.net';
 
-Deno.serve(async (req) => {
+const SENIOR_ROLES = new Set(['founder', 'admin']);
+const STAFF_ROLES = new Set(['founder', 'admin', 'moderator', 'project_lead']);
+
+/**
+ * Role hierarchy for enforcement: nobody acts on themselves, only a Founder
+ * acts on a Founder, and only Founder / Admin act on other staff.
+ * @returns {Promise<string|null>} error message, or null when allowed
+ */
+async function staffTargetBlock(admin, actorRole, actorId, targetUserId) {
+  if (targetUserId === actorId) {
+    return 'You cannot apply enforcement to your own account.';
+  }
+  const { data: target } = await admin
+    .from('profiles')
+    .select('role')
+    .eq('id', targetUserId)
+    .maybeSingle();
+  const targetRole = String(target?.role || 'user');
+  if (targetRole === 'founder' && actorRole !== 'founder') {
+    return 'Only a Founder can apply enforcement to a Founder.';
+  }
+  if (STAFF_ROLES.has(targetRole) && !SENIOR_ROLES.has(actorRole)) {
+    return 'Only a Founder or Admin can apply enforcement to staff.';
+  }
+  return null;
+}
+
+Deno.serve(withCors(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -45,24 +77,47 @@ Deno.serve(async (req) => {
   }
 
   const noticeId = body.noticeId || null;
-  const authAction = String(body.authAction || '');
-  const targetUserId = body.targetUserId || null;
+  const targetUserId = body.targetUserId ? String(body.targetUserId) : null;
 
-  if (authAction && targetUserId) {
+  // Sync the Auth ban with conduct_account_state. The requested action in the
+  // body is NOT trusted: the only way to change that state is the audited
+  // conduct review RPC, so a staff session cannot ban or unban arbitrary users
+  // by calling this function directly.
+  if (targetUserId) {
+    const blocked = await staffTargetBlock(admin, role, user.id, targetUserId);
+    if (blocked) return jsonResponse({ error: blocked }, 403);
     try {
-      if (authAction === 'ban') {
-        await admin.auth.admin.updateUserById(targetUserId, {
-          ban_duration: '876000h',
-        });
-      } else if (authAction.startsWith('suspend:')) {
-        const days = Math.max(1, Number(authAction.slice('suspend:'.length)) || 7);
-        await admin.auth.admin.updateUserById(targetUserId, {
-          ban_duration: `${days * 24}h`,
-        });
-      } else if (authAction === 'unban') {
-        await admin.auth.admin.updateUserById(targetUserId, {
-          ban_duration: 'none',
-        });
+      const { data: state } = await admin
+        .from('conduct_account_state')
+        .select('banned_at, suspended_until')
+        .eq('user_id', targetUserId)
+        .maybeSingle();
+      if (state) {
+        const untilMs = state.suspended_until
+          ? new Date(state.suspended_until).getTime() - Date.now()
+          : 0;
+        let banDuration = 'none';
+        if (state.banned_at) {
+          banDuration = '876000h';
+        } else if (untilMs > 0) {
+          banDuration = `${Math.max(1, Math.ceil(untilMs / 3_600_000))}h`;
+        }
+        const { error: banErr } = await admin.auth.admin.updateUserById(
+          targetUserId,
+          { ban_duration: banDuration }
+        );
+        if (banErr) {
+          console.error('[send-conduct-notice] auth', banErr.message);
+        } else {
+          console.log(
+            JSON.stringify({
+              tag: 'TF_CONDUCT_AUTH_SYNC',
+              actor: user.id,
+              target: targetUserId,
+              banDuration,
+            })
+          );
+        }
       }
     } catch (e) {
       console.error('[send-conduct-notice] auth', e?.message || e);
@@ -136,4 +191,4 @@ Deno.serve(async (req) => {
     .update({ email_sent_at: new Date().toISOString() })
     .eq('id', noticeId);
   return jsonResponse({ ok: true, emailed: true });
-});
+}));
