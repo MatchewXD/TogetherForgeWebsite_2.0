@@ -69,8 +69,6 @@ export function validateUpdate({ title, body, category }) {
   return { title: t, body: b, category: cat };
 }
 
-const SELECT =
-  'id, project_id, created_by, category, title, body, created_at, updated_at, profiles:created_by ( username, avatar_url )';
 const SELECT_PLAIN =
   'id, project_id, created_by, category, title, body, created_at, updated_at';
 
@@ -98,22 +96,35 @@ function throwIfMissing(error, fallback) {
 export const projectUpdatesService = {
   async listForProject(projectId) {
     if (!projectId) return [];
-    let { data, error } = await supabase
+    // project_updates.created_by references auth.users, not profiles, so
+    // PostgREST cannot embed the author. Load authors in a second query.
+    const { data, error } = await supabase
       .from('project_updates')
-      .select(SELECT)
+      .select(SELECT_PLAIN)
       .eq('project_id', projectId)
       .order('created_at', { ascending: false });
-    if (error && /profiles|relationship/i.test(error.message || '')) {
-      const retry = await supabase
-        .from('project_updates')
-        .select(SELECT_PLAIN)
-        .eq('project_id', projectId)
-        .order('created_at', { ascending: false });
-      data = retry.data;
-      error = retry.error;
-    }
     if (error) throwIfMissing(error, 'Could not load updates.');
-    return (data || []).map(mapUpdateRow).filter(Boolean);
+
+    const authorIds = [
+      ...new Set((data || []).map((row) => row.created_by).filter(Boolean)),
+    ];
+    const authors = new Map();
+    if (authorIds.length) {
+      const { data: profiles, error: profErr } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .in('id', authorIds);
+      if (profErr) {
+        console.warn('[projectUpdates] authors', profErr.message);
+      }
+      for (const p of profiles || []) authors.set(p.id, p);
+    }
+
+    return (data || [])
+      .map((row) =>
+        mapUpdateRow({ ...row, profiles: authors.get(row.created_by) || null })
+      )
+      .filter(Boolean);
   },
 
   async create(projectId, payload, userId) {
