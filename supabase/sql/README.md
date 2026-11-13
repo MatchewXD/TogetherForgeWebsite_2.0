@@ -346,3 +346,12 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_kofi_runway.sql` | Ko-fi personal runway payments + months-of-coverage setting |
 | `supabase_stripe_subscriptions.sql` | Webhook log + subscriptions |
 | `supabase_mechanic_demos.sql` | Optional future Mechanic Lab tables |
+
+## Security hardening (run on every project)
+
+`supabase_profiles_hardening.sql` closes four holes on `public.profiles`: public email / moderation-note exposure, self-service changes to `task_limit_bypass` / `moderation_status`, `role` set on first insert, and staff-credit matching on a client-writable email.
+
+- Run **after** `supabase_role_management.sql` (and after `supabase_staff_credit.sql` where that is installed). Re-runnable.
+- Run on **staging first**, then production.
+- After it runs, `profiles.email` and `profiles.moderation_note` are always `NULL`. Emails come from `auth.users`; staff read both through `staff_profile_private()`.
+- Verify: `select count(*) from public.profiles where email is not null or moderation_note is not null;` returns `0`.

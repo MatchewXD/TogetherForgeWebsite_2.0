@@ -90,13 +90,32 @@ export const moderationService = {
       }
     }
 
-    return (data || []).map((p) => ({
-      ...p,
-      // Normalize for UI (joined_at is the schema field)
-      joined_at: p.joined_at || p.created_at || null,
-      moderation_status: p.moderation_status || 'active',
-      moderation_note: p.moderation_note || null,
-    }));
+    // Email + moderation note are staff-only and no longer live on the public
+    // profiles row (supabase_profiles_hardening.sql). Read them through the
+    // staff RPC; fall back to row values on databases without that script.
+    const privateById = new Map();
+    const ids = (data || []).map((p) => p.id).filter(Boolean);
+    if (ids.length) {
+      const { data: priv, error: privErr } = await supabase.rpc(
+        'staff_profile_private',
+        { p_user_ids: ids }
+      );
+      if (!privErr) {
+        for (const row of priv || []) privateById.set(row.user_id, row);
+      }
+    }
+
+    return (data || []).map((p) => {
+      const priv = privateById.get(p.id);
+      return {
+        ...p,
+        // Normalize for UI (joined_at is the schema field)
+        joined_at: p.joined_at || p.created_at || null,
+        email: priv?.email || p.email || null,
+        moderation_status: p.moderation_status || 'active',
+        moderation_note: priv?.moderation_note || p.moderation_note || null,
+      };
+    });
   },
 
   /**
@@ -121,7 +140,8 @@ export const moderationService = {
       .maybeSingle();
 
     if (error) throw error;
-    return data;
+    // The stored note is staff-only and comes back null on the public row
+    return data ? { ...data, moderation_note: note } : data;
   },
 
   /**
