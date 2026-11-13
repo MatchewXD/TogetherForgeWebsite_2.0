@@ -212,11 +212,9 @@ const IdeaCard = ({
             } ${voting ? 'opacity-80' : ''}`}
             title={voted ? 'Remove your vote' : 'Vote for this idea'}
             aria-pressed={!!voted}
-            aria-label={
-              voted
-                ? `Remove vote for ${idea.title}`
-                : `Vote for ${idea.title}`
-            }
+            aria-label={`${Number(idea.votes) > 0 ? idea.votes : 0} votes. ${
+              voted ? 'Remove vote for' : 'Vote for'
+            } ${idea.title}`}
           >
             <Flame
               className={`w-3.5 h-3.5 shrink-0 transition-colors ${

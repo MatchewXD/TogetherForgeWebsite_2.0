@@ -63,11 +63,13 @@ export default function ProjectIdeasSection({
         <input
           type="search"
           placeholder="Search project ideas..."
+          aria-label="Search project ideas"
           value={ideaSearch}
           onChange={(e) => setIdeaSearch(e.target.value)}
           className="bg-cyber-surface border border-cyber-border rounded-lg px-4 py-3 w-full sm:max-w-xs text-text-primary placeholder:text-text-muted focus:border-neon-cyan outline-none text-sm"
         />
         <select
+          aria-label="Sort project ideas"
           value={ideaSortMode}
           onChange={(e) => setIdeaSortMode(e.target.value)}
           className="bg-cyber-surface border border-cyber-border rounded-lg px-4 py-3 text-text-primary focus:border-neon-cyan outline-none text-sm"

@@ -159,11 +159,11 @@ const FAQ = () => {
 
         <div className="mt-12 text-center text-text-muted text-sm">
           Have more questions?{' '}
-          <Link to="/get-involved" className="text-neon-cyan hover:underline">
+          <Link to="/get-involved" className="text-neon-cyan underline underline-offset-2">
             Get Involved
           </Link>{' '}
           or{' '}
-          <Link to="/contact" className="text-neon-cyan hover:underline">
+          <Link to="/contact" className="text-neon-cyan underline underline-offset-2">
             contact us
           </Link>
           .

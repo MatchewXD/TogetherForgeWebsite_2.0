@@ -195,7 +195,7 @@ export default function BadgeIcon({
           {iconContent}
         </button>
       ) : (
-        <span className={shellClass} title={label} aria-label={label}>
+        <span className={shellClass} title={label} role="img" aria-label={label}>
           {iconContent}
         </span>
       )}

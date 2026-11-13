@@ -518,7 +518,11 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
 
       <div className="auth-page__content container-custom py-12 sm:py-16 max-w-md">
         <div className="text-center mb-8">
-          <div className="auth-page__heading section-header text-neon-purple justify-center mx-auto">
+          <div
+            role="heading"
+            aria-level={1}
+            className="auth-page__heading section-header text-neon-purple justify-center mx-auto"
+          >
             {eyebrow}
           </div>
           {mode === 'forgot' && (

@@ -170,12 +170,12 @@ const Footer = () => {
               <button
                 type="button"
                 onClick={() => openReportConcern()}
-                className="hover:text-neon-cyan transition-colors uppercase tracking-widest font-mono text-[10px] text-text-muted/90"
+                className="hover:text-neon-cyan transition-colors uppercase tracking-widest font-mono text-[10px] text-text-muted"
               >
                 Report a concern
               </button>
             </div>
-            <div className="mt-3 text-[10px] opacity-60">
+            <div className="mt-3 text-[10px]">
               © 2026 Together Forge. All Rights Reserved.
               <br />
               &quot;Together Forge&quot; is a trademark of Together Forge
