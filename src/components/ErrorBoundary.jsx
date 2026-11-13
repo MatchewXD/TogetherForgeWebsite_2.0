@@ -1,6 +1,7 @@
 import { Component } from 'react';
 import { useLocation } from 'react-router-dom';
 import { dismissBootLoader } from '../lib/bootLoader';
+import { reportClientError } from '../lib/errorReporter';
 
 /**
  * Site-wide render error boundary. Keeps the navbar and footer usable when a
@@ -18,6 +19,9 @@ class ErrorBoundaryInner extends Component {
 
   componentDidCatch(error, info) {
     console.error('[ErrorBoundary]', error, info);
+    void reportClientError('render', error, {
+      componentStack: info?.componentStack,
+    });
     dismissBootLoader();
   }
 

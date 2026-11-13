@@ -5,6 +5,12 @@ import { devSecurityHeaders, securityHeaders } from './security-headers.mjs'
 // https://vite.dev/config/
 export default defineConfig({
     plugins: [react()],
+    define: {
+        // Short commit id on Vercel builds; shown next to reported client errors
+        __BUILD_ID__: JSON.stringify(
+            (process.env.VERCEL_GIT_COMMIT_SHA || 'dev').slice(0, 7)
+        ),
+    },
     server: {
         // Dev: security headers with HMR-friendly CSP
         headers: devSecurityHeaders,

@@ -10,9 +10,11 @@ import App from './App.jsx';
 import { dismissBootLoader } from './lib/bootLoader';
 import { initVisualPerformance } from './lib/visualPerformance';
 import { installScrollChain } from './utils/scrollChain';
+import { installGlobalErrorReporting } from './lib/errorReporter';
 
 initVisualPerformance();
 installScrollChain();
+installGlobalErrorReporting();
 
 // Failsafe: never leave the boot overlay stuck if App mount is delayed
 window.setTimeout(dismissBootLoader, 2500);

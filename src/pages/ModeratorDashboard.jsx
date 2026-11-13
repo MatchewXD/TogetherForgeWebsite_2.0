@@ -32,6 +32,7 @@ import TrafficPanel from '../components/moderation/TrafficPanel';
 import GrantCreditPanel from '../components/staff/GrantCreditPanel';
 import ConductPanel from '../components/conduct/ConductPanel';
 import PollsPanel from '../components/moderation/PollsPanel';
+import ErrorsPanel from '../components/moderation/ErrorsPanel';
 import platformSuggestionsService from '../services/platformSuggestionsService';
 import { OPEN_SUGGESTION_STATUSES } from '../constants/platformSuggestions';
 import { pingUserNotices } from '../utils/userNotices';
@@ -1056,6 +1057,7 @@ const ModeratorDashboard = () => {
           tab !== 'credit' &&
           tab !== 'conduct' &&
           tab !== 'polls' &&
+          tab !== 'errors' &&
           tab !== 'volunteers' &&
           tab !== 'suggested' &&
           tab !== 'concerns' && (
@@ -1068,6 +1070,8 @@ const ModeratorDashboard = () => {
         {tab === 'conduct' && <ConductPanel />}
 
         {tab === 'polls' && <PollsPanel />}
+
+        {tab === 'errors' && <ErrorsPanel />}
 
         {tab === 'credit' && (
           <section aria-labelledby="credit-heading">

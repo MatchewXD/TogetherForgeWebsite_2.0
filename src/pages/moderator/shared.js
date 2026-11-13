@@ -18,6 +18,7 @@ import {
   Ban,
   Flag,
   Bug,
+  TriangleAlert,
   LayoutGrid,
   ClipboardList,
   Mail,
@@ -46,6 +47,7 @@ export const TABS = [
   { id: 'restrictions', label: 'Claim restrict', icon: Ban },
   { id: 'reports', label: 'Reports', icon: Flag },
   { id: 'bugs', label: 'Bugs', icon: Bug },
+  { id: 'errors', label: 'Site errors', icon: TriangleAlert },
   { id: 'showcase', label: 'Showcase', icon: LayoutGrid },
   { id: 'suggested', label: 'Suggested tasks', icon: ClipboardList },
 ];

@@ -115,6 +115,14 @@ async function persistConcernLocally(payload) {
       )) {
         return { ok: false, error: 'Reporting is not set up on this database yet.' };
       }
+      if (/permission denied|row-level security|42501/i.test(
+        String(error.message || '') + String(error.code || '')
+      )) {
+        return {
+          ok: false,
+          error: 'Could not reach the report service. Please try again in a few minutes.',
+        };
+      }
       return { ok: false, error: error.message || 'Could not save report.' };
     }
     return { ok: true };

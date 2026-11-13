@@ -359,3 +359,7 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 ## Scale prep (run on every project)
 
 `supabase_scale_prep.sql` adds database-backed rate limiting for Edge Functions (`edge_rate_limit_hit`, service role only), makes `record_traffic_heartbeat` cheap under many concurrent visitors, and indexes `ideas.created_at`. Re-runnable. Run after `supabase_traffic.sql`. The functions fall back to their in-memory limiter until this script is applied.
+
+## Launch prep (run on every project)
+
+`supabase_launch_prep.sql` removes direct browser inserts into `concern_reports` and `volunteer_applications` (the Edge Functions insert with the service role, so deploy `submit-concern-report` and `submit-volunteer-application` first), and adds the client error log (`log_client_error`, staff `get_client_errors`) behind the Moderator "Site errors" tab. Re-runnable.
