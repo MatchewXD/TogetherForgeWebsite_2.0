@@ -6,6 +6,7 @@
 --      limit; they are now refused.
 --   2. Client error log: crashes and unhandled errors in visitors' browsers
 --      are recorded (throttled) for the staff "Site errors" tab.
+--   3. Draft ideas are readable only by their author and staff.
 --
 -- Safe to re-run. Run on STAGING first, then production.
 -- Requires: is_staff() (supabase_moderation.sql / supabase_role_management.sql).
@@ -194,5 +195,36 @@ $$;
 
 revoke all on function public.get_client_errors(integer, integer) from public, anon;
 grant execute on function public.get_client_errors(integer, integer) to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- 3. Draft ideas are private
+-- ---------------------------------------------------------------------------
+-- "Public can read ideas" used USING (true), so anyone with the anon key could
+-- read every member's unpublished drafts through the API (the site only hid
+-- them in the UI). Drafts are now readable by their author and staff only.
+do $do$
+begin
+  if to_regclass('public.ideas') is null then
+    return;
+  end if;
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'ideas' and column_name = 'status'
+  ) then
+    raise notice 'ideas.status not found: leaving the read policy unchanged';
+    return;
+  end if;
+  execute 'drop policy if exists "Public can read ideas" on public.ideas';
+  execute $pol$
+    create policy "Public can read ideas"
+      on public.ideas for select
+      using (
+        lower(coalesce(status, '')) <> 'draft'
+        or auth.uid() = user_id
+        or public.is_staff()
+      )
+  $pol$;
+end;
+$do$;
 
 notify pgrst, 'reload schema';

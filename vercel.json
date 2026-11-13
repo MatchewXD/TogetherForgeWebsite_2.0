@@ -71,6 +71,28 @@
   ],
   "rewrites": [
     {
+      "source": "/ideas/:id([0-9]+)",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(Discordbot|Twitterbot|facebookexternalhit|Facebot|Slackbot|LinkedInBot|WhatsApp|TelegramBot|Pinterestbot|redditbot|Mastodon|Bluesky|Embedly|Iframely|SkypeUriPreview).*"
+        }
+      ],
+      "destination": "/api/og?type=idea&id=:id"
+    },
+    {
+      "source": "/projects/:slug([a-z0-9-]+)",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(Discordbot|Twitterbot|facebookexternalhit|Facebot|Slackbot|LinkedInBot|WhatsApp|TelegramBot|Pinterestbot|redditbot|Mastodon|Bluesky|Embedly|Iframely|SkypeUriPreview).*"
+        }
+      ],
+      "destination": "/api/og?type=project&slug=:slug"
+    },
+    {
       "source": "/((?!assets/).*)",
       "destination": "/index.html"
     }
