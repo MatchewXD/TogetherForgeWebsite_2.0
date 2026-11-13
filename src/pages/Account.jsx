@@ -4,6 +4,7 @@
  * Profile page for others remains /u/:username.
  */
 
+import { getCaptchaToken } from '../lib/turnstile';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Link,
@@ -400,12 +401,14 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
         // Persist choice so we never ask again after confirm-email / first login
         stashPendingUsername(avail.value);
         const legalMeta = legalAcceptanceMetadata();
+        const captchaToken = await getCaptchaToken();
         const { data, error } = await supabase.auth.signUp({
           email: form.email,
           password: form.password,
           options: {
             data: { username: avail.value, ...legalMeta },
             emailRedirectTo: emailConfirmRedirectUrl(),
+            captchaToken,
           },
         });
         if (error) throw error;
@@ -444,9 +447,11 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
           navigate(next || '/dashboard', { replace: true });
         }
       } else {
+        const captchaToken = await getCaptchaToken();
         const { data, error } = await supabase.auth.signInWithPassword({
           email: form.email,
           password: form.password,
+          options: { captchaToken },
         });
         if (error) {
           if (isEmailNotConfirmedAuthError(error)) {

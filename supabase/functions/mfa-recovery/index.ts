@@ -16,7 +16,7 @@
 // @ts-nocheck
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno';
 import {
-  enforceRateLimit,
+  enforceRateLimitDurable,
   RATE_LIMITS,
 } from '../_shared/rateLimit.ts';
 import { withCors } from '../_shared/origins.ts';
@@ -135,7 +135,7 @@ Deno.serve(withCors(async (req) => {
         : action === 'status'
           ? RATE_LIMITS.mfaStatus
           : RATE_LIMITS.mfaManage;
-    const limited = enforceRateLimit(req, {
+    const limited = await enforceRateLimitDurable(req, {
       ...limitCfg,
       userId: user.id,
       cors,

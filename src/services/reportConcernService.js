@@ -2,6 +2,7 @@
  * Private “Report a concern” submissions.
  * Edge Function emails staff only — nothing is stored publicly.
  */
+import { getCaptchaToken } from '../lib/turnstile';
 import { supabase } from '../lib/supabase';
 
 function functionsBase() {
@@ -46,6 +47,12 @@ export async function submitConcernReport(form) {
   };
 
   if (payload.website) return { ok: true };
+
+  try {
+    payload.captchaToken = await getCaptchaToken();
+  } catch (e) {
+    return { ok: false, error: e?.message || 'Verification failed. Please try again.' };
+  }
 
   const base = functionsBase();
   let functionError = '';

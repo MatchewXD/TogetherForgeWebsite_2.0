@@ -16,7 +16,8 @@
 
 // deno-lint-ignore-file
 // @ts-nocheck
-import { enforceRateLimit } from '../_shared/rateLimit.ts';
+import { verifyTurnstile, CAPTCHA_FAILED_ERROR } from '../_shared/turnstile.ts';
+import { enforceRateLimitDurable } from '../_shared/rateLimit.ts';
 import { withCors } from '../_shared/origins.ts';
 
 const cors = {
@@ -266,7 +267,7 @@ Deno.serve(withCors(async (req) => {
   }
 
   try {
-    const limited = enforceRateLimit(req, {
+    const limited = await enforceRateLimitDurable(req, {
       ...REPORTS_LIMIT,
       userId: null,
       cors,
@@ -281,6 +282,11 @@ Deno.serve(withCors(async (req) => {
       return json({ ok: true });
     }
     if (v.error) return json({ error: v.error }, 400);
+
+    const captcha = await verifyTurnstile(req, body?.captchaToken);
+    if (!captcha.ok) {
+      return json({ error: CAPTCHA_FAILED_ERROR, code: 'CAPTCHA_FAILED' }, 400);
+    }
 
     const saved = await persistReport(v.report);
     const sent = await sendReportEmails(v.report);

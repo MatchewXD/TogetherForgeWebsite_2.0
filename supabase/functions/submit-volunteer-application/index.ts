@@ -9,8 +9,9 @@
 
 // deno-lint-ignore-file
 // @ts-nocheck
+import { verifyTurnstile, CAPTCHA_FAILED_ERROR } from '../_shared/turnstile.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2?target=deno';
-import { enforceRateLimit, RATE_LIMITS } from '../_shared/rateLimit.ts';
+import { enforceRateLimitDurable, RATE_LIMITS } from '../_shared/rateLimit.ts';
 import { withCors } from '../_shared/origins.ts';
 
 const supabaseUrl =
@@ -189,7 +190,7 @@ Deno.serve(withCors(async (req) => {
 
   try {
     const user = await userFromRequest(req);
-    const limited = enforceRateLimit(req, {
+    const limited = await enforceRateLimitDurable(req, {
       ...VOLUNTEER_LIMIT,
       userId: user?.id || null,
       cors,
@@ -199,6 +200,11 @@ Deno.serve(withCors(async (req) => {
     const body = await req.json().catch(() => ({}));
     const v = validate(body);
     if (v.error) return json({ error: v.error }, 400);
+
+    const captcha = await verifyTurnstile(req, body?.captchaToken);
+    if (!captcha.ok) {
+      return json({ error: CAPTCHA_FAILED_ERROR, code: 'CAPTCHA_FAILED' }, 400);
+    }
 
     const row = {
       ...v.row,

@@ -2,6 +2,7 @@
  * Get Involved volunteer applications (private queue).
  * Prefers Edge Function (Discord webhook + service insert); falls back to direct insert.
  */
+import { getCaptchaToken } from '../lib/turnstile';
 import { supabase } from '../lib/supabase';
 
 function functionsBase() {
@@ -53,6 +54,12 @@ export async function submitVolunteerApplication(form) {
     timeCommitment: form.timeCommitment || null,
     portfolioUrl: String(form.portfolioUrl || '').trim() || null,
   };
+
+  try {
+    payload.captchaToken = await getCaptchaToken();
+  } catch (e) {
+    return { ok: false, error: e?.message || 'Verification failed. Please try again.' };
+  }
 
   // Prefer Edge Function (webhook + robust insert)
   const base = functionsBase();

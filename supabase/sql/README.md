@@ -355,3 +355,7 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 - Run on **staging first**, then production.
 - After it runs, `profiles.email` and `profiles.moderation_note` are always `NULL`. Emails come from `auth.users`; staff read both through `staff_profile_private()`.
 - Verify: `select count(*) from public.profiles where email is not null or moderation_note is not null;` returns `0`.
+
+## Scale prep (run on every project)
+
+`supabase_scale_prep.sql` adds database-backed rate limiting for Edge Functions (`edge_rate_limit_hit`, service role only), makes `record_traffic_heartbeat` cheap under many concurrent visitors, and indexes `ideas.created_at`. Re-runnable. Run after `supabase_traffic.sql`. The functions fall back to their in-memory limiter until this script is applied.

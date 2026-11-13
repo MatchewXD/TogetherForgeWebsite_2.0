@@ -1254,7 +1254,7 @@ export const openQuestionsService = {
     const { error: upErr } = await supabase.storage
       .from(QUESTION_IMAGE_BUCKET)
       .upload(path, file, {
-        cacheControl: '3600',
+        cacheControl: '31536000', // unique path per upload, never overwritten
         upsert: false,
         contentType: file.type,
       });

@@ -1,6 +1,7 @@
 # =============================================================================
 # Apply the security hardening to one Supabase project:
-#   1. supabase/sql/supabase_profiles_hardening.sql
+#   1. supabase/sql/supabase_profiles_hardening.sql (profiles security)
+#      supabase/sql/supabase_scale_prep.sql (rate limits, traffic heartbeat)
 #   2. Redeploy the browser-facing Edge Functions already deployed there
 #
 # Usage (from repo root):
@@ -66,6 +67,9 @@ try {
     Invoke-Step "Link $Target" { supabase link --project-ref $Ref }
     Invoke-Step "Apply supabase_profiles_hardening.sql" {
       supabase db query --linked -f supabase/sql/supabase_profiles_hardening.sql
+    }
+    Invoke-Step "Apply supabase_scale_prep.sql" {
+      supabase db query --linked -f supabase/sql/supabase_scale_prep.sql
     }
     Invoke-Step "Verify (both counts must be 0)" {
       supabase db query --linked "select (select count(*) from public.profiles where email is not null) as emails_left, (select count(*) from public.profiles where moderation_note is not null) as notes_left"

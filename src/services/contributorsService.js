@@ -939,7 +939,32 @@ export async function getProjectDonationCredits(projectId) {
  * Build full public credit view for one project.
  * Donations: only those attributed while the project was active (In Development).
  */
+const creditsInFlight = new Map();
+
+/**
+ * Credits for one project. Several widgets on a project page ask for the same
+ * credits at the same moment; they share one load instead of each repeating
+ * five queries. Nothing is cached once the load settles, so edits show at once.
+ */
 export async function getProjectCredits(projectId) {
+  const key = String(projectId ?? '');
+  let pending = creditsInFlight.get(key);
+  if (!pending) {
+    pending = loadProjectCredits(projectId).finally(() => {
+      creditsInFlight.delete(key);
+    });
+    creditsInFlight.set(key, pending);
+  }
+  const result = await pending;
+  // Each caller gets its own copy so sorting / tagging cannot leak between them
+  try {
+    return structuredClone(result);
+  } catch {
+    return result;
+  }
+}
+
+async function loadProjectCredits(projectId) {
   if (isDemoReleaseEnabled() && isDemoReleaseKey(projectId)) {
     return getDemoReleaseCredits();
   }

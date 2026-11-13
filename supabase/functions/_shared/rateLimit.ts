@@ -237,3 +237,82 @@ export const RATE_LIMITS = {
     message: 'Too many applications. Please wait a bit and try again.',
   },
 };
+
+// ---------------------------------------------------------------------------
+// Durable limiter (database-backed)
+// ---------------------------------------------------------------------------
+
+function envValue(name) {
+  try {
+    return globalThis.Deno?.env?.get?.(name) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(text)
+  );
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/**
+ * Same contract as enforceRateLimit, but counted in Postgres
+ * (public.edge_rate_limit_hit, see supabase/sql/supabase_scale_prep.sql) so
+ * the limit holds across function instances and cold starts.
+ *
+ * Falls back to the in-memory limiter when the database call fails or the
+ * SQL has not been applied yet, so it is always safe to deploy.
+ *
+ * @param {Request} req
+ * @param {Parameters<typeof enforceRateLimit>[1]} opts
+ * @returns {Promise<Response|null>}
+ */
+export async function enforceRateLimitDurable(req, opts) {
+  const url = envValue('SUPABASE_URL') || envValue('SB_URL');
+  const serviceKey =
+    envValue('SUPABASE_SERVICE_ROLE_KEY') || envValue('SERVICE_ROLE_KEY');
+  if (!url || !serviceKey) return enforceRateLimit(req, opts);
+
+  const limit = Math.max(1, Number(opts.limit) || 30);
+  const windowSeconds = Math.max(
+    1,
+    Math.ceil((Number(opts.windowMs) || 60_000) / 1000)
+  );
+  try {
+    // Hash the key so raw IP addresses are never stored
+    const keyHash = await sha256Hex(clientKey(req, opts.userId));
+    const res = await fetch(`${url}/rest/v1/rpc/edge_rate_limit_hit`, {
+      method: 'POST',
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        p_bucket: opts.bucket || 'default',
+        p_key_hash: keyHash,
+        p_limit: limit,
+        p_window_seconds: windowSeconds,
+      }),
+      signal: AbortSignal.timeout(2500),
+    });
+    if (!res.ok) throw new Error(`rate limit rpc ${res.status}`);
+    const data = await res.json();
+    if (data && data.allowed === false) {
+      return rateLimitResponse(
+        { limit, remaining: 0, retryAfter: Number(data.retry_after) || 60 },
+        opts.cors || {},
+        opts.message
+      );
+    }
+    if (data && data.allowed === true) return null;
+    throw new Error('unexpected rate limit response');
+  } catch {
+    return enforceRateLimit(req, opts);
+  }
+}

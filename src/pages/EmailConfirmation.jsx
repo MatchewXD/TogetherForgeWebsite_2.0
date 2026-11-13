@@ -1,3 +1,4 @@
+import { getCaptchaToken } from '../lib/turnstile';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Loader2, Mail } from 'lucide-react';
@@ -69,11 +70,13 @@ const EmailConfirmation = () => {
     setMessage('');
     try {
       stashPendingConfirmEmail(target);
+      const captchaToken = await getCaptchaToken();
       const { error: err } = await supabase.auth.resend({
         type: 'signup',
         email: target,
         options: {
           emailRedirectTo: emailConfirmRedirectUrl(),
+          captchaToken,
         },
       });
       if (err) throw err;

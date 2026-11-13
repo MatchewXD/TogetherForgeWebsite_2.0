@@ -3,6 +3,7 @@
  * Tokens, hashing, and reset rate limits are enforced by Supabase Auth.
  */
 
+import { getCaptchaToken } from '../lib/turnstile';
 import { supabase } from '../lib/supabase';
 import { validatePasswordStrength } from '../utils/passwordRules';
 import { AUTH_FROM_HINT } from '../constants/authEmail';
@@ -108,9 +109,11 @@ export async function changePasswordWhileLoggedIn(opts) {
   }
 
   // Re-auth with current password (also refreshes session)
+  const reauthCaptcha = await getCaptchaToken();
   const { error: reauthErr } = await supabase.auth.signInWithPassword({
     email,
     password: currentPassword,
+    options: { captchaToken: reauthCaptcha },
   });
   if (reauthErr) {
     const err = new Error(
@@ -178,8 +181,10 @@ export async function requestPasswordReset(email, opts = {}) {
 
   const redirectTo = opts.redirectTo || passwordResetRedirectUrl();
 
+  const captchaToken = await getCaptchaToken();
   const { error } = await supabase.auth.resetPasswordForEmail(cleaned, {
     redirectTo,
+    captchaToken,
   });
 
   // Rate limit / network errors: surface them. "User not found" style: treat as success.

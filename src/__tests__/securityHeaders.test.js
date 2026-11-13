@@ -24,8 +24,9 @@ describe('securityHeaders', () => {
     expect(csp).toMatch(/\*\.supabase\.co/);
     expect(csp).toMatch(/youtube-nocookie\.com/);
     expect(csp).toMatch(/api\.microlink\.io/);
-    expect(csp).not.toMatch(/script-src[^;]*https:/);
-    expect(csp).toMatch(/script-src 'self'(;|$)/);
+    // No inline scripts, no eval; Turnstile is the only remote script host
+    expect(csp).toMatch(/script-src 'self' https:\/\/challenges\.cloudflare\.com(;|$)/);
+    expect(csp).not.toMatch(/script-src[^;]*unsafe/);
     expect(csp).not.toMatch(/fonts.g(oogleapis|static).com/);
   });
 

@@ -3,6 +3,7 @@
  * - Email verification status + resend
  * - Link / unlink Discord, Google, GitHub via Supabase Auth
  */
+import { getCaptchaToken } from '../../lib/turnstile';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Link2, Mail, Unlink, AlertTriangle, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -289,11 +290,13 @@ export default function ConnectedAccounts({
     setMessage('');
     setBusy('email');
     try {
+      const captchaToken = await getCaptchaToken();
       const { error: err } = await supabase.auth.resend({
         type: 'signup',
         email: user.email,
         options: {
           emailRedirectTo: emailConfirmRedirectUrl(),
+          captchaToken,
         },
       });
       if (err) throw err;

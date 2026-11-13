@@ -11,7 +11,8 @@
  * - img-src https: covers YouTube thumbs, avatars, showcase OG images.
  * - connect-src allows Supabase (API + Realtime + Storage + Edge Functions),
  *   Microlink link previews, and Stripe API domains.
- * - frame-src is limited to YouTube (media player) + Stripe embed hosts.
+ * - frame-src is limited to YouTube (media player), Stripe embed hosts and
+ *   Cloudflare Turnstile (CAPTCHA, only loaded when a site key is set).
  */
 
 /** @type {Record<string, string>} */
@@ -30,7 +31,8 @@ export const securityHeaders = {
     "frame-ancestors 'none'",
     "form-action 'self' https://checkout.stripe.com https://*.stripe.com",
     // Bundled modules + /boot.js only. No inline scripts, no eval.
-    "script-src 'self'",
+    // Turnstile (CAPTCHA) is the only third-party script, loaded on demand.
+    "script-src 'self' https://challenges.cloudflare.com",
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self' data:",
     "img-src 'self' data: blob: https:",
@@ -46,6 +48,7 @@ export const securityHeaders = {
     ].join(' '),
     [
       'frame-src',
+      'https://challenges.cloudflare.com',
       'https://www.youtube.com',
       'https://www.youtube-nocookie.com',
       'https://js.stripe.com',
@@ -68,7 +71,7 @@ export const devSecurityHeaders = {
     "object-src 'none'",
     "frame-ancestors 'none'",
     "form-action 'self' https://checkout.stripe.com https://*.stripe.com",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com",
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self' data:",
     "img-src 'self' data: blob: https:",
@@ -87,6 +90,7 @@ export const devSecurityHeaders = {
     ].join(' '),
     [
       'frame-src',
+      'https://challenges.cloudflare.com',
       'https://www.youtube.com',
       'https://www.youtube-nocookie.com',
       'https://js.stripe.com',

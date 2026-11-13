@@ -201,7 +201,7 @@ export const bugReportsService = {
     const { error: upErr } = await supabase.storage
       .from('bug-screenshots')
       .upload(path, file, {
-        cacheControl: '3600',
+        cacheControl: '31536000', // unique path per upload, never overwritten
         upsert: false,
         contentType: file.type,
       });

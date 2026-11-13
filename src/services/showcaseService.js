@@ -726,7 +726,7 @@ export async function uploadShowcaseImage(file, userId) {
   const { error: upErr } = await supabase.storage
     .from(SHOWCASE_IMAGE_BUCKET)
     .upload(path, file, {
-      cacheControl: '3600',
+      cacheControl: '31536000', // unique path per upload, never overwritten
       upsert: false,
       contentType: file.type,
     });
