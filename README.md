@@ -4,7 +4,7 @@
 
 An independent game studio where players, creators, and volunteers build cooperative games *together*—and keep the work transparent every step of the way.
 
-> **Private development:** The live site is not publicly deployed yet. The screenshots below are current previews of the website as it exists today.
+> **Live site:** [togetherforge.net](https://togetherforge.net). The screenshots below are previews of the website.
 ---
 
 ## What is Together Forge?
@@ -106,11 +106,11 @@ Accounts unlock drafts, dashboards, claims, and personal progress. Staff keep bo
 | Area | Status |
 |------|--------|
 | Website (app shell, pages, design system) | Active development |
-| Ideas (submit, wizard, drafts, voting, comments) | Working in private builds |
-| Early Game hub + Tether workspace | Live in private builds |
+| Ideas (submit, wizard, drafts, voting, comments) | Live |
+| Early Game hub + Tether workspace | Live |
 | Mid / Late Game | Planned vision pages; open when the studio is ready |
 | Community support / transparency | Foundations in place |
-| Public deployment | **Not public yet** |
+| Public deployment | Live at [togetherforge.net](https://togetherforge.net) |
 
 This repository is the home of the Together Forge **website**—the front door for the studio, projects, ideas, and community workflows. Game source code for individual titles may live in separate places as projects mature.
 

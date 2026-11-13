@@ -138,25 +138,25 @@ const STAT_META = [
   {
     key: 'members',
     label: 'Members',
-    iconSrc: '/images/community-pulse/Members.png',
+    iconSrc: '/images/community-pulse/Members.webp',
     accent: 'cyan',
   },
   {
     key: 'ideasSubmitted',
     label: 'Ideas Submitted',
-    iconSrc: '/images/community-pulse/Ideas_Submitted.png',
+    iconSrc: '/images/community-pulse/Ideas_Submitted.webp',
     accent: 'gold',
   },
   {
     key: 'supporters',
     label: 'Supporters',
-    iconSrc: '/images/community-pulse/Supporters.png',
+    iconSrc: '/images/community-pulse/Supporters.webp',
     accent: 'magenta',
   },
   {
     key: 'tasksCompleted',
     label: 'Tasks Completed',
-    iconSrc: '/images/community-pulse/Contributions.png',
+    iconSrc: '/images/community-pulse/Contributions.webp',
     accent: 'purple',
   },
 ];

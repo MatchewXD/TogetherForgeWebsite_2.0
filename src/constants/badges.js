@@ -127,61 +127,61 @@ export const BADGE_IMAGE_DIR = '/images/Badges';
 
 /** @type {Record<string, string>} key → path under BADGE_IMAGE_DIR */
 export const BADGE_IMAGE_FILES = {
-  status_active_subscriber: 'Active_Subscriber.png',
-  status_donor: 'Donor/Donator.png',
-  status_game_shipper: 'game_shipper.png',
+  status_active_subscriber: 'Active_Subscriber.webp',
+  status_donor: 'Donor/Donator.webp',
+  status_game_shipper: 'game_shipper.webp',
 
-  donation_10: 'Donor/10_donor.png',
-  donation_50: 'Donor/50_donor.png',
-  donation_100: 'Donor/100_donor.png',
-  donation_250: 'Donor/250_donor.png',
-  donation_500: 'Donor/500_donor.png',
-  donation_1000: 'Donor/1000_donor.png',
-  donation_2500: 'Donor/2500_donor.png',
-  donation_5000: 'Donor/5000_donor.png',
-  donation_10000: 'Donor/10000_donor.png',
-  donation_25000: 'Donor/25000_donor.png',
-  donation_50000: 'Donor/50000_donor.png',
-  donation_100000: 'Donor/100000_donor.png',
+  donation_10: 'Donor/10_donor.webp',
+  donation_50: 'Donor/50_donor.webp',
+  donation_100: 'Donor/100_donor.webp',
+  donation_250: 'Donor/250_donor.webp',
+  donation_500: 'Donor/500_donor.webp',
+  donation_1000: 'Donor/1000_donor.webp',
+  donation_2500: 'Donor/2500_donor.webp',
+  donation_5000: 'Donor/5000_donor.webp',
+  donation_10000: 'Donor/10000_donor.webp',
+  donation_25000: 'Donor/25000_donor.webp',
+  donation_50000: 'Donor/50000_donor.webp',
+  donation_100000: 'Donor/100000_donor.webp',
 
-  tasks_1: 'Tasks/first_Ship.png',
-  tasks_5: 'Tasks/5_tasks.png',
-  tasks_10: 'Tasks/10_tasks.png',
-  tasks_25: 'Tasks/25_tasks.png',
-  tasks_50: 'Tasks/50_tasks.png',
-  tasks_75: 'Tasks/75_tasks.png',
-  tasks_100: 'Tasks/100_tasks.png',
-  tasks_150: 'Tasks/150_tasks.png',
-  tasks_200: 'Tasks/200_tasks.png',
-  tasks_250: 'Tasks/250_tasks.png',
+  tasks_1: 'Tasks/first_Ship.webp',
+  tasks_5: 'Tasks/5_tasks.webp',
+  tasks_10: 'Tasks/10_tasks.webp',
+  tasks_25: 'Tasks/25_tasks.webp',
+  tasks_50: 'Tasks/50_tasks.webp',
+  tasks_75: 'Tasks/75_tasks.webp',
+  tasks_100: 'Tasks/100_tasks.webp',
+  tasks_150: 'Tasks/150_tasks.webp',
+  tasks_200: 'Tasks/200_tasks.webp',
+  tasks_250: 'Tasks/250_tasks.webp',
 
-  starter_first_idea: 'Starter/First_Idea.png',
-  starter_showcase: 'Starter/Showcase.png',
-  starter_first_feedback: 'Starter/First_Feedback.png',
-  starter_task_claimed: 'Starter/Task_Claimed.png',
-  starter_early_supporter: 'Starter/Early_Supporter.png',
+  starter_first_idea: 'Starter/First_Idea.webp',
+  starter_showcase: 'Starter/Showcase.webp',
+  starter_first_feedback: 'Starter/First_Feedback.webp',
+  starter_task_claimed: 'Starter/Task_Claimed.webp',
+  starter_early_supporter: 'Starter/Early_Supporter.webp',
 
-  impact_discussion_starter: 'Impact/Discussion_Starter.png',
-  impact_well_received: 'Impact/Well_Recieved.png',
-  impact_deep_discussion: 'Impact/Deep_Discussion.png',
-  impact_community_favorite: 'Impact/Community_Favorite.png',
-  impact_awarded_idea: 'Impact/Awarded_Idea.png',
-  impact_recognized: 'Impact/Recognized.png',
-  impact_respected: 'Impact/Respected.png',
-  impact_distinguished: 'Impact/Distinguished.png',
-  impact_talk_of_the_forge: 'Impact/Talk_Of_The_Forge.png',
-  impact_viral_idea: 'Impact/Viral_Idea.png',
+  impact_discussion_starter: 'Impact/Discussion_Starter.webp',
+  impact_well_received: 'Impact/Well_Recieved.webp',
+  impact_deep_discussion: 'Impact/Deep_Discussion.webp',
+  impact_community_favorite: 'Impact/Community_Favorite.webp',
+  impact_awarded_idea: 'Impact/Awarded_Idea.webp',
+  impact_recognized: 'Impact/Recognized.webp',
+  impact_respected: 'Impact/Respected.webp',
+  impact_distinguished: 'Impact/Distinguished.webp',
+  impact_talk_of_the_forge: 'Impact/Talk_Of_The_Forge.webp',
+  impact_viral_idea: 'Impact/Viral_Idea.webp',
 
-  giving_first_spark: 'Engagement/First_Spark_Given.png',
-  giving_generous: 'Engagement/Generous.png',
-  giving_patron: 'Engagement/Patron.png',
-  giving_commentator: 'Engagement/Commentator.png',
-  giving_active_voice: 'Engagement/Aactive_Voice.png',
-  giving_supporter: 'Engagement/Supporter.png',
-  giving_enthusiast: 'Engagement/Enthusiast.png',
+  giving_first_spark: 'Engagement/First_Spark_Given.webp',
+  giving_generous: 'Engagement/Generous.webp',
+  giving_patron: 'Engagement/Patron.webp',
+  giving_commentator: 'Engagement/Commentator.webp',
+  giving_active_voice: 'Engagement/Aactive_Voice.webp',
+  giving_supporter: 'Engagement/Supporter.webp',
+  giving_enthusiast: 'Engagement/Enthusiast.webp',
 
-  collab_joined_force: 'Engagement/Joined_Force.png',
-  collab_shared_victory: 'Engagement/Shared_Victory.png',
+  collab_joined_force: 'Engagement/Joined_Force.webp',
+  collab_shared_victory: 'Engagement/Shared_Victory.webp',
 };
 
 /**
@@ -199,14 +199,14 @@ export function getBadgeImageSrc(key) {
 
   const donationMatch = /^donation_(\d+)$/.exec(k);
   if (donationMatch) {
-    return `${BADGE_IMAGE_DIR}/Donor/${donationMatch[1]}_donor.png`;
+    return `${BADGE_IMAGE_DIR}/Donor/${donationMatch[1]}_donor.webp`;
   }
   const taskMatch = /^tasks_(\d+)$/.exec(k);
   if (taskMatch) {
     if (taskMatch[1] === '1') {
-      return `${BADGE_IMAGE_DIR}/Tasks/first_Ship.png`;
+      return `${BADGE_IMAGE_DIR}/Tasks/first_Ship.webp`;
     }
-    return `${BADGE_IMAGE_DIR}/Tasks/${taskMatch[1]}_tasks.png`;
+    return `${BADGE_IMAGE_DIR}/Tasks/${taskMatch[1]}_tasks.webp`;
   }
   return null;
 }

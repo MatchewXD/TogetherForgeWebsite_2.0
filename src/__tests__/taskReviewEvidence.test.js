@@ -15,7 +15,7 @@ describe('getReviewEvidenceHint', () => {
   });
 
   it('falls back for unknown categories', () => {
-    expect(getReviewEvidenceHint('Magic')).toMatch(/proof|complete/i);
+    expect(getReviewEvidenceHint('Magic')).toMatch(/wherever the work can be reviewed/i);
   });
 });
 

@@ -22,7 +22,6 @@ import {
   AlertTriangle,
   LayoutDashboard,
   ExternalLink,
-  Pencil,
   Sparkles,
   Hexagon,
 } from 'lucide-react';

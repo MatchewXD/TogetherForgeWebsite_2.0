@@ -3,8 +3,11 @@
  * Used by Vite (dev/preview) and mirrored in public/_headers + vercel.json.
  *
  * CSP notes:
- * - 'unsafe-inline' for style/script: boot shell + theme snippet in index.html,
- *   and Tailwind runtime classes. Tighten with nonces later if desired.
+ * - script-src is 'self' only in production: no inline scripts. The pre-paint
+ *   boot snippet lives in public/boot.js for that reason.
+ * - 'unsafe-inline' for style: boot shell <style> in index.html and inline
+ *   style attributes set by React / framer-motion.
+ * - Fonts are self-hosted (@fontsource/league-spartan), so no font CDN hosts.
  * - img-src https: covers YouTube thumbs, avatars, showcase OG images.
  * - connect-src allows Supabase (API + Realtime + Storage + Edge Functions),
  *   Microlink link previews, and Stripe API domains.
@@ -26,10 +29,10 @@ export const securityHeaders = {
     "object-src 'none'",
     "frame-ancestors 'none'",
     "form-action 'self' https://checkout.stripe.com https://*.stripe.com",
-    // Boot script + Vite module graph. Avoid unsafe-eval in production builds.
-    "script-src 'self' 'unsafe-inline'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com data:",
+    // Bundled modules + /boot.js only. No inline scripts, no eval.
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self' data:",
     "img-src 'self' data: blob: https:",
     "media-src 'self' blob: https:",
     "worker-src 'self' blob:",
@@ -54,7 +57,7 @@ export const securityHeaders = {
 };
 
 /**
- * Dev-only CSP relaxes HMR / local websocket / eval used by Vite.
+ * Dev-only CSP relaxes HMR / local websocket / eval / inline preamble used by Vite.
  * @type {Record<string, string>}
  */
 export const devSecurityHeaders = {
@@ -66,8 +69,8 @@ export const devSecurityHeaders = {
     "frame-ancestors 'none'",
     "form-action 'self' https://checkout.stripe.com https://*.stripe.com",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com data:",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self' data:",
     "img-src 'self' data: blob: https:",
     "media-src 'self' blob: https:",
     "worker-src 'self' blob:",

@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /account
+Disallow: /dashboard
+Disallow: /moderator
+Disallow: /profile/edit
+Disallow: /confirm-email
+Disallow: /reset-password
+Disallow: /showcase/moderate
+Disallow: /media/edit
+Disallow: /projects/edit
+Disallow: /projects/early/edit
+
+Sitemap: https://togetherforge.net/sitemap.xml

@@ -127,7 +127,6 @@ import {
   TASK_CATEGORIES,
   getTaskCategoryTextClass,
   getTaskCategoryStyle,
-  taskMatchesCategoryFilter,
   normalizeTaskCategoryKey,
 } from '../constants/taskCategories';
 import {
@@ -291,7 +290,7 @@ const fieldControlClass =
 
 function parseSubtaskLines(lines) {
   return (lines || [])
-    .map((line, i) => String(line || '').trim())
+    .map((line) => String(line || '').trim())
     .filter(Boolean)
     .map((label, i) => ({
       id: `s${i + 1}`,

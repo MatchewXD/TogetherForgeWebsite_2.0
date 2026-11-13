@@ -1,72 +1,78 @@
+import { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import ScrollToTop from './components/ScrollToTop';
 import TrafficBeacon from './components/traffic/TrafficBeacon';
 import HomePage from './pages/HomePage';
-import AboutPage from './pages/AboutPage';
-import GameIdeas from './pages/GameIdeas';
-import IdeaSubmit from './pages/IdeaSubmit';
-import IdeaWizard from './pages/IdeaWizard';
-import IdeaDetail from './pages/IdeaDetail';
-import OpenQuestions from './pages/OpenQuestions';
-import OpenQuestionDetail from './pages/OpenQuestionDetail';
-import Polls from './pages/Polls';
-import PollDetail from './pages/PollDetail';
-import Projects from './pages/Projects';
-import GetInvolved from './pages/GetInvolved';
-import HowItWorks from './pages/HowItWorks';
-import EducationApprenticeship from './pages/EducationApprenticeship';
-import FAQ from './pages/FAQ';
-import BugTracker from './pages/BugTracker';
-import ReportBug from './pages/ReportBug';
-import ReportConcern from './pages/ReportConcern';
-import PlatformSuggestions from './pages/PlatformSuggestions';
-import Donations from './pages/Donations';
-import Contact from './pages/Contact';
-import TransparencyHub from './pages/TransparencyHub';
-import FoundersThoughts from './pages/FoundersThoughts';
-import SupportRunway from './pages/SupportRunway';
-import Profile from './pages/Profile';
-import Dashboard from './pages/Dashboard';
-import EditProfile from './pages/EditProfile';
-import Account from './pages/Account';
-import EmailConfirmation from './pages/EmailConfirmation';
-import ResetPassword from './pages/ResetPassword';
-import PublicProfile from './pages/PublicProfile';
-import IdeaEdit from './pages/IdeaEdit';
-import ProjectsEarly from './pages/ProjectsEarly';
-import ProjectsMid from './pages/ProjectsMid';
-import ProjectsLate from './pages/ProjectsLate';
-import ProjectsEarlyDetail from './pages/ProjectsEarlyDetail';
-import ProjectsEdit from './pages/ProjectsEdit';
-import ProjectsEarlyEdit from './pages/ProjectsEarlyEdit';
-import ProjectWorkspace from './pages/ProjectWorkspace';
-import SuggestedTasksBoard from './pages/SuggestedTasksBoard';
-import OpenWork from './pages/OpenWork';
-import Contributors from './pages/Contributors';
-import ProjectContributors from './pages/ProjectContributors';
-import AllContributors from './pages/AllContributors';
-import ModeratorDashboard from './pages/ModeratorDashboard';
-import MechanicLab from './pages/MechanicLab';
-import Media from './pages/Media';
-import MediaEdit from './pages/MediaEdit';
-import CommunityShowcase from './pages/CommunityShowcase';
-import ShowcaseSubmit from './pages/ShowcaseSubmit';
-import ShowcaseModerate from './pages/ShowcaseModerate';
-import Badges from './pages/Badges';
-import ReleasedGames from './pages/ReleasedGames';
-import ReleasedGameDetail from './pages/ReleasedGameDetail';
-import NotFound from './pages/NotFound';
 import Footer from './components/layout/Footer';
+import ErrorBoundary from './components/ErrorBoundary';
+import RouteMeta from './components/RouteMeta';
+import LoadingScreen from './components/ui/LoadingScreen';
+import { lazyPage } from './lib/lazyPage';
 import MfaSessionGate from './components/auth/MfaSessionGate';
 import EmailConfirmationGate from './components/auth/EmailConfirmationGate';
 import LegalAcceptanceGate from './components/legal/LegalAcceptanceGate';
 import { ReportConcernProvider } from './context/ReportConcernContext';
 import { UserNoticesProvider } from './context/UserNoticesContext';
-import Terms from './pages/Terms';
-import Privacy from './pages/Privacy';
-import Guidelines from './pages/Guidelines';
-import Payments from './pages/Payments';
+
+const AboutPage = lazyPage(() => import('./pages/AboutPage'));
+const GameIdeas = lazyPage(() => import('./pages/GameIdeas'));
+const IdeaSubmit = lazyPage(() => import('./pages/IdeaSubmit'));
+const IdeaWizard = lazyPage(() => import('./pages/IdeaWizard'));
+const IdeaDetail = lazyPage(() => import('./pages/IdeaDetail'));
+const OpenQuestions = lazyPage(() => import('./pages/OpenQuestions'));
+const OpenQuestionDetail = lazyPage(() => import('./pages/OpenQuestionDetail'));
+const Polls = lazyPage(() => import('./pages/Polls'));
+const PollDetail = lazyPage(() => import('./pages/PollDetail'));
+const Projects = lazyPage(() => import('./pages/Projects'));
+const GetInvolved = lazyPage(() => import('./pages/GetInvolved'));
+const HowItWorks = lazyPage(() => import('./pages/HowItWorks'));
+const EducationApprenticeship = lazyPage(() => import('./pages/EducationApprenticeship'));
+const FAQ = lazyPage(() => import('./pages/FAQ'));
+const BugTracker = lazyPage(() => import('./pages/BugTracker'));
+const ReportBug = lazyPage(() => import('./pages/ReportBug'));
+const ReportConcern = lazyPage(() => import('./pages/ReportConcern'));
+const PlatformSuggestions = lazyPage(() => import('./pages/PlatformSuggestions'));
+const Donations = lazyPage(() => import('./pages/Donations'));
+const Contact = lazyPage(() => import('./pages/Contact'));
+const TransparencyHub = lazyPage(() => import('./pages/TransparencyHub'));
+const FoundersThoughts = lazyPage(() => import('./pages/FoundersThoughts'));
+const SupportRunway = lazyPage(() => import('./pages/SupportRunway'));
+const Profile = lazyPage(() => import('./pages/Profile'));
+const Dashboard = lazyPage(() => import('./pages/Dashboard'));
+const EditProfile = lazyPage(() => import('./pages/EditProfile'));
+const Account = lazyPage(() => import('./pages/Account'));
+const EmailConfirmation = lazyPage(() => import('./pages/EmailConfirmation'));
+const ResetPassword = lazyPage(() => import('./pages/ResetPassword'));
+const PublicProfile = lazyPage(() => import('./pages/PublicProfile'));
+const IdeaEdit = lazyPage(() => import('./pages/IdeaEdit'));
+const ProjectsEarly = lazyPage(() => import('./pages/ProjectsEarly'));
+const ProjectsMid = lazyPage(() => import('./pages/ProjectsMid'));
+const ProjectsLate = lazyPage(() => import('./pages/ProjectsLate'));
+const ProjectsEarlyDetail = lazyPage(() => import('./pages/ProjectsEarlyDetail'));
+const ProjectsEdit = lazyPage(() => import('./pages/ProjectsEdit'));
+const ProjectsEarlyEdit = lazyPage(() => import('./pages/ProjectsEarlyEdit'));
+const ProjectWorkspace = lazyPage(() => import('./pages/ProjectWorkspace'));
+const SuggestedTasksBoard = lazyPage(() => import('./pages/SuggestedTasksBoard'));
+const OpenWork = lazyPage(() => import('./pages/OpenWork'));
+const Contributors = lazyPage(() => import('./pages/Contributors'));
+const ProjectContributors = lazyPage(() => import('./pages/ProjectContributors'));
+const AllContributors = lazyPage(() => import('./pages/AllContributors'));
+const ModeratorDashboard = lazyPage(() => import('./pages/ModeratorDashboard'));
+const MechanicLab = lazyPage(() => import('./pages/MechanicLab'));
+const Media = lazyPage(() => import('./pages/Media'));
+const MediaEdit = lazyPage(() => import('./pages/MediaEdit'));
+const CommunityShowcase = lazyPage(() => import('./pages/CommunityShowcase'));
+const ShowcaseSubmit = lazyPage(() => import('./pages/ShowcaseSubmit'));
+const ShowcaseModerate = lazyPage(() => import('./pages/ShowcaseModerate'));
+const Badges = lazyPage(() => import('./pages/Badges'));
+const ReleasedGames = lazyPage(() => import('./pages/ReleasedGames'));
+const ReleasedGameDetail = lazyPage(() => import('./pages/ReleasedGameDetail'));
+const NotFound = lazyPage(() => import('./pages/NotFound'));
+const Terms = lazyPage(() => import('./pages/Terms'));
+const Privacy = lazyPage(() => import('./pages/Privacy'));
+const Guidelines = lazyPage(() => import('./pages/Guidelines'));
+const Payments = lazyPage(() => import('./pages/Payments'));
 
 /** Old Prototype Systems URLs → /projects/tether */
 function RedirectPrototypeSystems() {
@@ -88,6 +94,7 @@ function App() {
         <Router>
             <ScrollToTop />
             <TrafficBeacon />
+            <RouteMeta />
             <EmailConfirmationGate>
             <MfaSessionGate>
             <LegalAcceptanceGate>
@@ -99,6 +106,8 @@ function App() {
                 <div className="scanline-overlay" aria-hidden="true" />
 
                 <main className="flex-1">
+                    <ErrorBoundary>
+                    <Suspense fallback={<LoadingScreen variant="section" />}>
                     <Routes>
                         <Route path="/" element={<HomePage />} />
                         <Route path="/about" element={<AboutPage />} />
@@ -235,6 +244,8 @@ function App() {
                         {/* Unknown routes */}
                         <Route path="*" element={<NotFound />} />
                     </Routes>
+                    </Suspense>
+                    </ErrorBoundary>
                 </main>
                 <Footer />
             </div>

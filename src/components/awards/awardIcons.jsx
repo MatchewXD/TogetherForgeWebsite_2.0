@@ -3,10 +3,10 @@ import { createPortal } from 'react-dom';
 import { Sparkles, Hammer, Crown, Hexagon } from 'lucide-react';
 
 const AWARD_ICON_SRC = {
-  spark: '/images/Awards/Spark.png',
-  hammer: '/images/Awards/Hammer.png',
-  anvil: '/images/Awards/Anvil.png',
-  masterwork: '/images/Awards/Masterwork.png',
+  spark: '/images/Awards/Spark.webp',
+  hammer: '/images/Awards/Hammer.webp',
+  anvil: '/images/Awards/Anvil.webp',
+  masterwork: '/images/Awards/Masterwork.webp',
 };
 
 export function awardIconSrc(tierId) {

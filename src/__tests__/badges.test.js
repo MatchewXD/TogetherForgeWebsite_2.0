@@ -220,61 +220,61 @@ describe('catalog', () => {
 describe('getBadgeImageSrc', () => {
   it('maps existing status and donor art', () => {
     expect(getBadgeImageSrc('status_donor')).toBe(
-      '/images/Badges/Donor/Donator.png'
+      '/images/Badges/Donor/Donator.webp'
     );
     expect(getBadgeImageSrc('status_active_subscriber')).toBe(
-      '/images/Badges/Active_Subscriber.png'
+      '/images/Badges/Active_Subscriber.webp'
     );
     expect(getBadgeImageSrc('donation_10')).toBe(
-      '/images/Badges/Donor/10_donor.png'
+      '/images/Badges/Donor/10_donor.webp'
     );
     expect(getBadgeImageSrc('donation_500')).toBe(
-      '/images/Badges/Donor/500_donor.png'
+      '/images/Badges/Donor/500_donor.webp'
     );
     expect(getBadgeImageSrc('donation_1000')).toBe(
-      '/images/Badges/Donor/1000_donor.png'
+      '/images/Badges/Donor/1000_donor.webp'
     );
     expect(getBadgeImageSrc('donation_100000')).toBe(
-      '/images/Badges/Donor/100000_donor.png'
+      '/images/Badges/Donor/100000_donor.webp'
     );
   });
 
   it('maps task milestone art', () => {
     expect(getBadgeImageSrc('tasks_1')).toBe(
-      '/images/Badges/Tasks/first_Ship.png'
+      '/images/Badges/Tasks/first_Ship.webp'
     );
     expect(getBadgeImageSrc('tasks_5')).toBe(
-      '/images/Badges/Tasks/5_tasks.png'
+      '/images/Badges/Tasks/5_tasks.webp'
     );
     expect(getBadgeImageSrc('tasks_250')).toBe(
-      '/images/Badges/Tasks/250_tasks.png'
+      '/images/Badges/Tasks/250_tasks.webp'
     );
   });
 
   it('maps game shipper art', () => {
     expect(getBadgeImageSrc('status_game_shipper')).toBe(
-      '/images/Badges/game_shipper.png'
+      '/images/Badges/game_shipper.webp'
     );
   });
 
   it('maps starter, impact, and engagement folder art', () => {
     expect(getBadgeImageSrc('starter_first_idea')).toBe(
-      '/images/Badges/Starter/First_Idea.png'
+      '/images/Badges/Starter/First_Idea.webp'
     );
     expect(getBadgeImageSrc('impact_discussion_starter')).toBe(
-      '/images/Badges/Impact/Discussion_Starter.png'
+      '/images/Badges/Impact/Discussion_Starter.webp'
     );
     expect(getBadgeImageSrc('impact_well_received')).toBe(
-      '/images/Badges/Impact/Well_Recieved.png'
+      '/images/Badges/Impact/Well_Recieved.webp'
     );
     expect(getBadgeImageSrc('giving_first_spark')).toBe(
-      '/images/Badges/Engagement/First_Spark_Given.png'
+      '/images/Badges/Engagement/First_Spark_Given.webp'
     );
     expect(getBadgeImageSrc('giving_active_voice')).toBe(
-      '/images/Badges/Engagement/Aactive_Voice.png'
+      '/images/Badges/Engagement/Aactive_Voice.webp'
     );
     expect(getBadgeImageSrc('collab_joined_force')).toBe(
-      '/images/Badges/Engagement/Joined_Force.png'
+      '/images/Badges/Engagement/Joined_Force.webp'
     );
   });
 });

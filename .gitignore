@@ -35,3 +35,7 @@ supabase/.env.production
 # Visual Studio
 .vs/
 *.vsidx
+# Supabase CLI local state and scratch schema dumps
+supabase/.temp/
+supabase/.branches/
+tmp/

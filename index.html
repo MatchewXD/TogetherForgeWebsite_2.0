@@ -3,42 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <!--
-      Detect software GL / reduced motion before CSS paint.
-      Adds html.tf-lite-fx only — no user-facing hardware-acceleration copy.
+      Pre-paint boot script (external so the CSP can forbid inline scripts):
+      adds html.tf-lite-fx on software GL / reduced motion and pins the theme.
     -->
-    <script>
-      (function () {
-        try {
-          if (sessionStorage.getItem('tf-lite-fx')) {
-            document.documentElement.classList.add('tf-lite-fx');
-            return;
-          }
-        } catch (e) {}
-        try {
-          if (
-            window.matchMedia &&
-            window.matchMedia('(prefers-reduced-motion: reduce)').matches
-          ) {
-            document.documentElement.classList.add('tf-lite-fx');
-            return;
-          }
-          var c = document.createElement('canvas');
-          var o = { failIfMajorPerformanceCaveat: true };
-          if (
-            !(c.getContext('webgl', o) || c.getContext('experimental-webgl', o))
-          ) {
-            document.documentElement.classList.add('tf-lite-fx');
-          }
-        } catch (e) {
-          document.documentElement.classList.add('tf-lite-fx');
-        }
-      })();
-    </script>
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="shortcut icon" type="image/png" href="/favicon.png" />
+    <script src="/boot.js"></script>
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="TogetherForge - Community-supported indie game studio building cooperative survival-builder games that forge real human connection. From pixels to intentional communities." />
+    <meta name="description" content="Together Forge is a community-supported indie game studio building cooperative games in the open. Share ideas, claim real work, and see how support is used." />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Together Forge" />
+    <meta property="og:title" content="Together Forge: By the Community, For the Community" />
+    <meta property="og:description" content="Together Forge is a community-supported indie game studio building cooperative games in the open. Share ideas, claim real work, and see how support is used." />
+    <meta property="og:url" content="https://togetherforge.net/" />
+    <meta property="og:image" content="https://togetherforge.net/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Together Forge game development studio emblem" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Together Forge: By the Community, For the Community" />
+    <meta name="twitter:description" content="Together Forge is a community-supported indie game studio building cooperative games in the open. Share ideas, claim real work, and see how support is used." />
+    <meta name="twitter:image" content="https://togetherforge.net/og-image.jpg" />
     <meta name="theme-color" content="#05050a" />
     <meta name="color-scheme" content="dark" />
     <title>Together Forge</title>
@@ -146,22 +132,6 @@
         }
       }
     </style>
-    <!-- League Spartan: primary industrial / forge face (non-blocking for first paint) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
-    <script>
-      /* Forge is the only theme - clear any legacy classic preference */
-      (function () {
-        try {
-          document.documentElement.setAttribute('data-theme', 'forge');
-          localStorage.removeItem('tf-color-theme');
-        } catch (e) {}
-      })();
-    </script>
   </head>
   <body>
     <!-- Instant dark loader until React mounts (no images) -->
