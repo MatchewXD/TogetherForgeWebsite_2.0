@@ -3,6 +3,7 @@
  * Community posts Suggestions (support + replies). Staff may Adopt or close with a note.
  */
 
+import { claimHousekeepingRun } from '../utils/housekeeping';
 import { supabase } from '../lib/supabase';
 import {
   canonicalProjectSlug,
@@ -632,7 +633,11 @@ function throwIfQuestionsMissing(error, fallback) {
 
 async function loadQuestionRows({ projectId = null, questionId = null } = {}) {
   try {
-    await supabase.rpc('close_expired_open_questions');
+    // Housekeeping only (listing already treats overdue questions as closed),
+    // so do not run it on every page view.
+    if (claimHousekeepingRun('close-expired-questions', 10 * 60 * 1000)) {
+      await supabase.rpc('close_expired_open_questions');
+    }
   } catch {
     /* listing still treats overdue questions as closed */
   }

@@ -4,6 +4,7 @@
  * Account settings: /account. Profile page: /u/:username.
  */
 
+import { claimHousekeepingRun } from '../utils/housekeeping';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import {
@@ -160,7 +161,9 @@ const Dashboard = () => {
 
       // Housekeeping: dual-rule auto-release before loading claims
       try {
-        await tasksService.runClaimAutoRelease();
+        if (claimHousekeepingRun('claim-auto-release', 5 * 60 * 1000)) {
+          await tasksService.runClaimAutoRelease();
+        }
       } catch {
         /* optional migration */
       }

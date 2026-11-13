@@ -585,13 +585,40 @@ export async function searchProfilesForCredit(query, { excludeIds = [], limit = 
   }
 }
 
+const backfilledCredits = new Set();
+
+/**
+ * ensureMemorialCredit for read paths (pages that backfill credits while
+ * rendering). Signed-in members only, and each credit at most once per page
+ * session, so public traffic never turns a page view into database writes.
+ * The task_claims trigger already records development credits server-side.
+ */
+async function backfillMemorialCredit(args = {}) {
+  const key = [
+    args.projectId || '',
+    args.userId || '',
+    args.category || '',
+    args.subcategory || '',
+    args.sourceKey || '',
+  ].join('|');
+  if (backfilledCredits.has(key)) return null;
+  backfilledCredits.add(key);
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (!data?.session) return null;
+  } catch {
+    return null;
+  }
+  return ensureMemorialCredit(args);
+}
+
 /**
  * Persist task-derived development credits into the memorial table (best-effort).
  */
 async function persistTaskCredits(rows = [], projectTitle = null) {
   for (const row of rows || []) {
     if (!row?.userId || row.category !== 'development') continue;
-    await ensureMemorialCredit({
+    await backfillMemorialCredit({
       projectId: row.projectId || null,
       userId: row.userId,
       displayName: row.displayName,
@@ -1299,7 +1326,7 @@ export async function listAllContributorsGrouped() {
         idea.title ? `Idea: ${idea.title}` : 'Idea'
       );
       if (userId && idea.id) {
-        void ensureMemorialCredit({
+        void backfillMemorialCredit({
           projectId: null,
           userId,
           displayName: username || 'Idea author',

@@ -12,6 +12,7 @@
  * Board page: focused kanban + task modals (claim, review, create/edit).
  */
 
+import { claimHousekeepingRun } from '../utils/housekeeping';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Link,
@@ -1274,7 +1275,12 @@ const ProjectWorkspace = () => {
     let cancelled = false;
     (async () => {
       try {
-        const result = await tasksService.runClaimAutoRelease();
+        // Housekeeping sweep: members only, throttled per browser. Anonymous
+        // visitors must not turn every board view into a database write.
+        const result =
+          user?.id && claimHousekeepingRun('claim-auto-release', 5 * 60 * 1000)
+            ? await tasksService.runClaimAutoRelease()
+            : { releasedCount: 0, released: [] };
         if (cancelled) return;
         if (result.releasedCount > 0) {
           await refreshBoard(projectUuid);

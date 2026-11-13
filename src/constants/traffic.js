@@ -3,7 +3,9 @@
  * Must stay in sync with public.get_traffic_report (supabase_traffic.sql).
  */
 
-export const TRAFFIC_HEARTBEAT_MS = 20_000;
+// Must stay under the 60 second "active now" window in record_traffic_heartbeat
+// (supabase_traffic.sql). 40s halves heartbeat writes versus the old 20s.
+export const TRAFFIC_HEARTBEAT_MS = 40_000;
 export const TRAFFIC_ACTIVE_POLL_MS = 8_000;
 export const TRAFFIC_REPORT_POLL_MS = 45_000;
 export const TRAFFIC_SESSION_IDLE_MS = 30 * 60 * 1000;
