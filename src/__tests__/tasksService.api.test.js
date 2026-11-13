@@ -1,0 +1,156 @@
+/**
+ * Guards the public surface of services/tasksService after it was split into
+ * services/tasks/*. If a helper or method is added or removed on purpose,
+ * update the lists below.
+ */
+import { describe, it, expect } from 'vitest';
+import * as tasksModule from '../services/tasksService';
+
+const EXPECTED_EXPORTS = [
+  'BOARD_SCOPE_PUBLIC',
+  'BOARD_SCOPE_STAGING',
+  'BYPASS_CLAIM_LIMIT',
+  'BYPASS_SUBMIT_LIMIT_24H',
+  'CLAIM_AUTO_RELEASE_POLICY_COPY',
+  'CLAIM_COOLDOWN_MINUTES',
+  'CLAIM_IDLE_RELEASE_DAYS',
+  'CLAIM_LIMIT_UNLOCK_COMPLETIONS',
+  'CLAIM_MAX_DURATION_DAYS',
+  'CLAIM_STALE_DAYS',
+  'ESTABLISHED_CLAIM_LIMIT',
+  'ESTABLISHED_SUBMIT_LIMIT_24H',
+  'HOLD_CLAIM_DETAIL_COPY',
+  'HOLD_CLAIM_STAFF_HELP',
+  'MAX_ACTIVE_CLAIMS',
+  'MAX_TASK_NESTING_DEPTH',
+  'NEW_USER_CLAIM_LIMIT',
+  'NEW_USER_SUBMIT_LIMIT_24H',
+  'OPEN_CLAIM_STATUSES',
+  'STAFF_CONTACT_EMAIL',
+  'STAFF_ONLY_TASK_MESSAGE',
+  'STAFF_ONLY_TASK_SNIPPET',
+  'STAGING_TASK_CLAIM_MESSAGE',
+  'STATUS_TO_DB',
+  'STATUS_TO_UI',
+  'SUBMIT_COOLDOWN_MINUTES',
+  'TASK_CANNOT_WAIT_ON_SELF',
+  'TASK_LEVEL_LABELS',
+  'TASK_LEVEL_SHORT',
+  'TASK_LIMIT_BYPASS_ROLES',
+  'TRUSTED_CLAIM_UNLOCK_COMPLETIONS',
+  'TRUSTED_SUBMIT_LIMIT_24H',
+  'attachScopeRequests',
+  'attachTaskDependencies',
+  'attachTaskHierarchy',
+  'canMovePublicTaskToStaging',
+  'canPublishStagingTask',
+  'claimLimitForAcceptedCount',
+  'compareTaskBoardOrder',
+  'countCompletedDescendants',
+  'daysSinceIso',
+  'formatAutoReleaseReason',
+  'formatClaimHeldSince',
+  'formatClaimSplitNotice',
+  'getChildTasks',
+  'getClaimAutoReleaseInfo',
+  'getEpicRootTask',
+  'getTaskAncestorIds',
+  'getTaskBreadcrumb',
+  'getTaskClaimBlockedReason',
+  'getTaskStaffOnlyBlockedReason',
+  'getTaskWaitingOnBlockers',
+  'getUserTaskClaimBlockedReason',
+  'groupCompletedTaskForest',
+  'groupTaskForest',
+  'identityGateBlockedReason',
+  'inferTaskBoardDepthFromTitle',
+  'isChecklistComplete',
+  'isClaimAutoReleaseExempt',
+  'isCommunityDecisionsEpic',
+  'isStagingTask',
+  'isTaskClaimHeld',
+  'isTaskCompletedAccepted',
+  'isTaskDependencyLocked',
+  'isTaskStaffOnly',
+  'isTaskVisibleWithLockedToggle',
+  'isTaskVisuallyBlocked',
+  'isVisibleProjectHubActivity',
+  'isVolunteerClaimable',
+  'mapActivityRow',
+  'mapTaskRow',
+  'normalizeChecklist',
+  'profileBypassesTaskLimits',
+  'progressFromChecklist',
+  'selectBoardTasks',
+  'sortTasksAsForest',
+  'submitLimit24hForAcceptedCount',
+  'taskLevelLabel',
+  'taskLevelShort',
+  'trustTierFromAccepted',
+  'userMeetsIdentityGate',
+  'waitingBlockersExcludingSelf',
+  'waitingNamesExcludingSelf',
+  'wouldCreateDependencyCycle',
+];
+
+const EXPECTED_METHODS = [
+  'cancelScopeRequest',
+  'claimTask',
+  'completeTask',
+  'countActiveClaims',
+  'countCompletedClaims',
+  'countPendingScopeRequests',
+  'createTask',
+  'deleteTask',
+  'getActivityForProject',
+  'getContributorTrust',
+  'getCurrentUser',
+  'getMyClaimQuota',
+  'getProjectBySlug',
+  'getProjectPulse',
+  'getShoutouts',
+  'getTasksForProject',
+  'listJoinRequestsForTask',
+  'listMyActiveClaims',
+  'listMyPendingJoinRequests',
+  'listMyPendingJoinTaskIds',
+  'listMyRecentAutoReleases',
+  'listMyRecentClaimSplits',
+  'listRestrictionEvents',
+  'listScopeRequests',
+  'movePublicTaskToStaging',
+  'publishStagingTask',
+  'rejectAsFakeWork',
+  'reorderTaskAmongSiblings',
+  'requestJoinClaim',
+  'requestScopeHelp',
+  'resolveJoinRequest',
+  'resolveScopeRequest',
+  'returnClaim',
+  'returnStaleClaims',
+  'reviewSubmission',
+  'runClaimAutoRelease',
+  'runClaimAutoReleaseTest',
+  'setTaskDependencies',
+  'submitForReview',
+  'updateProgress',
+  'updateTaskMeta',
+];
+
+describe('tasksService public API', () => {
+  it('still exports every helper and constant', () => {
+    const actual = Object.keys(tasksModule)
+      .filter((k) => k !== 'default' && k !== 'tasksService')
+      .sort();
+    expect(actual).toEqual([...EXPECTED_EXPORTS].sort());
+  });
+
+  it('still exposes every service method', () => {
+    const { tasksService } = tasksModule;
+    expect(Object.keys(tasksService).sort()).toEqual([...EXPECTED_METHODS].sort());
+    for (const name of EXPECTED_METHODS) {
+      expect(typeof tasksService[name]).toBe('function');
+    }
+    expect(tasksModule.default).toBe(tasksService);
+  });
+});
