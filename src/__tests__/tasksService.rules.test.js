@@ -111,7 +111,7 @@ describe('getTaskClaimBlockedReason / isVolunteerClaimable', () => {
     expect(reason).toMatch(/sub-task/i);
   });
 
-  it('lets staff claim a Medium that has children', () => {
+  it('blocks staff from claiming a Medium that has children too', () => {
     const parent = task({
       depth: 1,
       hasChildren: true,
@@ -121,7 +121,7 @@ describe('getTaskClaimBlockedReason / isVolunteerClaimable', () => {
     expect(getTaskClaimBlockedReason(parent)).toMatch(/sub-task/i);
     expect(
       getTaskClaimBlockedReason(parent, { isStaff: true })
-    ).toBeNull();
+    ).toMatch(/sub-task/i);
   });
 
   it('lets staff claim when dependency override is on', () => {

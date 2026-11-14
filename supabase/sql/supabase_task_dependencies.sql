@@ -351,7 +351,9 @@ begin
   where parent_task_id = p_task_id
     and archived_at is null;
 
-  if v_child_count > 0 and not public.is_project_staff() then
+  -- supabase_task_staff_only.sql replaces this function with the final rule
+  -- (no staff exemption except the Tether-CD hold).
+  if v_child_count > 0 then
     raise exception 'This task has sub-tasks and cannot be claimed. Claim a leaf task instead.';
   end if;
 

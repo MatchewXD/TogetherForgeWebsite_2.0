@@ -756,12 +756,14 @@ const ProjectWorkspace = () => {
   }, [isModerator, selectedTask]);
 
   /**
-   * Return claim: only the active claim holder. Staff may claim parent tasks,
-   * so this is not limited to leaves (return_task_claim allows any task).
+   * Return claim: only the active claim holder. Not limited to leaves, so an
+   * older claim on a task that later gained sub-tasks can still be given
+   * back. The Tether-CD hold is never returned from here.
    * Never shown for unclaimed tasks (staff included).
    */
   const canReturnClaim = useMemo(() => {
     if (!selectedTask || selectedTask.status === 'completed') return false;
+    if (isCommunityDecisionsEpic(selectedTask)) return false;
     return isClaimHolder && selectedTask.claim?.status === 'Active';
   }, [selectedTask, isClaimHolder]);
 

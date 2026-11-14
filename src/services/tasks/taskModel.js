@@ -279,10 +279,9 @@ export function getTaskClaimBlockedReason(task, opts = {}) {
     if (opts.isStaff && isCommunityDecisionsEpic(task)) return null;
     return 'Epics cannot be claimed. Open a Medium or Small task under this epic.';
   }
-  if (
-    !opts.isStaff &&
-    (task.hasChildren || (task.childCount || 0) > 0)
-  ) {
+  // Nobody claims a task with sub-tasks, staff included: claim the leaves.
+  // (The Tether-CD hold is handled in the depth-0 branch above.)
+  if (task.hasChildren || (task.childCount || 0) > 0) {
     return 'This task has sub-tasks and is not claimable. Claim a Small (or leaf Medium) task instead.';
   }
   return null;

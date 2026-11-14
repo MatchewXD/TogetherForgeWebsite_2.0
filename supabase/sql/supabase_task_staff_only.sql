@@ -176,7 +176,15 @@ begin
   where parent_task_id = p_task_id
     and archived_at is null;
 
-  if v_child_count > 0 and not public.is_project_staff() then
+  -- Nobody claims a task with sub-tasks, staff included. Only the Tether-CD
+  -- staff hold (checked above) is exempt.
+  if v_child_count > 0
+     and not (
+       public.is_project_staff()
+       and coalesce(v_task.staff_only, false)
+       and v_task.parent_task_id is null
+       and v_task.title ~ '^Tether-CD( |$)'
+     ) then
     raise exception 'This task has sub-tasks and cannot be claimed. Claim a leaf task instead.';
   end if;
 
