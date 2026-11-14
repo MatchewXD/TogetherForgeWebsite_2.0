@@ -332,7 +332,18 @@ export const claimsMethods = {
     const invoked = await supabase.functions.invoke('claim-task', {
       body: { taskId },
     });
-    const payload = invoked.data || {};
+    let payload = invoked.data || {};
+    // On a non-2xx reply supabase-js leaves data empty and keeps the Response
+    // on error.context. Read it so the user sees the server's actual reason
+    // instead of "Edge Function returned a non-2xx status code".
+    if (invoked.error && !invoked.data && typeof invoked.error.context?.json === 'function') {
+      try {
+        const body = await invoked.error.context.clone().json();
+        if (body && typeof body === 'object') payload = body;
+      } catch {
+        /* not JSON */
+      }
+    }
     const invokeMsg = payload.error || invoked.error?.message || '';
     const invokeCode = payload.code || '';
     if (
@@ -343,7 +354,17 @@ export const claimsMethods = {
       err.code = CLAIMS_PAUSED_CODE;
       throw err;
     }
-    if (invoked.error && /not found|404|FunctionsRelayError/i.test(invokeMsg)) {
+    // Fall back to the RPC when the function is missing or unreachable. An
+    // undeployed function fails its CORS preflight, which supabase-js reports
+    // as FunctionsFetchError ("Failed to send a request..."), not a 404.
+    // The RPC is still guarded by the claims kill-switch trigger.
+    const unreachable =
+      invoked.error &&
+      (/not found|404|FunctionsRelayError|FunctionsFetchError|Failed to send a request/i.test(
+        invokeMsg
+      ) ||
+        invoked.error?.name === 'FunctionsFetchError');
+    if (unreachable) {
       if (!areClaimsEnabled() && !opts.isStaff) {
         const err = new Error(CLAIMS_PAUSED_ERROR);
         err.code = CLAIMS_PAUSED_CODE;

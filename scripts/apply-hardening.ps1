@@ -45,7 +45,8 @@ $Functions = @(
   "idea-gap-fill",
   "mfa-recovery",
   "submit-concern-report",
-  "submit-volunteer-application"
+  "submit-volunteer-application",
+  "claim-task"
 )
 if ($Target -eq "production") {
   # Only deployed on production today

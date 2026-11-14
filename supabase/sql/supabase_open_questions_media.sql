@@ -48,9 +48,15 @@ as $$
 declare
   v_n int := 0;
 begin
+  -- enforce_open_question_decision requires a close note of 8+ characters,
+  -- so supply one when staff did not write it before the deadline.
   update public.open_questions
   set status = 'closed',
-      closed_at = coalesce(closed_at, now())
+      closed_at = coalesce(closed_at, now()),
+      close_note = case
+        when char_length(trim(coalesce(close_note, ''))) >= 8 then close_note
+        else 'Closed automatically when the question period ended.'
+      end
   where status = 'open'
     and closes_at is not null
     and closes_at <= now();

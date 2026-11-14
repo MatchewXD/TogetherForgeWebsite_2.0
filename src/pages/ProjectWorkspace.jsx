@@ -756,12 +756,12 @@ const ProjectWorkspace = () => {
   }, [isModerator, selectedTask]);
 
   /**
-   * Return claim: only the active claim holder on a leaf task.
+   * Return claim: only the active claim holder. Staff may claim parent tasks,
+   * so this is not limited to leaves (return_task_claim allows any task).
    * Never shown for unclaimed tasks (staff included).
    */
   const canReturnClaim = useMemo(() => {
     if (!selectedTask || selectedTask.status === 'completed') return false;
-    if (selectedTask.hasChildren) return false;
     return isClaimHolder && selectedTask.claim?.status === 'Active';
   }, [selectedTask, isClaimHolder]);
 

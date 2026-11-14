@@ -816,6 +816,24 @@ export default function TaskDetailModal({
             </>
           )}
 
+          {/* Staff can claim parent tasks, which have no progress editor
+              above; still let the holder give the claim back. */}
+          {canReturnClaim && !canEditProgress && (
+            <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-cyber-border">
+              <p className="text-sm text-text-secondary">
+                You hold the claim on this task.
+              </p>
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={handleReturn}
+                disabled={actionBusy}
+              >
+                Return Claim
+              </Button>
+            </div>
+          )}
+
           {/* Staff: scope help is handled on the Moderator Dashboard */}
           {isModerator &&
             selectedTask.scopeRequest?.status === 'pending' && (
