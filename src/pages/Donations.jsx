@@ -34,7 +34,9 @@ import DonationCreditChoice, {
   resolveDonationCredit,
 } from '../components/support/DonationCreditChoice';
 import PaymentsComingSoon from '../components/support/PaymentsComingSoon';
-import PaymentsPolicyCheckbox from '../components/legal/PaymentsPolicyCheckbox';
+import PaymentsPolicyCheckbox, {
+  PAYMENTS_POLICY_ANCHOR_ID,
+} from '../components/legal/PaymentsPolicyCheckbox';
 import usePaymentsPolicyAcceptance from '../hooks/usePaymentsPolicyAcceptance';
 import { LEGAL_PATHS } from '../constants/legal';
 import { areDonationsEnabled } from '../constants/donationsEnabled';
@@ -410,7 +412,10 @@ const SupportPage = () => {
 
     const gate = await paymentsPolicy.persistIfNeeded();
     if (!gate.ok) {
-      setError(gate.error || 'Please agree to the Payments and refunds policy.');
+      // The checkbox turns red and shows the message itself; bring it into view.
+      const box = document.getElementById(PAYMENTS_POLICY_ANCHOR_ID);
+      box?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      box?.querySelector('input')?.focus({ preventScroll: true });
       return;
     }
 
@@ -699,11 +704,7 @@ const SupportPage = () => {
                     size="lg"
                     variant={theme.buttonVariant || 'primary'}
                     className="w-full gap-2 py-3.5 text-lg sm:text-xl font-bold tracking-wide"
-                    disabled={
-                      !!busyKey ||
-                      paymentsPolicy.loading ||
-                      (paymentsPolicy.needed && !paymentsPolicy.agreed)
-                    }
+                    disabled={!!busyKey || paymentsPolicy.loading}
                     onClick={() =>
                       runCheckout({
                         amount: tier.amount,
@@ -782,11 +783,7 @@ const SupportPage = () => {
                 size="lg"
                 variant={interval === 'month' ? 'outline' : 'gold'}
                 className="gap-2 w-full sm:w-auto sm:shrink-0 px-8 py-3.5 text-lg sm:text-xl font-bold tracking-wide"
-                disabled={
-                  !!busyKey ||
-                  paymentsPolicy.loading ||
-                  (paymentsPolicy.needed && !paymentsPolicy.agreed)
-                }
+                disabled={!!busyKey || paymentsPolicy.loading}
               >
                 {busyKey?.startsWith('custom_') ? (
                   <>
