@@ -4,6 +4,7 @@
  * - Link / unlink Discord, Google, GitHub via Supabase Auth
  */
 import { getCaptchaToken } from '../../lib/turnstile';
+import { reportAuthEmailError } from '../../lib/errorReporter';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Link2, Mail, Unlink, AlertTriangle, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -299,7 +300,10 @@ export default function ConnectedAccounts({
           captchaToken,
         },
       });
-      if (err) throw err;
+      if (err) {
+        void reportAuthEmailError('resend_confirm', err);
+        throw err;
+      }
       setMessage(
         `Confirmation sent to ${user.email}. Look for mail from ${AUTH_FROM_HINT}.`
       );

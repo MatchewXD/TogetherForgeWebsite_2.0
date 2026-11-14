@@ -4,6 +4,7 @@
  */
 
 import { getCaptchaToken } from '../lib/turnstile';
+import { reportAuthEmailError } from '../lib/errorReporter';
 import { supabase } from '../lib/supabase';
 import { validatePasswordStrength } from '../utils/passwordRules';
 import { AUTH_FROM_HINT } from '../constants/authEmail';
@@ -189,6 +190,7 @@ export async function requestPasswordReset(email, opts = {}) {
 
   // Rate limit / network errors: surface them. "User not found" style: treat as success.
   if (error) {
+    void reportAuthEmailError('password_reset', error);
     const msg = error.message || '';
     if (/rate|limit|too many/i.test(msg)) {
       const err = new Error(

@@ -1,4 +1,5 @@
 import { getCaptchaToken } from '../lib/turnstile';
+import { reportAuthEmailError } from '../lib/errorReporter';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Loader2, Mail } from 'lucide-react';
@@ -79,7 +80,10 @@ const EmailConfirmation = () => {
           captchaToken,
         },
       });
-      if (err) throw err;
+      if (err) {
+        void reportAuthEmailError('resend_confirm', err);
+        throw err;
+      }
       setMessage(`Another confirmation link was sent to ${target}.`);
     } catch (e) {
       setError(e?.message || 'Could not resend confirmation.');

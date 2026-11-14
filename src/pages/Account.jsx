@@ -5,6 +5,7 @@
  */
 
 import { getCaptchaToken } from '../lib/turnstile';
+import { reportAuthEmailError } from '../lib/errorReporter';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Link,
@@ -411,7 +412,10 @@ function AccountLogin({ onAuthed, initialMode = 'login' }) {
             captchaToken,
           },
         });
-        if (error) throw error;
+        if (error) {
+          void reportAuthEmailError('signup', error);
+          throw error;
+        }
         // Username availability is profiles.username. Auth uniqueness is email.
         if (isDuplicateEmailSignupResult(data)) {
           setEmailError(EXISTING_EMAIL_SIGNUP_MESSAGE);

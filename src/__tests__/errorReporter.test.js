@@ -5,6 +5,8 @@ vi.mock('../lib/supabase', () => ({ supabase: { rpc: (...a) => rpc(...a) } }));
 
 import {
   describeError,
+  isAuthEmailOutage,
+  reportAuthEmailError,
   reportClientError,
   resetErrorReporterForTests,
   shouldIgnoreError,
@@ -59,6 +61,34 @@ describe('errorReporter', () => {
       await reportClientError('error', new Error(`e${i}`));
     }
     expect(rpc).toHaveBeenCalledTimes(5);
+  });
+
+  it('treats only project-wide auth email failures as outages', () => {
+    expect(isAuthEmailOutage({ code: 'over_email_send_rate_limit', message: 'x' })).toBe(true);
+    expect(isAuthEmailOutage({ message: 'email rate limit exceeded' })).toBe(true);
+    expect(isAuthEmailOutage({ message: 'Error sending confirmation email' })).toBe(true);
+    expect(isAuthEmailOutage({ message: 'Error sending recovery email' })).toBe(true);
+    // Per-person cooldown and bad input are not outages
+    expect(
+      isAuthEmailOutage({
+        message: 'For security purposes, you can only request this after 42 seconds.',
+      })
+    ).toBe(false);
+    expect(isAuthEmailOutage({ message: 'Invalid login credentials' })).toBe(false);
+    expect(isAuthEmailOutage(null)).toBe(false);
+  });
+
+  it('reports auth email outages under kind auth_email with context', async () => {
+    expect(
+      await reportAuthEmailError('signup', { message: 'email rate limit exceeded' })
+    ).toBe(true);
+    const [, args] = rpc.mock.calls[0];
+    expect(args.p_kind).toBe('auth_email');
+    expect(args.p_message).toBe('signup: email rate limit exceeded');
+    expect(await reportAuthEmailError('signup', { message: 'User already registered' })).toBe(
+      false
+    );
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 
   it('never throws when the backend fails', async () => {

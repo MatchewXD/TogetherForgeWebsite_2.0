@@ -78,6 +78,27 @@ export async function reportClientError(kind, error, extra = {}) {
   }
 }
 
+/**
+ * Supabase Auth failures that mean auth emails are not going out for anyone:
+ * the project-wide email rate limit, or the SMTP provider (Resend) refusing.
+ * Per-person cooldowns ("you can only request this after N seconds") and
+ * bad input are not reported. The watchdog alerts on these (kind auth_email).
+ */
+export function isAuthEmailOutage(error) {
+  if (!error) return false;
+  const code = String(error.code || '');
+  const msg = String(error.message || error || '');
+  if (code === 'over_email_send_rate_limit') return true;
+  return /email rate limit exceeded|error sending .*email|smtp/i.test(msg);
+}
+
+/** @param {string} context e.g. 'signup', 'password_reset', 'resend_confirm' */
+export function reportAuthEmailError(context, error) {
+  if (!isAuthEmailOutage(error)) return Promise.resolve(false);
+  const msg = String(error?.message || error || '').slice(0, 200);
+  return reportClientError('auth_email', `${context}: ${msg}`);
+}
+
 /** Global handlers for errors outside React's render tree. Idempotent. */
 export function installGlobalErrorReporting() {
   if (installed || typeof window === 'undefined') return;
