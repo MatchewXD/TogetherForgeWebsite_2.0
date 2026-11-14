@@ -98,15 +98,24 @@ describe('mapTaskState', () => {
 });
 
 describe('visibleChildren', () => {
-  it('puts open work first and folds finished tasks into one node', () => {
+  it('hides finished tasks by default', () => {
     const { byId } = buildTaskTree(sample());
     const kids = visibleChildren(byId.get('e1'));
+    expect(kids.map((k) => k.node?.id || `${k.kind}:${k.count}`)).toEqual(['m1', 'm2']);
+  });
+
+  it('with Show completed: open work first, finished folded into one node', () => {
+    const { byId } = buildTaskTree(sample());
+    const kids = visibleChildren(byId.get('e1'), { showCompleted: true });
     expect(kids.map((k) => k.node?.id || `${k.kind}:${k.count}`)).toEqual([
       'm1',
       'm2',
       'done:1',
     ]);
-    const shown = visibleChildren(byId.get('e1'), { showDone: { e1: true } });
+    const shown = visibleChildren(byId.get('e1'), {
+      showCompleted: true,
+      showDone: { e1: true },
+    });
     expect(shown.map((k) => k.node?.id)).toEqual(['m1', 'm2', 'm3']);
   });
 
@@ -136,7 +145,10 @@ describe('layoutTaskMap', () => {
 
   it('branches out the open Epic and the open child, with edges', () => {
     const { roots } = buildTaskTree(sample());
-    const { nodes, edges, width, height } = layoutTaskMap(roots, { expanded: ['e1', 'm1'] });
+    const { nodes, edges, width, height } = layoutTaskMap(roots, {
+      expanded: ['e1', 'm1'],
+      showCompleted: true,
+    });
     const keys = nodes.map((n) => n.key);
     expect(keys).toEqual([
       't:e1', 't:m1', 't:s2', 'done:m1', 't:m2', 'done:e1', 't:e2', 't:orphan',
@@ -166,7 +178,7 @@ describe('layoutTaskMap', () => {
 
   it('centres a parent on its children and never overlaps neighbours', () => {
     const { roots } = buildTaskTree(sample());
-    const { nodes } = layoutTaskMap(roots, { expanded: ['e1'] });
+    const { nodes } = layoutTaskMap(roots, { expanded: ['e1'], showCompleted: true });
     const by = Object.fromEntries(nodes.map((n) => [n.key, n]));
     const first = by['t:m1'];
     const last = by['done:e1'];
@@ -182,7 +194,7 @@ describe('layoutTaskMap', () => {
       t('c', null, { sortOrder: 2 }),
       t('b1', 'b', done),
     ]);
-    const { nodes } = layoutTaskMap(roots, { expanded: ['b'] });
+    const { nodes } = layoutTaskMap(roots, { expanded: ['b'], showCompleted: true });
     expect(nodes.map((n) => n.key)).toEqual(['t:a', 't:b', 'done:b', 't:c']);
     expect(overlaps(nodes)).toEqual([]);
     expect(nodes.every((n) => n.y >= 0)).toBe(true);
@@ -211,6 +223,7 @@ describe('layoutTaskMap', () => {
       const view = {
         expanded: [epic.id, mid?.id].filter(Boolean),
         showDone: rnd() < 0.5 ? { [epic.id]: true } : {},
+        showCompleted: rnd() < 0.7,
       };
       const { nodes, edges } = layoutTaskMap(roots, view);
       expect(overlaps(nodes), `round ${round}`).toEqual([]);
@@ -219,6 +232,28 @@ describe('layoutTaskMap', () => {
       expect(edges.every((e) => Number.isFinite(e.y1) && Number.isFinite(e.y2))).toBe(true);
       expect(byId.size).toBe(tasks.length);
     }
+  });
+
+  it('hides finished Epics by default and lists them last when shown', () => {
+    const { roots } = buildTaskTree([
+      t('old', null, { sortOrder: 0, ...done }),
+      t('next', null, { sortOrder: 1 }),
+      t('later', null, { sortOrder: 2 }),
+    ]);
+    expect(layoutTaskMap(roots).nodes.map((n) => n.id)).toEqual(['next', 'later']);
+    const shown = layoutTaskMap(roots, { showCompleted: true }).nodes;
+    expect(shown.map((n) => n.id)).toEqual(['next', 'later', 'old']);
+    expect(shown[2]).toMatchObject({ posInSet: 3, setSize: 3 });
+  });
+
+  it('treats a task whose sub-tasks are all finished as a leaf while hidden', () => {
+    const { roots } = buildTaskTree([t('e'), t('e1', 'e', done), t('e2', 'e', done)]);
+    const hidden = layoutTaskMap(roots, { expanded: ['e'] });
+    expect(hidden.nodes.map((n) => n.key)).toEqual(['t:e']);
+    expect(hidden.nodes[0]).toMatchObject({ hasChildren: false, expanded: false });
+    expect(hidden.edges).toEqual([]);
+    const shown = layoutTaskMap(roots, { expanded: ['e'], showCompleted: true });
+    expect(shown.nodes.map((n) => n.key)).toEqual(['t:e', 'done:e']);
   });
 
   it('handles an empty board', () => {

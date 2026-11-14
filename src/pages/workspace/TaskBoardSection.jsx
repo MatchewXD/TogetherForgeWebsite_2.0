@@ -100,8 +100,8 @@ export default function TaskBoardSection({
     ) : boardView === 'map' ? (
       <div className="space-y-2">
         <p className="text-xs text-text-muted">
-          The map shows every task on this board. The filters above apply to
-          the Board view.
+          The map shows every open task on this board; use Show completed to
+          include finished work. The filters above apply to the Board view.
         </p>
         <Suspense
           fallback={<LoadingScreen variant="section" message="Loading map…" />}

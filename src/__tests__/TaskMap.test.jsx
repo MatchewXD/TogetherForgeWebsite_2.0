@@ -31,6 +31,7 @@ const TASKS = [
 describe('TaskMap', () => {
   beforeEach(() => {
     Element.prototype.scrollTo = vi.fn();
+    window.localStorage.clear();
   });
 
   it('shows Epics first, then branches out on click', () => {
@@ -46,10 +47,32 @@ describe('TaskMap', () => {
 
     expect(epic.getAttribute('aria-expanded')).toBe('true');
     expect(within(tree).getByRole('treeitem', { name: /Tether physics/ })).toBeTruthy();
-    // finished work is folded away until asked for
+    // finished work is hidden by default, with no placeholder either
     expect(screen.queryByRole('treeitem', { name: /Dash/ })).toBeNull();
+    expect(screen.queryByRole('treeitem', { name: /completed/ })).toBeNull();
+
+    const toggle = screen.getByRole('button', { name: 'Show completed (1)' });
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(toggle);
+    expect(
+      screen.getByRole('button', { name: 'Hide completed (1)' }).getAttribute('aria-pressed')
+    ).toBe('true');
+    // then folded into one node until asked for
     fireEvent.click(within(tree).getByRole('treeitem', { name: /Show 1 completed/ }));
     expect(within(tree).getByRole('treeitem', { name: /Dash/ })).toBeTruthy();
+  });
+
+  it('remembers Show completed and offers it when everything is done', () => {
+    const allDone = [
+      t('e1', null, 'Movement', { status: 'completed', dbStatus: 'Completed' }),
+    ];
+    const { unmount } = render(<TaskMap tasks={allDone} onOpenTask={() => {}} />);
+    expect(screen.getByText(/Every task on this board is completed/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Show completed tasks' }));
+    expect(screen.getByRole('treeitem', { name: /Movement/ })).toBeTruthy();
+    unmount();
+    render(<TaskMap tasks={allDone} onOpenTask={() => {}} />);
+    expect(screen.getByRole('treeitem', { name: /Movement/ })).toBeTruthy();
   });
 
   it('shows details for the selected task and opens the full task', () => {

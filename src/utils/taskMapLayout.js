@@ -2,9 +2,10 @@
  * Task Map: tree building + left-to-right layout (pure, no React).
  *
  * The map shows Epics in the first column. Opening an Epic branches out its
- * children in the next column, and so on. Within a family, open work comes
- * first; finished tasks collapse into one "N completed" node, and very large
- * families page in with a "+N more" node, so the picture stays readable.
+ * children in the next column, and so on. Finished tasks are hidden unless
+ * the viewer turns on "Show completed"; then open work still comes first and
+ * finished tasks collapse into one "N completed" node. Very large families
+ * page in with a "+N more" node, so the picture stays readable.
  */
 
 export const MAP_COLUMN_WIDTH = 264;
@@ -145,7 +146,10 @@ export function mapAncestorIds(byId, id) {
  */
 export function visibleChildren(node, view = {}) {
   const open = node.children.filter((c) => !isMapTaskDone(c.task));
-  const done = node.children.filter((c) => isMapTaskDone(c.task));
+  // Completed work is hidden unless the viewer turns on "Show completed"
+  const done = view.showCompleted
+    ? node.children.filter((c) => isMapTaskDone(c.task))
+    : [];
   const limit = Math.max(
     MAP_PAGE_SIZE,
     Number(view.revealed?.[node.id]) || MAP_PAGE_SIZE
@@ -170,8 +174,10 @@ export function visibleChildren(node, view = {}) {
 
 /**
  * @param {object[]} roots from buildTaskTree
- * @param {{ expanded?: string[], revealed?: Record<string, number>, showDone?: Record<string, boolean> }} view
+ * @param {{ expanded?: string[], revealed?: Record<string, number>, showDone?: Record<string, boolean>, showCompleted?: boolean }} view
  *   expanded: open node id per depth (index 0 = open Epic, 1 = open child, ...)
+ *   showCompleted: include finished tasks (default hidden). When on, each
+ *   family collapses its finished tasks into an "N completed" node.
  * @returns {{ nodes: object[], edges: object[], width: number, height: number }}
  *   node: { key, kind, id?, task?, tree?, parentId, depth, x, y, w, h,
  *           expanded, hasChildren, posInSet, setSize, count? }
@@ -191,6 +197,9 @@ export function layoutTaskMap(roots, view = {}) {
     maxDepth = Math.max(maxDepth, depth);
     const isTask = item.kind === 'task';
     const tree = isTask ? item.node : null;
+    // Children as drawn: with completed hidden, a task whose sub-tasks are
+    // all finished has nothing to branch out to.
+    const kids = tree && tree.children.length ? visibleChildren(tree, view) : [];
     const h = isTask
       ? depth === 0
         ? MAP_NODE_HEIGHT.epic
@@ -208,8 +217,8 @@ export function layoutTaskMap(roots, view = {}) {
       y: 0,
       w: MAP_COLUMN_WIDTH,
       h,
-      hasChildren: Boolean(tree?.children.length),
-      expanded: Boolean(tree && tree.children.length && expanded.has(tree.id)),
+      hasChildren: kids.length > 0,
+      expanded: Boolean(kids.length && expanded.has(tree.id)),
       posInSet,
       setSize,
       count: item.count,
@@ -224,7 +233,6 @@ export function layoutTaskMap(roots, view = {}) {
     }
 
     const start = cursor;
-    const kids = visibleChildren(tree, view);
     const kidNodes = [];
     kids.forEach((kid, i) => {
       const sub = place(kid, depth + 1, i + 1, kids.length);
@@ -252,8 +260,14 @@ export function layoutTaskMap(roots, view = {}) {
     return subtree;
   };
 
-  (roots || []).forEach((root, i) =>
-    place({ kind: 'task', node: root, parentId: null }, 0, i + 1, roots.length)
+  // Epics: open first. Finished Epics only with "Show completed", after the rest.
+  const openRoots = (roots || []).filter((r) => !isMapTaskDone(r.task));
+  const doneRoots = view.showCompleted
+    ? (roots || []).filter((r) => isMapTaskDone(r.task))
+    : [];
+  const shownRoots = [...openRoots, ...doneRoots];
+  shownRoots.forEach((root, i) =>
+    place({ kind: 'task', node: root, parentId: null }, 0, i + 1, shownRoots.length)
   );
 
   const byKey = new Map(nodes.map((n) => [n.key, n]));

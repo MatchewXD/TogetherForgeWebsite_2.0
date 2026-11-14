@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import {
   buildTaskTree,
+  isMapTaskDone,
   layoutTaskMap,
   mapAncestorIds,
   mapEdgePath,
@@ -80,6 +81,7 @@ const LEGEND = ['open', 'active', 'review', 'done', 'locked'];
 const ZOOM_MIN = 0.6;
 const ZOOM_MAX = 1.4;
 const ZOOM_STEP = 0.1;
+const SHOW_COMPLETED_KEY = 'tf-task-map-show-completed';
 
 function plainText(text, max = 320) {
   const clean = String(text || '')
@@ -375,6 +377,14 @@ export default function TaskMap({ tasks, onOpenTask }) {
   const [expanded, setExpanded] = useState([]);
   const [revealed, setRevealed] = useState({});
   const [showDone, setShowDone] = useState({});
+  // Finished tasks are hidden by default; remembered per browser
+  const [showCompleted, setShowCompleted] = useState(() => {
+    try {
+      return window.localStorage.getItem(SHOW_COMPLETED_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
   const [selectedId, setSelectedId] = useState(null);
   const [focusKey, setFocusKey] = useState(null);
   // Phones start zoomed out a little so a branch and its parent both fit
@@ -399,9 +409,33 @@ export default function TaskMap({ tasks, onOpenTask }) {
     return out;
   }, [expanded, byId]);
 
+  const completedCount = useMemo(() => {
+    let n = 0;
+    for (const node of byId.values()) if (isMapTaskDone(node.task)) n += 1;
+    return n;
+  }, [byId]);
+
+  const toggleShowCompleted = () => {
+    setShowCompleted((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(SHOW_COMPLETED_KEY, next ? '1' : '0');
+      } catch {
+        /* private mode */
+      }
+      return next;
+    });
+  };
+
   const layout = useMemo(
-    () => layoutTaskMap(roots, { expanded: safeExpanded, revealed, showDone }),
-    [roots, safeExpanded, revealed, showDone]
+    () =>
+      layoutTaskMap(roots, {
+        expanded: safeExpanded,
+        revealed,
+        showDone,
+        showCompleted,
+      }),
+    [roots, safeExpanded, revealed, showDone, showCompleted]
   );
   const byKey = useMemo(
     () => new Map(layout.nodes.map((n) => [n.key, n])),
@@ -624,7 +658,22 @@ export default function TaskMap({ tasks, onOpenTask }) {
               </li>
             ))}
           </ul>
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
+            {completedCount > 0 && (
+              <button
+                type="button"
+                onClick={toggleShowCompleted}
+                aria-pressed={showCompleted}
+                className={`mr-2 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
+                  showCompleted
+                    ? 'border-semantic-success/50 bg-semantic-success/10 text-white'
+                    : 'border-cyber-border text-text-secondary hover:text-white'
+                }`}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                {showCompleted ? 'Hide' : 'Show'} completed ({completedCount})
+              </button>
+            )}
             <button
               type="button"
               onClick={() => zoomBy(-ZOOM_STEP)}
@@ -678,6 +727,18 @@ export default function TaskMap({ tasks, onOpenTask }) {
               minHeight: '100%',
             }}
           >
+            {layout.nodes.length === 0 && (
+              <p className="px-6 py-12 text-center text-sm text-text-muted">
+                Every task on this board is completed.{' '}
+                <button
+                  type="button"
+                  onClick={toggleShowCompleted}
+                  className="text-neon-cyan hover:underline"
+                >
+                  Show completed tasks
+                </button>
+              </p>
+            )}
             <div
               role="tree"
               aria-label="Task map"
