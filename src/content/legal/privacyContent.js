@@ -35,6 +35,7 @@ export const privacySections = [
     list: [
       'Basic technical data such as IP address, browser type, device information, and pages visited.',
       'Log data related to authentication, security, and abuse prevention.',
+      'Error reports. If part of the site breaks while you are using it, we record the error message and its technical details, the page you were on, your browser and device type, the site version, a random visit ID, and whether you were signed in. Error reports do not include your account, email address, or IP address.',
       'Cookie and similar technologies needed for the site to function (session, authentication, preferences).',
     ],
   },
@@ -101,6 +102,7 @@ export const privacySections = [
     heading: '7. Data Retention',
     body: [
       'We keep information as long as needed to provide the service, comply with legal obligations, resolve disputes, and enforce agreements. You may request deletion of your account; some information may remain in backups or where we are legally required to retain it.',
+      'Error reports are deleted automatically after 30 days.',
     ],
   },
   {
