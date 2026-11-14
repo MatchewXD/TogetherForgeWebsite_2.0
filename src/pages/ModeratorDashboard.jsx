@@ -5,7 +5,8 @@
  * Role Management tab is Founder-only.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useUserNotices } from '../context/UserNoticesContext';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Shield,
@@ -408,6 +409,18 @@ const ModeratorDashboard = () => {
   useEffect(() => {
     if (!roleLoading && isModerator) load();
   }, [roleLoading, isModerator, load]);
+
+  // The notice provider polls staff queue counts (and refreshes right after a
+  // submission). When those counts change, reload so the lists catch up with
+  // the pin instead of waiting for a manual refresh.
+  const { staffAttention } = useUserNotices();
+  const attentionKey = staffAttention ? JSON.stringify(staffAttention) : '';
+  const lastAttentionKey = useRef(attentionKey);
+  useEffect(() => {
+    if (attentionKey === lastAttentionKey.current) return;
+    lastAttentionKey.current = attentionKey;
+    if (!roleLoading && isModerator) load();
+  }, [attentionKey, roleLoading, isModerator, load]);
 
   const userRoles = useMemo(() => {
     const set = new Set();
