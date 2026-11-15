@@ -38,6 +38,12 @@ export default defineConfig({
     test: {
         environment: 'jsdom',
         setupFiles: ['./src/setupTests.js'],
-        globals: true
+        globals: true,
+        // Fixed placeholders so tests behave the same in CI (no .env.local)
+        // as on a dev machine. Tests mock network calls; these never hit a server.
+        env: {
+            VITE_SUPABASE_URL: 'https://test-project.supabase.co',
+            VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+        },
     }
 })
