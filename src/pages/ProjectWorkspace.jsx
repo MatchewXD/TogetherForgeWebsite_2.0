@@ -13,6 +13,7 @@
  */
 
 import { claimHousekeepingRun } from '../utils/housekeeping';
+import { isTaskUnclaimedClaimable } from '../utils/taskActions';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Link,
@@ -522,25 +523,13 @@ const ProjectWorkspace = () => {
    *   including parent detail lists.
    */
   const boardTasks = useMemo(() => {
-    const isUnclaimedClaimable = (t) => {
-      if (t.dbStatus === 'Completed' || t.status === 'completed') return false;
-      if (!isTaskVisibleWithLockedToggle(t, false)) return false;
-      if (t.claim?.status === 'Active' || t.claim?.status === 'PendingReview') {
-        return false;
-      }
-      if (t.claimedBy) return false;
-      if (t.volunteerClaimable === true) return true;
-      if (t.volunteerClaimable === false) return false;
-      if (t.hasChildren || t.isEpic || (t.depth || 0) === 0) return false;
-      return true;
-    };
-
+    // Same "Unclaimed only" rule the Task Map highlights with
     return selectBoardTasks(tasks, {
       boardScope,
       hideBlocked: hideBlockedTasks,
       categoryFilter: boardCategoryFilter,
       unclaimedOnly: boardUnclaimedOnly,
-      isUnclaimedClaimable,
+      isUnclaimedClaimable: isTaskUnclaimedClaimable,
     });
   }, [
     tasks,
@@ -1706,6 +1695,45 @@ const ProjectWorkspace = () => {
     setSubmitReviewOpen(true);
   };
 
+  /**
+   * Task Map: open a claimed task straight into the Submit for Review step.
+   * Opens the task (saving another task's progress first, as usual), waits a
+   * render for its checklist and drafts to load, then runs the same flow as
+   * the dialog's own Submit button.
+   */
+  const [pendingSubmitTaskId, setPendingSubmitTaskId] = useState(null);
+  const [submitArmed, setSubmitArmed] = useState(false);
+  const openSubmitReviewForTask = async (taskId) => {
+    if (!taskId) return;
+    if (taskId !== selectedTaskId) await openTaskDetail(taskId);
+    setSubmitArmed(false);
+    setPendingSubmitTaskId(taskId);
+  };
+  useEffect(() => {
+    if (!pendingSubmitTaskId) return;
+    if (selectedTaskId !== pendingSubmitTaskId) {
+      // Opening the task did not happen (e.g. unsaved progress elsewhere)
+      setPendingSubmitTaskId(null);
+      return;
+    }
+    if (
+      selectedTask?.id !== pendingSubmitTaskId ||
+      lastSyncedTaskIdRef.current !== pendingSubmitTaskId
+    ) {
+      return;
+    }
+    if (!submitArmed) {
+      setSubmitArmed(true);
+      return;
+    }
+    setPendingSubmitTaskId(null);
+    setSubmitArmed(false);
+    void openSubmitReviewFlow();
+    // openSubmitReviewFlow is recreated every render; the guards above make
+    // this run once per request
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSubmitTaskId, submitArmed, selectedTask, selectedTaskId]);
+
   const closeSubmitReviewFlow = () => {
     if (actionBusy) return;
     setSubmitReviewOpen(false);
@@ -2344,10 +2372,18 @@ const ProjectWorkspace = () => {
 
         {/* 3. TASK BOARD (full page) or hub entry card */}
         {<TaskBoardSection
+          boardCategoryFilter={boardCategoryFilter}
           boardOnly={boardOnly}
           boardPath={boardPath}
           boardScope={boardScope}
           boardTasks={boardTasks}
+          boardUnclaimedOnly={boardUnclaimedOnly}
+          hideBlockedTasks={hideBlockedTasks}
+          openSubmitReviewForTask={openSubmitReviewForTask}
+          setBoardCategoryFilter={setBoardCategoryFilter}
+          setBoardUnclaimedOnly={setBoardUnclaimedOnly}
+          setHideBlockedTasks={setHideBlockedTasks}
+          toggleBoardCategory={toggleBoardCategory}
           claimingId={claimingId}
           completedOpen={completedOpen}
           handleClaim={handleClaim}

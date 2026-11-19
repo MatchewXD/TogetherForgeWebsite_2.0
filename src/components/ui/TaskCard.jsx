@@ -7,18 +7,15 @@ import UserNameWithBadge from '../badges/UserNameWithBadge';
 import {
   formatClaimHeldSince,
   getClaimAutoReleaseInfo,
-  getUserTaskClaimBlockedReason,
   isClaimAutoReleaseExempt,
   isTaskVisuallyBlocked,
   getTaskWaitingOnBlockers,
 } from '../../services/tasksService';
 import { progressTone } from '../../utils/progressTone';
+import { getTaskActionState } from '../../utils/taskActions';
 import WaitingOnLinks from './WaitingOnLinks';
 import ClaimPolicyInfoTip from '../tasks/ClaimPolicyInfoTip';
-import {
-  areClaimsEnabled,
-  CLAIMS_PAUSED_LINE,
-} from '../../constants/claimsEnabled';
+import { CLAIMS_PAUSED_LINE } from '../../constants/claimsEnabled';
 
 /**
  * Hierarchy rail on chamfered panels (see index.css).
@@ -72,50 +69,31 @@ const TaskCard = ({
   /** Hide the gold Staff strip (completed board keeps cards compact). */
   hideStaffTools = false,
 }) => {
-  const isCompleted =
-    task.status === 'completed' || task.dbStatus === 'Completed';
-  const isPendingReview =
-    task.status === 'in_review' ||
-    task.dbStatus === 'InReview' ||
-    task.claim?.status === 'PendingReview' ||
-    Boolean(task.readyForParentReview);
-  const hasActiveClaim = Boolean(
-    task.claim?.status === 'Active' ||
-      task.claim?.status === 'PendingReview' ||
-      (task.claimedBy && !isCompleted)
-  );
-  const hasChildren = Boolean(task.hasChildren || task.childCount > 0);
+  const staffViewer = Boolean(isStaff || canStaffUpdate);
+  // Same rules as the Task Map details panel (utils/taskActions)
+  const {
+    isCompleted,
+    isPendingReview,
+    hasActiveClaim,
+    hasChildren,
+    isStaffOnly,
+    isMine,
+    showClaim,
+    showClaimsPausedLine,
+    showStaffOnlyInsteadOfClaim,
+    canRequestJoin: joinAllowed,
+  } = getTaskActionState(task, {
+    currentUserId,
+    isStaff: staffViewer,
+    joinRequestPending,
+  });
   const depth = task.depth || 0;
   const isLocked = Boolean(task.isLocked) && !task.dependencyOverride;
   const isBlocked = isTaskVisuallyBlocked(task) && !task.dependencyOverride;
   const waitingBlockers = getTaskWaitingOnBlockers(task);
-  const staffViewer = Boolean(isStaff || canStaffUpdate);
-  const isStaffOnly = Boolean(task.staffOnly || task.staff_only);
-  const claimBlocked = getUserTaskClaimBlockedReason(task, {
-    isStaff: staffViewer,
-  });
-  const structurallyClaimable =
-    !claimBlocked && !hasActiveClaim && !isCompleted;
-  const claimsEnabled = areClaimsEnabled();
-  const showClaim =
-    structurallyClaimable &&
-    (!isStaffOnly || staffViewer) &&
-    (claimsEnabled || staffViewer);
-  const showClaimsPausedLine =
-    structurallyClaimable &&
-    !isStaffOnly &&
-    !claimsEnabled &&
-    !staffViewer;
-  const showStaffOnlyInsteadOfClaim =
-    structurallyClaimable && isStaffOnly && !staffViewer;
 
   const showDifficultyEffort =
     depth > 0 && !hasChildren && (task.difficulty || task.estimatedEffort);
-
-  const isMine =
-    currentUserId &&
-    task.claim?.userId &&
-    String(task.claim.userId) === String(currentUserId);
   const progress =
     typeof task.progressPercent === 'number'
       ? task.progressPercent
@@ -147,15 +125,7 @@ const TaskCard = ({
       : null;
   const stale = Boolean(releaseInfo?.warn);
 
-  const canRequestJoin =
-    hasActiveClaim &&
-    !isCompleted &&
-    !hasChildren &&
-    currentUserId &&
-    !isMine &&
-    !joinRequestPending &&
-    onRequestJoin &&
-    (!isStaffOnly || staffViewer);
+  const canRequestJoin = joinAllowed && Boolean(onRequestJoin);
 
   const hasChecklist = Boolean(
     task.hasChecklist || (task.subtasks && task.subtasks.length > 0)

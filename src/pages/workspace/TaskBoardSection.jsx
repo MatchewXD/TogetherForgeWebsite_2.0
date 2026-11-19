@@ -26,10 +26,18 @@ import { KANBAN_COLUMNS, REVIEW_COLUMN, COMPLETED_COLUMN } from './shared';
 const TaskMap = lazy(() => import('../../components/tasks/TaskMap'));
 
 export default function TaskBoardSection({
+  boardCategoryFilter,
   boardOnly,
   boardPath,
   boardScope,
   boardTasks,
+  boardUnclaimedOnly,
+  hideBlockedTasks,
+  openSubmitReviewForTask,
+  setBoardCategoryFilter,
+  setBoardUnclaimedOnly,
+  setHideBlockedTasks,
+  toggleBoardCategory,
   claimingId,
   completedOpen,
   handleClaim,
@@ -98,17 +106,43 @@ export default function TaskBoardSection({
     {loading ? (
       <LoadingScreen variant="section" message="Loading board…" />
     ) : boardView === 'map' ? (
-      <div className="space-y-2">
-        <p className="text-xs text-text-muted">
-          The map shows every open task on this board; use Show completed to
-          include finished work. The filters above apply to the Board view.
-        </p>
-        <Suspense
-          fallback={<LoadingScreen variant="section" message="Loading map…" />}
-        >
-          <TaskMap tasks={tasks} onOpenTask={handleViewTask} />
-        </Suspense>
-      </div>
+      <Suspense
+        fallback={<LoadingScreen variant="section" message="Loading map…" />}
+      >
+        <TaskMap
+          tasks={tasks}
+          onOpenTask={handleViewTask}
+          categoryFilter={boardCategoryFilter}
+          onToggleCategory={toggleBoardCategory}
+          onClearCategories={() => setBoardCategoryFilter([])}
+          unclaimedOnly={boardUnclaimedOnly}
+          hideBlocked={hideBlockedTasks}
+          onToggleUnclaimed={
+            setBoardUnclaimedOnly ? () => setBoardUnclaimedOnly((v) => !v) : undefined
+          }
+          onToggleHideBlocked={
+            setHideBlockedTasks ? () => setHideBlockedTasks((v) => !v) : undefined
+          }
+          viewer={{
+            userId: user?.id || null,
+            isModerator,
+            claimingId,
+            joiningId,
+            unpublishingId,
+            pendingJoinTaskIds: myPendingJoinTaskIds,
+          }}
+          actions={{
+            onClaim: handleClaim,
+            onRequestJoin: handleRequestJoin,
+            onSubmitForReview: openSubmitReviewForTask,
+            onAddEpic: projectUuid ? () => openCreateTaskForm(null) : undefined,
+            onAddChild: openCreateSubTask,
+            onEdit: openEditTaskForm,
+            onDuplicate: handleDuplicateTask,
+            onMoveToStaging: handleMovePublicToStaging,
+          }}
+        />
+      </Suspense>
     ) : (
       <div className="space-y-4">
         {/* Main columns: To Do / In Progress */}

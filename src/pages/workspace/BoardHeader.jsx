@@ -18,7 +18,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
-import { TASK_CATEGORIES, normalizeTaskCategoryKey, getTaskCategoryStyle } from '../../constants/taskCategories';
+import TaskCategoryFilter from '../../components/tasks/TaskCategoryFilter';
 import { CLAIMS_PAUSED_LINE } from '../../constants/claimsEnabled';
 
 export default function BoardHeader({
@@ -378,57 +378,11 @@ export default function BoardHeader({
               </button>
             )}
           </div>
-          <div
-            className="flex flex-wrap items-center gap-2"
-            role="group"
-            aria-label="Task board filters"
+          <TaskCategoryFilter
+            selected={boardCategoryFilter}
+            onToggle={toggleBoardCategory}
+            onClear={() => setBoardCategoryFilter([])}
           >
-            <button
-              type="button"
-              onClick={() => setBoardCategoryFilter([])}
-              className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold tracking-wide transition-colors ${
-                boardCategoryFilter.length === 0
-                  ? 'bg-neon-cyan/20 text-neon-cyan border-neon-cyan/50'
-                  : 'bg-transparent text-text-muted border-cyber-border hover:border-cyber-border hover:text-text-secondary'
-              }`}
-              aria-pressed={boardCategoryFilter.length === 0}
-            >
-              All categories
-            </button>
-            {TASK_CATEGORIES.map((cat) => {
-              const active = boardCategoryFilter.some(
-                (c) =>
-                  normalizeTaskCategoryKey(c) ===
-                  normalizeTaskCategoryKey(cat)
-              );
-              const style = getTaskCategoryStyle(cat);
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => toggleBoardCategory(cat)}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold tracking-wide transition-colors ${
-                    active
-                      ? `${style.badge} ring-1 ${style.ring}`
-                      : 'bg-cyber-surface/40 text-text-muted border-cyber-border/80 hover:text-text-secondary hover:border-cyber-border'
-                  }`}
-                  aria-pressed={active}
-                  title={
-                    active
-                      ? `Remove ${cat} filter`
-                      : `Show ${cat} tasks`
-                  }
-                >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      active ? style.swatch : 'bg-text-muted/50'
-                    }`}
-                    aria-hidden
-                  />
-                  {cat}
-                </button>
-              );
-            })}
             <span
               className="hidden sm:inline w-px h-5 bg-cyber-border mx-0.5"
               aria-hidden
@@ -468,7 +422,7 @@ export default function BoardHeader({
                 </span>
               ) : null}
             </button>
-          </div>
+          </TaskCategoryFilter>
           {!claimsEnabled && !isModerator ? (
             <p className="text-sm text-text-muted leading-relaxed">
               {CLAIMS_PAUSED_LINE}
