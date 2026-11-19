@@ -1,14 +1,53 @@
 # Launch checklist
 
-Written 2026-11-13. Everything in the code is done and live on togetherforge.net.
-This list is what only you can do: apply the database and function changes,
-check the signed-in parts of the site, and confirm a few account settings.
+Written 2026-11-13, updated 2026-11-18. Everything on `main` is live on
+togetherforge.net. This list is what only you can do: apply the database and
+function changes, check the signed-in parts of the site, and confirm a few
+account settings.
 
 Work top to bottom. Sections 1 to 3 are the important ones; allow about 30 minutes.
 
 ---
 
+## Where things stand (handoff, 2026-11-18)
+
+**Task Map canvas: built, on a branch, not merged.**
+
+- Branch `feature/task-map-canvas` (commit `4a6ebce`), pushed to GitHub. Not
+  merged, not deployed. The local repo is currently checked out on this branch.
+- What it is: the Task Map rebuilt as a pannable React Flow canvas with the same
+  actions as the Board. Epics sit in wrapping rows; opening a card inserts its
+  children directly under its row. Focus mode zooms to the opened branch, and a
+  breadcrumb (plus Back, Esc, or tapping empty canvas) steps back up. Board
+  filters highlight on the map instead of hiding. Phones get a compact filter
+  bar, a peek bar and a bottom sheet. Rounds 1–4 of review are done and approved.
+- Checked on staging as the moderator and signed out, desktop and phone.
+  `npm run lint`, `npm test` (707) and `npm run build` pass.
+- **Blocking the merge:** the normal (non-moderator) user browser test.
+  - [ ] Add `TEST_USER_EMAIL` and `TEST_USER_PASSWORD` for a normal staging
+        account to `.env.staging` (gitignored).
+  - [ ] Ask Claude to run the user test: on `/projects/tether/board` in Map
+        view, claim a Small, update progress, open Submit for Review (don't
+        submit), then return the claim so staging is as before.
+  - [ ] Then merge `feature/task-map-canvas` into `main`. Pushing `main`
+        deploys to production through Vercel.
+- Review screenshots: `tmp/task-map-shots/` (`round1/` to `round4/`). Browser
+  check scripts: `tmp/task-map-checks/`. Both are local only and gitignored.
+  The scripts load `playwright-core` from an older Claude scratchpad folder; if
+  that is gone, install `playwright-core` in a scratch folder and fix the path.
+  They expect `npx vite --mode staging --port 5174` running.
+- Not committed on purpose: `public/images/TF_Logo_Ideas_V2_With_Background.png`
+  (untracked, unrelated to the Task Map). Decide whether it belongs anywhere.
+
+**Everything else on this checklist** is unchanged unless ticked below.
+
+---
+
 ## 1. Apply the security and scale changes to Supabase
+
+- [x] **Done 2026-11-13:** applied to staging and production (both scripts ran,
+      verify counts were 0). The steps below are kept for reference and for
+      re-running; the SQL files are safe to re-run.
 
 Nothing in this section is active until you run it. Until then, user emails are
 still publicly readable through the API and the new rate limits, form
@@ -68,7 +107,6 @@ Do these on togetherforge.net, signed in as yourself.
 
 - [ ] Sign out and sign back in.
 - [ ] Open your Account page. Your profile loads and saving a small edit works.
-- [x] Section 1 applied to staging and production on 2026-11-13.
 - [ ] Moderator dashboard → **Users**: the list loads, and searching part of a
       member's email finds them (cards show name, role and ID, not email).
 - [ ] Moderator dashboard → **Site errors** (new tab): it loads and says no
@@ -112,8 +150,9 @@ I cannot see these from the code. Each one can break launch day on its own.
       sender allows only a handful of emails per hour, so sign-ups would stall.
 - [ ] **Auth rate limits.** Supabase → Authentication → Rate Limits. Raise the
       sign-up, sign-in and email limits for launch day.
-- [ ] **Privacy page.** Add a line that the site records browser type and page
+- [x] **Privacy page.** Add a line that the site records browser type and page
       path when an error occurs, kept for 30 days, with no account or IP address.
+      Done in commit `69ef707` (live).
 
 ## 5. Turn on CAPTCHA (optional, about 15 minutes)
 
@@ -143,8 +182,11 @@ Tell me which you want and I will do them.
       scripts and tests.
 - [ ] **Magenta accent.** It sits at about 4.2:1 contrast against the 4.5:1
       standard (the "Sign in" button and some headings). Lighten it slightly, or keep it.
-- [ ] **Task Map as the default view?** Board is the default now.
-- [ ] **Should board filters apply to the Map?** Today the Map always shows every task.
+- [ ] **Task Map as the default view?** Board is the default now. Worth
+      deciding after the Task Map branch is merged.
+- [x] **Should board filters apply to the Map?** Decided: they highlight on the
+      Map (matching paths in colour, the rest greyed) on the Task Map branch.
+      "Top-level / All tasks" stays Board-only.
 - [ ] **Map progress numbers.** The Map counts every finished task under an
       Epic; the task dialog counts direct children only. Pick one.
 - [ ] **Trim the task board download.** The board fetches the whole task list on
