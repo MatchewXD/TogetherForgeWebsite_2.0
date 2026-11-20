@@ -89,16 +89,9 @@ import AccountAiTokensSection from '../components/account/AccountAiTokensSection
 import AccountForgeMarksSection from '../components/account/AccountForgeMarksSection';
 import AccountConductSection from '../components/account/AccountConductSection';
 import AccountMfaSection from '../components/account/AccountMfaSection';
+import { safeNextPath } from '../utils/safeNextPath';
 
 const SSO_FLASH_KEY = 'tf_sso_flash';
-
-function safeNextPath(raw) {
-  const s = String(raw || '').trim();
-  if (!s.startsWith('/') || s.startsWith('//') || s.includes('://')) {
-    return null;
-  }
-  return s;
-}
 
 function stashSsoFlash(payload) {
   try {

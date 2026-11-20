@@ -213,6 +213,17 @@ declare
   v_title text;
   v_display text;
   v_username text;
+  v_role text := coalesce(
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role',
+    ''
+  );
+  v_key text := nullif(trim(coalesce(p_source_key, '')), '');
+  v_subcategory text := p_subcategory;
+  v_role_label text := p_role_label;
+  v_project_id uuid := p_project_id;
+  v_sc_name text;
+  v_sc_tag text;
+  v_trusted boolean := true;
 begin
   if p_category is null
      or p_category not in ('donations', 'development', 'marketing', 'community') then
@@ -224,8 +235,85 @@ begin
     raise exception 'Account required for this contribution category';
   end if;
 
-  v_display := nullif(trim(coalesce(p_display_name, '')), '');
-  v_username := nullif(trim(coalesce(p_username, '')), '');
+  -- Caller check (security audit). Trusted: the memorial trigger, server-side
+  -- callers (SQL Editor, cron, service role) and staff. Signed-in members may
+  -- only backfill a credit the database can prove (completed claim, own idea,
+  -- approved showcase post), and the names / labels are taken from the
+  -- database, not from the caller.
+  if pg_trigger_depth() = 0
+     and v_role in ('anon', 'authenticated')
+     and not coalesce(public.is_project_staff(), false)
+  then
+    v_trusted := false;
+    if v_role = 'anon' or v_key is null then
+      raise exception 'Not allowed to record this credit' using errcode = '42501';
+    end if;
+
+    if v_key like 'task-claim:%' then
+      if p_category <> 'development' or not exists (
+        select 1
+        from task_claims c
+        join tasks t on t.id = c.task_id
+        where c.id::text = substr(v_key, 12)
+          and c.status = 'Completed'
+          and c.user_id = p_user_id
+          and (p_project_id is null or t.project_id = p_project_id)
+      ) then
+        raise exception 'Not allowed to record this credit' using errcode = '42501';
+      end if;
+      v_role_label := null;
+    elsif v_key like 'idea:%' then
+      if p_category <> 'community' or not exists (
+        select 1 from ideas i
+        where i.id::text = substr(v_key, 6)
+          and i.user_id = p_user_id
+      ) then
+        raise exception 'Not allowed to record this credit' using errcode = '42501';
+      end if;
+      v_project_id := null;
+      v_subcategory := 'Feedback';
+      v_role_label := 'Idea author';
+    elsif v_key like 'showcase:%' then
+      select s.creator_display_name, s.project_tag
+        into v_sc_name, v_sc_tag
+      from community_showcase_posts s
+      where s.id::text = substr(v_key, 10)
+        and s.status = 'approved'
+        and s.creator_user_id = p_user_id;
+      if not found or p_category <> 'marketing' then
+        raise exception 'Not allowed to record this credit' using errcode = '42501';
+      end if;
+      v_subcategory := 'Content Creation';
+      v_role_label := 'Community Showcase';
+    else
+      raise exception 'Not allowed to record this credit' using errcode = '42501';
+    end if;
+
+    if v_project_id is not null
+       and not exists (select 1 from projects where id = v_project_id) then
+      v_project_id := null;
+    end if;
+
+    -- Names and titles come from the database, never the caller
+    v_display := case
+      when v_key like 'showcase:%' then nullif(trim(v_sc_name), '')
+      else null
+    end;
+    v_username := null;
+    v_subcategory := left(nullif(trim(coalesce(v_subcategory, '')), ''), 60);
+    v_title := case
+      when v_project_id is not null then null
+      when v_key like 'idea:%' then 'Ideas'
+      when v_key like 'showcase:%' then
+        'Community Showcase'
+        || coalesce(' · ' || left(nullif(trim(v_sc_tag), ''), 60), '')
+      else null
+    end;
+  else
+    v_display := nullif(trim(coalesce(p_display_name, '')), '');
+    v_username := nullif(trim(coalesce(p_username, '')), '');
+    v_title := nullif(trim(coalesce(p_project_title, '')), '');
+  end if;
 
   if v_display is null and p_user_id is not null then
     select coalesce(nullif(trim(username), ''), 'Contributor')
@@ -240,12 +328,11 @@ begin
     from profiles where id = p_user_id;
   end if;
 
-  v_title := nullif(trim(coalesce(p_project_title, '')), '');
-  if v_title is null and p_project_id is not null then
+  if v_title is null and v_project_id is not null then
     select coalesce(nullif(trim(title), ''), nullif(trim(slug), ''), 'Project')
       into v_title
     from projects
-    where id = p_project_id;
+    where id = v_project_id;
   end if;
 
   if p_source_key is not null and trim(p_source_key) <> '' then
@@ -261,8 +348,9 @@ begin
         display_name = coalesce(nullif(trim(display_name), ''), v_display),
         username_snapshot = coalesce(username_snapshot, v_username),
         project_title_snapshot = coalesce(project_title_snapshot, v_title),
-        project_id = coalesce(project_id, p_project_id),
-        archived_at = null,
+        project_id = coalesce(project_id, v_project_id),
+        -- Only trusted callers restore a credit staff archived
+        archived_at = case when v_trusted then null else archived_at end,
         updated_at = now()
       where id = v_id;
       return v_id;
@@ -282,12 +370,12 @@ begin
     is_anonymous,
     sort_order
   ) values (
-    p_project_id,
+    v_project_id,
     p_user_id,
     v_display,
     p_category,
-    nullif(trim(coalesce(p_subcategory, '')), ''),
-    nullif(trim(coalesce(p_role_label, '')), ''),
+    nullif(trim(coalesce(v_subcategory, '')), ''),
+    nullif(trim(coalesce(v_role_label, '')), ''),
     nullif(trim(coalesce(p_source_key, '')), ''),
     v_title,
     v_username,

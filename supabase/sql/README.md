@@ -137,6 +137,7 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 47b. `supabase_ai_token_ledger_security_invoker.sql` — ledger user view SECURITY INVOKER + safe column grants  
 48. `supabase_ai_tokens_scale_50k.sql` — one-time migrate legacy pack sizes (250/700/1600 → 250k/600k/1.25M)  
 48b. `supabase_ai_token_pack_grants.sql` — canonical pack grants + top-up under-credited purchases  
+49. `supabase_security_audit_fixes.sql` — **run last**: staff-only direct claim/task writes, internal RPCs service-role only, safe auto-release / credit RPCs, private bug-report columns, join/scope request reads, storage limits (deploy the site code first)  
 
 ### After apply (optional cleanup)
 
@@ -248,6 +249,9 @@ supabase db query --linked -f supabase/sql/supabase_ai_tokens.sql
 supabase db query --linked -f supabase/sql/supabase_ai_token_ledger_security_invoker.sql
 supabase db query --linked -f supabase/sql/supabase_ai_tokens_scale_50k.sql
 supabase db query --linked -f supabase/sql/supabase_ai_token_pack_grants.sql
+
+# Last: security audit fixes (after every other script)
+supabase db query --linked -f supabase/sql/supabase_security_audit_fixes.sql
 ```
 
 **Optional on staging only:**
@@ -366,3 +370,12 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 ## Launch prep (run on every project)
 
 `supabase_launch_prep.sql` removes direct browser inserts into `concern_reports` and `volunteer_applications` (the Edge Functions insert with the service role, so deploy `submit-concern-report` and `submit-volunteer-application` first), and adds the client error log (`log_client_error`, staff `get_client_errors`) behind the Moderator "Site errors" tab. Re-runnable.
+
+## Security audit fixes (run on every project, last)
+
+`supabase_security_audit_fixes.sql` (Forge #168) closes the holes found in the pre-launch audit; the file header lists each one. Re-runnable. Run it after every other script, because older scripts used to create the policies it removes.
+
+- Deploy the site code from the same change first (bug reports no longer use `select('*')`).
+- Run on **staging first**, then production.
+- Verify with the queries at the end of the file.
+- Rule for new SQL: revoke an internal SECURITY DEFINER function `from public, anon, authenticated`. Supabase grants new functions in `public` to anon and authenticated by default, so `from public` alone does not lock it down.

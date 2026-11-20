@@ -48,6 +48,33 @@ create trigger trg_protect_task_hold_claim
   execute function public.protect_task_hold_claim_flag();
 
 -- ---------------------------------------------------------------------------
+-- Who may choose custom auto-release windows: staff, or a server-side caller
+-- (SQL Editor, cron, Edge Functions with the service role). Browser callers
+-- (anon / authenticated JWT) that are not staff get the standard 14 / 30 days.
+-- ---------------------------------------------------------------------------
+create or replace function public.claim_auto_release_caller_trusted()
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_role text := coalesce(
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role',
+    ''
+  );
+begin
+  if v_role not in ('anon', 'authenticated') then
+    return true;
+  end if;
+  return coalesce(public.is_project_staff(), false);
+end;
+$$;
+
+revoke all on function public.claim_auto_release_caller_trusted() from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------------
 -- Auto-release skips held cards (and still skips the Tether-CD epic)
 -- ---------------------------------------------------------------------------
 create or replace function public.run_claim_auto_release(
@@ -62,9 +89,19 @@ as $$
 declare
   r record;
   v_task tasks%rowtype;
+  -- Anyone may run the standard sweep, but only staff / server callers may
+  -- change the windows (otherwise anon could call (0, 1) and release every
+  -- claim on the site). See supabase_security_audit_fixes.sql.
+  v_trusted boolean := public.claim_auto_release_caller_trusted();
   -- 0 = treat every Active claim as idle-overdue (staff test helper)
-  v_idle int := greatest(coalesce(p_idle_days, 14), 0);
-  v_max int := greatest(coalesce(p_max_claim_days, 30), 1);
+  v_idle int := case
+    when v_trusted then greatest(coalesce(p_idle_days, 14), 0)
+    else 14
+  end;
+  v_max int := case
+    when v_trusted then greatest(coalesce(p_max_claim_days, 30), 1)
+    else 30
+  end;
   v_reason text;
   v_released jsonb := '[]'::jsonb;
   v_count int := 0;

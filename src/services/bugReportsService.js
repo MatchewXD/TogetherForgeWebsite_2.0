@@ -22,6 +22,14 @@ export const OPEN_BUG_STATUSES = ['Reported', 'Confirmed', 'In Progress'];
 const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
+/**
+ * Columns the site reads. reporter_email and staff_notes are private: the
+ * public API cannot select them (supabase_security_audit_fixes.sql), so never
+ * use select('*') on bug_reports.
+ */
+export const BUG_REPORT_COLUMNS =
+  'id, title, description, steps_to_reproduce, severity, status, screenshot_url, browser_info, device_info, reporter_id, reporter_name, created_at, updated_at, resolved_at';
+
 function isMissingTableError(error) {
   const msg = error?.message || '';
   const code = error?.code || '';
@@ -148,7 +156,7 @@ export const bugReportsService = {
   async listBugs({ status = 'open', limit = 50 } = {}) {
     let q = supabase
       .from('bug_reports')
-      .select('*')
+      .select(BUG_REPORT_COLUMNS)
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -173,7 +181,7 @@ export const bugReportsService = {
   async getBug(id) {
     const { data, error } = await supabase
       .from('bug_reports')
-      .select('*')
+      .select(BUG_REPORT_COLUMNS)
       .eq('id', id)
       .maybeSingle();
     if (error) throw error;
@@ -273,7 +281,7 @@ export const bugReportsService = {
     const { data, error } = await supabase
       .from('bug_reports')
       .insert([row])
-      .select('*')
+      .select(BUG_REPORT_COLUMNS)
       .single();
 
     if (error) {
@@ -300,7 +308,7 @@ export const bugReportsService = {
       .from('bug_reports')
       .update(patch)
       .eq('id', id)
-      .select('*')
+      .select(BUG_REPORT_COLUMNS)
       .single();
     if (error) throw error;
     return mapBugRow(data);

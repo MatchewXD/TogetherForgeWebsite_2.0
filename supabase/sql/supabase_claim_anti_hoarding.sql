@@ -45,22 +45,32 @@ create index if not exists idx_claim_join_requester on claim_join_requests (requ
 
 alter table claim_join_requests enable row level security;
 
+-- Join requests hold requester ids and free-text messages: only the requester,
+-- the claim holder and staff may read them (security audit; was using (true)).
 drop policy if exists "Public can read join requests" on claim_join_requests;
-create policy "Public can read join requests"
-  on claim_join_requests for select using (true);
-
-drop policy if exists "Users can request to join" on claim_join_requests;
-create policy "Users can request to join"
-  on claim_join_requests for insert
+drop policy if exists "Requester, claim holder or staff can read join requests" on claim_join_requests;
+create policy "Requester, claim holder or staff can read join requests"
+  on claim_join_requests for select
   to authenticated
-  with check (auth.uid() = requester_id);
+  using (
+    auth.uid() = requester_id
+    or public.is_project_staff()
+    or exists (
+      select 1 from task_claims tc
+      where tc.id = claim_join_requests.claim_id
+        and tc.user_id = auth.uid()
+    )
+  );
+
+-- New requests go through request_join_claim() (staff-only / duplicate checks)
+drop policy if exists "Users can request to join" on claim_join_requests;
 
 drop policy if exists "Requester can cancel own request" on claim_join_requests;
 create policy "Requester can cancel own request"
   on claim_join_requests for update
   to authenticated
   using (auth.uid() = requester_id)
-  with check (auth.uid() = requester_id);
+  with check (auth.uid() = requester_id and status in ('pending', 'cancelled'));
 
 drop policy if exists "Owner or staff can resolve join requests" on claim_join_requests;
 create policy "Owner or staff can resolve join requests"

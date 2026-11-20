@@ -145,9 +145,11 @@ drop policy if exists "Staff can delete projects" on projects;
 create policy "Staff can delete projects" on projects for delete
   using (public.is_project_staff());
 
--- Tasks: public read; staff create/edit/delete
+-- Tasks: staff create/edit/delete.
+-- Read policies (Public board for everyone, Staging for staff) live in
+-- supabase_task_board_scope.sql. Never re-add a using (true) read policy:
+-- it would expose staff-only Staging tasks again on a re-run.
 drop policy if exists "Public can read tasks" on tasks;
-create policy "Public can read tasks" on tasks for select using (true);
 
 drop policy if exists "Staff can insert tasks" on tasks;
 create policy "Staff can insert tasks" on tasks for insert
@@ -161,44 +163,41 @@ drop policy if exists "Staff can delete tasks" on tasks;
 create policy "Staff can delete tasks" on tasks for delete
   using (public.is_project_staff());
 
--- Authenticated members can update task status when they hold the active claim
--- (used by claim/complete flows from the client). Staff already covered above.
+-- Claimants change tasks and claims only through the SECURITY DEFINER RPCs
+-- (claim_task, update_task_progress, submit_task_for_review, ...), which run
+-- the claim rules. A direct-write policy for claimants let anyone mark their
+-- own work Completed (and earn permanent credit) or edit any column of a task
+-- they held. See supabase_security_audit_fixes.sql.
 drop policy if exists "Claimants can update claimed tasks" on tasks;
-create policy "Claimants can update claimed tasks" on tasks for update
-  using (
-    auth.uid() is not null
-    and exists (
-      select 1 from task_claims tc
-      where tc.task_id = tasks.id
-        and tc.user_id = auth.uid()
-        and tc.status = 'Active'
-    )
-  );
 
--- Task claims: members insert own; own or staff update.
+-- Task claims: staff-only direct writes.
 -- Read policies (public tasks only / own / staff) live in
 -- supabase_claims_activity_lockdown.sql. Never re-add a using (true) read policy.
 drop policy if exists "Public can read task_claims" on task_claims;
 
 drop policy if exists "Members can claim tasks" on task_claims;
-create policy "Members can claim tasks" on task_claims for insert
-  with check (auth.uid() = user_id);
+drop policy if exists "Staff can insert claims" on task_claims;
+create policy "Staff can insert claims" on task_claims for insert
+  with check (public.is_project_staff());
 
 drop policy if exists "Owners or staff can update claims" on task_claims;
-create policy "Owners or staff can update claims" on task_claims for update
-  using (auth.uid() = user_id or public.is_project_staff());
+drop policy if exists "Staff can update claims" on task_claims;
+create policy "Staff can update claims" on task_claims for update
+  using (public.is_project_staff());
 
 drop policy if exists "Owners or staff can delete claims" on task_claims;
-create policy "Owners or staff can delete claims" on task_claims for delete
-  using (auth.uid() = user_id or public.is_project_staff());
+drop policy if exists "Staff can delete claims" on task_claims;
+create policy "Staff can delete claims" on task_claims for delete
+  using (public.is_project_staff());
 
--- Activity log: authenticated insert own rows.
+-- Activity log: staff-only direct inserts (RPCs and triggers write the rest).
 -- Read policies live in supabase_claims_activity_lockdown.sql.
 drop policy if exists "Public can read activity_log" on activity_log;
 
 drop policy if exists "Members can insert activity" on activity_log;
-create policy "Members can insert activity" on activity_log for insert
-  with check (auth.uid() = user_id or public.is_project_staff());
+drop policy if exists "Staff can insert activity" on activity_log;
+create policy "Staff can insert activity" on activity_log for insert
+  with check (public.is_project_staff());
 
 -- ---------------------------------------------------------------------------
 -- 7. Seed demo projects + tasks (skip if slug already exists)

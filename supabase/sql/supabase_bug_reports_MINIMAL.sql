@@ -1,5 +1,7 @@
 -- =============================================================================
 -- MINIMAL bug_reports setup - run this FIRST if full script failed
+-- Afterwards ALWAYS run supabase_bug_reports.sql and supabase_require_auth_to_post.sql
+-- (this fallback alone is not the production security setup).
 -- Supabase → project lbstantgrrrupzeasndg → SQL Editor → Run
 -- =============================================================================
 
@@ -56,7 +58,15 @@ create index if not exists idx_bug_reports_status
 -- 4) Grants (API cannot see the table without these)
 grant usage on schema public to anon, authenticated, service_role;
 grant all on table public.bug_reports to postgres, service_role;
-grant select, insert on table public.bug_reports to anon, authenticated;
+-- reporter_email / staff_notes are not selectable by the public API
+revoke select, insert on table public.bug_reports from anon;
+revoke select on table public.bug_reports from authenticated;
+grant select (
+  id, title, description, steps_to_reproduce, severity, status,
+  screenshot_url, browser_info, device_info, reporter_id, reporter_name,
+  created_at, updated_at, resolved_at
+) on table public.bug_reports to anon, authenticated;
+grant insert on table public.bug_reports to authenticated;
 grant update, delete on table public.bug_reports to authenticated;
 
 -- 5) RLS
@@ -69,12 +79,13 @@ create policy "Public can read bug reports"
   using (true);
 
 drop policy if exists "Anyone can submit bug reports" on public.bug_reports;
-create policy "Anyone can submit bug reports"
+drop policy if exists "Authenticated users can submit bug reports" on public.bug_reports;
+create policy "Authenticated users can submit bug reports"
   on public.bug_reports for insert
-  to public
-  with check (true);
+  to authenticated
+  with check (reporter_id = auth.uid());
 
--- Staff update: use is_staff if it exists, else allow authenticated (tighten later)
+-- Staff update: use is_staff if it exists, else nobody (never allow every member)
 do $$
 begin
   drop policy if exists "Staff can update bug reports" on public.bug_reports;
@@ -95,8 +106,8 @@ begin
       create policy "Staff can update bug reports"
         on public.bug_reports for update
         to authenticated
-        using (true)
-        with check (true)
+        using (false)
+        with check (false)
     $p$;
   end if;
 end $$;
