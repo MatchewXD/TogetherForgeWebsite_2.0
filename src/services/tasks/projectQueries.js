@@ -8,6 +8,7 @@ import { canonicalProjectSlug, displayProjectTitle, expandProjectSlugAliases } f
 import { BOARD_SCOPE_PUBLIC, BOARD_SCOPE_STAGING, attachTaskDependencies } from './taskModel';
 import { mapTaskRow, attachScopeRequests, attachTaskHierarchy } from './taskMappers';
 import { TASK_SELECT, TASK_SELECT_NO_DEP_OVERRIDE, TASK_SELECT_LEGACY } from './taskSelects';
+import { attachClaimPrivateDetails } from './claimDetails';
 
 export const projectQueriesMethods = {
   /**
@@ -184,7 +185,9 @@ export const projectQueriesMethods = {
       error = legacy.error;
     }
     if (error) throw error;
-    const liveRows = (data || []).filter((row) => !row.archived_at);
+    const liveRows = await attachClaimPrivateDetails(
+      (data || []).filter((row) => !row.archived_at)
+    );
     let mapped = attachTaskHierarchy(liveRows.map(mapTaskRow));
 
     // "Blocked by" edges (optional table — ignore if migration not run)

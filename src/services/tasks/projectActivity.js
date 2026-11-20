@@ -29,7 +29,6 @@ export const projectActivityMethods = {
         target_type,
         target_id,
         target_title,
-        metadata,
         created_at,
         profiles (
           username,

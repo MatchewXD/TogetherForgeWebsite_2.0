@@ -109,7 +109,11 @@ schema snapshot and is out of date; trust `supabase/sql` instead.
 - **Row Level Security:** tables are created with RLS enabled in their SQL scripts; anon/authenticated get only the grants
   they need, and privileged writes go through `security definer` RPCs or Edge Functions using the
   service role (e.g. task claims via `claim-task`, Get Involved / concern forms via their functions).
-  Staff checks use `is_staff()` / `is_project_staff()`. When adding a table: enable RLS, write
+  Staff checks use `is_staff()` / `is_project_staff()`. `task_claims` and `activity_log` use
+  column-level SELECT grants (`supabase_claims_activity_lockdown.sql`): never select `notes`,
+  `submission_evidence`, `review_feedback` or `metadata` from the client; use the
+  `get_task_claim_private_details` / `list_my_activity` RPCs (`services/tasks/claimDetails.js`).
+  When adding a table: enable RLS, write
   policies, add explicit grants, and keep it in an idempotent SQL file.
 - **Applying SQL:** scripts are run by hand (SQL Editor or `supabase db query --linked -f ...`),
   **staging first, then production**. Don't apply SQL to any project yourself unless asked.

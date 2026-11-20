@@ -12,6 +12,7 @@ import {
 } from './taskModel';
 import { mapTaskRow } from './taskMappers';
 import { TASK_SELECT, TASK_SELECT_NO_DEP_OVERRIDE, TASK_SELECT_LEGACY } from './taskSelects';
+import { attachClaimPrivateDetails } from './claimDetails';
 
 export const taskAdminMethods = {
   /**
@@ -171,7 +172,8 @@ export const taskAdminMethods = {
     }
     if (error) throw error;
 
-    const mapped = mapTaskRow(data);
+    const [withDetails] = await attachClaimPrivateDetails([data]);
+    const mapped = mapTaskRow(withDetails);
     const blockerIds = (
       payload.blockedByTaskIds ||
       payload.blockedByIds ||
@@ -293,7 +295,8 @@ export const taskAdminMethods = {
       );
     }
 
-    return mapTaskRow(data);
+    const [withDetails] = await attachClaimPrivateDetails([data]);
+    return mapTaskRow(withDetails);
   },
 
   /** Staff: delete a task from the current board (nested children cascade). */
