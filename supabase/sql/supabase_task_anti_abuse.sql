@@ -994,7 +994,11 @@ grant execute on function public.get_my_claim_quota() to authenticated;
 grant execute on function public.claim_task(uuid) to authenticated;
 grant execute on function public.submit_task_for_review(uuid, text) to authenticated;
 grant execute on function public.reject_task_as_fake_work(uuid, text) to authenticated;
-grant execute on function public.apply_claim_restriction(uuid, uuid, text, uuid, uuid, boolean) to authenticated;
+-- Internal helper (no caller check): only reject_task_as_fake_work and the
+-- service role may call it. Granting it to authenticated let any member
+-- restrict any other member from claiming (security audit).
+revoke all on function public.apply_claim_restriction(uuid, uuid, text, uuid, uuid, boolean) from public, anon, authenticated;
+grant execute on function public.apply_claim_restriction(uuid, uuid, text, uuid, uuid, boolean) to service_role;
 grant execute on function public.get_contributor_trust(uuid) to authenticated;
 grant execute on function public.list_recent_restriction_events(integer) to authenticated;
 

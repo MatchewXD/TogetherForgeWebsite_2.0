@@ -130,7 +130,9 @@ $ordered = @(
   "supabase/sql/supabase_ai_platform_enable_staging.sql",
   "supabase/sql/supabase_volunteer_applications.sql",
   "supabase/sql/supabase_concern_reports.sql",
-  "supabase/sql/supabase_role_management.sql"
+  "supabase/sql/supabase_role_management.sql",
+  # Last: security audit fixes (Forge #168)
+  "supabase/sql/supabase_security_audit_fixes.sql"
 )
 
 # Resume: skip files until AFTER StartAfter (that file is treated as already done)

@@ -115,6 +115,14 @@ schema snapshot and is out of date; trust `supabase/sql` instead.
   `get_task_claim_private_details` / `list_my_activity` RPCs (`services/tasks/claimDetails.js`).
   When adding a table: enable RLS, write
   policies, add explicit grants, and keep it in an idempotent SQL file.
+- **Security audit rules** (`supabase_security_audit_fixes.sql`, run last on every project):
+  members never write `tasks`, `task_claims` or `activity_log` directly (RPCs only; direct writes
+  are staff-only). `bug_reports.reporter_email` / `staff_notes` are not selectable: use
+  `BUG_REPORT_COLUMNS`, never `select('*')`. An internal `security definer` function must be
+  revoked `from public, anon, authenticated` (Supabase grants new functions to anon and
+  authenticated by default) and granted only to `service_role`. Any RPC callable by members or
+  anon must check the caller itself (`is_project_staff()`, `auth.uid()`), and must not let the
+  caller pick thresholds that widen its effect.
 - **Applying SQL:** scripts are run by hand (SQL Editor or `supabase db query --linked -f ...`),
   **staging first, then production**. Don't apply SQL to any project yourself unless asked.
 - **Environments:** local/dev, staging (separate Supabase project + Stripe test keys) and production

@@ -80,7 +80,15 @@ create trigger trg_bug_reports_updated_at
 -- Grants (required for anon/authenticated API access)
 -- ---------------------------------------------------------------------------
 grant usage on schema public to anon, authenticated;
-grant select on table public.bug_reports to anon, authenticated;
+-- Column-level SELECT: reporter_email and staff_notes stay private (the
+-- tracker is public). Staff read them in the Supabase dashboard.
+revoke select on table public.bug_reports from anon, authenticated;
+grant select (
+  id, title, description, steps_to_reproduce, severity, status,
+  screenshot_url, browser_info, device_info, reporter_id, reporter_name,
+  created_at, updated_at, resolved_at
+) on table public.bug_reports to anon, authenticated;
+grant select on table public.bug_reports to service_role;
 grant insert on table public.bug_reports to authenticated;
 grant update, delete on table public.bug_reports to authenticated;
 

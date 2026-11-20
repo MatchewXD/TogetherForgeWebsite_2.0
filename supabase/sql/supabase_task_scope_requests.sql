@@ -52,23 +52,47 @@ grant usage on schema public to anon, authenticated, service_role;
 grant select on table public.task_scope_requests to anon, authenticated, service_role;
 grant insert, update on table public.task_scope_requests to authenticated, service_role;
 
+-- Public read is limited to requests on Public-board tasks once board scope
+-- exists (security audit: staff-only Staging requests were readable by anyone).
+-- Requesters and staff always see their rows.
 drop policy if exists "Public can read scope requests" on public.task_scope_requests;
-create policy "Public can read scope requests"
-  on public.task_scope_requests for select
-  using (true);
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'tasks' and column_name = 'board_scope'
+  ) then
+    execute $p$
+      create policy "Public can read scope requests"
+        on public.task_scope_requests for select
+        using (
+          auth.uid() = requester_id
+          or public.is_project_staff()
+          or exists (
+            select 1 from public.tasks t
+            where t.id = task_scope_requests.task_id
+              and coalesce(t.board_scope, 'public') = 'public'
+          )
+        )
+    $p$;
+  else
+    execute $p$
+      create policy "Public can read scope requests"
+        on public.task_scope_requests for select
+        using (true)
+    $p$;
+  end if;
+end $$;
 
+-- New requests go through request_task_scope_help() (claim checks)
 drop policy if exists "Claimants can create scope requests" on public.task_scope_requests;
-create policy "Claimants can create scope requests"
-  on public.task_scope_requests for insert
-  to authenticated
-  with check (auth.uid() = requester_id);
 
 drop policy if exists "Requester can cancel own scope request" on public.task_scope_requests;
 create policy "Requester can cancel own scope request"
   on public.task_scope_requests for update
   to authenticated
   using (auth.uid() = requester_id)
-  with check (auth.uid() = requester_id);
+  with check (auth.uid() = requester_id and status in ('pending', 'cancelled'));
 
 drop policy if exists "Staff can resolve scope requests" on public.task_scope_requests;
 create policy "Staff can resolve scope requests"
