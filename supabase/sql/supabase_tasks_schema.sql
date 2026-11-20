@@ -121,9 +121,11 @@ grant select on table projects to anon, authenticated, service_role;
 grant insert, update, delete on table projects to authenticated, service_role;
 grant select on table tasks to anon, authenticated, service_role;
 grant insert, update, delete on table tasks to authenticated, service_role;
-grant select on table task_claims to anon, authenticated, service_role;
+-- task_claims / activity_log SELECT for anon/authenticated is column-level and
+-- row-filtered: see supabase_claims_activity_lockdown.sql (run after board scope).
+grant select on table task_claims to service_role;
 grant insert, update, delete on table task_claims to authenticated, service_role;
-grant select on table activity_log to anon, authenticated, service_role;
+grant select on table activity_log to service_role;
 grant insert on table activity_log to authenticated, service_role;
 grant usage, select on all sequences in schema public to authenticated, service_role;
 
@@ -173,9 +175,10 @@ create policy "Claimants can update claimed tasks" on tasks for update
     )
   );
 
--- Task claims: public read; members insert own; own or staff update
+-- Task claims: members insert own; own or staff update.
+-- Read policies (public tasks only / own / staff) live in
+-- supabase_claims_activity_lockdown.sql. Never re-add a using (true) read policy.
 drop policy if exists "Public can read task_claims" on task_claims;
-create policy "Public can read task_claims" on task_claims for select using (true);
 
 drop policy if exists "Members can claim tasks" on task_claims;
 create policy "Members can claim tasks" on task_claims for insert
@@ -189,9 +192,9 @@ drop policy if exists "Owners or staff can delete claims" on task_claims;
 create policy "Owners or staff can delete claims" on task_claims for delete
   using (auth.uid() = user_id or public.is_project_staff());
 
--- Activity log: public read; authenticated insert own rows
+-- Activity log: authenticated insert own rows.
+-- Read policies live in supabase_claims_activity_lockdown.sql.
 drop policy if exists "Public can read activity_log" on activity_log;
-create policy "Public can read activity_log" on activity_log for select using (true);
 
 drop policy if exists "Members can insert activity" on activity_log;
 create policy "Members can insert activity" on activity_log for insert

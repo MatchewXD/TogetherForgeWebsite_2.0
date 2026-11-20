@@ -20,7 +20,8 @@ begin
     grant insert, update, delete on table public.tasks to authenticated, service_role;
   end if;
   if to_regclass('public.task_claims') is not null then
-    grant select on table public.task_claims to anon, authenticated, service_role;
+    -- SELECT for anon/authenticated is column-level: see supabase_claims_activity_lockdown.sql
+    grant select on table public.task_claims to service_role;
     grant insert, update, delete on table public.task_claims to authenticated, service_role;
   end if;
   if to_regclass('public.task_dependencies') is not null then
@@ -28,7 +29,8 @@ begin
     grant insert, update, delete on table public.task_dependencies to authenticated, service_role;
   end if;
   if to_regclass('public.activity_log') is not null then
-    grant select on table public.activity_log to anon, authenticated, service_role;
+    -- SELECT for anon/authenticated is column-level: see supabase_claims_activity_lockdown.sql
+    grant select on table public.activity_log to service_role;
     grant insert on table public.activity_log to authenticated, service_role;
   end if;
   if to_regclass('public.project_contributions') is not null then

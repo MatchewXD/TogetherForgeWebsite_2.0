@@ -34,6 +34,7 @@ import {
 } from './taskModel';
 import { formatClaimHeldSince, formatAutoReleaseReason, formatClaimSplitNotice } from './claimAutoRelease';
 import { OPEN_CLAIM_STATUSES } from './taskMappers';
+import { fetchClaimPrivateDetails } from './claimDetails';
 
 export const claimsMethods = {
   /**
@@ -677,16 +678,13 @@ export const claimsMethods = {
     const since = new Date();
     since.setDate(since.getDate() - Math.max(1, days));
 
-    const { data, error } = await supabase
-      .from('activity_log')
-      .select(
-        'id, project_id, user_id, action, target_id, target_title, metadata, created_at'
-      )
-      .eq('user_id', user.id)
-      .eq('action', 'auto_released')
-      .gte('created_at', since.toISOString())
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    // Own rows with metadata come from an RPC: activity_log.metadata is not
+    // readable through the table API (supabase_claims_activity_lockdown.sql).
+    const { data, error } = await supabase.rpc('list_my_activity', {
+      p_actions: ['auto_released'],
+      p_since: since.toISOString(),
+      p_limit: limit,
+    });
 
     if (error) {
       console.warn('[tasksService.listMyRecentAutoReleases]', error.message);
@@ -721,16 +719,11 @@ export const claimsMethods = {
     const since = new Date();
     since.setDate(since.getDate() - Math.max(1, days));
 
-    const { data, error } = await supabase
-      .from('activity_log')
-      .select(
-        'id, project_id, user_id, action, target_id, target_title, metadata, created_at'
-      )
-      .eq('user_id', user.id)
-      .eq('action', 'claim_split_to_smalls')
-      .gte('created_at', since.toISOString())
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    const { data, error } = await supabase.rpc('list_my_activity', {
+      p_actions: ['claim_split_to_smalls'],
+      p_since: since.toISOString(),
+      p_limit: limit,
+    });
 
     if (error) {
       console.warn('[tasksService.listMyRecentClaimSplits]', error.message);
@@ -770,7 +763,6 @@ export const claimsMethods = {
         progress_percent,
         last_activity_at,
         status,
-        notes,
         tasks (
           id,
           title,
@@ -818,6 +810,12 @@ export const claimsMethods = {
       return [];
     }
 
+    // notes is a private column: read it through the claimant/staff RPC.
+    const details = await fetchClaimPrivateDetails(
+      (data || []).map((row) => row.id)
+    );
+    const notesById = new Map(details.map((d) => [d.id, d.notes]));
+
     return (data || []).map((row) => {
       const task = Array.isArray(row.tasks) ? row.tasks[0] : row.tasks;
       const project = task
@@ -862,7 +860,7 @@ export const claimsMethods = {
         progressPercent,
         lastActivityAt: row.last_activity_at,
         heldLabel: formatClaimHeldSince(row.claimed_at),
-        notes: row.notes || '',
+        notes: notesById.get(row.id) || '',
       };
     });
   },

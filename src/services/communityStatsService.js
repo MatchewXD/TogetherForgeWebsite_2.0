@@ -204,7 +204,7 @@ export async function getHomeRecentActivity({ limit = HOME_ACTIVITY_LIMIT } = {}
     const { data, error } = await supabase
       .from('activity_log')
       .select(
-        'id, project_id, user_id, action, target_type, target_id, target_title, metadata, created_at, profiles ( username, avatar_url, pinned_badge_key )'
+        'id, project_id, user_id, action, target_type, target_id, target_title, created_at, profiles ( username, avatar_url, pinned_badge_key )'
       )
       .in('action', HOME_TASK_ACTIONS)
       .order('created_at', { ascending: false })

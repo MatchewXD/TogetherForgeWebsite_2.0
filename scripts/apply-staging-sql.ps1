@@ -85,6 +85,7 @@ $ordered = @(
   "supabase/sql/supabase_tether_task_tree_v06.sql",
   "supabase/sql/supabase_tether_archive_legacy_tasks.sql",
   "supabase/sql/supabase_open_questions.sql",
+  "supabase/sql/supabase_claims_activity_lockdown.sql",
 
   # 3. Community
   "supabase/sql/supabase_project_contributions.sql",

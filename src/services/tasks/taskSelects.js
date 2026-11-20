@@ -1,5 +1,8 @@
 /**
  * PostgREST select strings for tasks (current + legacy fallbacks).
+ * Embedded task_claims list only the public columns; notes, submission
+ * evidence and review feedback are merged in by claimDetails.js for the
+ * claimant and staff (supabase_claims_activity_lockdown.sql).
  * Part of the tasks service; import from '../tasksService' in app code.
  */
 
@@ -33,10 +36,7 @@ export const TASK_SELECT = `
     last_activity_at,
     status,
     helpers,
-    notes,
-    submission_evidence,
     submitted_at,
-    review_feedback,
     reviewed_at,
     profiles!user_id (
       username,
@@ -69,10 +69,7 @@ export const TASK_SELECT_NO_DEP_OVERRIDE = `
     last_activity_at,
     status,
     helpers,
-    notes,
-    submission_evidence,
     submitted_at,
-    review_feedback,
     reviewed_at,
     profiles!user_id (
       username,
@@ -104,10 +101,7 @@ export const TASK_SELECT_LEGACY = `
     last_activity_at,
     status,
     helpers,
-    notes,
-    submission_evidence,
     submitted_at,
-    review_feedback,
     reviewed_at,
     profiles!user_id (
       username,

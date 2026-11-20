@@ -91,6 +91,7 @@ Run **top to bottom**. Skip the “skip / optional” section unless you need th
 27i. `supabase_task_suggestion_activity.sql` — credit accepted task suggestions in Recent Activity
 27j. `supabase_task_suggestion_staff_notes.sql` — staff-only internal notes on suggestion strikes
 27k. `supabase_mfa_trusted_devices.sql` — remember this device for 30 days after 2FA  
+27l. `supabase_claims_activity_lockdown.sql` — public reads of `task_claims` / `activity_log` limited to Public-board rows and safe columns; claimant/staff private fields via RPCs (deploy the site code first)  
 
 ### 3. Contributions + media + community
 
@@ -208,6 +209,7 @@ supabase db query --linked -f supabase/sql/supabase_publish_staging_archive.sql
 supabase db query --linked -f supabase/sql/supabase_move_public_to_staging.sql
 supabase db query --linked -f supabase/sql/supabase_tether_task_tree_v06.sql
 supabase db query --linked -f supabase/sql/supabase_tether_archive_legacy_tasks.sql
+supabase db query --linked -f supabase/sql/supabase_claims_activity_lockdown.sql
 
 # 3. Community / content
 supabase db query --linked -f supabase/sql/supabase_project_contributions.sql
@@ -335,6 +337,7 @@ supabase db query --linked -f supabase/sql/supabase_task_limit_bypass.sql
 | `supabase_task_suggestion_activity.sql` | Credit accepted task suggestions in Recent Activity |
 | `supabase_task_suggestion_staff_notes.sql` | Staff-only internal notes on suggestion strikes |
 | `supabase_mfa_trusted_devices.sql` | Remember this device for 30 days after 2FA |
+| `supabase_claims_activity_lockdown.sql` | Public `task_claims` / `activity_log` reads: Public-board rows and safe columns only; private fields via RPCs |
 | `supabase_task_scope_requests.sql` | Scope help requests |
 | `supabase_parent_ready_for_review.sql` | Parent ready when children complete |
 | `supabase_page_content.sql` | Phase hub editable content |
