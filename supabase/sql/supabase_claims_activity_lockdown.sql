@@ -160,7 +160,7 @@ as $$
   select c.id, c.notes, c.submission_evidence, c.review_feedback
   from public.task_claims c
   where auth.uid() is not null
-    and c.id = any (coalesce(p_claim_ids, '{}'::uuid[])[1:1000])
+    and c.id = any ((coalesce(p_claim_ids, '{}'::uuid[]))[1:1000])
     and (c.user_id = auth.uid() or public.is_project_staff());
 $$;
 
